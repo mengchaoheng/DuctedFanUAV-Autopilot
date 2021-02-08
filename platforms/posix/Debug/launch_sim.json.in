@@ -154,7 +154,8 @@
               "tailsitter",
               "tiltrotor",
               "r1_rover",
-              "boat"
+              "boat",
+	      "ductedfan"
             ],
             "default": "iris"
           }
