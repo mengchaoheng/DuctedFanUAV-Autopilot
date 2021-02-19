@@ -371,7 +371,7 @@ bool MixingOutput::update()
 	updateOutputSlewrateSimplemixer(); // update dt for output slew rate in simple mixer
 
 	unsigned n_updates = 0;
-
+	//_controls is roll, pitch, yaw moment[-1, 1] and thrust[0, 1], which is output of rate_control
 	/* get controls for required topics */
 	for (unsigned i = 0; i < actuator_controls_s::NUM_ACTUATOR_CONTROL_GROUPS; i++) {
 		if (_groups_subscribed & (1 << i)) {
