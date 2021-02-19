@@ -33,3 +33,25 @@ PARAM_DEFINE_INT32(MC_AIRMODE, 0);
  * @group Mixer Output
  */
 PARAM_DEFINE_INT32(MOT_ORDERING, 0);
+
+/**
+ * PWM_DUCTEDFAN_MID1
+ *
+ * The PWM value of the midpoint of the servo.
+ *
+ * @min 1000
+ * @max 2000
+ * @group Mixer Output
+ */
+PARAM_DEFINE_INT32(DUCTEDFAN_MID1, 1500);
+
+/**
+ * PWM_DUCTEDFAN_MID2
+ *
+ * The PWM value of the midpoint of the servo.
+ *
+ * @min 1000
+ * @max 2000
+ * @group Mixer Output
+ */
+PARAM_DEFINE_INT32(DUCTEDFAN_MID2, 1500);

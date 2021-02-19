@@ -278,7 +278,9 @@ private:
 		(ParamInt<px4::params::MC_AIRMODE>) _param_mc_airmode,   ///< multicopter air-mode
 		(ParamFloat<px4::params::MOT_SLEW_MAX>) _param_mot_slew_max,
 		(ParamFloat<px4::params::THR_MDL_FAC>) _param_thr_mdl_fac, ///< thrust to motor control signal modelling factor
-		(ParamInt<px4::params::MOT_ORDERING>) _param_mot_ordering
+		(ParamInt<px4::params::MOT_ORDERING>) _param_mot_ordering,
+		(ParamInt<px4::params::DUCTEDFAN_MID1>) _param_ductedfan_mid1,
+		(ParamInt<px4::params::DUCTEDFAN_MID2>) _param_ductedfan_mid2
 
 	)
 };
