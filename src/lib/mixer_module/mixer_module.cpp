@@ -424,8 +424,8 @@ bool MixingOutput::update()
 	reorderOutputs(_current_output_value);
 
 	//updateParams();
-	//_current_output_value[0] = _param_ductedfan_mid1.get();
-	//_current_output_value[1] = _param_ductedfan_mid2.get();
+	//_current_output_value[2] = _param_ductedfan_mid1.get();
+	//_current_output_value[3] = _param_ductedfan_mid2.get();
 
 	/* now return the outputs to the driver */
 	if (_interface.updateOutputs(stop_motors, _current_output_value, mixed_num_outputs, n_updates)) {
