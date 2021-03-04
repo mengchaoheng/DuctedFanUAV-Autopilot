@@ -47,6 +47,23 @@ then
 
 	param set RTL_RETURN_ALT 30
 	param set RTL_DESCEND_ALT 10
+
+	param set CBRK_USB_CHK 197848
+	param set BAT1_N_CELLS 6
+	param set BAT1_V_CHARGED 4.2
+
+	# TELEM1 ttyS1
+	param set MAV_0_CONFIG 101
+	param set MAV_0_MODE 0
+	param set MAV_0_FORWARD 1
+	param set SER_TEL1_BAUD 57600
+
+	# TELEM2 ttyS2
+	param set MAV_1_CONFIG 102
+	param set MAV_1_MODE 0
+	param set MAV_1_FORWARD 1
+	#param set MAV_1_RATE 1200
+	param set SER_TEL2_BAUD 57600
 fi
 
 set MAV_TYPE 3
