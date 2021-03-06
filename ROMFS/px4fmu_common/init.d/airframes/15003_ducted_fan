@@ -39,11 +39,11 @@ then
 	param set PWM_DISARMED 900
 	param set PWM_MIN 1090
 	param set PWM_MAX 1910
-	param set PWM_MAIN_MIN3 1345
-	param set PWM_MAIN_MIN4 1330
-	param set PWM_MAIN_MAX3 1705
-	param set PWM_MAIN_MAX4 1690
-	param set PWM_RATE 200
+	param set PWM_MAIN_MIN1 1345
+	param set PWM_MAIN_MIN2 1330
+	param set PWM_MAIN_MAX1 1705
+	param set PWM_MAIN_MAX2 1690
+	param set PWM_RATE 333
 
 	param set RTL_RETURN_ALT 30
 	param set RTL_DESCEND_ALT 10
@@ -56,7 +56,7 @@ then
 	param set MAV_0_CONFIG 101
 	param set MAV_0_MODE 0
 	param set MAV_0_FORWARD 1
-	param set SER_TEL1_BAUD 57600
+	param set SER_TEL1_BAUD 921600
 
 	# TELEM2 ttyS2
 	param set MAV_1_CONFIG 102
@@ -71,6 +71,6 @@ set MAV_TYPE 3
 set MIXER ductedfan
 
 # use PWM parameters for throttle channel
-set PWM_OUT 12
+set PWM_OUT 34
 
 
