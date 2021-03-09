@@ -18,18 +18,18 @@
 
 if [ $AUTOCNF = yes ]
 then
-	param set MC_ROLL_P 6.5
-	param set MC_ROLLRATE_P 0.17
+	param set MC_ROLL_P 7
+	param set MC_ROLLRATE_P 0.45
 	param set MC_ROLLRATE_I 0.05
 	param set MC_ROLLRATE_D 0.005
 	param set MC_ROLLRATE_FF 0
-	param set MC_PITCH_P 6.5
-	param set MC_PITCHRATE_P 0.17
+	param set MC_PITCH_P 7
+	param set MC_PITCHRATE_P 0.45
 	param set MC_PITCHRATE_I 0.05
 	param set MC_PITCHRATE_D 0.005
 	param set MC_PITCHRATE_FF 0
-	param set MC_YAW_P 2
-	param set MC_YAWRATE_P 0.1
+	param set MC_YAW_P 3
+	param set MC_YAWRATE_P 0.2
 	param set MC_YAWRATE_I 0.1
 	param set MC_YAWRATE_D 0
 	param set MC_YAWRATE_FF 0
@@ -45,8 +45,8 @@ then
 	param set PWM_MAIN_MAX4 1690
 	param set PWM_RATE 333
 
-	param set RTL_RETURN_ALT 30
-	param set RTL_DESCEND_ALT 10
+	param set RTL_RETURN_ALT 2.5
+	param set RTL_DESCEND_ALT 2.5
 
 	param set CBRK_USB_CHK 197848
 	param set BAT1_N_CELLS 6
@@ -64,6 +64,8 @@ then
 	param set MAV_1_FORWARD 1
 	#param set MAV_1_RATE 1200
 	param set SER_TEL2_BAUD 57600
+
+	param set SDLOG_PROFILE  16
 fi
 
 set MAV_TYPE 3
