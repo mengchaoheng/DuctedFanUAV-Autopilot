@@ -18,21 +18,29 @@
 
 if [ $AUTOCNF = yes ]
 then
-	param set MC_ROLL_P 7
+	param set MC_ROLL_P 5
 	param set MC_ROLLRATE_P 0.45
-	param set MC_ROLLRATE_I 0.05
-	param set MC_ROLLRATE_D 0.005
+	param set MC_ROLLRATE_I 0.4
+	param set MC_ROLLRATE_D 0.0
 	param set MC_ROLLRATE_FF 0
-	param set MC_PITCH_P 7
+	param set MC_PITCH_P 5
 	param set MC_PITCHRATE_P 0.45
-	param set MC_PITCHRATE_I 0.05
-	param set MC_PITCHRATE_D 0.005
+	param set MC_PITCHRATE_I 0.4
+	param set MC_PITCHRATE_D 0.0
 	param set MC_PITCHRATE_FF 0
-	param set MC_YAW_P 3
-	param set MC_YAWRATE_P 0.2
-	param set MC_YAWRATE_I 0.1
+	param set MC_YAW_P 5
+	param set MC_YAWRATE_P 0.4
+	param set MC_YAWRATE_I 0.2
 	param set MC_YAWRATE_D 0
 	param set MC_YAWRATE_FF 0
+
+	param set MC_ACRO_EXPO_Y 0
+	param set MC_ACRO_EXPO 0
+	param set MC_ACRO_SUPEXPO 0
+	param set MC_ACRO_SUPEXPOY 0
+	param set MC_ACRO_R_MAX 90.0
+	param set MC_ACRO_P_MAX 90.0
+	param set MC_ACRO_Y_MAX 90.0
 
 	param set NAV_ACC_RAD 2
 
@@ -66,6 +74,8 @@ then
 	param set SER_TEL2_BAUD 57600
 
 	param set SDLOG_PROFILE  16
+
+	#param set IMU_GYRO_RATEMAX 400
 fi
 
 set MAV_TYPE 3
