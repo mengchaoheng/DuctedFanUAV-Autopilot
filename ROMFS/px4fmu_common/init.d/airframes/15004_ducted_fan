@@ -50,15 +50,15 @@ then
 	param set PWM_DISARMED 900
 	param set PWM_MIN 1090
 	param set PWM_MAX 1910
-	param set PWM_MAIN_MIN2 1275
-	param set PWM_MAIN_MIN3 1400
-	param set PWM_MAIN_MIN4 1430
-	param set PWM_MAIN_MIN5 1400
+	param set PWM_MAIN_MIN3 1275
+	param set PWM_MAIN_MIN4 1400
+	param set PWM_MAIN_MIN5 1430
+	param set PWM_MAIN_MIN6 1400
 
-	param set PWM_MAIN_MAX2 1635
-	param set PWM_MAIN_MAX3 1760
-	param set PWM_MAIN_MAX4 1790
-	param set PWM_MAIN_MAX5 1760
+	param set PWM_MAIN_MAX3 1635
+	param set PWM_MAIN_MAX4 1760
+	param set PWM_MAIN_MAX5 1790
+	param set PWM_MAIN_MAX6 1760
 	param set PWM_RATE 333
 
 	param set RTL_RETURN_ALT 2.5
@@ -79,7 +79,7 @@ then
 	#param set IMU_GYRO_RATEMAX 400
 fi
 
-set MAV_TYPE 36
+set MAV_TYPE 3
 
 set MIXER sductedfan
 
