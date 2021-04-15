@@ -144,6 +144,7 @@ px4_add_romfs_files(
 
 	15001_coax_heli
 	15003_ducted_fan
+	15004_ducted_fan
 
 	16001_helicopter
 

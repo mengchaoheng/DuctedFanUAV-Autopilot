@@ -89,8 +89,12 @@ void Simulator::actuator_controls_from_outputs(mavlink_hil_actuator_controls_t *
 
 	unsigned motors_count;
 	bool is_fixed_wing;
-
+		motors_count = 1;
+		is_fixed_wing = false;
 	switch (_system_type) {
+	case MAV_TYPE_SDF:
+
+
 	case MAV_TYPE_AIRSHIP:
 	case MAV_TYPE_VTOL_DUOROTOR:
 	case MAV_TYPE_COAXIAL:

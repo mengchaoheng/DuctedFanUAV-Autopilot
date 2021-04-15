@@ -394,6 +394,20 @@ bool MixingOutput::update()
 		}
 	}
 
+	// double yd[3];
+	// double ye[3]={0,0,0};
+	// yd[0]=(double)_controls[0].control[actuator_controls_s::INDEX_ROLL];
+	// yd[1]=(double)_controls[0].control[actuator_controls_s::INDEX_PITCH];
+	// yd[2]=(double)_controls[0].control[actuator_controls_s::INDEX_YAW];
+	// double B[12]={-1,0,1,0,-1,1,1,0,1,0,1,1};
+	// double uMin[4]={-0.3491,-0.3491,-0.3491,-0.3491};
+	// double uMax[4]={0.3491,0.3491,0.3491,0.3491};
+	// int itlim=20.0;
+	// double u[4]={0,0,0,0};
+	// int errout=0;
+	//DPscaledprio_LPCA(yd, ye, B, uMin, uMax, &itlim, u, &errout);
+	//void DPscaledprio_LPCA(const double yd[3], const double ye[3], const double B[12], double uMin[4], double uMax[4], double *itlim, double u[4], double *errout)
+
 	/* do mixing */
 	float outputs[MAX_ACTUATORS] {};
 	const unsigned mixed_num_outputs = _mixers->mix(outputs, _max_num_outputs);
@@ -424,8 +438,8 @@ bool MixingOutput::update()
 	reorderOutputs(_current_output_value);
 
 	//updateParams();
-	//_current_output_value[2] = _param_ductedfan_mid1.get();
-	//_current_output_value[3] = _param_ductedfan_mid2.get();
+	//_current_output_value[1] = _param_ductedfan_mid1.get();
+	//_current_output_value[2] = _param_ductedfan_mid2.get();
 
 	/* now return the outputs to the driver */
 	if (_interface.updateOutputs(stop_motors, _current_output_value, mixed_num_outputs, n_updates)) {

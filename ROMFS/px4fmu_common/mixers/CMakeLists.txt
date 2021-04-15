@@ -94,4 +94,5 @@ px4_add_romfs_files(
 	vtol_tailsitter_duo.main.mix
 	wingwing.main.mix
 	ductedfan.main.mix
+	sductedfan.main.mix
 )

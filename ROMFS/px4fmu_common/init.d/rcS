@@ -213,7 +213,7 @@ else
 	# Start the tone_alarm driver.
 	# Needs to be started after the parameters are loaded (for CBRK_BUZZER).
 	#
-	set STARTUP_TUNE 12	#change start tune
+	# set STARTUP_TUNE 12	#change start tune
 	tone_alarm start
 
 	#
@@ -222,7 +222,7 @@ else
 	param compare CBRK_BUZZER 782090
 	if [ $? != 0 -o $STARTUP_TUNE != 1 ]
 	then
-		tune_control play -t 12 #$STARTUP_TUNE
+		tune_control play -t $STARTUP_TUNE
 	fi
 
 	#
