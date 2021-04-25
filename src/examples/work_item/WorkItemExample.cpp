@@ -69,7 +69,8 @@ void WorkItemExample::Run()
 
 
 	// DO WORK
-
+	printf("printf hello\n");
+	PX4_INFO("PX4_INFO Hello Sky!");
 
 
 	// Example
