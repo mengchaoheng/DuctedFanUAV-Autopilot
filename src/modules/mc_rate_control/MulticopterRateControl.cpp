@@ -38,8 +38,6 @@
 #include <mathlib/math/Limits.hpp>
 #include <mathlib/math/Functions.hpp>
 
-#include "dir_alloc_sim.h"
-
 using namespace matrix;
 using namespace time_literals;
 using math::radians;
@@ -276,18 +274,6 @@ MulticopterRateControl::Run()
 				}
 			}
 
-			// double yd[3];
-			// double uMin[4]={-0.3491,-0.3491,-0.3491,-0.3491};
-			// double uMax[4]={0.3491,0.3491,0.3491,0.3491};
-			// double u[4];
-			// double z;
-			// double iters;
-			// yd[0]=  (double) actuators.control[actuator_controls_s::INDEX_ROLL];
-			// yd[1]=  (double) actuators.control[actuator_controls_s::INDEX_PITCH];
-			// yd[2]=  (double) actuators.control[actuator_controls_s::INDEX_YAW];
-			// dir_alloc_sim(yd, uMin, uMax, u, &z, &iters);
-			// PX4_INFO("dir_alloc_sim:\n");
-			// PX4_INFO("iters: %f, z: %f, u1: %f, u2: %f, u3: %f, u4: %f. \n", iters, z, u[0], u[1], u[2], u[3]);
 
 			actuators.timestamp = hrt_absolute_time();
 			_actuators_0_pub.publish(actuators);

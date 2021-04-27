@@ -38,6 +38,9 @@
 #include <uORB/Publication.hpp>
 #include <px4_platform_common/log.h>
 
+
+#include "dir_alloc_sim.h"
+
 using namespace time_literals;
 
 
@@ -407,6 +410,31 @@ bool MixingOutput::update()
 	// int errout=0;
 	//DPscaledprio_LPCA(yd, ye, B, uMin, uMax, &itlim, u, &errout);
 	//void DPscaledprio_LPCA(const double yd[3], const double ye[3], const double B[12], double uMin[4], double uMax[4], double *itlim, double u[4], double *errout)
+
+	// double yd[3];
+	// double uMin[4]={-0.3491,-0.3491,-0.3491,-0.3491};
+	// double uMax[4]={0.3491,0.3491,0.3491,0.3491};
+	// double u[4];
+	// double z;
+	// double iters;
+	// yd[0]=(double)_controls[0].control[actuator_controls_s::INDEX_ROLL];
+	// yd[1]=(double)_controls[0].control[actuator_controls_s::INDEX_PITCH];
+	// yd[2]=(double)_controls[0].control[actuator_controls_s::INDEX_YAW];
+	// dir_alloc_sim(yd, uMin, uMax, u, &z, &iters);
+	// PX4_INFO("dir_alloc_sim:\n");
+	// PX4_INFO("iters: %f, z: %f, u1: %f, u2: %f, u3: %f, u4: %f. \n", iters, z, u[0], u[1], u[2], u[3]);
+
+	float roll=0.0;
+	float pitch=0.0;
+	float yaw=0.0;
+	controlCallback((uintptr_t)this, 0, 0, roll);
+	controlCallback((uintptr_t)this, 0, 1, pitch);
+	controlCallback((uintptr_t)this, 0, 2, yaw);
+	// roll = _controls[0].control[actuator_controls_s::INDEX_ROLL];
+	// pitch = _controls[0].control[actuator_controls_s::INDEX_PITCH];
+	// yaw = _controls[0].control[actuator_controls_s::INDEX_YAW];
+	PX4_INFO("dir_alloc_sim:\n");
+	PX4_INFO("roll: %f, pitch: %f, yaw: %f \n", (double) roll, (double) pitch, (double) yaw);
 
 	/* do mixing */
 	float outputs[MAX_ACTUATORS] {};

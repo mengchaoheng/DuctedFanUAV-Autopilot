@@ -39,10 +39,6 @@ px4_add_module(
 	COMPILE_FLAGS
 		${MAX_CUSTOM_OPT_LEVEL}
 	SRCS
-		dir_alloc_sim.cpp
-		dir_alloc_sim.h
-		dir_alloc_sim_types.h
-		rtwtypes.h
 		MulticopterRateControl.cpp
 		MulticopterRateControl.hpp
 
