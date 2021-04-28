@@ -44,4 +44,5 @@ px4_add_romfs_files(
 	uuv_x_sitl.main.mix
 	vectored6dof_sitl.main.mix
 	ductedfan_sitl.main.mix
+	sductedfan_sitl.main.mix
 )
