@@ -424,34 +424,51 @@ bool MixingOutput::update()
 	// PX4_INFO("dir_alloc_sim:\n");
 	// PX4_INFO("iters: %f, z: %f, u1: %f, u2: %f, u3: %f, u4: %f. \n", iters, z, u[0], u[1], u[2], u[3]);
 
-	float roll=0.0;
-	float pitch=0.0;
-	float yaw=0.0;
-	controlCallback((uintptr_t)this, 0, 0, roll);
-	controlCallback((uintptr_t)this, 0, 1, pitch);
-	controlCallback((uintptr_t)this, 0, 2, yaw);
-	// roll = _controls[0].control[actuator_controls_s::INDEX_ROLL];
-	// pitch = _controls[0].control[actuator_controls_s::INDEX_PITCH];
-	// yaw = _controls[0].control[actuator_controls_s::INDEX_YAW];
-	// PX4_INFO("rpy:\n");
-	// PX4_INFO("roll: %f, pitch: %f, yaw: %f \n", (double) roll, (double) pitch, (double) yaw);
-	double yd[3]={(double) roll, (double) pitch, (double) yaw};
-	double uMin[4]={-0.3491,-0.3491,-0.3491,-0.3491};
-	double uMax[4]={0.3491,0.3491,0.3491,0.3491};
-	double u[4];
-	double z;
-	double iters;
-	// double d2r=3.141592653/180;
-	// double r2d=180/3.141592653;
-	dir_alloc_sim(yd, uMin, uMax, u, &z, &iters);
-	// PX4_INFO("dir_alloc_sim:\n");
-	// PX4_INFO("iters: %f, z: %f, u1: %f, u2: %f, u3: %f, u4: %f. \n", iters, z, u[0]*r2d, u[1]*r2d, u[2]*r2d, u[3]*r2d);
+
 
 
 	/* do mixing */
 	float outputs[MAX_ACTUATORS] {};
 	const unsigned mixed_num_outputs = _mixers->mix(outputs, _max_num_outputs);
 	//PX4_INFO("u1: %f, u2: %f, u3: %f, u4: %f. \n",(double) outputs[0],(double) outputs[1],(double) outputs[2],(double) outputs[3]);
+
+	// "outputs" is the value alfter mix, range from [-1, 1]. _current_output_value is pwm value alfter output_limit_calc.
+	// just using in ductedfan
+	PX4_INFO("dir_alloc_sim:\n");
+	if (_param_use_control_alloc.get() == 1)
+	{
+		uint64_t timestamp_ca_start;
+		uint64_t timestamp_ca_end;
+		timestamp_ca_start = hrt_absolute_time();
+		float roll=0.0;
+		float pitch=0.0;
+		float yaw=0.0;
+		controlCallback((uintptr_t)this, 0, 0, roll);
+		controlCallback((uintptr_t)this, 0, 1, pitch);
+		controlCallback((uintptr_t)this, 0, 2, yaw);
+		// roll = _controls[0].control[actuator_controls_s::INDEX_ROLL];
+		// pitch = _controls[0].control[actuator_controls_s::INDEX_PITCH];
+		// yaw = _controls[0].control[actuator_controls_s::INDEX_YAW];
+		// PX4_INFO("rpy:\n");
+		// PX4_INFO("roll: %f, pitch: %f, yaw: %f \n", (double) roll, (double) pitch, (double) yaw);
+		double yd[3]={(double) roll * 0.5, (double) pitch * 0.5, (double)  yaw * 0.5};
+		double uMin[4]={-0.3491,-0.3491,-0.3491,-0.3491};
+		double uMax[4]={0.3491,0.3491,0.3491,0.3491};
+		double u[4];
+		double z;
+		double iters;
+		// double d2r=3.141592653/180;
+		// double r2d=180/3.141592653;
+		dir_alloc_sim(yd, uMin, uMax, u, &z, &iters);
+
+		// PX4_INFO("iters: %f, z: %f, u1: %f, u2: %f, u3: %f, u4: %f. \n", iters, z, u[0]*r2d, u[1]*r2d, u[2]*r2d, u[3]*r2d);
+		for (size_t i = 0; i < 4; i++)
+		{
+			outputs[i+2] = (float) u[i];
+		}
+		timestamp_ca_end = hrt_absolute_time();
+		PX4_INFO("dir_alloc_sim time: %lld \n", (timestamp_ca_end - timestamp_ca_start) ); //us
+	}
 
 	/* the output limit call takes care of out of band errors, NaN and constrains */
 	output_limit_calc(_throttle_armed, armNoThrottle(), mixed_num_outputs, _reverse_output_mask,

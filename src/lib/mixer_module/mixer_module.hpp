@@ -280,7 +280,8 @@ private:
 		(ParamFloat<px4::params::THR_MDL_FAC>) _param_thr_mdl_fac, ///< thrust to motor control signal modelling factor
 		(ParamInt<px4::params::MOT_ORDERING>) _param_mot_ordering,
 		(ParamInt<px4::params::DUCTEDFAN_MID1>) _param_ductedfan_mid1,
-		(ParamInt<px4::params::DUCTEDFAN_MID2>) _param_ductedfan_mid2
+		(ParamInt<px4::params::DUCTEDFAN_MID2>) _param_ductedfan_mid2,
+		(ParamInt<px4::params::USE_CA>) _param_use_control_alloc
 
 	)
 };

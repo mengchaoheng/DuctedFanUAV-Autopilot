@@ -55,3 +55,14 @@ PARAM_DEFINE_INT32(DUCTEDFAN_MID1, 1500);
  * @group Mixer Output
  */
 PARAM_DEFINE_INT32(DUCTEDFAN_MID2, 1500);
+
+/**
+ * USE_CA
+ *
+ * use control allocation or not.
+ *
+ * @value 0 not
+ * @value 1 use CA
+ * @group Mixer Output
+ */
+PARAM_DEFINE_INT32(USE_CA, 1);
