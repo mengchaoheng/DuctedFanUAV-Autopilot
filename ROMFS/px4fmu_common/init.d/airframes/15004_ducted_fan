@@ -45,6 +45,8 @@ then
 	param set MC_ACRO_P_MAX 90.0
 	param set MC_ACRO_Y_MAX 90.0
 
+	param set MPC_THR_HOVER 70
+
 	param set NAV_ACC_RAD 2
 
 	param set PWM_DISARMED 900
