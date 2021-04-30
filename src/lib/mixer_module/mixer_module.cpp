@@ -434,7 +434,7 @@ bool MixingOutput::update()
 
 	// "outputs" is the value alfter mix, range from [-1, 1]. _current_output_value is pwm value alfter output_limit_calc.
 	// just using in ductedfan
-	PX4_INFO("dir_alloc_sim:\n");
+	// PX4_INFO("dir_alloc_sim:\n");
 	if (_param_use_control_alloc.get() == 1)
 	{
 		uint64_t timestamp_ca_start;

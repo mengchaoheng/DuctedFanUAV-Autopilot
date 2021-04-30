@@ -31,32 +31,32 @@
  *
  ****************************************************************************/
 
-#include "WorkItemExample.hpp"
+#include "INDI.hpp"
 
 #include <drivers/drv_hrt.h>
 
 using namespace time_literals;
 
-WorkItemExample::WorkItemExample() :
+INDI::INDI() :
 	ModuleParams(nullptr),
-	ScheduledWorkItem(MODULE_NAME, px4::wq_configurations::hp_default)
+	ScheduledWorkItem(MODULE_NAME, px4::wq_configurations::rate_ctrl)
 {
 }
 
-WorkItemExample::~WorkItemExample()
+INDI::~INDI()
 {
 	perf_free(_loop_perf);
 	perf_free(_loop_interval_perf);
 }
 
-bool WorkItemExample::init()
+bool INDI::init()
 {
-	ScheduleOnInterval(10000_us); // 1000 us interval, 1000 Hz rate
+	ScheduleOnInterval(1000_us); // 1000 us interval, 1000 Hz rate
 
 	return true;
 }
 
-void WorkItemExample::Run()
+void INDI::Run()
 {
 	if (should_exit()) {
 		ScheduleClear();
@@ -67,10 +67,14 @@ void WorkItemExample::Run()
 	perf_begin(_loop_perf);
 	perf_count(_loop_interval_perf);
 
-
+	const bool manual_control_updated = _manual_control_setpoint_sub.update(&_manual_control_setpoint);
+	if (manual_control_updated)
+	{
+		PX4_INFO("Hello INDI! %f, %f, %f, %f.", (double) _manual_control_setpoint.x, (double) _manual_control_setpoint.y, (double) _manual_control_setpoint.z, (double) _manual_control_setpoint.r);
+	}
 	// DO WORK
-	printf("printf hello\n");
-	PX4_INFO("PX4_INFO Hello Sky!");
+	//printf("printf INDI\n");
+
 
 
 	// Example
@@ -92,9 +96,9 @@ void WorkItemExample::Run()
 	perf_end(_loop_perf);
 }
 
-int WorkItemExample::task_spawn(int argc, char *argv[])
+int INDI::task_spawn(int argc, char *argv[])
 {
-	WorkItemExample *instance = new WorkItemExample();
+	INDI *instance = new INDI();
 
 	if (instance) {
 		_object.store(instance);
@@ -115,19 +119,19 @@ int WorkItemExample::task_spawn(int argc, char *argv[])
 	return PX4_ERROR;
 }
 
-int WorkItemExample::print_status()
+int INDI::print_status()
 {
 	perf_print_counter(_loop_perf);
 	perf_print_counter(_loop_interval_perf);
 	return 0;
 }
 
-int WorkItemExample::custom_command(int argc, char *argv[])
+int INDI::custom_command(int argc, char *argv[])
 {
 	return print_usage("unknown command");
 }
 
-int WorkItemExample::print_usage(const char *reason)
+int INDI::print_usage(const char *reason)
 {
 	if (reason) {
 		PX4_WARN("%s\n", reason);
@@ -136,18 +140,18 @@ int WorkItemExample::print_usage(const char *reason)
 	PRINT_MODULE_DESCRIPTION(
 		R"DESCR_STR(
 ### Description
-Example of a simple module running out of a work queue.
+control module of INDI.
 
 )DESCR_STR");
 
-	PRINT_MODULE_USAGE_NAME("work_item_example", "template");
+	PRINT_MODULE_USAGE_NAME("indi", "template");
 	PRINT_MODULE_USAGE_COMMAND("start");
 	PRINT_MODULE_USAGE_DEFAULT_COMMANDS();
 
 	return 0;
 }
 
-extern "C" __EXPORT int work_item_example_main(int argc, char *argv[])
+extern "C" __EXPORT int indi_main(int argc, char *argv[])
 {
-	return WorkItemExample::main(argc, argv);
+	return INDI::main(argc, argv);
 }
