@@ -467,7 +467,8 @@ bool MixingOutput::update()
 			outputs[i+2] = (float) u[i];
 		}
 		timestamp_ca_end = hrt_absolute_time();
-		PX4_INFO("dir_alloc_sim time: %lld \n", (timestamp_ca_end - timestamp_ca_start) ); //us
+		// PX4_INFO("dir_alloc_sim time: %lld \n", (timestamp_ca_end - timestamp_ca_start) ); //muttx
+		PX4_INFO("dir_alloc_sim time: %ld \n", (timestamp_ca_end - timestamp_ca_start) ); //sitl
 	}
 
 	/* the output limit call takes care of out of band errors, NaN and constrains */
@@ -606,10 +607,11 @@ int MixingOutput::controlCallback(uintptr_t handle, uint8_t control_group, uint8
 	const MixingOutput *output = (const MixingOutput *)handle;
 
 	input = output->_controls[control_group].control[control_index];
-
+	// if ((double) input > 1.0)
+	// 	PX4_INFO("before: %f.", (double) input);
 	/* limit control input */
 	input = math::constrain(input, -1.f, 1.f);
-
+	// 4_INFO("after: %f.", (double) input);
 	/* motor spinup phase - lock throttle to zero */
 	if (output->_output_limit.state == OUTPUT_LIMIT_STATE_RAMP) {
 		if ((control_group == actuator_controls_s::GROUP_INDEX_ATTITUDE ||

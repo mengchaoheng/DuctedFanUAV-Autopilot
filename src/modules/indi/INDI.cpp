@@ -67,10 +67,16 @@ void INDI::Run()
 	perf_begin(_loop_perf);
 	perf_count(_loop_interval_perf);
 
-	const bool manual_control_updated = _manual_control_setpoint_sub.update(&_manual_control_setpoint);
-	if (manual_control_updated)
+	// const bool manual_control_updated = _manual_control_setpoint_sub.update(&_manual_control_setpoint);
+	const bool rc_channels_updated = _rc_channels_sub.update(&_rc_channels);
+	if (rc_channels_updated)
 	{
-		PX4_INFO("Hello INDI! %f, %f, %f, %f.", (double) _manual_control_setpoint.x, (double) _manual_control_setpoint.y, (double) _manual_control_setpoint.z, (double) _manual_control_setpoint.r);
+		PX4_INFO("Hello INDI! %f.", (double) _rc_channels.channels[6]);
+		// PX4_INFO("Hello INDI! %f, %f, %f, %f, %f.", (double) _rc_channels.channels[6], (double) _rc_channels.channels[7], (double) _rc_channels.channels[8], (double) _rc_channels.channels[9] ,(double) _rc_channels.channels[12]);//7,8,9,10,13
+		//PX4_INFO("Hello INDI! %f, %f, %f, %f.", (double) _manual_control_setpoint.x, (double) _manual_control_setpoint.y, (double) _manual_control_setpoint.z, (double) _manual_control_setpoint.r);
+		//PX4_INFO("Hello INDI! %f, %f, %f, %f.", (double) _manual_control_setpoint.flaps, (double) _manual_control_setpoint.aux1, (double) _manual_control_setpoint.aux2, (double) _manual_control_setpoint.aux3);
+		//PX4_INFO("Hello INDI! %f, %f, %f.", (double) _manual_control_setpoint.aux4, (double) _manual_control_setpoint.aux5, (double) _manual_control_setpoint.aux6);
+
 	}
 	// DO WORK
 	//printf("printf INDI\n");

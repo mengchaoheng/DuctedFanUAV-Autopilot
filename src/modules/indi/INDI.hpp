@@ -41,7 +41,8 @@
 #include <px4_platform_common/px4_work_queue/ScheduledWorkItem.hpp>
 #include <uORB/topics/orb_test.h>
 #include <uORB/topics/sensor_accel.h>
-#include <uORB/topics/manual_control_setpoint.h>
+// #include <uORB/topics/manual_control_setpoint.h>
+#include <uORB/topics/rc_channels.h>
 #include <uORB/Publication.hpp>
 #include <uORB/Subscription.hpp>
 #include <uORB/SubscriptionCallback.hpp>
@@ -72,9 +73,13 @@ private:
 
 	uORB::SubscriptionData<sensor_accel_s> _sensor_accel_sub{ORB_ID(sensor_accel)};
 
-	uORB::Subscription _manual_control_setpoint_sub{ORB_ID(manual_control_setpoint)};
+	// uORB::Subscription _manual_control_setpoint_sub{ORB_ID(manual_control_setpoint)};
 
-	manual_control_setpoint_s		_manual_control_setpoint {};
+	// manual_control_setpoint_s		_manual_control_setpoint {};
+
+	uORB::Subscription _rc_channels_sub{ORB_ID(rc_channels)};
+
+	rc_channels_s		_rc_channels {};
 
 	perf_counter_t	_loop_perf{perf_alloc(PC_ELAPSED, MODULE_NAME": cycle")};
 	perf_counter_t	_loop_interval_perf{perf_alloc(PC_INTERVAL, MODULE_NAME": interval")};
