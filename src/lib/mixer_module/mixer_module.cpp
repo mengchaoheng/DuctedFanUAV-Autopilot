@@ -437,9 +437,9 @@ bool MixingOutput::update()
 	// PX4_INFO("dir_alloc_sim:\n");
 	if (_param_use_control_alloc.get() == 1)
 	{
-		uint64_t timestamp_ca_start;
-		uint64_t timestamp_ca_end;
-		timestamp_ca_start = hrt_absolute_time();
+		// uint64_t timestamp_ca_start;
+		// uint64_t timestamp_ca_end;
+		// timestamp_ca_start = hrt_absolute_time();
 		float roll=0.0;
 		float pitch=0.0;
 		float yaw=0.0;
@@ -460,15 +460,20 @@ bool MixingOutput::update()
 		// double d2r=3.141592653/180;
 		// double r2d=180/3.141592653;
 		dir_alloc_sim(yd, uMin, uMax, u, &z, &iters);
+		for (size_t i = 0; i < 4; i++)
+		{
+			u[i] = 0.0;
+		}
+		dir_alloc_sim(yd, uMin, uMax, u, &z, &iters);
 
 		// PX4_INFO("iters: %f, z: %f, u1: %f, u2: %f, u3: %f, u4: %f. \n", iters, z, u[0]*r2d, u[1]*r2d, u[2]*r2d, u[3]*r2d);
 		for (size_t i = 0; i < 4; i++)
 		{
 			outputs[i+2] = (float) u[i];
 		}
-		timestamp_ca_end = hrt_absolute_time();
+		// timestamp_ca_end = hrt_absolute_time();
 		// PX4_INFO("dir_alloc_sim time: %lld \n", (timestamp_ca_end - timestamp_ca_start) ); //muttx
-		PX4_INFO("dir_alloc_sim time: %ld \n", (timestamp_ca_end - timestamp_ca_start) ); //sitl
+		// PX4_INFO("dir_alloc_sim time: %ld \n", (timestamp_ca_end - timestamp_ca_start) ); //sitl
 	}
 
 	/* the output limit call takes care of out of band errors, NaN and constrains */
