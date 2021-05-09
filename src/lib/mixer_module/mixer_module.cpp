@@ -78,6 +78,16 @@ _control_latency_perf(perf_alloc(PC_ELAPSED, "control latency"))
 	uORB::Publication<test_motor_s> test_motor_pub{ORB_ID(test_motor)};
 	test_motor_pub.publish(test);
 	_motor_test.test_motor_sub.subscribe();
+
+	// filter init
+	for (size_t i = 0; i < 5; ++i) {
+		_lp_filter_actuator[i].reset(_thust_value_prev);
+		_lp_filter_actuator[i].set_cutoff_frequency(250, _param_imu_dgyro_cutoff.get());
+		_notch_filter_actuator[i].reset(_thust_value_prev);
+		_notch_filter_actuator[i].setParameters(250, _param_imu_gyro_nf_freq.get(), _param_imu_gyro_nf_bw.get());
+		_lp_filter_actuator_d.reset(_actuator_value_d_prev);
+		_lp_filter_actuator_d.set_cutoff_frequency(250, _param_imu_dgyro_cutoff.get());
+	}
 }
 
 MixingOutput::~MixingOutput()
@@ -472,7 +482,7 @@ bool MixingOutput::update()
 			outputs[i+2] = (float) u[i];
 		}
 		// timestamp_ca_end = hrt_absolute_time();
-		// PX4_INFO("dir_alloc_sim time: %lld \n", (timestamp_ca_end - timestamp_ca_start) ); //muttx
+		// PX4_INFO("dir_alloc_sim time: %lld \n", (timestamp_ca_end - timestamp_ca_start) ); //nuttx
 		// PX4_INFO("dir_alloc_sim time: %ld \n", (timestamp_ca_end - timestamp_ca_start) ); //sitl
 	}
 
@@ -530,6 +540,41 @@ MixingOutput::setAndPublishActuatorOutputs(unsigned num_outputs, actuator_output
 
 	actuator_outputs.timestamp = hrt_absolute_time();
 	_outputs_pub.publish(actuator_outputs);
+
+
+	hrt_abstime dt = hrt_elapsed_time(&actuator_outputs.timestamp);
+	// PX4_INFO("actuator_outputs_value time: %lld \n", interval_temp); //nuttx
+	// _last_publish=actuator_outputs_value.timestamp;
+
+	// actuator filtering:
+	// - Apply general notch filter (IMU_GYRO_NF_FREQ)
+	// - Apply general low-pass filter (IMU_GYRO_CUTOFF)
+	// - Differentiate & apply specific angular acceleration (D-term) low-pass (IMU_DGYRO_CUTOFF)
+	float actuator_notched[5];
+	float actuator_has_lp_filter[5];
+	actuator_notched[0] = _notch_filter_actuator[0].apply(_current_output_value[0]);
+	actuator_has_lp_filter[0] = _lp_filter_actuator[0].apply(actuator_notched[0]);
+	for (size_t i = 0; i < 4; ++i) {
+		actuator_notched[i+1] = _notch_filter_actuator[i+1].apply(_current_output_value[i+2]);
+		actuator_has_lp_filter[i+1] = _lp_filter_actuator[i+1].apply(actuator_notched[i+1]);
+	}
+	float actuator_d_raw = (actuator_has_lp_filter[0] - _thust_value_prev) / dt;
+	_thust_value_prev = actuator_has_lp_filter[0];
+	_actuator_value_d_prev = actuator_d_raw;
+	float actuator_value_d = _lp_filter_actuator_d.apply(actuator_d_raw);
+
+	//------------------------publish-----------------------------
+	actuator_outputs_value_s actuator_outputs_value{};
+	actuator_outputs_value.noutputs = num_outputs;
+	actuator_outputs_value.output[0] = actuator_has_lp_filter[0];
+	for (size_t i = 0; i < 4; ++i) {
+		actuator_outputs_value.output[i+2] = actuator_has_lp_filter[i+1];
+	}
+
+	actuator_outputs_value.d_output[0] = actuator_value_d;
+
+	actuator_outputs_value.timestamp = hrt_absolute_time();
+	_outputs_value_pub.publish(actuator_outputs_value);
 }
 
 void

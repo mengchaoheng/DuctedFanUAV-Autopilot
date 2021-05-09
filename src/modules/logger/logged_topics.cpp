@@ -108,6 +108,7 @@ void LoggedTopics::add_default_topics()
 
 	// multi topics
 	add_topic_multi("actuator_outputs", 100, 2);
+	add_topic_multi("actuator_outputs_value", 100, 1);
 	add_topic_multi("logger_status", 0, 2);
 	add_topic_multi("multirotor_motor_limits", 1000, 2);
 	add_topic_multi("rate_ctrl_status", 200, 2);
@@ -172,6 +173,7 @@ void LoggedTopics::add_high_rate_topics()
 	// maximum rate to analyze fast maneuvers (e.g. for racing)
 	add_topic("actuator_controls_0");
 	add_topic("actuator_outputs");
+	add_topic("actuator_outputs_value");
 	add_topic("manual_control_setpoint");
 	add_topic("rate_ctrl_status", 20);
 	add_topic("sensor_combined");

@@ -66,7 +66,7 @@ MulticopterRateControl::init()
 		return false;
 	}
 
-	// limit to   (250 Hz)
+	// limit to  250 Hz
 	_vehicle_angular_velocity_sub.set_interval_us(4_ms);
 
 	_last_run = hrt_absolute_time();
@@ -130,6 +130,9 @@ MulticopterRateControl::Run()
 		// grab corresponding vehicle_angular_acceleration immediately after vehicle_angular_velocity copy
 		vehicle_angular_acceleration_s v_angular_acceleration{};
 		_vehicle_angular_acceleration_sub.copy(&v_angular_acceleration);
+
+		actuator_outputs_value_s actuator_outputs_value{};
+		_actuator_outputs_value_sub.copy(&actuator_outputs_value);
 
 		const hrt_abstime now = angular_velocity.timestamp_sample;
 

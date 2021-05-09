@@ -48,9 +48,15 @@
 #include <uORB/topics/actuator_armed.h>
 #include <uORB/topics/actuator_controls.h>
 #include <uORB/topics/actuator_outputs.h>
+#include <uORB/topics/actuator_outputs_value.h>
 #include <uORB/topics/multirotor_motor_limits.h>
 #include <uORB/topics/parameter_update.h>
 #include <uORB/topics/test_motor.h>
+
+#include <lib/mathlib/math/Limits.hpp>
+#include <lib/matrix/matrix/math.hpp>
+#include <mathlib/math/filter/LowPassFilter2p.hpp>
+#include <lib/mathlib/math/filter/NotchFilter.hpp>
 
 /**
  * @class OutputModuleInterface
@@ -240,6 +246,7 @@ private:
 	uORB::SubscriptionCallbackWorkItem _control_subs[actuator_controls_s::NUM_ACTUATOR_CONTROL_GROUPS];
 
 	uORB::PublicationMulti<actuator_outputs_s> _outputs_pub{ORB_ID(actuator_outputs)};
+	uORB::PublicationMulti<actuator_outputs_value_s> _outputs_value_pub{ORB_ID(actuator_outputs_value)};
 	uORB::PublicationMulti<multirotor_motor_limits_s> _to_mixer_status{ORB_ID(multirotor_motor_limits)}; 	///< mixer status flags
 
 	actuator_controls_s _controls[actuator_controls_s::NUM_ACTUATOR_CONTROL_GROUPS] {};
@@ -247,6 +254,20 @@ private:
 
 	hrt_abstime _time_last_dt_update_multicopter{0};
 	hrt_abstime _time_last_dt_update_simple_mixer{0};
+
+	float _thust_value_prev{0};
+	float _actuator_value_d_prev{0};
+	hrt_abstime _timestamp_sample_prev{0};
+
+	hrt_abstime _last_publish{0};
+
+	// angular velocity filters
+	math::LowPassFilter2p _lp_filter_actuator[5]={math::LowPassFilter2p{250,20.f},math::LowPassFilter2p{250,20.f},math::LowPassFilter2p{250,20.f},math::LowPassFilter2p{250,20.f},math::LowPassFilter2p{250,20.f}};
+	math::NotchFilter<float> _notch_filter_actuator[5];
+
+	// angular acceleration filter
+	math::LowPassFilter2p _lp_filter_actuator_d{250, 30.f};
+
 	unsigned _max_topic_update_interval_us{0}; ///< max _control_subs topic update interval (0=unlimited)
 
 	bool _throttle_armed{false};
@@ -281,7 +302,13 @@ private:
 		(ParamInt<px4::params::MOT_ORDERING>) _param_mot_ordering,
 		(ParamInt<px4::params::DUCTEDFAN_MID1>) _param_ductedfan_mid1,
 		(ParamInt<px4::params::DUCTEDFAN_MID2>) _param_ductedfan_mid2,
-		(ParamInt<px4::params::USE_CA>) _param_use_control_alloc
+		(ParamInt<px4::params::USE_CA>) _param_use_control_alloc,
+		(ParamFloat<px4::params::IMU_GYRO_CUTOFF>) _param_imu_gyro_cutoff,
+		(ParamFloat<px4::params::IMU_GYRO_NF_FREQ>) _param_imu_gyro_nf_freq,
+		(ParamFloat<px4::params::IMU_GYRO_NF_BW>) _param_imu_gyro_nf_bw,
+		(ParamInt<px4::params::IMU_GYRO_RATEMAX>) _param_imu_gyro_rate_max,
+
+		(ParamFloat<px4::params::IMU_DGYRO_CUTOFF>) _param_imu_dgyro_cutoff
 
 	)
 };

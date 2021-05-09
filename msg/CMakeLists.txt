@@ -38,6 +38,7 @@ set(msg_files
 	actuator_armed.msg
 	actuator_controls.msg
 	actuator_outputs.msg
+	actuator_outputs_value.msg
 	adc_report.msg
 	airspeed.msg
 	airspeed_validated.msg
