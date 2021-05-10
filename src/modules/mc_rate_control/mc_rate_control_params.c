@@ -395,3 +395,29 @@ PARAM_DEFINE_FLOAT(MC_ACRO_SUPEXPOY, 0.7f);
  * @group Multicopter Rate Control
  */
 PARAM_DEFINE_INT32(MC_BAT_SCALE_EN, 0);
+
+/**
+ * k_v
+ *
+ * Constant coefficient integrated with all the aerodynamic features of the duct.
+ *
+ * @min 0.0
+ * @max 0.1
+ * @decimal 2
+ * @increment 0.005
+ * @group Multicopter Rate Control
+ */
+PARAM_DEFINE_INT32(MC_OMEGA_2_WIND, 0.0117f);
+
+/**
+ * k_cv
+ *
+ * Constant coefficient related to the vane shape.
+ *
+ * @min 0.0
+ * @max 0.1
+ * @decimal 2
+ * @increment 0.005
+ * @group Multicopter Rate Control
+ */
+PARAM_DEFINE_INT32(MC_WIND_2_TORQUE, 0.015f);

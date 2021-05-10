@@ -34,6 +34,7 @@
 #pragma once
 
 #include <RateControl.hpp>
+#include <IndiControl.hpp>
 
 #include <lib/matrix/matrix/math.hpp>
 #include <lib/perf/perf_counter.h>
@@ -54,6 +55,7 @@
 #include <uORB/topics/parameter_update.h>
 #include <uORB/topics/rate_ctrl_status.h>
 #include <uORB/topics/actuator_outputs_value.h>
+#include <uORB/topics/actuator_outputs.h>
 #include <uORB/topics/vehicle_angular_acceleration.h>
 #include <uORB/topics/vehicle_angular_velocity.h>
 #include <uORB/topics/vehicle_control_mode.h>
@@ -89,6 +91,7 @@ private:
 	void		parameters_updated();
 
 	RateControl _rate_control; ///< class for rate control calculations
+	IndiControl _indi_control;
 
 	uORB::Subscription _battery_status_sub{ORB_ID(battery_status)};
 	uORB::Subscription _landing_gear_sub{ORB_ID(landing_gear)};
@@ -98,6 +101,7 @@ private:
 	uORB::Subscription _v_rates_sp_sub{ORB_ID(vehicle_rates_setpoint)};
 	uORB::Subscription _vehicle_angular_acceleration_sub{ORB_ID(vehicle_angular_acceleration)};
 	uORB::Subscription _actuator_outputs_value_sub{ORB_ID(actuator_outputs_value)};
+	uORB::Subscription _actuator_outputs_sub{ORB_ID(actuator_outputs)};
 	uORB::Subscription _vehicle_land_detected_sub{ORB_ID(vehicle_land_detected)};
 	uORB::Subscription _vehicle_status_sub{ORB_ID(vehicle_status)};
 
@@ -117,6 +121,7 @@ private:
 	bool _actuators_0_circuit_breaker_enabled{false};	/**< circuit breaker to suppress output */
 	bool _landed{true};
 	bool _maybe_landed{true};
+	bool _actuator_outputs_sub_flag{false};
 
 	float _battery_status_scale{0.0f};
 
@@ -166,7 +171,10 @@ private:
 
 		(ParamBool<px4::params::MC_BAT_SCALE_EN>) _param_mc_bat_scale_en,
 
-		(ParamInt<px4::params::CBRK_RATE_CTRL>) _param_cbrk_rate_ctrl
+		(ParamInt<px4::params::CBRK_RATE_CTRL>) _param_cbrk_rate_ctrl,
+
+		(ParamFloat<px4::params::MC_ROLLRATE_P>) _param_mc_omega_2_wind,
+		(ParamFloat<px4::params::MC_ROLLRATE_P>) _param_mc_wind_2_torque
 	)
 
 	matrix::Vector3f _acro_rate_max;	/**< max attitude rates in acro mode */
