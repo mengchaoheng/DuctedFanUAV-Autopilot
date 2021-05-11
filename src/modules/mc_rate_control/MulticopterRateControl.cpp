@@ -84,8 +84,8 @@ MulticopterRateControl::parameters_updated()
 	// to the ideal (K * [1 + 1/sTi + sTd]) form
 	const Vector3f rate_k = Vector3f(_param_mc_rollrate_k.get(), _param_mc_pitchrate_k.get(), _param_mc_yawrate_k.get());
 
-	_indi_control.setParams(rate_k.emult(Vector3f(_param_mc_rollrate_p.get(), _param_mc_pitchrate_p.get(), _param_mc_yawrate_p.get())),
-				_param_mc_wind_2_torque.get(), _param_mc_omega_2_wind.get());
+	_indi_control.setParams(rate_k.emult(Vector3f(_param_mc_indiroll_p.get(), _param_mc_indipitch_p.get(), _param_mc_indiyaw_p.get())),
+				_param_mc_wind_2_torque.get(), _param_mc_omega_2_wind.get(), _param_mc_pwm_hover.get(), _param_mc_omega_hover.get());
 
 	_rate_control.setGains(
 		rate_k.emult(Vector3f(_param_mc_rollrate_p.get(), _param_mc_pitchrate_p.get(), _param_mc_yawrate_p.get())),
@@ -264,12 +264,10 @@ MulticopterRateControl::Run()
 			}
 
 			// run rate controller
-			// Vector3f att_control;
-			// actuator_outputs_s actuator_outputs{};
-			// const Vector3f att_control = _rate_control.update(rates, _rates_sp, angular_accel, dt, _maybe_landed || _landed);
+			const Vector3f att_control = _rate_control.update(rates, _rates_sp, angular_accel, dt, _maybe_landed || _landed);
 
-			Vector3f Nu_i;
-			const Vector3f att_control = _indi_control.update(rates, _rates_sp, angular_accel, dt, actuator_outputs, actuator_outputs_value, Nu_i, _maybe_landed || _landed);
+			// Vector3f Nu_i;
+			// const Vector3f att_control = _indi_control.update(rates, _rates_sp, angular_accel, dt, actuator_outputs, actuator_outputs_value, Nu_i, _maybe_landed || _landed);
 
 
 

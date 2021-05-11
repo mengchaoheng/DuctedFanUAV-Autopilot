@@ -407,7 +407,7 @@ PARAM_DEFINE_INT32(MC_BAT_SCALE_EN, 0);
  * @increment 0.005
  * @group Multicopter Rate Control
  */
-PARAM_DEFINE_INT32(MC_OMEGA_2_WIND, 0.0117f);
+PARAM_DEFINE_FLOAT(MC_OMEGA_2_WIND, 0.0117f);
 
 /**
  * k_cv
@@ -420,4 +420,64 @@ PARAM_DEFINE_INT32(MC_OMEGA_2_WIND, 0.0117f);
  * @increment 0.005
  * @group Multicopter Rate Control
  */
-PARAM_DEFINE_INT32(MC_WIND_2_TORQUE, 0.015f);
+PARAM_DEFINE_FLOAT(MC_WIND_2_TORQUE, 0.015f);
+
+/**
+ * Roll rate P gain of INDI
+ *
+ * Roll rate proportional gain, i.e. control output for angular speed error 1 rad/s.
+ *
+ * @min 0.1
+ * @max 30
+ * @increment 0.01
+ * @group Multicopter Rate Control
+ */
+PARAM_DEFINE_FLOAT(MC_INDI_ROLL_P, 5.0f);
+
+/**
+ * Pitch rate P gain of INDI
+ *
+ * Pitch rate proportional gain, i.e. control output for angular speed error 1 rad/s.
+ *
+ * @min 0.1
+ * @max 30
+ * @decimal 10
+ * @increment 0.01
+ * @group Multicopter Rate Control
+ */
+PARAM_DEFINE_FLOAT(MC_INDI_PITCH_P, 5.0f);
+
+/**
+ * Yaw rate P gain of INDI
+ *
+ * Yaw rate proportional gain, i.e. control output for angular speed error 1 rad/s.
+ *
+ * @min 0.0
+ * @max 30
+ * @decimal 15
+ * @increment 0.01
+ * @group Multicopter Rate Control
+ */
+PARAM_DEFINE_FLOAT(MC_INDI_YAW_P, 5.0f);
+
+/**
+ * PWM_HOVER
+ *
+ * The PWM value of the hover of the ductedfan.
+ *
+ * @min 1000
+ * @max 2000
+ * @group Multicopter Rate Control
+ */
+PARAM_DEFINE_FLOAT(MC_PWM_HOVER, 1706.f);
+
+/**
+ * OMEGA_HOVER
+ *
+ * The speed of the propeller when hovering of the ductedfan. rad/s
+ *
+ * @min 1000
+ * @max 2000
+ * @group Multicopter Rate Control
+ */
+PARAM_DEFINE_FLOAT(MC_OMEGA_HOVER, 1706.f);

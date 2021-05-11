@@ -223,6 +223,7 @@ void MixingOutput::setAllMinValues(uint16_t value)
 {
 	for (unsigned i = 0; i < MAX_ACTUATORS; i++) {
 		_min_value[i] = value;
+		PX4_INFO("value %d", value);
 	}
 }
 
@@ -579,9 +580,13 @@ MixingOutput::setAndPublishActuatorOutputs(unsigned num_outputs, actuator_output
 	actuator_outputs_value_s actuator_outputs_value{};
 	for (size_t i = 0; i < 5; ++i) {
 		actuator_outputs_value.output[i] = actuator_has_lp_filter[i];
+		actuator_outputs_value.min_value[i] = _min_value[i];
+		actuator_outputs_value.max_value[i] = _max_value[i];
 	}
 
 	actuator_outputs_value.d_output = actuator_value_d;
+
+
 
 	actuator_outputs_value.timestamp = hrt_absolute_time();
 	_last_config_update = actuator_outputs_value.timestamp;

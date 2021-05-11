@@ -173,8 +173,13 @@ private:
 
 		(ParamInt<px4::params::CBRK_RATE_CTRL>) _param_cbrk_rate_ctrl,
 
-		(ParamFloat<px4::params::MC_ROLLRATE_P>) _param_mc_omega_2_wind,
-		(ParamFloat<px4::params::MC_ROLLRATE_P>) _param_mc_wind_2_torque
+		(ParamFloat<px4::params::MC_OMEGA_2_WIND>) _param_mc_omega_2_wind,
+		(ParamFloat<px4::params::MC_WIND_2_TORQUE>) _param_mc_wind_2_torque,
+		(ParamFloat<px4::params::MC_INDI_ROLL_P>) _param_mc_indiroll_p,
+		(ParamFloat<px4::params::MC_INDI_PITCH_P>) _param_mc_indipitch_p,
+		(ParamFloat<px4::params::MC_INDI_YAW_P>) _param_mc_indiyaw_p,
+		(ParamFloat<px4::params::MC_PWM_HOVER>) _param_mc_pwm_hover,
+		(ParamFloat<px4::params::MC_OMEGA_HOVER>) _param_mc_omega_hover
 	)
 
 	matrix::Vector3f _acro_rate_max;	/**< max attitude rates in acro mode */

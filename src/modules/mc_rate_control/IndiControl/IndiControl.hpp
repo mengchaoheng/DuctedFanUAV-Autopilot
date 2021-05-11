@@ -59,11 +59,11 @@ public:
 	 * @param k_cv
 	 * @param k_v
 	 */
-	void setParams(const matrix::Vector3f &P, const float k_cv, const float k_v);
+	void setParams(const matrix::Vector3f &P, const float k_cv, const float k_v, const float pwm_hover, const float omega_hover);
 
 	void init();
 
-	void updateOmega(float Omega_0, float Omega_d);
+	void updateOmega(const float Omega_0, const float Omega_d);
 
 	/**
 	 * Run one control loop cycle calculation
@@ -106,4 +106,7 @@ private:
 	float _Omega_d_prev{0.f};
 	float _Omega_0_prev{0.f};
 	bool _first_update{true};
+
+	float _pwm_hover{1500.f};
+	float _omega_hover{1225.f};
 };

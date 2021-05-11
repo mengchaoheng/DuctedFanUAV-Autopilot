@@ -40,11 +40,13 @@
 
 using namespace matrix;
 
-void IndiControl::setParams(const Vector3f &P, const float k_cv, const float k_v)
+void IndiControl::setParams(const Vector3f &P, const float k_cv, const float k_v, const float pwm_hover, const float omega_hover)
 {
 	_gain_p = P;
 	_k_cv = k_cv;
 	_k_v = k_v;//MC_OMEGA_2_WIND
+	_pwm_hover = pwm_hover;
+	_omega_hover = omega_hover;
 }
 
 void IndiControl::init()
@@ -73,7 +75,7 @@ void IndiControl::init()
 }
 
 // always run, after update.
-void IndiControl::updateOmega(float Omega_0, float Omega_d)
+void IndiControl::updateOmega(const float Omega_0, const float Omega_d)
 {
 	_Omega_0_prev=Omega_0;
 	_Omega_d_prev=Omega_d;
@@ -84,8 +86,13 @@ Vector3f IndiControl::update(const Vector3f &rate, const Vector3f &rate_sp, cons
 			     const float dt, const actuator_outputs_s &actuator_outputs,
 			     const actuator_outputs_value_s &actuator_outputs_value, Vector3f &Nu_i, const bool landed)
 {
-	float Omega_0=actuator_outputs_value.output[0];
-	float Omega_d=actuator_outputs.output[0];
+	// relationship of Omega and PWM, hold: PWM=1706 -> Omega=1225;PWM=980 -> Omega=0.
+	// 1225/(1706-980)=1.735
+	// must Must have the correct _omega_hover and _pwm_hover
+	float coefficient = _omega_hover / (_pwm_hover-actuator_outputs_value.min_value[0]);
+	float Omega_0=(actuator_outputs_value.output[0]-actuator_outputs_value.min_value[0])*coefficient;
+	float Omega_d=(actuator_outputs.output[0]-actuator_outputs_value.min_value[0])*coefficient; // assumption a const value
+
 	// angular rates error
 	Vector3f rate_error = rate_sp - rate;
 
@@ -94,8 +101,12 @@ Vector3f IndiControl::update(const Vector3f &rate, const Vector3f &rate_sp, cons
 	}
 	else
 	{
-
-		Matrix<float, 4, 1> delta_0;//{actuator_outputs_value.output[1], actuator_outputs_value.output[2], actuator_outputs_value.output[3], actuator_outputs_value.output[4]};
+		float delta_0_data[4];
+		for (size_t i = 0; i < actuator_outputs_value.NUM_ACTUATOR_OUTPUTS -1 ; ++i) {
+			const float pwm_center = (actuator_outputs_value.max_value[i+1] + actuator_outputs_value.min_value[i+1]) / 2;
+			delta_0_data[i]=(actuator_outputs_value.output[i+1] - pwm_center) *0.3491f/180.f;	// 0.3491f/180.f:  rad/pwm
+		}
+		Matrix<float, 4, 1> delta_0 (delta_0_data);
 
 		Vector3f H_2{-_I_prop*rate(2)/_I_x, _I_prop*rate(1)/_I_y, 0.f};
 
@@ -114,4 +125,3 @@ Vector3f IndiControl::update(const Vector3f &rate, const Vector3f &rate_sp, cons
 
 	return Nu_f+Nu_i;
 }
-
