@@ -264,10 +264,10 @@ MulticopterRateControl::Run()
 			}
 
 			// run rate controller
-			const Vector3f att_control = _rate_control.update(rates, _rates_sp, angular_accel, dt, _maybe_landed || _landed);
+			// const Vector3f att_control = _rate_control.update(rates, _rates_sp, angular_accel, dt, _maybe_landed || _landed);
 
-			// Vector3f Nu_i;
-			// const Vector3f att_control = _indi_control.update(rates, _rates_sp, angular_accel, dt, actuator_outputs, actuator_outputs_value, Nu_i, _maybe_landed || _landed);
+			Vector3f Nu_i;
+			const Vector3f att_control = _indi_control.update(rates, _rates_sp, angular_accel, dt, actuator_outputs, actuator_outputs_value, Nu_i, _maybe_landed || _landed);
 
 
 

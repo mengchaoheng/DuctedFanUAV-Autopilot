@@ -107,6 +107,6 @@ private:
 	float _Omega_0_prev{0.f};
 	bool _first_update{true};
 
-	float _pwm_hover{1500.f};
+	float _pwm_hover; // SITL: _pwm_hover = 1500; Nuttx: by real fly test. Construct a gain to cancel the link from pwm to motor speed, so the current hover pwm is 1500, because the ratio is 0.5
 	float _omega_hover{1225.f};
 };

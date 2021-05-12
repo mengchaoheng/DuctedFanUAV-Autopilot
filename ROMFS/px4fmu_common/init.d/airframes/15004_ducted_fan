@@ -79,6 +79,9 @@ then
 	param set SDLOG_PROFILE  16
 
 	#param set IMU_GYRO_RATEMAX 400
+
+	param set MC_PWM_HOVER 1706
+	param set MPC_THR_HOVER 0.7
 fi
 
 set MAV_TYPE 3

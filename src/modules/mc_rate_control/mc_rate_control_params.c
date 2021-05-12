@@ -399,7 +399,7 @@ PARAM_DEFINE_INT32(MC_BAT_SCALE_EN, 0);
 /**
  * k_v
  *
- * Constant coefficient integrated with all the aerodynamic features of the duct.
+ * a Constant coefficient integrated with all the aerodynamic features of the duct.
  *
  * @min 0.0
  * @max 0.1
@@ -407,12 +407,12 @@ PARAM_DEFINE_INT32(MC_BAT_SCALE_EN, 0);
  * @increment 0.005
  * @group Multicopter Rate Control
  */
-PARAM_DEFINE_FLOAT(MC_OMEGA_2_WIND, 0.0117f);
+PARAM_DEFINE_FLOAT(MC_OMEGA_2_WIND, 0.0169f);// //0.0117f
 
 /**
  * k_cv
  *
- * Constant coefficient related to the vane shape.
+ * a Constant coefficient related to the control vane.
  *
  * @min 0.0
  * @max 0.1
@@ -420,7 +420,7 @@ PARAM_DEFINE_FLOAT(MC_OMEGA_2_WIND, 0.0117f);
  * @increment 0.005
  * @group Multicopter Rate Control
  */
-PARAM_DEFINE_FLOAT(MC_WIND_2_TORQUE, 0.015f);
+PARAM_DEFINE_FLOAT(MC_WIND_2_TORQUE, 0.0073f);//0.0073 //0.015f
 
 /**
  * Roll rate P gain of INDI
@@ -432,7 +432,7 @@ PARAM_DEFINE_FLOAT(MC_WIND_2_TORQUE, 0.015f);
  * @increment 0.01
  * @group Multicopter Rate Control
  */
-PARAM_DEFINE_FLOAT(MC_INDI_ROLL_P, 5.0f);
+PARAM_DEFINE_FLOAT(MC_INDI_ROLL_P, 20.0f);
 
 /**
  * Pitch rate P gain of INDI
@@ -445,7 +445,7 @@ PARAM_DEFINE_FLOAT(MC_INDI_ROLL_P, 5.0f);
  * @increment 0.01
  * @group Multicopter Rate Control
  */
-PARAM_DEFINE_FLOAT(MC_INDI_PITCH_P, 5.0f);
+PARAM_DEFINE_FLOAT(MC_INDI_PITCH_P, 20.f);
 
 /**
  * Yaw rate P gain of INDI
@@ -458,7 +458,7 @@ PARAM_DEFINE_FLOAT(MC_INDI_PITCH_P, 5.0f);
  * @increment 0.01
  * @group Multicopter Rate Control
  */
-PARAM_DEFINE_FLOAT(MC_INDI_YAW_P, 5.0f);
+PARAM_DEFINE_FLOAT(MC_INDI_YAW_P, 15.0f);
 
 /**
  * PWM_HOVER
@@ -469,7 +469,7 @@ PARAM_DEFINE_FLOAT(MC_INDI_YAW_P, 5.0f);
  * @max 2000
  * @group Multicopter Rate Control
  */
-PARAM_DEFINE_FLOAT(MC_PWM_HOVER, 1706.f);
+PARAM_DEFINE_FLOAT(MC_PWM_HOVER, 1500.f);
 
 /**
  * OMEGA_HOVER
@@ -480,4 +480,4 @@ PARAM_DEFINE_FLOAT(MC_PWM_HOVER, 1706.f);
  * @max 2000
  * @group Multicopter Rate Control
  */
-PARAM_DEFINE_FLOAT(MC_OMEGA_HOVER, 1706.f);
+PARAM_DEFINE_FLOAT(MC_OMEGA_HOVER, 1225.f);

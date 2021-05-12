@@ -261,8 +261,6 @@ private:
 	float _actuator_value_d_prev{0};
 	hrt_abstime _timestamp_sample_prev{0};
 
-	hrt_abstime _last_publish{0};
-
 	// angular velocity filters
 	math::LowPassFilter2p _lp_filter_actuator[5]={math::LowPassFilter2p{250,20.f},math::LowPassFilter2p{250,20.f},math::LowPassFilter2p{250,20.f},math::LowPassFilter2p{250,20.f},math::LowPassFilter2p{250,20.f}};
 	math::NotchFilter<float> _notch_filter_actuator[5];

@@ -544,15 +544,16 @@ MixingOutput::setAndPublishActuatorOutputs(unsigned num_outputs, actuator_output
 	actuator_outputs.timestamp = hrt_absolute_time();
 	_outputs_pub.publish(actuator_outputs);
 
-	hrt_abstime dt = hrt_elapsed_time(&actuator_outputs.timestamp);
-	// PX4_INFO("actuator_outputs_value time: %lld \n", interval_temp); //nuttx
-	// _last_publish=actuator_outputs_value.timestamp;
+	// const float dt = math::constrain(((actuator_outputs.timestamp - _timestamp_sample_prev) / 1e6f), 0.0002f, 0.02f);
+	// _timestamp_sample_prev = actuator_outputs.timestamp;
+	// PX4_INFO("dt: %f \n", (double) dt); //sitl
 
 	// run once for init
 	if (_last_config_update == 0)
 	{
 		for (size_t i = 0; i < num_outputs; ++i) {
 			_last_output_value[i] = _current_output_value[i];
+
 		}
 	}
 
@@ -565,17 +566,20 @@ MixingOutput::setAndPublishActuatorOutputs(unsigned num_outputs, actuator_output
 	//thrust
 	actuator_notched[0] = _notch_filter_actuator[0].apply(_last_output_value[0]);
 	actuator_has_lp_filter[0] = _lp_filter_actuator[0].apply(actuator_notched[0]);
+	// PX4_INFO("actuator_has_lp_filter: %f \n", (double) actuator_has_lp_filter[0]); //sitl
 	//control surfaces
 	for (size_t i = 0; i < 4; ++i) {
 		actuator_notched[i+1] = _notch_filter_actuator[i+1].apply(_last_output_value[i+2]);
 		actuator_has_lp_filter[i+1] = _lp_filter_actuator[i+1].apply(actuator_notched[i+1]);
+		// PX4_INFO("actuator_has_lp_filter: %f \n", (double) actuator_has_lp_filter[i+1]); //sitl
 	}
 	//Derivative of thrust
-	float actuator_d_raw = (actuator_has_lp_filter[0] - _thust_value_prev) / dt;
-	_thust_value_prev = actuator_has_lp_filter[0];
-	_actuator_value_d_prev = actuator_d_raw;
-	float actuator_value_d = _lp_filter_actuator_d.apply(actuator_d_raw);
+	// float actuator_d_raw = (actuator_has_lp_filter[0] - _thust_value_prev) / dt;
 
+	// _thust_value_prev = actuator_has_lp_filter[0];
+	// _actuator_value_d_prev = actuator_d_raw;
+	// float actuator_value_d = _lp_filter_actuator_d.apply(actuator_d_raw);
+	// PX4_INFO("actuator_value_d: %f \n", (double) actuator_value_d); //sitl
 	//------------------------publish-----------------------------
 	actuator_outputs_value_s actuator_outputs_value{};
 	for (size_t i = 0; i < 5; ++i) {
@@ -584,7 +588,7 @@ MixingOutput::setAndPublishActuatorOutputs(unsigned num_outputs, actuator_output
 		actuator_outputs_value.max_value[i] = _max_value[i];
 	}
 
-	actuator_outputs_value.d_output = actuator_value_d;
+	// actuator_outputs_value.d_output = actuator_value_d;
 
 
 
