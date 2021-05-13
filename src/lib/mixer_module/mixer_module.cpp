@@ -466,6 +466,14 @@ bool MixingOutput::update()
 	// PX4_INFO("dir_alloc_sim:\n");
 	if (_param_use_control_alloc.get() == 1)
 	{
+		// ye
+		double ye[3]={0.f, 0.f, 0.f};
+		if (_indi_fb_sub.update(&_indi_feedback_input)) {
+			ye[0]=(double) _indi_feedback_input.indi_fb[indi_feedback_input_s::INDEX_ROLL];
+			ye[1]=(double) _indi_feedback_input.indi_fb[indi_feedback_input_s::INDEX_PITCH];
+			ye[2]=(double) _indi_feedback_input.indi_fb[indi_feedback_input_s::INDEX_YAW];
+			// PX4_INFO("roll: %f, pitch: %f, yaw: %f \n", ye[0], ye[1], ye[2]);
+		}
 		// uint64_t timestamp_ca_start;
 		// uint64_t timestamp_ca_end;
 		// timestamp_ca_start = hrt_absolute_time();
@@ -475,25 +483,87 @@ bool MixingOutput::update()
 		controlCallback((uintptr_t)this, 0, 0, roll);
 		controlCallback((uintptr_t)this, 0, 1, pitch);
 		controlCallback((uintptr_t)this, 0, 2, yaw);
+		// math::constrain(   , -1.f, 1.f);
 		// roll = _controls[0].control[actuator_controls_s::INDEX_ROLL];
 		// pitch = _controls[0].control[actuator_controls_s::INDEX_PITCH];
 		// yaw = _controls[0].control[actuator_controls_s::INDEX_YAW];
 		// PX4_INFO("rpy:\n");
 		// PX4_INFO("roll: %f, pitch: %f, yaw: %f \n", (double) roll, (double) pitch, (double) yaw);
-		double yd[3]={(double) roll * 0.5, (double) pitch * 0.5, (double)  yaw * 0.5};
+		double yd[3]={(double) roll, (double) pitch, (double)  yaw};
+
 		double uMin[4]={-0.3491,-0.3491,-0.3491,-0.3491};
 		double uMax[4]={0.3491,0.3491,0.3491,0.3491};
 		double u[4];
-		double z;
-		double iters;
+		// double z;
+		// double iters;
+
 		// double d2r=3.141592653/180;
 		// double r2d=180/3.141592653;
-		dir_alloc_sim(yd, uMin, uMax, u, &z, &iters);
-		for (size_t i = 0; i < 4; i++)
+
+
+
+		double u_all[4];
+		double z_all;
+		double iters_all;
+		double y_all[3] = { ye[0]+yd[0], ye[1]+yd[1],ye[2]+yd[2] };
+		dir_alloc_sim(y_all, uMin, uMax, u_all, &z_all, &iters_all);
+		if (z_all>1)
 		{
-			u[i] = 0.0;
+			for (size_t i = 0; i < 4; i++)
+			{
+				u[i] = u_all[i];
+			}
+			// PX4_INFO("	dir 1");
 		}
-		dir_alloc_sim(yd, uMin, uMax, u, &z, &iters);
+		else
+		{
+			double u_e[4];
+			double z_e;
+			double iters_e;
+			dir_alloc_sim(ye, uMin, uMax, u_e, &z_e, &iters_e);
+			if (z_e>1)
+			{
+				double uMin_new[4];
+				double uMax_new[4];
+				for (size_t i = 0; i < 4; i++)
+				{
+					uMin_new[i] = uMin[i] - u_e[i];
+					uMax_new[i] = uMax[i] - u_e[i];
+				}
+				double u_d[4];
+				double z_d;
+				double iters_d;
+				dir_alloc_sim(yd, uMin_new, uMax_new, u_d, &z_d, &iters_d);
+				for (size_t i = 0; i < 4; i++)
+				{
+					u[i] = u_d[i] + u_e[i];
+				}
+				PX4_INFO("dir 3");
+			}
+			else
+			{
+				for (size_t i = 0; i < 4; i++)
+				{
+					u[i] = u_e[i];
+				}
+				PX4_INFO("dir 2");
+			}
+		}
+
+		// test
+		// dir_alloc_sim(ye, uMin, uMax, u, &z, &iters);
+		// for (size_t i = 0; i < 4; i++)
+		// {
+		// 	u[i] = 0.0;
+		// }
+		// dir_alloc_sim(yd, uMin, uMax, u, &z, &iters);
+		// for (size_t i = 0; i < 4; i++)
+		// {
+		// 	u[i] = 0.0;
+		// }
+
+		//1 step
+		// dir_alloc_sim(y_all, uMin, uMax, u, &z_all, &iters_all);
 
 		// PX4_INFO("iters: %f, z: %f, u1: %f, u2: %f, u3: %f, u4: %f. \n", iters, z, u[0]*r2d, u[1]*r2d, u[2]*r2d, u[3]*r2d);
 		for (size_t i = 0; i < 4; i++)

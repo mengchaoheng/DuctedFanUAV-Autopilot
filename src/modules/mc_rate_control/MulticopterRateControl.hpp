@@ -55,6 +55,8 @@
 #include <uORB/topics/parameter_update.h>
 #include <uORB/topics/rate_ctrl_status.h>
 #include <uORB/topics/actuator_outputs_value.h>
+#include <uORB/topics/indi_feedback_input.h>
+#include <uORB/topics/rc_channels.h>
 #include <uORB/topics/vehicle_angular_acceleration.h>
 #include <uORB/topics/vehicle_angular_velocity.h>
 #include <uORB/topics/vehicle_control_mode.h>
@@ -108,6 +110,7 @@ private:
 	uORB::SubscriptionCallbackWorkItem _vehicle_angular_velocity_sub{this, ORB_ID(vehicle_angular_velocity)};
 
 	uORB::Publication<actuator_controls_s>		_actuators_0_pub;
+	uORB::Publication<indi_feedback_input_s>	_indi_fb_pub{ORB_ID(indi_feedback_input)};
 	uORB::PublicationMulti<rate_ctrl_status_s>	_controller_status_pub{ORB_ID(rate_ctrl_status)};	/**< controller status publication */
 	uORB::Publication<landing_gear_s>		_landing_gear_pub{ORB_ID(landing_gear)};
 	uORB::Publication<vehicle_rates_setpoint_s>	_v_rates_sp_pub{ORB_ID(vehicle_rates_setpoint)};			/**< rate setpoint publication */
@@ -121,6 +124,15 @@ private:
 	bool _maybe_landed{true};
 	bool _actuator_outputs_sub_flag{false};
 
+	bool _sin_speed_flag{false};
+	bool _square_roll_flag{false};
+	bool _sin_speed_flag_prev{false};
+	bool _square_roll_flag_prev{false};
+	hrt_abstime _add_disturb_time;
+	hrt_abstime _add_sin_time;
+
+	bool _indi_flag{false};
+
 	float _battery_status_scale{0.0f};
 
 	perf_counter_t	_loop_perf;			/**< loop duration performance counter */
@@ -132,6 +144,10 @@ private:
 	hrt_abstime _last_run{0};
 
 	int8_t _landing_gear{landing_gear_s::GEAR_DOWN};
+
+	uORB::Subscription _rc_channels_sub{ORB_ID(rc_channels)};
+
+	rc_channels_s		_rc_channels {};
 
 	DEFINE_PARAMETERS(
 		(ParamFloat<px4::params::MC_ROLLRATE_P>) _param_mc_rollrate_p,
@@ -175,7 +191,10 @@ private:
 		(ParamFloat<px4::params::MC_WIND_2_TORQUE>) _param_mc_wind_2_torque,
 		(ParamFloat<px4::params::MC_INDI_ROLL_P>) _param_mc_indiroll_p,
 		(ParamFloat<px4::params::MC_INDI_PITCH_P>) _param_mc_indipitch_p,
-		(ParamFloat<px4::params::MC_INDI_YAW_P>) _param_mc_indiyaw_p
+		(ParamFloat<px4::params::MC_INDI_YAW_P>) _param_mc_indiyaw_p,
+		(ParamInt<px4::params::USE_INDI>) _param_use_indi,
+		(ParamInt<px4::params::USE_SIN_SPEED>) _param_use_sin_speed,
+		(ParamInt<px4::params::USE_ROLL_DISTURB>) _param_use_roll_disturb
 	)
 
 	matrix::Vector3f _acro_rate_max;	/**< max attitude rates in acro mode */

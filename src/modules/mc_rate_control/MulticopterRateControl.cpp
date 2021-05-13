@@ -135,6 +135,10 @@ MulticopterRateControl::Run()
 		actuator_controls_s actuators{};
 		actuators.timestamp = hrt_absolute_time();
 		_actuators_0_pub.publish(actuators);
+
+		indi_feedback_input_s indi_feedback_input{};
+		indi_feedback_input.timestamp = actuators.timestamp;
+		_indi_fb_pub.publish(indi_feedback_input);
 	}
 
 	/* run controller on gyro changes */
@@ -240,6 +244,73 @@ MulticopterRateControl::Run()
 			}
 		}
 
+		// channels[6]:  -0.808163	0.008163	0.865306
+		// channels[8]:  -0.812		0.0.028         0.868
+		// channels[9]:  -0.812		0.0.028         0.868
+		// channels[12]: -1		-1              1
+		if (_rc_channels_sub.update(&_rc_channels))
+		{
+			// PX4_INFO("Hello rc! 7:%f. 9:%f. 10:%f. 13:%f.", (double) _rc_channels.channels[6], (double) _rc_channels.channels[8], (double) _rc_channels.channels[9], (double) _rc_channels.channels[12]);
+			if (_rc_channels.channels[6] < -0.5f)
+			{
+				_sin_speed_flag = true;
+				_square_roll_flag = false;
+				// PX4_INFO("_sin_speed_flag !");
+			}
+			else if (_rc_channels.channels[6] > 0.5f)
+			{
+				_sin_speed_flag = false;
+				_square_roll_flag = true;
+				// PX4_INFO("_square_cs_flag !");
+			}
+			else
+			{
+				_sin_speed_flag = false;
+				_square_roll_flag = false;
+			}
+
+			if (_rc_channels.channels[12] > 0.f)
+			{
+				_indi_flag = true;
+				// PX4_INFO("_indi_flag !");
+			}
+			else
+			{
+				_indi_flag = false;
+				// PX4_INFO("PID !");
+			}
+		}
+		// if(_square_roll_flag)
+		if (_param_use_roll_disturb.get()==1)
+		{
+			if (!_square_roll_flag_prev)
+				_add_disturb_time = hrt_absolute_time();
+
+			if (hrt_elapsed_time(&_add_disturb_time) < 2_s)
+				_rates_sp(0) = 0.7;
+			else if (hrt_elapsed_time(&_add_disturb_time) > 2_s && hrt_elapsed_time(&_add_disturb_time) < 4_s)
+				_rates_sp(0) = -0.7;
+
+			// PX4_INFO("_square_roll_flag, _rates_sp: %f", (double) _rates_sp(0));
+		}
+
+		// if (_sin_speed_flag)
+		if (_param_use_sin_speed.get()==1)
+		{
+			if (!_sin_speed_flag_prev)
+				_add_sin_time = hrt_absolute_time();
+
+			_thrust_sp=0.5f + 0.08f*sin(hrt_elapsed_time(&_add_sin_time) / 1e6f);//nuttx: 0.71. SITL: 0.5
+			// PX4_INFO("_sin_speed_flag, _thrust_sp: %f, time is: %f", (double) _thrust_sp, (double) (hrt_elapsed_time(&_add_sin_time) / 1e6f));
+		}
+		// _sin_speed_flag_prev = _sin_speed_flag;
+		// _square_roll_flag_prev = _square_roll_flag;
+
+		_sin_speed_flag_prev = _param_use_sin_speed.get();
+		_square_roll_flag_prev = _param_use_roll_disturb.get();
+		// PX4_INFO("_thrust_sp: %f", (double) _thrust_sp);
+
+
 		// run the rate controller
 		if (_v_control_mode.flag_control_rates_enabled && !_actuators_0_circuit_breaker_enabled) {
 
@@ -260,14 +331,27 @@ MulticopterRateControl::Run()
 				}
 			}
 
-			// run rate controller
-			// const Vector3f att_control = _rate_control.update(rates, _rates_sp, angular_accel, dt, _maybe_landed || _landed);
-
 			Vector3f Nu_i;
-			const Vector3f att_control = _indi_control.update(rates, _rates_sp, angular_accel, dt, actuator_outputs_value, Nu_i, _maybe_landed || _landed);
-
-
-
+			Vector3f att_control;
+			// run rate controller
+			// if (_indi_flag)	//
+			if (_param_use_indi.get() == 0)
+			{
+				att_control = _rate_control.update(rates, _rates_sp, angular_accel, dt, _maybe_landed || _landed);
+				// PX4_INFO("PID");
+			}
+			else
+			{
+				att_control = _indi_control.update(rates, _rates_sp, angular_accel, dt, actuator_outputs_value, Nu_i, _maybe_landed || _landed);
+				// PX4_INFO("INDI");
+			}
+			indi_feedback_input_s indi_feedback_input{};
+			indi_feedback_input.indi_fb[indi_feedback_input_s::INDEX_ROLL] = PX4_ISFINITE(Nu_i(0)) ? Nu_i(0) : 0.0f;
+			indi_feedback_input.indi_fb[indi_feedback_input_s::INDEX_PITCH] = PX4_ISFINITE(Nu_i(1)) ? Nu_i(1) : 0.0f;
+			indi_feedback_input.indi_fb[indi_feedback_input_s::INDEX_YAW] = PX4_ISFINITE(Nu_i(2)) ? Nu_i(2) : 0.0f;
+			indi_feedback_input.timestamp_sample = angular_velocity.timestamp_sample;
+			indi_feedback_input.timestamp = hrt_absolute_time();
+			_indi_fb_pub.publish(indi_feedback_input);
 
 			// publish rate controller status
 			rate_ctrl_status_s rate_ctrl_status{};

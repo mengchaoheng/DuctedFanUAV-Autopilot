@@ -49,6 +49,7 @@
 #include <uORB/topics/actuator_controls.h>
 #include <uORB/topics/actuator_outputs.h>
 #include <uORB/topics/actuator_outputs_value.h>
+#include <uORB/topics/indi_feedback_input.h>
 #include <uORB/topics/multirotor_motor_limits.h>
 #include <uORB/topics/parameter_update.h>
 #include <uORB/topics/test_motor.h>
@@ -248,6 +249,7 @@ private:
 
 	uORB::Subscription _armed_sub{ORB_ID(actuator_armed)};
 	uORB::SubscriptionCallbackWorkItem _control_subs[actuator_controls_s::NUM_ACTUATOR_CONTROL_GROUPS];
+	uORB::Subscription _indi_fb_sub{ORB_ID(indi_feedback_input)};
 
 	uORB::PublicationMulti<actuator_outputs_s> _outputs_pub{ORB_ID(actuator_outputs)};
 	uORB::Publication<actuator_outputs_value_s> _outputs_value_pub{ORB_ID(actuator_outputs_value)};
@@ -255,6 +257,7 @@ private:
 
 	actuator_controls_s _controls[actuator_controls_s::NUM_ACTUATOR_CONTROL_GROUPS] {};
 	actuator_armed_s _armed{};
+	indi_feedback_input_s _indi_feedback_input;
 
 	hrt_abstime _time_last_dt_update_multicopter{0};
 	hrt_abstime _time_last_dt_update_simple_mixer{0};

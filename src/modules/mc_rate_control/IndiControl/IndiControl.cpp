@@ -80,7 +80,7 @@ Vector3f IndiControl::update(const Vector3f &rate, const Vector3f &rate_sp, cons
 
 	if (landed) {
 		Nu_i.setZero();
-		// PX4_INFO("now is INDI");
+		// PX4_INFO("Nu_i of INDI is zero");
 	}
 	else
 	{
@@ -92,9 +92,12 @@ Vector3f IndiControl::update(const Vector3f &rate, const Vector3f &rate_sp, cons
 		Vector3f T = (_I_inv * (_L * 2*_k_cv*_k_v*_k_v*actuator_outputs_value.propeller_omega_0) * delta_0 + H_2) * (actuator_outputs_value.propeller_omega_d-actuator_outputs_value.propeller_omega_0) + _H_3*(actuator_outputs_value.dpropeller_omega_d-actuator_outputs_value.dpropeller_omega_0);
 
 		Nu_i=Bdelta_0*delta_0 - _I*(angular_accel+T);
+		// PX4_INFO("Nu_i of INDI is: roll: %f, pitch: %f, yaw: %f \n", (double) Nu_i(0), (double) Nu_i(1), (double) Nu_i(2));
 	}
 
 	Vector3f Nu_f=_I*_gain_p.emult(rate_error);
+	// Vector3f K = _I*_gain_p;
+	// PX4_INFO("K of INDI is: roll: %f, pitch: %f, yaw: %f \n", (double) K(0), (double) K(1), (double) K(2));
 
-	return Nu_f+Nu_i;
+	return Nu_f;
 }

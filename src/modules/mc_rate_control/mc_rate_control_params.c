@@ -459,3 +459,37 @@ PARAM_DEFINE_FLOAT(MC_INDI_PITCH_P, 20.f);
  * @group Multicopter Rate Control
  */
 PARAM_DEFINE_FLOAT(MC_INDI_YAW_P, 15.0f);
+
+/**
+ * USE_INDI
+ *
+ * use INDI control or not.
+ *
+ * @value 0 PID
+ * @value 1 INDI
+ * @group Multicopter Rate Control
+ */
+PARAM_DEFINE_INT32(USE_INDI, 0);
+
+/**
+ * USE_SIN_SPEED
+ *
+ * add sin speed.
+ *
+ * @value 0 not
+ * @value 1 yes
+ * @group Multicopter Rate Control
+ */
+PARAM_DEFINE_INT32(USE_SIN_SPEED, 0);
+
+/**
+ * USE_ROLL_DISTURB
+ *
+ * add square roll.
+ *
+ * @value 0 not
+ * @value 1 yes
+ * @group Multicopter Rate Control
+ */
+PARAM_DEFINE_INT32(USE_ROLL_DISTURB, 0);
+
