@@ -66,3 +66,25 @@ PARAM_DEFINE_INT32(DUCTEDFAN_MID2, 1500);
  * @group Mixer Output
  */
 PARAM_DEFINE_INT32(USE_CA, 0);
+
+/**
+ * PWM_HOVER
+ *
+ * The PWM value of the hover of the ductedfan.
+ *
+ * @min 1000
+ * @max 2000
+ * @group Mixer Output
+ */
+PARAM_DEFINE_FLOAT(MC_PWM_HOVER, 1500.f);
+
+/**
+ * OMEGA_HOVER
+ *
+ * The speed of the propeller when hovering of the ductedfan. rad/s
+ *
+ * @min 1000
+ * @max 2000
+ * @group Mixer Output
+ */
+PARAM_DEFINE_FLOAT(MC_OMEGA_HOVER, 1225.f);

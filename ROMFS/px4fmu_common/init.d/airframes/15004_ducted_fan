@@ -76,7 +76,7 @@ then
 	param set MAV_0_FORWARD 1
 	param set SER_TEL1_BAUD 921600
 
-	param set SDLOG_PROFILE  16
+	param set SDLOG_PROFILE  17
 
 	#param set IMU_GYRO_RATEMAX 400
 

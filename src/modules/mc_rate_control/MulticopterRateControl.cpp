@@ -85,7 +85,7 @@ MulticopterRateControl::parameters_updated()
 	const Vector3f rate_k = Vector3f(_param_mc_rollrate_k.get(), _param_mc_pitchrate_k.get(), _param_mc_yawrate_k.get());
 
 	_indi_control.setParams(rate_k.emult(Vector3f(_param_mc_indiroll_p.get(), _param_mc_indipitch_p.get(), _param_mc_indiyaw_p.get())),
-				_param_mc_wind_2_torque.get(), _param_mc_omega_2_wind.get(), _param_mc_pwm_hover.get(), _param_mc_omega_hover.get());
+				_param_mc_wind_2_torque.get(), _param_mc_omega_2_wind.get());
 
 	_rate_control.setGains(
 		rate_k.emult(Vector3f(_param_mc_rollrate_p.get(), _param_mc_pitchrate_p.get(), _param_mc_yawrate_p.get())),
@@ -139,16 +139,13 @@ MulticopterRateControl::Run()
 
 	/* run controller on gyro changes */
 	vehicle_angular_velocity_s angular_velocity;
-	actuator_outputs_s actuator_outputs{};
+	actuator_outputs_value_s actuator_outputs_value{};
 
-	if (_vehicle_angular_velocity_sub.update(&angular_velocity) && _actuator_outputs_sub_flag && _actuator_outputs_sub.update(&actuator_outputs)) {
+	if (_vehicle_angular_velocity_sub.update(&angular_velocity) && _actuator_outputs_sub_flag && _actuator_outputs_value_sub.update(&actuator_outputs_value)) {
 
 		// grab corresponding vehicle_angular_acceleration immediately after vehicle_angular_velocity copy
 		vehicle_angular_acceleration_s v_angular_acceleration{};
 		_vehicle_angular_acceleration_sub.copy(&v_angular_acceleration);
-		// grab corresponding actuator_outputs_value immediately after actuator_outputs copy
-		actuator_outputs_value_s actuator_outputs_value{};
-		_actuator_outputs_value_sub.copy(&actuator_outputs_value);
 
 		const hrt_abstime now = angular_velocity.timestamp_sample;
 
@@ -267,7 +264,7 @@ MulticopterRateControl::Run()
 			// const Vector3f att_control = _rate_control.update(rates, _rates_sp, angular_accel, dt, _maybe_landed || _landed);
 
 			Vector3f Nu_i;
-			const Vector3f att_control = _indi_control.update(rates, _rates_sp, angular_accel, dt, actuator_outputs, actuator_outputs_value, Nu_i, _maybe_landed || _landed);
+			const Vector3f att_control = _indi_control.update(rates, _rates_sp, angular_accel, dt, actuator_outputs_value, Nu_i, _maybe_landed || _landed);
 
 
 

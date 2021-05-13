@@ -45,7 +45,6 @@
 #include <lib/mixer/MultirotorMixer/MultirotorMixer.hpp>
 #include <uORB/topics/rate_ctrl_status.h>
 #include <uORB/topics/actuator_outputs_value.h>
-#include <uORB/topics/actuator_outputs.h>
 
 class IndiControl
 {
@@ -59,25 +58,21 @@ public:
 	 * @param k_cv
 	 * @param k_v
 	 */
-	void setParams(const matrix::Vector3f &P, const float k_cv, const float k_v, const float pwm_hover, const float omega_hover);
+	void setParams(const matrix::Vector3f &P, const float k_cv, const float k_v);
 
 	void init();
-
-	void updateOmega(const float Omega_0, const float Omega_d);
 
 	/**
 	 * Run one control loop cycle calculation
 	 * @param rate estimation of the current vehicle angular rate
 	 * @param rate_sp desired vehicle angular rate setpoint
 	 * @param dt desired vehicle angular rate setpoint
-	 * @param actuator_outputs current commander value of actuators
 	 * @param actuator_outputs_value current value of actuators
 	 * @param Nu_i second term of virtual control
 	 * @return [-1,1] normalized torque vector to apply to the vehicle //This is not a value between -1 and +1
 	 */
 	matrix::Vector3f update(const matrix::Vector3f &rate, const matrix::Vector3f &rate_sp, const matrix::Vector3f &angular_accel,
-			     const float dt, const actuator_outputs_s &actuator_outputs,
-			     const actuator_outputs_value_s &actuator_outputs_value, matrix::Vector3f &Nu_i, const bool landed);
+			     const float dt, const actuator_outputs_value_s &actuator_outputs_value, matrix::Vector3f &Nu_i, const bool landed);
 
 private:
 
@@ -99,14 +94,4 @@ private:
 	float _k_v{0.0169f};	//MC_OMEGA_2_WIND
 
 	matrix::Vector3f _H_3{0.f, 0.f, 0.f};
-
-	float _dOmega_d{0.f};
-	float _dOmega_0{0.f};
-
-	float _Omega_d_prev{0.f};
-	float _Omega_0_prev{0.f};
-	bool _first_update{true};
-
-	float _pwm_hover; // SITL: _pwm_hover = 1500; Nuttx: by real fly test. Construct a gain to cancel the link from pwm to motor speed, so the current hover pwm is 1500, because the ratio is 0.5
-	float _omega_hover{1225.f};
 };

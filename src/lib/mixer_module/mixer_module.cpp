@@ -80,13 +80,24 @@ _control_latency_perf(perf_alloc(PC_ELAPSED, "control latency"))
 	_motor_test.test_motor_sub.subscribe();
 
 	// filter init
-	for (size_t i = 0; i < 5; ++i) {
-		_lp_filter_actuator[i].reset(_thust_value_prev);
-		_lp_filter_actuator[i].set_cutoff_frequency(250, _param_imu_dgyro_cutoff.get());
-		_notch_filter_actuator[i].reset(_thust_value_prev);
-		_notch_filter_actuator[i].setParameters(250, _param_imu_gyro_nf_freq.get(), _param_imu_gyro_nf_bw.get());
-		_lp_filter_actuator_d.reset(_actuator_value_d_prev);
-		_lp_filter_actuator_d.set_cutoff_frequency(250, _param_imu_dgyro_cutoff.get());
+	_lp_filter_actuator_d[0].reset(0);
+	_lp_filter_actuator_d[0].set_cutoff_frequency(250, 20);
+	_lp_filter_actuator_d[1].reset(0);
+	_lp_filter_actuator_d[1].set_cutoff_frequency(250, 20);
+
+	_lp_filter_actuator[0].reset(0);
+	_lp_filter_actuator[0].set_cutoff_frequency(250, 5);
+
+	_notch_filter_actuator[0].reset(0);
+	_notch_filter_actuator[0].setParameters(250, _param_imu_gyro_nf_freq.get(), _param_imu_gyro_nf_bw.get());
+
+
+	for (size_t i = 0; i < 4; ++i) {
+		_lp_filter_actuator[i+1].reset(0);
+		_lp_filter_actuator[i+1].set_cutoff_frequency(250, 20);
+
+		_notch_filter_actuator[i+1].reset(0);
+		_notch_filter_actuator[i+1].setParameters(250, _param_imu_gyro_nf_freq.get(), _param_imu_gyro_nf_bw.get());
 	}
 
 
@@ -115,6 +126,12 @@ void MixingOutput::printStatus() const
 	}
 }
 
+void MixingOutput::setHoverParams(const float pwm_hover, const float omega_hover)
+{
+	_pwm_hover = pwm_hover;
+	_omega_hover = omega_hover;
+}
+
 void MixingOutput::updateParams()
 {
 	ModuleParams::updateParams();
@@ -128,6 +145,7 @@ void MixingOutput::updateParams()
 		_mixers->set_thrust_factor(_param_thr_mdl_fac.get());
 		_mixers->set_airmode((Mixer::Airmode)_param_mc_airmode.get());
 	}
+	setHoverParams(_param_mc_pwm_hover.get(), _param_mc_omega_hover.get());
 }
 
 bool MixingOutput::updateSubscriptions(bool allow_wq_switch, bool limit_callbacks_to_primary)
@@ -438,8 +456,6 @@ bool MixingOutput::update()
 	// PX4_INFO("iters: %f, z: %f, u1: %f, u2: %f, u3: %f, u4: %f. \n", iters, z, u[0], u[1], u[2], u[3]);
 
 
-
-
 	/* do mixing */
 	float outputs[MAX_ACTUATORS] {};
 	const unsigned mixed_num_outputs = _mixers->mix(outputs, _max_num_outputs);
@@ -544,10 +560,6 @@ MixingOutput::setAndPublishActuatorOutputs(unsigned num_outputs, actuator_output
 	actuator_outputs.timestamp = hrt_absolute_time();
 	_outputs_pub.publish(actuator_outputs);
 
-	// const float dt = math::constrain(((actuator_outputs.timestamp - _timestamp_sample_prev) / 1e6f), 0.0002f, 0.02f);
-	// _timestamp_sample_prev = actuator_outputs.timestamp;
-	// PX4_INFO("dt: %f \n", (double) dt); //sitl
-
 	// run once for init
 	if (_last_config_update == 0)
 	{
@@ -557,41 +569,80 @@ MixingOutput::setAndPublishActuatorOutputs(unsigned num_outputs, actuator_output
 		}
 	}
 
+	const float dt = math::constrain(((actuator_outputs.timestamp - _timestamp_sample_prev) / 1e6f), 0.0002f, 0.02f);
+	_timestamp_sample_prev = actuator_outputs.timestamp;
+	// PX4_INFO("dt: %f \n", (double) dt); //sitl
+
+	actuator_outputs_value_s actuator_outputs_value{};
+	// relationship of Omega and PWM, hold: PWM=1706 -> Omega=1225; PWM=1000 -> Omega=0.--by fly  test
+	// 1225/(1706-980)=1.735
+	// must Must have the correct _omega_hover and _pwm_hover
+	float hover_thrust_ratio = (_pwm_hover - (float) _min_value[0]) / (float) (_max_value[0]-_min_value[0]);
+	float coefficient = _omega_hover / hover_thrust_ratio;
+	// PX4_INFO("_omega_hover: %f \n", (double) _omega_hover); //sitl
+	// PX4_INFO("coefficient: %f \n", (double) coefficient); //sitl
+	// PX4_INFO("hover_thrust_ratio: %f \n", (double) hover_thrust_ratio); //sitl
+
+	// using _current_output_value to calculate current Omega cmd.
+
+	float Omega_d = 0;
+	if (_current_output_value[0] >  _min_value[0])
+		Omega_d= ((float) (_current_output_value[0] - _min_value[0]) / (float) (_max_value[0] - _min_value[0])) * coefficient; // assumption a const value
+		// Omega_d=(_current_output_value[0] - _min_value[0]);
+	// PX4_INFO("Omega_d: %f \n", (double) Omega_d); //sitl
+	// PX4_INFO("_min_value[0]: %f \n", (double) _min_value[0]); //sitl
+	// PX4_INFO("_max_value[0]: %f \n", (double) _max_value[0]); //sitl
+	// PX4_INFO("_current_output_value[0]: %f \n", (double) _current_output_value[0]); //sitl
+
+	// using _last_output_value to estimate true value.
+	float Omega_0 = 0;
+	if (_last_output_value[0] >  _min_value[0])
+		Omega_0=((float) (_last_output_value[0] - _min_value[0]) / (float) (_max_value[0] - _min_value[0])) * coefficient;
+	// PX4_INFO("Omega_0: %f \n", (double) Omega_0); //sitl
+	//control surfaces, 0.3491 rad -> 180pwm.
+	float last_delta_cmd_rad[4];
+	for (size_t i = 0; i < 4 ; ++i) {
+		const float pwm_center = (float) (_max_value[i+2] + _min_value[i+2]) / 2;
+		last_delta_cmd_rad[i] = ((float) _last_output_value[i+2] - pwm_center) *0.3491f/180.f;	//rad/pwm
+		actuator_outputs_value.last_deltacmd[i] = last_delta_cmd_rad[i];
+	}
+
 	// actuator filtering:
 	// - Apply general notch filter (IMU_GYRO_NF_FREQ)
 	// - Apply general low-pass filter (IMU_GYRO_CUTOFF)
 	// - Differentiate & apply specific angular acceleration (D-term) low-pass (IMU_DGYRO_CUTOFF)
 	float actuator_notched[5];
-	float actuator_has_lp_filter[5];
+	float Omega_0_has_lp_filter;
 	//thrust
-	actuator_notched[0] = _notch_filter_actuator[0].apply(_last_output_value[0]);
-	actuator_has_lp_filter[0] = _lp_filter_actuator[0].apply(actuator_notched[0]);
+	actuator_notched[0] = _notch_filter_actuator[0].apply(Omega_0);
+	Omega_0_has_lp_filter = _lp_filter_actuator[0].apply(actuator_notched[0]);
 	// PX4_INFO("actuator_has_lp_filter: %f \n", (double) actuator_has_lp_filter[0]); //sitl
+
 	//control surfaces
 	for (size_t i = 0; i < 4; ++i) {
-		actuator_notched[i+1] = _notch_filter_actuator[i+1].apply(_last_output_value[i+2]);
-		actuator_has_lp_filter[i+1] = _lp_filter_actuator[i+1].apply(actuator_notched[i+1]);
+		actuator_notched[i+1] = _notch_filter_actuator[i+1].apply(last_delta_cmd_rad[i]);
+		actuator_outputs_value.delta[i] = _lp_filter_actuator[i+1].apply(actuator_notched[i+1]);
 		// PX4_INFO("actuator_has_lp_filter: %f \n", (double) actuator_has_lp_filter[i+1]); //sitl
 	}
-	//Derivative of thrust
-	// float actuator_d_raw = (actuator_has_lp_filter[0] - _thust_value_prev) / dt;
 
-	// _thust_value_prev = actuator_has_lp_filter[0];
-	// _actuator_value_d_prev = actuator_d_raw;
-	// float actuator_value_d = _lp_filter_actuator_d.apply(actuator_d_raw);
+	//Derivative of thrust
+	float dOmega_0_raw = (Omega_0_has_lp_filter - _Omega_0_prev) / dt;
+	_Omega_0_prev = Omega_0_has_lp_filter;
+	_dOmega_0_raw_prev = dOmega_0_raw;
+	float dOmega_0 = _lp_filter_actuator_d[0].apply(dOmega_0_raw);
+
+
+	float dOmega_d_raw = (Omega_d - _Omega_d_prev) / dt;
+	_Omega_d_prev = Omega_d;
+	_dOmega_d_raw_prev = dOmega_d_raw;
+	float dOmega_d = _lp_filter_actuator_d[1].apply(dOmega_d_raw);
+
 	// PX4_INFO("actuator_value_d: %f \n", (double) actuator_value_d); //sitl
 	//------------------------publish-----------------------------
-	actuator_outputs_value_s actuator_outputs_value{};
-	for (size_t i = 0; i < 5; ++i) {
-		actuator_outputs_value.output[i] = actuator_has_lp_filter[i];
-		actuator_outputs_value.min_value[i] = _min_value[i];
-		actuator_outputs_value.max_value[i] = _max_value[i];
-	}
-
-	// actuator_outputs_value.d_output = actuator_value_d;
-
-
-
+	actuator_outputs_value.propeller_omega_d = Omega_d;
+	actuator_outputs_value.propeller_omega_0 = Omega_0_has_lp_filter;
+	actuator_outputs_value.dpropeller_omega_d = dOmega_d;
+	actuator_outputs_value.dpropeller_omega_0 = dOmega_0;
 	actuator_outputs_value.timestamp = hrt_absolute_time();
 	_last_config_update = actuator_outputs_value.timestamp;
 	_outputs_value_pub.publish(actuator_outputs_value);
@@ -600,7 +651,6 @@ MixingOutput::setAndPublishActuatorOutputs(unsigned num_outputs, actuator_output
 	for (size_t i = 0; i < num_outputs; ++i) {
 		_last_output_value[i] = _current_output_value[i];
 	}
-
 }
 
 void

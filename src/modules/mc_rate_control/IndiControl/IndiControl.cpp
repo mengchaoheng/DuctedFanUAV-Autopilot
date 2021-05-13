@@ -40,13 +40,11 @@
 
 using namespace matrix;
 
-void IndiControl::setParams(const Vector3f &P, const float k_cv, const float k_v, const float pwm_hover, const float omega_hover)
+void IndiControl::setParams(const Vector3f &P, const float k_cv, const float k_v)
 {
 	_gain_p = P;
 	_k_cv = k_cv;
 	_k_v = k_v;//MC_OMEGA_2_WIND
-	_pwm_hover = pwm_hover;
-	_omega_hover = omega_hover;
 }
 
 void IndiControl::init()
@@ -74,26 +72,9 @@ void IndiControl::init()
 	_H_3(2) = _I_prop/_I_z;
 }
 
-// always run, after update.
-void IndiControl::updateOmega(const float Omega_0, const float Omega_d)
-{
-	_Omega_0_prev=Omega_0;
-	_Omega_d_prev=Omega_d;
-
-}
-
 Vector3f IndiControl::update(const Vector3f &rate, const Vector3f &rate_sp, const Vector3f &angular_accel,
-			     const float dt, const actuator_outputs_s &actuator_outputs,
-			     const actuator_outputs_value_s &actuator_outputs_value, Vector3f &Nu_i, const bool landed)
+			     const float dt, const actuator_outputs_value_s &actuator_outputs_value, Vector3f &Nu_i, const bool landed)
 {
-	// relationship of Omega and PWM, hold: PWM=1706 -> Omega=1225; PWM=1000 -> Omega=0.--by fly  test
-	// 1225/(1706-980)=1.735
-	// must Must have the correct _omega_hover and _pwm_hover
-	float hover_thrust_ratio = (_pwm_hover - actuator_outputs_value.min_value[0]) / (actuator_outputs_value.max_value[0]-actuator_outputs_value.min_value[0]);
-	float coefficient = _omega_hover / hover_thrust_ratio;
-	float Omega_0=((actuator_outputs_value.output[0]-actuator_outputs_value.min_value[0]) / (actuator_outputs_value.max_value[0]-actuator_outputs_value.min_value[0])) *coefficient;
-	float Omega_d=((actuator_outputs.output[0]-actuator_outputs_value.min_value[0]) / (actuator_outputs_value.max_value[0]-actuator_outputs_value.min_value[0])) * coefficient; // assumption a const value
-
 	// angular rates error
 	Vector3f rate_error = rate_sp - rate;
 
@@ -103,27 +84,17 @@ Vector3f IndiControl::update(const Vector3f &rate, const Vector3f &rate_sp, cons
 	}
 	else
 	{
-		float delta_0_data[4];
-		for (size_t i = 0; i < actuator_outputs_value.NUM_ACTUATOR_OUTPUTS -1 ; ++i) {
-			const float pwm_center = (actuator_outputs_value.max_value[i+1] + actuator_outputs_value.min_value[i+1]) / 2;
-			delta_0_data[i]=(actuator_outputs_value.output[i+1] - pwm_center) *0.3491f/180.f;	// 0.3491f/180.f:  rad/pwm
-		}
-		Matrix<float, 4, 1> delta_0 (delta_0_data);
+		Matrix<float, 4, 1> delta_0 (actuator_outputs_value.delta);
 
 		Vector3f H_2{-_I_prop*rate(2)/_I_x, _I_prop*rate(1)/_I_y, 0.f};
 
-		Matrix<float, 3, 4> Bdelta_0=_L * _k_cv*_k_v*_k_v*Omega_0*Omega_0;
-
-		_dOmega_d=(Omega_d - _Omega_d_prev)/dt;
-		_dOmega_0=(Omega_0 - _Omega_0_prev)/dt;
-		Vector3f T = (_I_inv * (_L * 2*_k_cv*_k_v*_k_v*Omega_0) * delta_0 + H_2) * (Omega_d-Omega_0) + _H_3*(_dOmega_d-_dOmega_0);
+		Matrix<float, 3, 4> Bdelta_0=_L * _k_cv*_k_v*_k_v*actuator_outputs_value.propeller_omega_0*actuator_outputs_value.propeller_omega_0;
+		Vector3f T = (_I_inv * (_L * 2*_k_cv*_k_v*_k_v*actuator_outputs_value.propeller_omega_0) * delta_0 + H_2) * (actuator_outputs_value.propeller_omega_d-actuator_outputs_value.propeller_omega_0) + _H_3*(actuator_outputs_value.dpropeller_omega_d-actuator_outputs_value.dpropeller_omega_0);
 
 		Nu_i=Bdelta_0*delta_0 - _I*(angular_accel+T);
 	}
 
 	Vector3f Nu_f=_I*_gain_p.emult(rate_error);
-
-	updateOmega(Omega_0, Omega_d);
 
 	return Nu_f+Nu_i;
 }

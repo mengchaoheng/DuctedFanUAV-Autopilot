@@ -55,7 +55,6 @@
 #include <uORB/topics/parameter_update.h>
 #include <uORB/topics/rate_ctrl_status.h>
 #include <uORB/topics/actuator_outputs_value.h>
-#include <uORB/topics/actuator_outputs.h>
 #include <uORB/topics/vehicle_angular_acceleration.h>
 #include <uORB/topics/vehicle_angular_velocity.h>
 #include <uORB/topics/vehicle_control_mode.h>
@@ -101,7 +100,6 @@ private:
 	uORB::Subscription _v_rates_sp_sub{ORB_ID(vehicle_rates_setpoint)};
 	uORB::Subscription _vehicle_angular_acceleration_sub{ORB_ID(vehicle_angular_acceleration)};
 	uORB::Subscription _actuator_outputs_value_sub{ORB_ID(actuator_outputs_value)};
-	uORB::Subscription _actuator_outputs_sub{ORB_ID(actuator_outputs)};
 	uORB::Subscription _vehicle_land_detected_sub{ORB_ID(vehicle_land_detected)};
 	uORB::Subscription _vehicle_status_sub{ORB_ID(vehicle_status)};
 
@@ -177,9 +175,7 @@ private:
 		(ParamFloat<px4::params::MC_WIND_2_TORQUE>) _param_mc_wind_2_torque,
 		(ParamFloat<px4::params::MC_INDI_ROLL_P>) _param_mc_indiroll_p,
 		(ParamFloat<px4::params::MC_INDI_PITCH_P>) _param_mc_indipitch_p,
-		(ParamFloat<px4::params::MC_INDI_YAW_P>) _param_mc_indiyaw_p,
-		(ParamFloat<px4::params::MC_PWM_HOVER>) _param_mc_pwm_hover,
-		(ParamFloat<px4::params::MC_OMEGA_HOVER>) _param_mc_omega_hover
+		(ParamFloat<px4::params::MC_INDI_YAW_P>) _param_mc_indiyaw_p
 	)
 
 	matrix::Vector3f _acro_rate_max;	/**< max attitude rates in acro mode */

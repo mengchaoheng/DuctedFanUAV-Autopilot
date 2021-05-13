@@ -197,6 +197,8 @@ private:
 
 	unsigned motorTest();
 
+	void setHoverParams(const float pwm_hover, const float omega_hover);
+
 	void updateOutputSlewrateMultirotorMixer();
 	void updateOutputSlewrateSimplemixer();
 	void setAndPublishActuatorOutputs(unsigned num_outputs, actuator_outputs_s &actuator_outputs);
@@ -257,8 +259,14 @@ private:
 	hrt_abstime _time_last_dt_update_multicopter{0};
 	hrt_abstime _time_last_dt_update_simple_mixer{0};
 
-	float _thust_value_prev{0};
-	float _actuator_value_d_prev{0};
+	float _Omega_0_prev{0};
+	float _dOmega_0_raw_prev{0};
+	float _Omega_d_prev{0};
+	float _dOmega_d_raw_prev{0};
+
+	float _pwm_hover{1500}; // SITL: _pwm_hover = 1500; Nuttx: by real fly test. Construct a gain to cancel the link from pwm to motor speed, so the current hover pwm is 1500, because the ratio is 0.5
+	float _omega_hover{1225.f};
+
 	hrt_abstime _timestamp_sample_prev{0};
 
 	// angular velocity filters
@@ -266,7 +274,7 @@ private:
 	math::NotchFilter<float> _notch_filter_actuator[5];
 
 	// angular acceleration filter
-	math::LowPassFilter2p _lp_filter_actuator_d{250, 30.f};
+	math::LowPassFilter2p _lp_filter_actuator_d[2]={math::LowPassFilter2p{250,20.f},math::LowPassFilter2p{250,20.f}};
 
 	unsigned _max_topic_update_interval_us{0}; ///< max _control_subs topic update interval (0=unlimited)
 
@@ -308,7 +316,9 @@ private:
 		(ParamFloat<px4::params::IMU_GYRO_NF_BW>) _param_imu_gyro_nf_bw,
 		(ParamInt<px4::params::IMU_GYRO_RATEMAX>) _param_imu_gyro_rate_max,
 
-		(ParamFloat<px4::params::IMU_DGYRO_CUTOFF>) _param_imu_dgyro_cutoff
+		(ParamFloat<px4::params::IMU_DGYRO_CUTOFF>) _param_imu_dgyro_cutoff,
+		(ParamFloat<px4::params::MC_PWM_HOVER>) _param_mc_pwm_hover,
+		(ParamFloat<px4::params::MC_OMEGA_HOVER>) _param_mc_omega_hover
 
 	)
 };

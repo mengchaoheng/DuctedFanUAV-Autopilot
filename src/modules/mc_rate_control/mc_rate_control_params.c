@@ -459,25 +459,3 @@ PARAM_DEFINE_FLOAT(MC_INDI_PITCH_P, 20.f);
  * @group Multicopter Rate Control
  */
 PARAM_DEFINE_FLOAT(MC_INDI_YAW_P, 15.0f);
-
-/**
- * PWM_HOVER
- *
- * The PWM value of the hover of the ductedfan.
- *
- * @min 1000
- * @max 2000
- * @group Multicopter Rate Control
- */
-PARAM_DEFINE_FLOAT(MC_PWM_HOVER, 1500.f);
-
-/**
- * OMEGA_HOVER
- *
- * The speed of the propeller when hovering of the ductedfan. rad/s
- *
- * @min 1000
- * @max 2000
- * @group Multicopter Rate Control
- */
-PARAM_DEFINE_FLOAT(MC_OMEGA_HOVER, 1225.f);
