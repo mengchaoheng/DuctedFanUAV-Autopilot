@@ -88,3 +88,14 @@ PARAM_DEFINE_FLOAT(MC_PWM_HOVER, 1500.f);
  * @group Mixer Output
  */
 PARAM_DEFINE_FLOAT(MC_OMEGA_HOVER, 1225.f);
+
+/**
+ * Servo disturbance, unit radian
+ *
+ * radian rad
+ *
+ * @min 0
+ * @max 0.34
+ * @group Mixer Output
+ */
+PARAM_DEFINE_FLOAT(SERVO_DISTURB, 0.05f);

@@ -491,8 +491,8 @@ bool MixingOutput::update()
 		// PX4_INFO("roll: %f, pitch: %f, yaw: %f \n", (double) roll, (double) pitch, (double) yaw);
 		double yd[3]={(double) roll, (double) pitch, (double)  yaw};
 
-		double uMin[4]={-0.3491,-0.3491,-0.3491,-0.3491};
-		double uMax[4]={0.3491,0.3491,0.3491,0.3491};
+		double uMin[4]={-1.0,-1.0,-1.0,-1.0};
+		double uMax[4]={1.0,1.0,1.0,1.0};
 		double u[4];
 		// double z;
 		// double iters;
@@ -575,9 +575,32 @@ bool MixingOutput::update()
 		// PX4_INFO("dir_alloc_sim time: %ld \n", (timestamp_ca_end - timestamp_ca_start) ); //sitl
 	}
 
-	/* the output limit call takes care of out of band errors, NaN and constrains */
+	/* the output limit call takes care of out of band errors, NaN and constrains */ // [-1, 1] -> [min_rad, max_rad] == [min_pwm, max_pwm]
 	output_limit_calc(_throttle_armed, armNoThrottle(), mixed_num_outputs, _reverse_output_mask,
 			  _disarmed_value, _min_value, _max_value, outputs, _current_output_value, &_output_limit);
+
+	if (_rc_channels_sub.update(&_rc_channels))
+	{
+		// PX4_INFO("Hello rc! 7:%f. 9:%f. 10:%f. 13:%f.", (double) _rc_channels.channels[6], (double) _rc_channels.channels[8], (double) _rc_channels.channels[9], (double) _rc_channels.channels[12]);
+		if (_rc_channels.channels[6] > -0.5f && _rc_channels.channels[6] < 0.5f)
+		{
+			_disturb_flag = false;
+			// PX4_INFO("no sidturb !");
+		}
+		else
+		{
+			_disturb_flag = true;
+			// PX4_INFO("sidturb !");
+		}
+	}
+
+	// if (_disturb_flag)
+	if (_param_use_sin_speed.get()==1 || _param_use_roll_disturb.get()==1)
+	{
+		// PX4_INFO("_current_output_value: %f", (double) _current_output_value[2]);
+		_current_output_value[2] = _current_output_value[2] + _param_servo_disturb.get() / 0.3491f * 180;
+		// PX4_INFO("_current_output_value: %f", (double) _current_output_value[2]);
+	}
 
 	/* overwrite outputs in case of force_failsafe with _failsafe_value values */
 	if (_armed.force_failsafe) {
@@ -720,6 +743,12 @@ MixingOutput::setAndPublishActuatorOutputs(unsigned num_outputs, actuator_output
 	//update _last_output_value
 	for (size_t i = 0; i < num_outputs; ++i) {
 		_last_output_value[i] = _current_output_value[i];
+	}
+	if (_param_use_sin_speed.get()==1 || _param_use_roll_disturb.get()==1)
+	{
+		// PX4_INFO("_current_output_value: %f", (double) _current_output_value[2]);
+		_last_output_value[2] = _last_output_value[2] - _param_servo_disturb.get() / 0.3491f * 180;
+		// PX4_INFO("_current_output_value: %f", (double) _current_output_value[2]);
 	}
 }
 

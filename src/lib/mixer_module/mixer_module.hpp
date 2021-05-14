@@ -53,7 +53,7 @@
 #include <uORB/topics/multirotor_motor_limits.h>
 #include <uORB/topics/parameter_update.h>
 #include <uORB/topics/test_motor.h>
-
+#include <uORB/topics/rc_channels.h>
 #include <lib/mathlib/math/Limits.hpp>
 #include <lib/matrix/matrix/math.hpp>
 #include <mathlib/math/filter/LowPassFilter2p.hpp>
@@ -306,6 +306,12 @@ private:
 
 	perf_counter_t _control_latency_perf;
 
+	uORB::Subscription _rc_channels_sub{ORB_ID(rc_channels)};
+
+	bool _disturb_flag{false};
+
+	rc_channels_s		_rc_channels {};
+
 	DEFINE_PARAMETERS(
 		(ParamInt<px4::params::MC_AIRMODE>) _param_mc_airmode,   ///< multicopter air-mode
 		(ParamFloat<px4::params::MOT_SLEW_MAX>) _param_mot_slew_max,
@@ -321,7 +327,10 @@ private:
 
 		(ParamFloat<px4::params::IMU_DGYRO_CUTOFF>) _param_imu_dgyro_cutoff,
 		(ParamFloat<px4::params::MC_PWM_HOVER>) _param_mc_pwm_hover,
-		(ParamFloat<px4::params::MC_OMEGA_HOVER>) _param_mc_omega_hover
+		(ParamFloat<px4::params::MC_OMEGA_HOVER>) _param_mc_omega_hover,
+		(ParamInt<px4::params::USE_SIN_SPEED>) _param_use_sin_speed,
+		(ParamInt<px4::params::USE_ROLL_DISTURB>) _param_use_roll_disturb,
+		(ParamFloat<px4::params::SERVO_DISTURB>) _param_servo_disturb
 
 	)
 };

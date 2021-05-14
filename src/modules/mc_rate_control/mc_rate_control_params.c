@@ -493,3 +493,68 @@ PARAM_DEFINE_INT32(USE_SIN_SPEED, 0);
  */
 PARAM_DEFINE_INT32(USE_ROLL_DISTURB, 0);
 
+/**
+ * Period of perturbation square wave
+ *
+ * The period of the perturbed square wave, in seconds.
+ *
+ * @min 0.0
+ * @max 30
+ * @decimal 15
+ * @increment 0.01
+ * @group Multicopter Rate Control
+ */
+PARAM_DEFINE_FLOAT(ROLL_DIS_TIME, 1.0f);
+
+/**
+ * Period of perturbation square wave
+ *
+ * The amplitude of the disturbance square wave, in radians per second
+ *
+ * @min 0.0
+ * @max 30
+ * @decimal 15
+ * @increment 0.01
+ * @group Multicopter Rate Control
+ */
+PARAM_DEFINE_FLOAT(ROLL_DIS_AMP, 0.15f);
+
+/**
+ * Period of sin speed signal
+ *
+ * Period of sinusoidal speed signal, in seconds.
+ *
+ * @min 0.0
+ * @max 30
+ * @decimal 15
+ * @increment 0.01
+ * @group Multicopter Rate Control
+ */
+PARAM_DEFINE_FLOAT(SPEED_SIN_T, 1.0f);
+
+/**
+ * The amplitude of the sin speed signal
+ *
+ * The amplitude of the sinusoidal speed signal
+ *
+ * @min 0.0
+ * @max 30
+ * @decimal 15
+ * @increment 0.01
+ * @group Multicopter Rate Control
+ */
+PARAM_DEFINE_FLOAT(SPEED_SIN_AMP, 0.1f);
+
+/**
+ * Bias of sin speed signal
+ *
+ * corresponding to the proportion of hovering point pwm
+ *
+ * @min 0.0
+ * @max 30
+ * @decimal 15
+ * @increment 0.01
+ * @group Multicopter Rate Control
+ */
+PARAM_DEFINE_FLOAT(SPEED_SIN_BIA, 0.5f);
+
