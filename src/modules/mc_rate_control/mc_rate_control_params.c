@@ -504,7 +504,7 @@ PARAM_DEFINE_INT32(USE_ROLL_DISTURB, 0);
  * @increment 0.01
  * @group Multicopter Rate Control
  */
-PARAM_DEFINE_FLOAT(ROLL_DIS_TIME, 1.0f);
+PARAM_DEFINE_FLOAT(ROLL_DIS_TIME, 0.4f);
 
 /**
  * Period of perturbation square wave
@@ -517,7 +517,7 @@ PARAM_DEFINE_FLOAT(ROLL_DIS_TIME, 1.0f);
  * @increment 0.01
  * @group Multicopter Rate Control
  */
-PARAM_DEFINE_FLOAT(ROLL_DIS_AMP, 0.15f);
+PARAM_DEFINE_FLOAT(ROLL_DIS_AMP, 0.08);
 
 /**
  * Period of sin speed signal

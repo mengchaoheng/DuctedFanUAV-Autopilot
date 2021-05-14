@@ -49,25 +49,25 @@ void IndiControl::setParams(const Vector3f &P, const float k_cv, const float k_v
 
 void IndiControl::init()
 {
-	_I.setZero();
-	_I(0, 0) = _I_x;
-	_I(1, 1) = _I_y;
-	_I(2, 2) = _I_z;
-	_I_inv.setZero();
-	_I_inv(0, 0) = 1/_I_x;
-	_I_inv(1, 1) = 1/_I_y;
-	_I_inv(2, 2) = 1/_I_z;
+	_H_1.setZero();
+	_H_1(0, 0) = _k_cv*_k_v*_k_v*2.f*_L_1/_I_x;
+	_H_1(1, 1) = _k_cv*_k_v*_k_v*2.f*_L_1/_I_y;
+	_H_1(2, 2) = _k_cv*_k_v*_k_v*4.f*_L_2/_I_z;
 
+	_H_inv.setZero();
+	_H_inv(0, 0) = 1.f/_H_1(0, 0);
+	_H_inv(1, 1) = 1.f/_H_1(1, 1);
+	_H_inv(2, 2) = 1.f/_H_1(2, 2);
 
-	_L.setZero();
-	_L(0, 0)=-_L_1;
-	_L(0, 2)=_L_1;
-	_L(1, 1)=-_L_1;
-	_L(1, 3)=_L_1;
-	_L(2, 0)=_L_2;
-	_L(2, 1)=_L_2;
-	_L(2, 2)=_L_2;
-	_L(2, 3)=_L_2;
+	_B.setZero();
+	_B(0, 0)=-0.5f;
+	_B(0, 2)=0.5f;
+	_B(1, 1)=-0.5f;
+	_B(1, 3)=0.5f;
+	_B(2, 0)=0.25f;
+	_B(2, 1)=0.25f;
+	_B(2, 2)=0.25f;
+	_B(2, 3)=0.25f;
 
 	_H_3(2) = _I_prop/_I_z;
 }
@@ -88,15 +88,16 @@ Vector3f IndiControl::update(const Vector3f &rate, const Vector3f &rate_sp, cons
 
 		Vector3f H_2{-_I_prop*rate(2)/_I_x, _I_prop*rate(1)/_I_y, 0.f};
 
-		Matrix<float, 3, 4> Bdelta_0=_L * _k_cv*_k_v*_k_v*actuator_outputs_value.propeller_omega_0*actuator_outputs_value.propeller_omega_0;
-		Vector3f T = (_I_inv * (_L * 2*_k_cv*_k_v*_k_v*actuator_outputs_value.propeller_omega_0) * delta_0 + H_2) * (actuator_outputs_value.propeller_omega_d-actuator_outputs_value.propeller_omega_0) + _H_3*(actuator_outputs_value.dpropeller_omega_d-actuator_outputs_value.dpropeller_omega_0);
+		Vector3f T = (2.f * _H_1 * _B * delta_0 + H_2) * (actuator_outputs_value.propeller_omega_d - actuator_outputs_value.propeller_omega_0) + _H_3*(actuator_outputs_value.dpropeller_omega_d - actuator_outputs_value.dpropeller_omega_0);
 
-		Nu_i=Bdelta_0*delta_0 - _I*(angular_accel+T);
+		Nu_i = _B * delta_0 - _H_inv / (actuator_outputs_value.propeller_omega_0 * actuator_outputs_value.propeller_omega_0) * (angular_accel + T);
 		// PX4_INFO("Nu_i of INDI is: roll: %f, pitch: %f, yaw: %f \n", (double) Nu_i(0), (double) Nu_i(1), (double) Nu_i(2));
 	}
-
-	Vector3f Nu_f=_I*_gain_p.emult(rate_error);
-	// Vector3f K = _I*_gain_p;
+	Vector3f K = _H_inv / (actuator_outputs_value.propeller_omega_0 * actuator_outputs_value.propeller_omega_0) * _gain_p;
+	// K(0) = PX4_ISFINITE(K(0)) ? K(0) : 0.0f;
+	// K(1) = PX4_ISFINITE(K(1)) ? K(1) : 0.0f;
+	// K(2) = PX4_ISFINITE(K(2)) ? K(2) : 0.0f;
+	Vector3f Nu_f= K.emult(rate_error);
 	// PX4_INFO("K of INDI is: roll: %f, pitch: %f, yaw: %f \n", (double) K(0), (double) K(1), (double) K(2));
 
 	return Nu_f;

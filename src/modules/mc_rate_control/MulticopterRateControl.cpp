@@ -281,18 +281,18 @@ MulticopterRateControl::Run()
 			}
 		}
 		// if(_square_roll_flag)
-		// if (_param_use_roll_disturb.get()==1)
-		// {
-		// 	if (!_square_roll_flag_prev)
-		// 		_add_disturb_time = hrt_absolute_time();
+		if (_param_use_roll_disturb.get()==1)
+		{
+			if (!_square_roll_flag_prev)
+				_add_disturb_time = hrt_absolute_time();
 
-		// 	if (hrt_elapsed_time(&_add_disturb_time) / 1e6f < _param_roll_disturb_time.get())
-		// 		_rates_sp(0) = _param_roll_disturb_amplitude.get();
-		// 	else if (hrt_elapsed_time(&_add_disturb_time) / 1e6f > _param_roll_disturb_time.get() && hrt_elapsed_time(&_add_disturb_time) / 1e6f < 2.f * _param_roll_disturb_time.get())
-		// 		_rates_sp(0) = -_param_roll_disturb_amplitude.get();
+			if (hrt_elapsed_time(&_add_disturb_time) / 1e6f < _param_roll_disturb_time.get())
+				_rates_sp(0) = _param_roll_disturb_amplitude.get();
+			else if (hrt_elapsed_time(&_add_disturb_time) / 1e6f > _param_roll_disturb_time.get() && hrt_elapsed_time(&_add_disturb_time) / 1e6f < 2.f * _param_roll_disturb_time.get())
+				_rates_sp(0) = -_param_roll_disturb_amplitude.get();
 
-		// 	// PX4_INFO("_square_roll_flag, _rates_sp: %f", (double) _rates_sp(0));
-		// }
+			// PX4_INFO("_square_roll_flag, _rates_sp: %f", (double) _rates_sp(0));
+		}
 
 		// if (_sin_speed_flag)
 		if (_param_use_sin_speed.get()==1)
@@ -300,7 +300,7 @@ MulticopterRateControl::Run()
 			if (!_sin_speed_flag_prev)
 				_add_sin_time = hrt_absolute_time();
 
-			_thrust_sp=_param_speed_sin_bia.get() + _param_speed_sin_amp.get() *sin((2.f*3.141592653f/_param_speed_sin_t.get()) * hrt_elapsed_time(&_add_sin_time) / 1e6f);//nuttx: 0.71. SITL: 0.5
+			_thrust_sp=_param_speed_sin_bia.get() + _param_speed_sin_amp.get() *sin(  (2.f*3.141592653f/_param_speed_sin_t.get()) * hrt_elapsed_time(&_add_sin_time) / 1e6f);//nuttx: 0.71. SITL: 0.5
 			// PX4_INFO("_sin_speed_flag, _thrust_sp: %f, time is: %f", (double) _thrust_sp, (double) (hrt_elapsed_time(&_add_sin_time) / 1e6f));
 		}
 		// _sin_speed_flag_prev = _sin_speed_flag;

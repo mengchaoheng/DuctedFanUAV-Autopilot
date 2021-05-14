@@ -98,4 +98,15 @@ PARAM_DEFINE_FLOAT(MC_OMEGA_HOVER, 1225.f);
  * @max 0.34
  * @group Mixer Output
  */
-PARAM_DEFINE_FLOAT(SERVO_DISTURB, 0.05f);
+PARAM_DEFINE_FLOAT(SERVO_DISTURB, 0.02f);
+
+/**
+ * USE_SERVO_DIS
+ *
+ * use control allocation or not.
+ *
+ * @value 0 not
+ * @value 1 use CA
+ * @group Mixer Output
+ */
+PARAM_DEFINE_INT32(USE_SERVO_DIS, 0);

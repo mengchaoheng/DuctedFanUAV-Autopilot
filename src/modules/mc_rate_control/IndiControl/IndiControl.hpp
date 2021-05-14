@@ -45,6 +45,7 @@
 #include <lib/mixer/MultirotorMixer/MultirotorMixer.hpp>
 #include <uORB/topics/rate_ctrl_status.h>
 #include <uORB/topics/actuator_outputs_value.h>
+#include <px4_platform_common/defines.h>
 
 class IndiControl
 {
@@ -83,12 +84,13 @@ private:
 	float _I_x{0.01149f};
 	float _I_y{0.01153f};
 	float _I_z{0.00487f};
-	matrix::Matrix<float, 3, 3> _I;
-	matrix::Matrix<float, 3, 3> _I_inv;
+
+	matrix::Matrix<float, 3, 3> _H_1;
+	matrix::Matrix<float, 3, 3> _H_inv;
 
 	float _L_1{0.148f};
 	float _L_2{0.066f};
-	matrix::Matrix<float, 3, 4> _L;
+	matrix::Matrix<float, 3, 4> _B;
 
 	float _k_cv{0.0073f};
 	float _k_v{0.0169f};	//MC_OMEGA_2_WIND

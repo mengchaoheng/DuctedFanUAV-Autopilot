@@ -310,6 +310,11 @@ private:
 
 	bool _disturb_flag{false};
 
+	// bool _disturb_flag_prev{false};
+	bool _use_roll_disturb_prev{false};
+	bool _use_sin_speed_prev{false};
+	bool _use_servo_dis_prev{false};
+
 	rc_channels_s		_rc_channels {};
 
 	DEFINE_PARAMETERS(
@@ -320,6 +325,7 @@ private:
 		(ParamInt<px4::params::DUCTEDFAN_MID1>) _param_ductedfan_mid1,
 		(ParamInt<px4::params::DUCTEDFAN_MID2>) _param_ductedfan_mid2,
 		(ParamInt<px4::params::USE_CA>) _param_use_control_alloc,
+		(ParamInt<px4::params::USE_SERVO_DIS>) _param_use_servo_dis,
 		(ParamFloat<px4::params::IMU_GYRO_CUTOFF>) _param_imu_gyro_cutoff,
 		(ParamFloat<px4::params::IMU_GYRO_NF_FREQ>) _param_imu_gyro_nf_freq,
 		(ParamFloat<px4::params::IMU_GYRO_NF_BW>) _param_imu_gyro_nf_bw,
