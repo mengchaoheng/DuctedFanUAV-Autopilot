@@ -124,10 +124,10 @@ private:
 	bool _maybe_landed{true};
 	bool _actuator_outputs_sub_flag{false};
 
-	bool _sin_speed_flag{false};
-	bool _square_roll_flag{false};
-	bool _sin_speed_flag_prev{false};
-	bool _square_roll_flag_prev{false};
+	bool _use_sin_ref{false};
+	bool _use_square_ref{false};
+	bool _use_sin_ref_prev{false};
+	bool _use_square_ref_prev{false};
 	hrt_abstime _add_disturb_time;
 	hrt_abstime _add_sin_time;
 
@@ -193,11 +193,11 @@ private:
 		(ParamFloat<px4::params::MC_INDI_PITCH_P>) _param_mc_indipitch_p,
 		(ParamFloat<px4::params::MC_INDI_YAW_P>) _param_mc_indiyaw_p,
 		(ParamInt<px4::params::USE_INDI>) _param_use_indi,
-		(ParamInt<px4::params::USE_SIN_SPEED>) _param_use_sin_speed,
-		(ParamInt<px4::params::USE_ROLL_DISTURB>) _param_use_roll_disturb,
+		(ParamInt<px4::params::USE_SIN_REF>) _param_use_sin_ref,
+		(ParamInt<px4::params::USE_SQUARE_REF>) _param_use_square_ref,
 		(ParamInt<px4::params::USE_CA>) _param_use_control_alloc,
-		(ParamFloat<px4::params::ROLL_DIS_TIME>) _param_roll_disturb_time,
-		(ParamFloat<px4::params::ROLL_DIS_AMP>) _param_roll_disturb_amplitude,
+		(ParamFloat<px4::params::SQUARE_REF_TIME>) _param_square_ref_time,
+		(ParamFloat<px4::params::SQUARE_REF_AMP>) _param_square_ref_amplitude,
 		(ParamFloat<px4::params::SPEED_SIN_T>) _param_speed_sin_t,
 		(ParamFloat<px4::params::SPEED_SIN_AMP>) _param_speed_sin_amp,
 		(ParamFloat<px4::params::SPEED_SIN_BIA>) _param_speed_sin_bia

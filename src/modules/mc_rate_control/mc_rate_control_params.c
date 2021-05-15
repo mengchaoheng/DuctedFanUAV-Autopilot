@@ -472,7 +472,7 @@ PARAM_DEFINE_FLOAT(MC_INDI_YAW_P, 15.0f);
 PARAM_DEFINE_INT32(USE_INDI, 0);
 
 /**
- * USE_SIN_SPEED
+ * USE_SIN_REF
  *
  * add sin speed.
  *
@@ -480,18 +480,18 @@ PARAM_DEFINE_INT32(USE_INDI, 0);
  * @value 1 yes
  * @group Multicopter Rate Control
  */
-PARAM_DEFINE_INT32(USE_SIN_SPEED, 0);
+PARAM_DEFINE_INT32(USE_SIN_REF, 0);
 
 /**
- * USE_ROLL_DISTURB
+ * USE_SQUARE_REF
  *
- * add square roll.
+ * add square roll ref.
  *
  * @value 0 not
  * @value 1 yes
  * @group Multicopter Rate Control
  */
-PARAM_DEFINE_INT32(USE_ROLL_DISTURB, 0);
+PARAM_DEFINE_INT32(USE_SQUARE_REF, 0);
 
 /**
  * Period of perturbation square wave
@@ -504,7 +504,7 @@ PARAM_DEFINE_INT32(USE_ROLL_DISTURB, 0);
  * @increment 0.01
  * @group Multicopter Rate Control
  */
-PARAM_DEFINE_FLOAT(ROLL_DIS_TIME, 0.4f);
+PARAM_DEFINE_FLOAT(SQUARE_REF_TIME, 0.4f);
 
 /**
  * Period of perturbation square wave
@@ -517,7 +517,7 @@ PARAM_DEFINE_FLOAT(ROLL_DIS_TIME, 0.4f);
  * @increment 0.01
  * @group Multicopter Rate Control
  */
-PARAM_DEFINE_FLOAT(ROLL_DIS_AMP, 0.08);
+PARAM_DEFINE_FLOAT(SQUARE_REF_AMP, 0.08);
 
 /**
  * Period of sin speed signal

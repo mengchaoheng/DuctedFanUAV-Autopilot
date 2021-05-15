@@ -90,7 +90,7 @@ PARAM_DEFINE_FLOAT(MC_PWM_HOVER, 1500.f);
 PARAM_DEFINE_FLOAT(MC_OMEGA_HOVER, 1225.f);
 
 /**
- * Servo disturbance, unit radian
+ * Servo 1 disturbance, unit radian
  *
  * radian rad
  *
@@ -98,7 +98,40 @@ PARAM_DEFINE_FLOAT(MC_OMEGA_HOVER, 1225.f);
  * @max 0.34
  * @group Mixer Output
  */
-PARAM_DEFINE_FLOAT(SERVO_DISTURB, 0.02f);
+PARAM_DEFINE_FLOAT(SERVO1_DISTURB, 0.02f);
+
+/**
+ * Servo 2 disturbance, unit radian
+ *
+ * radian rad
+ *
+ * @min 0
+ * @max 0.34
+ * @group Mixer Output
+ */
+PARAM_DEFINE_FLOAT(SERVO2_DISTURB, 0.02f);
+
+/**
+ * Servo 3 disturbance, unit radian
+ *
+ * radian rad
+ *
+ * @min 0
+ * @max 0.34
+ * @group Mixer Output
+ */
+PARAM_DEFINE_FLOAT(SERVO3_DISTURB, 0.02f);
+
+/**
+ * Servo 4 disturbance, unit radian
+ *
+ * radian rad
+ *
+ * @min 0
+ * @max 0.34
+ * @group Mixer Output
+ */
+PARAM_DEFINE_FLOAT(SERVO4_DISTURB, 0.02f);
 
 /**
  * USE_SERVO_DIS
@@ -110,3 +143,14 @@ PARAM_DEFINE_FLOAT(SERVO_DISTURB, 0.02f);
  * @group Mixer Output
  */
 PARAM_DEFINE_INT32(USE_SERVO_DIS, 0);
+
+/**
+ * USE_DIS_SAME
+ *
+ * Simultaneously add Servo and roll disturbance or not
+ *
+ * @value 0 not
+ * @value 1 use the same time
+ * @group Mixer Output
+ */
+PARAM_DEFINE_INT32(USE_DIS_SAME, 0);

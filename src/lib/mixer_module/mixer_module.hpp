@@ -309,11 +309,18 @@ private:
 	uORB::Subscription _rc_channels_sub{ORB_ID(rc_channels)};
 
 	bool _disturb_flag{false};
-
-	// bool _disturb_flag_prev{false};
-	bool _use_roll_disturb_prev{false};
-	bool _use_sin_speed_prev{false};
+	bool _disturb_flag_prev{false};
+	bool _use_square_ref_prev{false};
+	bool _use_sin_ref_prev{false};
 	bool _use_servo_dis_prev{false};
+	uint16_t pwm_min3{PWM_DEFAULT_MIN};
+	uint16_t pwm_min4{PWM_DEFAULT_MIN};
+	uint16_t pwm_min5{PWM_DEFAULT_MIN};
+	uint16_t pwm_min6{PWM_DEFAULT_MIN};
+	uint16_t pwm_max3{PWM_DEFAULT_MAX};
+	uint16_t pwm_max4{PWM_DEFAULT_MAX};
+	uint16_t pwm_max5{PWM_DEFAULT_MAX};
+	uint16_t pwm_max6{PWM_DEFAULT_MAX};
 
 	rc_channels_s		_rc_channels {};
 
@@ -334,9 +341,22 @@ private:
 		(ParamFloat<px4::params::IMU_DGYRO_CUTOFF>) _param_imu_dgyro_cutoff,
 		(ParamFloat<px4::params::MC_PWM_HOVER>) _param_mc_pwm_hover,
 		(ParamFloat<px4::params::MC_OMEGA_HOVER>) _param_mc_omega_hover,
-		(ParamInt<px4::params::USE_SIN_SPEED>) _param_use_sin_speed,
-		(ParamInt<px4::params::USE_ROLL_DISTURB>) _param_use_roll_disturb,
-		(ParamFloat<px4::params::SERVO_DISTURB>) _param_servo_disturb
+		(ParamInt<px4::params::USE_SIN_REF>) _param_use_sin_ref,
+		(ParamInt<px4::params::USE_SQUARE_REF>) _param_use_square_ref,
+		(ParamFloat<px4::params::SERVO1_DISTURB>) _param_servo1_disturb,
+		(ParamFloat<px4::params::SERVO2_DISTURB>) _param_servo2_disturb,
+		(ParamFloat<px4::params::SERVO3_DISTURB>) _param_servo3_disturb,
+		(ParamFloat<px4::params::SERVO4_DISTURB>) _param_servo4_disturb,
+		(ParamInt<px4::params::PWM_MAIN_MIN3>) _param_pwm_min3,
+		(ParamInt<px4::params::PWM_MAIN_MIN4>) _param_pwm_min4,
+		(ParamInt<px4::params::PWM_MAIN_MIN5>) _param_pwm_min5,
+		(ParamInt<px4::params::PWM_MAIN_MIN6>) _param_pwm_min6,
+
+		(ParamInt<px4::params::PWM_MAIN_MAX3>) _param_pwm_max3,
+		(ParamInt<px4::params::PWM_MAIN_MAX4>) _param_pwm_max4,
+		(ParamInt<px4::params::PWM_MAIN_MAX5>) _param_pwm_max5,
+		(ParamInt<px4::params::PWM_MAIN_MAX6>) _param_pwm_max6,
+		(ParamInt<px4::params::USE_DIS_SAME>) _param_use_dis_same
 
 	)
 };

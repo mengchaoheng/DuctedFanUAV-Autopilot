@@ -253,20 +253,20 @@ MulticopterRateControl::Run()
 			// PX4_INFO("Hello rc! 7:%f. 9:%f. 10:%f. 13:%f.", (double) _rc_channels.channels[6], (double) _rc_channels.channels[8], (double) _rc_channels.channels[9], (double) _rc_channels.channels[12]);
 			if (_rc_channels.channels[6] < -0.5f)
 			{
-				_sin_speed_flag = true;
-				_square_roll_flag = false;
+				_use_sin_ref = true;
+				_use_square_ref = false;
 				// PX4_INFO("_sin_speed_flag !");
 			}
 			else if (_rc_channels.channels[6] > 0.5f)
 			{
-				_sin_speed_flag = false;
-				_square_roll_flag = true;
+				_use_sin_ref = false;
+				_use_square_ref = true;
 				// PX4_INFO("_square_cs_flag !");
 			}
 			else
 			{
-				_sin_speed_flag = false;
-				_square_roll_flag = false;
+				_use_sin_ref = false;
+				_use_square_ref = false;
 			}
 
 			if (_rc_channels.channels[12] > 0.f)
@@ -280,35 +280,30 @@ MulticopterRateControl::Run()
 				// PX4_INFO("PID !");
 			}
 		}
-		// if(_square_roll_flag)
-		if (_param_use_roll_disturb.get()==1)
+		if (_use_square_ref || _param_use_square_ref.get()==1)
 		{
-			if (!_square_roll_flag_prev)
+			if (!_use_square_ref_prev)
 				_add_disturb_time = hrt_absolute_time();
 
-			if (hrt_elapsed_time(&_add_disturb_time) / 1e6f < _param_roll_disturb_time.get())
-				_rates_sp(0) = _param_roll_disturb_amplitude.get();
-			else if (hrt_elapsed_time(&_add_disturb_time) / 1e6f > _param_roll_disturb_time.get() && hrt_elapsed_time(&_add_disturb_time) / 1e6f < 2.f * _param_roll_disturb_time.get())
-				_rates_sp(0) = -_param_roll_disturb_amplitude.get();
+			if (hrt_elapsed_time(&_add_disturb_time) / 1e6f < _param_square_ref_time.get())
+				_rates_sp(0) = _param_square_ref_amplitude.get();
+			else if (hrt_elapsed_time(&_add_disturb_time) / 1e6f > _param_square_ref_time.get() && hrt_elapsed_time(&_add_disturb_time) / 1e6f < 2.f * _param_square_ref_time.get())
+				_rates_sp(0) = -_param_square_ref_amplitude.get();
 
 			// PX4_INFO("_square_roll_flag, _rates_sp: %f", (double) _rates_sp(0));
 		}
-
-		// if (_sin_speed_flag)
-		if (_param_use_sin_speed.get()==1)
+		if (_use_sin_ref || _param_use_sin_ref.get()==1)
 		{
-			if (!_sin_speed_flag_prev)
+			if (!_use_sin_ref_prev)
 				_add_sin_time = hrt_absolute_time();
 
 			_thrust_sp=_param_speed_sin_bia.get() + _param_speed_sin_amp.get() *sin(  (2.f*3.141592653f/_param_speed_sin_t.get()) * hrt_elapsed_time(&_add_sin_time) / 1e6f);//nuttx: 0.71. SITL: 0.5
 			// PX4_INFO("_sin_speed_flag, _thrust_sp: %f, time is: %f", (double) _thrust_sp, (double) (hrt_elapsed_time(&_add_sin_time) / 1e6f));
+			// PX4_INFO("_thrust_sp: %f", (double) _thrust_sp);
 		}
-		// _sin_speed_flag_prev = _sin_speed_flag;
-		// _square_roll_flag_prev = _square_roll_flag;
+		_use_sin_ref_prev = _use_sin_ref ||  _param_use_sin_ref.get();
+		_use_square_ref_prev = _use_square_ref || _param_use_square_ref.get();
 
-		_sin_speed_flag_prev = _param_use_sin_speed.get();
-		_square_roll_flag_prev = _param_use_roll_disturb.get();
-		// PX4_INFO("_thrust_sp: %f", (double) _thrust_sp);
 
 
 		// run the rate controller
@@ -334,20 +329,27 @@ MulticopterRateControl::Run()
 			Vector3f Nu_i;
 			Vector3f att_control;
 			// run rate controller
-			// if (_indi_flag)	//
-			if (_param_use_indi.get() == 0)
+			if ( _indi_flag || _param_use_indi.get() == 1 )
 			{
-				att_control = _rate_control.update(rates, _rates_sp, angular_accel, dt, _maybe_landed || _landed);
-				// PX4_INFO("PID");
+				if (_maybe_landed || _landed)
+				{
+					att_control = _rate_control.update(rates, _rates_sp, angular_accel, dt, _maybe_landed || _landed);
+					// PX4_INFO("_landed PID");
+				}
+				else
+				{
+					Vector3f att_control_p = _indi_control.update(rates, _rates_sp, angular_accel, dt, actuator_outputs_value, Nu_i, _maybe_landed || _landed);
+					if (_param_use_control_alloc.get() == 1)
+						att_control = att_control_p;
+					else
+						att_control = att_control_p + Nu_i;
+					// PX4_INFO("INDI");
+				}
 			}
 			else
 			{
-				Vector3f att_control_p = _indi_control.update(rates, _rates_sp, angular_accel, dt, actuator_outputs_value, Nu_i, _maybe_landed || _landed);
-				if (_param_use_control_alloc.get() == 1)
-					att_control = att_control_p;
-				else
-					att_control = att_control_p + Nu_i;
-				// PX4_INFO("INDI");
+				att_control = _rate_control.update(rates, _rates_sp, angular_accel, dt, _maybe_landed || _landed);
+				// PX4_INFO("PID");
 			}
 			indi_feedback_input_s indi_feedback_input{};
 			indi_feedback_input.indi_fb[indi_feedback_input_s::INDEX_ROLL] = PX4_ISFINITE(Nu_i(0)) ? Nu_i(0) : 0.0f;
