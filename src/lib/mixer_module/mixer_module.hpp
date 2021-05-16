@@ -313,6 +313,7 @@ private:
 	bool _use_square_ref_prev{false};
 	bool _use_sin_ref_prev{false};
 	bool _use_servo_dis_prev{false};
+	bool _use_step_ref_prev{false};
 	uint16_t pwm_min3{PWM_DEFAULT_MIN};
 	uint16_t pwm_min4{PWM_DEFAULT_MIN};
 	uint16_t pwm_min5{PWM_DEFAULT_MIN};
@@ -321,6 +322,8 @@ private:
 	uint16_t pwm_max4{PWM_DEFAULT_MAX};
 	uint16_t pwm_max5{PWM_DEFAULT_MAX};
 	uint16_t pwm_max6{PWM_DEFAULT_MAX};
+
+	matrix::Matrix<double, 4, 3> B_inv;
 
 	rc_channels_s		_rc_channels {};
 
@@ -331,7 +334,8 @@ private:
 		(ParamInt<px4::params::MOT_ORDERING>) _param_mot_ordering,
 		(ParamInt<px4::params::DUCTEDFAN_MID1>) _param_ductedfan_mid1,
 		(ParamInt<px4::params::DUCTEDFAN_MID2>) _param_ductedfan_mid2,
-		(ParamInt<px4::params::USE_CA>) _param_use_control_alloc,
+		(ParamInt<px4::params::USE_LPCA>) _param_use_lp_alloc,
+		(ParamInt<px4::params::USE_CA>) _param_use_alloc,
 		(ParamInt<px4::params::USE_SERVO_DIS>) _param_use_servo_dis,
 		(ParamFloat<px4::params::IMU_GYRO_CUTOFF>) _param_imu_gyro_cutoff,
 		(ParamFloat<px4::params::IMU_GYRO_NF_FREQ>) _param_imu_gyro_nf_freq,
@@ -343,6 +347,7 @@ private:
 		(ParamFloat<px4::params::MC_OMEGA_HOVER>) _param_mc_omega_hover,
 		(ParamInt<px4::params::USE_SIN_REF>) _param_use_sin_ref,
 		(ParamInt<px4::params::USE_SQUARE_REF>) _param_use_square_ref,
+		(ParamInt<px4::params::USE_STEP_REF>) _param_mc_use_step_ref,
 		(ParamFloat<px4::params::SERVO1_DISTURB>) _param_servo1_disturb,
 		(ParamFloat<px4::params::SERVO2_DISTURB>) _param_servo2_disturb,
 		(ParamFloat<px4::params::SERVO3_DISTURB>) _param_servo3_disturb,

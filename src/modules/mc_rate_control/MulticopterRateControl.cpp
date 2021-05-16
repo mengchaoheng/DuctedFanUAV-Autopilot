@@ -326,7 +326,7 @@ MulticopterRateControl::Run()
 				}
 			}
 
-			Vector3f Nu_i;
+			Vector3f Nu_i(0.f,0.f,0.f);
 			Vector3f att_control;
 			// run rate controller
 			if ( _indi_flag || _param_use_indi.get() == 1 )

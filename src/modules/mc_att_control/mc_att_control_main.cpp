@@ -240,12 +240,32 @@ MulticopterAttitudeControl::Run()
 	// run controller on attitude updates
 	vehicle_attitude_s v_att;
 
+	if (_rc_channels_sub.update(&_rc_channels))
+	{
+		if (_rc_channels.channels[9] < 0.f)
+		{
+			_step_flag = false;
+			// PX4_INFO("no step !");
+		}
+		else
+		{
+			_step_flag = true;
+			// PX4_INFO("step !");
+		}
+	}
+
 	if (_vehicle_attitude_sub.update(&v_att)) {
 
 		// Check for new attitude setpoint
 		if (_vehicle_attitude_setpoint_sub.updated()) {
 			vehicle_attitude_setpoint_s vehicle_attitude_setpoint;
 			_vehicle_attitude_setpoint_sub.update(&vehicle_attitude_setpoint);
+			if (_step_flag || _param_mc_use_step_ref.get() == 1)
+			{
+				Quatf q_sp = Eulerf(_param_mc_roll_step_amp.get(), _param_mc_pitch_step_amp.get(), vehicle_attitude_setpoint.yaw_body);
+				q_sp.copyTo(vehicle_attitude_setpoint.q_d);
+			}
+
 			_attitude_control.setAttitudeSetpoint(Quatf(vehicle_attitude_setpoint.q_d), vehicle_attitude_setpoint.yaw_sp_move_rate);
 			_thrust_setpoint_body = Vector3f(vehicle_attitude_setpoint.thrust_body);
 		}
@@ -321,6 +341,8 @@ MulticopterAttitudeControl::Run()
 				_man_x_input_filter.reset(0.f);
 				_man_y_input_filter.reset(0.f);
 			}
+
+
 
 			Vector3f rates_sp = _attitude_control.update(q);
 

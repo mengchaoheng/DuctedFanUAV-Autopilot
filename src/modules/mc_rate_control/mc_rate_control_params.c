@@ -504,7 +504,7 @@ PARAM_DEFINE_INT32(USE_SQUARE_REF, 0);
  * @increment 0.01
  * @group Multicopter Rate Control
  */
-PARAM_DEFINE_FLOAT(SQUARE_REF_TIME, 0.4f);
+PARAM_DEFINE_FLOAT(SQUARE_REF_TIME, 0.f);
 
 /**
  * Period of perturbation square wave
@@ -517,7 +517,7 @@ PARAM_DEFINE_FLOAT(SQUARE_REF_TIME, 0.4f);
  * @increment 0.01
  * @group Multicopter Rate Control
  */
-PARAM_DEFINE_FLOAT(SQUARE_REF_AMP, 0.08);
+PARAM_DEFINE_FLOAT(SQUARE_REF_AMP, 0.0);
 
 /**
  * Period of sin speed signal
@@ -543,7 +543,7 @@ PARAM_DEFINE_FLOAT(SPEED_SIN_T, 1.0f);
  * @increment 0.01
  * @group Multicopter Rate Control
  */
-PARAM_DEFINE_FLOAT(SPEED_SIN_AMP, 0.1f);
+PARAM_DEFINE_FLOAT(SPEED_SIN_AMP, 0.f);
 
 /**
  * Bias of sin speed signal

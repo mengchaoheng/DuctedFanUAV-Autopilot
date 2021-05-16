@@ -68,6 +68,17 @@ PARAM_DEFINE_INT32(DUCTEDFAN_MID2, 1500);
 PARAM_DEFINE_INT32(USE_CA, 0);
 
 /**
+ * USE_LPCA
+ *
+ * use LP control allocation or not.
+ *
+ * @value 0 not
+ * @value 1 use LPCA
+ * @group Mixer Output
+ */
+PARAM_DEFINE_INT32(USE_LPCA, 0);
+
+/**
  * PWM_HOVER
  *
  * The PWM value of the hover of the ductedfan.
@@ -98,7 +109,7 @@ PARAM_DEFINE_FLOAT(MC_OMEGA_HOVER, 1225.f);
  * @max 0.34
  * @group Mixer Output
  */
-PARAM_DEFINE_FLOAT(SERVO1_DISTURB, 0.02f);
+PARAM_DEFINE_FLOAT(SERVO1_DISTURB, 0.f);
 
 /**
  * Servo 2 disturbance, unit radian
@@ -109,7 +120,7 @@ PARAM_DEFINE_FLOAT(SERVO1_DISTURB, 0.02f);
  * @max 0.34
  * @group Mixer Output
  */
-PARAM_DEFINE_FLOAT(SERVO2_DISTURB, 0.02f);
+PARAM_DEFINE_FLOAT(SERVO2_DISTURB, 0.f);
 
 /**
  * Servo 3 disturbance, unit radian
@@ -120,7 +131,7 @@ PARAM_DEFINE_FLOAT(SERVO2_DISTURB, 0.02f);
  * @max 0.34
  * @group Mixer Output
  */
-PARAM_DEFINE_FLOAT(SERVO3_DISTURB, 0.02f);
+PARAM_DEFINE_FLOAT(SERVO3_DISTURB, 0.f);
 
 /**
  * Servo 4 disturbance, unit radian
@@ -131,7 +142,7 @@ PARAM_DEFINE_FLOAT(SERVO3_DISTURB, 0.02f);
  * @max 0.34
  * @group Mixer Output
  */
-PARAM_DEFINE_FLOAT(SERVO4_DISTURB, 0.02f);
+PARAM_DEFINE_FLOAT(SERVO4_DISTURB, 0.f);
 
 /**
  * USE_SERVO_DIS

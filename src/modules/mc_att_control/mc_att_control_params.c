@@ -175,3 +175,56 @@ PARAM_DEFINE_FLOAT(MC_RATT_TH, 0.8f);
  * @group Multicopter Position Control
  */
 PARAM_DEFINE_FLOAT(MC_MAN_TILT_TAU, 0.0f);
+
+/**
+ * USE_STEP_REF
+ *
+ * add step roll ref.
+ *
+ * @value 0 not
+ * @value 1 yes
+ * @group Multicopter Rate Control
+ */
+PARAM_DEFINE_INT32(USE_STEP_REF, 0);
+
+/**
+ * roll step amp
+ *
+ * rad
+ *
+ * @unit rad
+ * @min 0.0
+ * @max 0.35
+ * @decimal 2
+ * @increment 0.05
+ * @group Multicopter Attitude Control
+ */
+PARAM_DEFINE_FLOAT(MC_ROLL_AMP, 0.0f);
+
+/**
+ * pitch step amp
+ *
+ * rad
+ *
+ * @unit rad
+ * @min 0.0
+ * @max 0.35
+ * @decimal 2
+ * @increment 0.05
+ * @group Multicopter Attitude Control
+ */
+PARAM_DEFINE_FLOAT(MC_PITCH_AMP, 0.0f);
+
+/**
+ * yaw step amp
+ *
+ * rad.
+ *
+ * @unit rad
+ * @min 0.0
+ * @max 0.35
+ * @decimal 2
+ * @increment 0.05
+ * @group Multicopter Attitude Control
+ */
+PARAM_DEFINE_FLOAT(MC_YAW_AMP, 0.0f);

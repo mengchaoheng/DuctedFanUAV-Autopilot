@@ -99,6 +99,18 @@ _control_latency_perf(perf_alloc(PC_ELAPSED, "control latency"))
 		_notch_filter_actuator[i+1].reset(0);
 		_notch_filter_actuator[i+1].setParameters(250, _param_imu_gyro_nf_freq.get(), _param_imu_gyro_nf_bw.get());
 	}
+	B_inv.setZero();
+	B_inv(0, 0)=-1.0f;
+	B_inv(0, 2)=1.0f;
+
+	B_inv(1, 1)=-1.0f;
+	B_inv(1, 2)=1.0f;
+
+	B_inv(2, 0)=1.0f;
+	B_inv(2, 2)=1.0f;
+
+	B_inv(3, 1)=1.0f;
+	B_inv(3, 2)=1.0f;
 
 
 }
@@ -464,14 +476,16 @@ bool MixingOutput::update()
 	// "outputs" is the value alfter mix, range from [-1, 1]. _current_output_value is pwm value alfter output_limit_calc.
 	// just using in ductedfan
 	// PX4_INFO("dir_alloc_sim:\n");
-	if (_param_use_control_alloc.get() == 1)
+	if (_param_use_alloc.get() == 1)
 	{
+
 		// ye
 		double ye[3]={0.0, 0.0, 0.0};
 		if (_indi_fb_sub.update(&_indi_feedback_input)) {
-			ye[0]=(double) _indi_feedback_input.indi_fb[indi_feedback_input_s::INDEX_ROLL];
-			ye[1]=(double) _indi_feedback_input.indi_fb[indi_feedback_input_s::INDEX_PITCH];
-			ye[2]=(double) _indi_feedback_input.indi_fb[indi_feedback_input_s::INDEX_YAW];
+
+			ye[0]=(double) math::constrain(_indi_feedback_input.indi_fb[indi_feedback_input_s::INDEX_ROLL], -1.f, 1.f);
+			ye[1]=(double) math::constrain(_indi_feedback_input.indi_fb[indi_feedback_input_s::INDEX_PITCH], -1.f, 1.f);
+			ye[2]=(double) math::constrain(_indi_feedback_input.indi_fb[indi_feedback_input_s::INDEX_YAW], -1.f, 1.f);
 			// PX4_INFO("roll: %f, pitch: %f, yaw: %f \n", ye[0], ye[1], ye[2]);
 		}
 		// uint64_t timestamp_ca_start;
@@ -490,65 +504,75 @@ bool MixingOutput::update()
 		// PX4_INFO("rpy:\n");
 		// PX4_INFO("roll: %f, pitch: %f, yaw: %f \n", (double) roll, (double) pitch, (double) yaw);
 		double yd[3]={(double) roll, (double) pitch, (double)  yaw};
-
-		double uMin[4]={-1.0,-1.0,-1.0,-1.0};
-		double uMax[4]={1.0,1.0,1.0,1.0};
 		double u[4];
-		// double z;
-		// double iters;
-
+		double y_all[3] = { ye[0]+yd[0], ye[1]+yd[1],ye[2]+yd[2] };
 		// double d2r=3.141592653/180;
 		// double r2d=180/3.141592653;
 
 
 
-		double u_all[4];
-		double z_all;
-		double iters_all;
-		double y_all[3] = { ye[0]+yd[0], ye[1]+yd[1],ye[2]+yd[2] };
-		dir_alloc_sim(y_all, uMin, uMax, u_all, &z_all, &iters_all);
-		if (z_all>1)
+
+		//inv
+		matrix::Matrix<double, 3, 1> y_desire (y_all);
+		matrix::Matrix<double, 4, 1> u_inv = B_inv * y_desire;
+		for (size_t i = 0; i < 4; i++)
 		{
-			for (size_t i = 0; i < 4; i++)
-			{
-				u[i] = u_all[i];
-			}
-			// PX4_INFO("	dir 1");
+			u[i] =(double) math::constrain((float) u_inv(i,0), -1.f, 1.f);
 		}
-		else
+
+		//dir
+		if (_param_use_lp_alloc.get()==1)
 		{
-			double u_e[4];
-			double z_e;
-			double iters_e;
-			dir_alloc_sim(ye, uMin, uMax, u_e, &z_e, &iters_e);
-			if (z_e>1)
+			double uMin[4]={-1.0,-1.0,-1.0,-1.0};
+			double uMax[4]={1.0,1.0,1.0,1.0};
+			double u_all[4];
+			double z_all;
+			double iters_all;
+			dir_alloc_sim(y_all, uMin, uMax, u_all, &z_all, &iters_all);
+			if (z_all>1)
 			{
-				double uMin_new[4];
-				double uMax_new[4];
 				for (size_t i = 0; i < 4; i++)
 				{
-					uMin_new[i] = uMin[i] - u_e[i];
-					uMax_new[i] = uMax[i] - u_e[i];
+					u[i] = u_all[i];
 				}
-				double u_d[4];
-				double z_d;
-				double iters_d;
-				dir_alloc_sim(yd, uMin_new, uMax_new, u_d, &z_d, &iters_d);
-				for (size_t i = 0; i < 4; i++)
-				{
-					u[i] = u_d[i] + u_e[i];
-				}
-				// PX4_INFO("dir 3");
+				// PX4_INFO("	dir 1");
 			}
 			else
 			{
-				for (size_t i = 0; i < 4; i++)
+				double u_e[4];
+				double z_e;
+				double iters_e;
+				dir_alloc_sim(ye, uMin, uMax, u_e, &z_e, &iters_e);
+				if (z_e>1)
 				{
-					u[i] = u_e[i];
+					double uMin_new[4];
+					double uMax_new[4];
+					for (size_t i = 0; i < 4; i++)
+					{
+						uMin_new[i] = uMin[i] - u_e[i];
+						uMax_new[i] = uMax[i] - u_e[i];
+					}
+					double u_d[4];
+					double z_d;
+					double iters_d;
+					dir_alloc_sim(yd, uMin_new, uMax_new, u_d, &z_d, &iters_d);
+					for (size_t i = 0; i < 4; i++)
+					{
+						u[i] = u_d[i] + u_e[i];
+					}
+					// PX4_INFO("dir 3");
 				}
-				// PX4_INFO("dir 2");
+				else
+				{
+					for (size_t i = 0; i < 4; i++)
+					{
+						u[i] = u_e[i];
+					}
+					// PX4_INFO("dir 2");
+				}
 			}
 		}
+
 
 		// test
 		// dir_alloc_sim(ye, uMin, uMax, u, &z, &iters);
@@ -581,7 +605,8 @@ bool MixingOutput::update()
 		if (_param_use_dis_same.get() == 1)
 		{
 			// PX4_INFO("Hello rc! 7:%f. 9:%f. 10:%f. 13:%f.", (double) _rc_channels.channels[6], (double) _rc_channels.channels[8], (double) _rc_channels.channels[9], (double) _rc_channels.channels[12]);
-			if (_rc_channels.channels[6] > -0.5f && _rc_channels.channels[6] < 0.5f)
+			//if (_rc_channels.channels[6] > -0.5f && _rc_channels.channels[6] < 0.5f)
+			if (_rc_channels.channels[9] < 0.f)
 			{
 				_disturb_flag = false;
 				// PX4_INFO("no sidturb !");
@@ -629,7 +654,8 @@ bool MixingOutput::update()
 
 	if (_param_use_dis_same.get() == 1)
 	{
-		if ((_disturb_flag && !_disturb_flag_prev) || (_param_use_square_ref.get()==1 && !_use_square_ref_prev) || (_param_use_sin_ref.get()==1 && !_use_sin_ref_prev))
+		// if ((_disturb_flag && !_disturb_flag_prev) || (_param_use_square_ref.get()==1 && !_use_square_ref_prev) || (_param_use_sin_ref.get()==1 && !_use_sin_ref_prev))
+		if ((_disturb_flag && !_disturb_flag_prev) || (_param_mc_use_step_ref.get()==1 && !_use_step_ref_prev))
 		{
 			_min_value[2] = pwm_min3 + (abs(_param_servo1_disturb.get()) / 0.3491f) * (pwm_max3 - pwm_min3)/2;
 			_min_value[3] = pwm_min4 + (abs(_param_servo2_disturb.get()) / 0.3491f) * (pwm_max4 - pwm_min4)/2;
@@ -651,7 +677,8 @@ bool MixingOutput::update()
 			// PX4_INFO("the same, use_roll_disturb, change _min_value and _min_value !");
 		}
 
-		if ((!_disturb_flag && _disturb_flag_prev) || (_param_use_square_ref.get()==0 && _use_square_ref_prev) || (_param_use_sin_ref.get()==0 && _use_sin_ref_prev))
+		// if ((!_disturb_flag && _disturb_flag_prev) || (_param_use_square_ref.get()==0 && _use_square_ref_prev) || (_param_use_sin_ref.get()==0 && _use_sin_ref_prev))
+		if ((!_disturb_flag && _disturb_flag_prev) || (_param_mc_use_step_ref.get()==0 && _use_step_ref_prev))
 		{
 			_min_value[2] = pwm_min3;
 			_min_value[3] = pwm_min4;
@@ -672,8 +699,9 @@ bool MixingOutput::update()
 			// PX4_INFO("_max_value[5]: %f", (double) _max_value[5]);
 			// PX4_INFO("the same, not use_roll_disturb, restore _min_value and _min_value !");
 		}
-		_use_square_ref_prev = _param_use_square_ref.get();
-		_use_sin_ref_prev = _param_use_sin_ref.get();
+		// _use_square_ref_prev = _param_use_square_ref.get();
+		// _use_sin_ref_prev = _param_use_sin_ref.get();
+		_use_step_ref_prev = _param_mc_use_step_ref.get();
 		_disturb_flag_prev = _disturb_flag;
 	}
 	else
@@ -689,15 +717,15 @@ bool MixingOutput::update()
 			_max_value[3] = pwm_max4 - (abs(_param_servo2_disturb.get()) / 0.3491f) * (pwm_max4 - pwm_min4)/2;
 			_max_value[4] = pwm_max5 - (abs(_param_servo3_disturb.get()) / 0.3491f) * (pwm_max5 - pwm_min5)/2;
 			_max_value[5] = pwm_max6 - (abs(_param_servo4_disturb.get()) / 0.3491f) * (pwm_max6 - pwm_min6)/2;
-			// PX4_INFO("_min_value[2]: %f", (double) _min_value[2]);
-			// PX4_INFO("_min_value[3]: %f", (double) _min_value[3]);
-			// PX4_INFO("_min_value[4]: %f", (double) _min_value[4]);
-			// PX4_INFO("_min_value[5]: %f", (double) _min_value[5]);
-			// PX4_INFO("_max_value[2]: %f", (double) _max_value[2]);
-			// PX4_INFO("_max_value[3]: %f", (double) _max_value[3]);
-			// PX4_INFO("_max_value[4]: %f", (double) _max_value[4]);
-			// PX4_INFO("_max_value[5]: %f", (double) _max_value[5]);
-			// PX4_INFO("single, use_roll_disturb, change _min_value and _min_value !");
+			PX4_INFO("_min_value[2]: %f", (double) _min_value[2]);
+			PX4_INFO("_min_value[3]: %f", (double) _min_value[3]);
+			PX4_INFO("_min_value[4]: %f", (double) _min_value[4]);
+			PX4_INFO("_min_value[5]: %f", (double) _min_value[5]);
+			PX4_INFO("_max_value[2]: %f", (double) _max_value[2]);
+			PX4_INFO("_max_value[3]: %f", (double) _max_value[3]);
+			PX4_INFO("_max_value[4]: %f", (double) _max_value[4]);
+			PX4_INFO("_max_value[5]: %f", (double) _max_value[5]);
+			PX4_INFO("single, use_roll_disturb, change _min_value and _min_value !");
 		}
 		if ((!_disturb_flag && _disturb_flag_prev) || (_param_use_servo_dis.get()==0 && _use_servo_dis_prev))
 		{
@@ -710,15 +738,15 @@ bool MixingOutput::update()
 			_max_value[3] = pwm_max4;
 			_max_value[4] = pwm_max5;
 			_max_value[5] = pwm_max6;
-			// PX4_INFO("_min_value[2]: %f", (double) _min_value[2]);
-			// PX4_INFO("_min_value[3]: %f", (double) _min_value[3]);
-			// PX4_INFO("_min_value[4]: %f", (double) _min_value[4]);
-			// PX4_INFO("_min_value[5]: %f", (double) _min_value[5]);
-			// PX4_INFO("_max_value[2]: %f", (double) _max_value[2]);
-			// PX4_INFO("_max_value[3]: %f", (double) _max_value[3]);
-			// PX4_INFO("_max_value[4]: %f", (double) _max_value[4]);
-			// PX4_INFO("_max_value[5]: %f", (double) _max_value[5]);
-			// PX4_INFO("single, not use_roll_disturb, restore _min_value and _min_value !");
+			PX4_INFO("_min_value[2]: %f", (double) _min_value[2]);
+			PX4_INFO("_min_value[3]: %f", (double) _min_value[3]);
+			PX4_INFO("_min_value[4]: %f", (double) _min_value[4]);
+			PX4_INFO("_min_value[5]: %f", (double) _min_value[5]);
+			PX4_INFO("_max_value[2]: %f", (double) _max_value[2]);
+			PX4_INFO("_max_value[3]: %f", (double) _max_value[3]);
+			PX4_INFO("_max_value[4]: %f", (double) _max_value[4]);
+			PX4_INFO("_max_value[5]: %f", (double) _max_value[5]);
+			PX4_INFO("single, not use_roll_disturb, restore _min_value and _min_value !");
 		}
 		_use_servo_dis_prev = _param_use_servo_dis.get();
 		_disturb_flag_prev = _disturb_flag;
@@ -731,7 +759,8 @@ bool MixingOutput::update()
 
 	if (_param_use_dis_same.get() == 1)
 	{
-		if (_disturb_flag || (_param_use_square_ref.get()==1) ||  (_param_use_sin_ref.get()==1))
+		// if (_disturb_flag || (_param_use_square_ref.get()==1) ||  (_param_use_sin_ref.get()==1))
+		if (_disturb_flag || (_param_mc_use_step_ref.get()==1))
 		{
 			// PX4_INFO("_current_output_value the same add");
 			// PX4_INFO("before");
@@ -915,7 +944,8 @@ MixingOutput::setAndPublishActuatorOutputs(unsigned num_outputs, actuator_output
 
 	if (_param_use_dis_same.get() == 1)
 	{
-		if (_disturb_flag || (_param_use_square_ref.get()==1) ||  (_param_use_sin_ref.get()==1))
+		// if (_disturb_flag || (_param_use_square_ref.get()==1) ||  (_param_use_sin_ref.get()==1))
+		if (_disturb_flag || (_param_mc_use_step_ref.get()==1))
 		{
 			// PX4_INFO("_last_output_value the same remove");
 			// PX4_INFO("before");
