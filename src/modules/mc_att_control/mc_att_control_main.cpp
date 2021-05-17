@@ -264,6 +264,7 @@ MulticopterAttitudeControl::Run()
 			{
 				Quatf q_sp = Eulerf(_param_mc_roll_step_amp.get(), _param_mc_pitch_step_amp.get(), vehicle_attitude_setpoint.yaw_body);
 				q_sp.copyTo(vehicle_attitude_setpoint.q_d);
+				// PX4_INFO("step, change roll and pitch !");
 			}
 
 			_attitude_control.setAttitudeSetpoint(Quatf(vehicle_attitude_setpoint.q_d), vehicle_attitude_setpoint.yaw_sp_move_rate);

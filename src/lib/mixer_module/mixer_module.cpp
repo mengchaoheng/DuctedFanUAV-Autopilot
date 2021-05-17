@@ -80,21 +80,24 @@ _control_latency_perf(perf_alloc(PC_ELAPSED, "control latency"))
 	_motor_test.test_motor_sub.subscribe();
 
 	// filter init
+	// dOmega_0
 	_lp_filter_actuator_d[0].reset(0);
-	_lp_filter_actuator_d[0].set_cutoff_frequency(250, 20);
+	_lp_filter_actuator_d[0].set_cutoff_frequency(250, _param_domega_cutoff.get());
+	// dOmega_d
 	_lp_filter_actuator_d[1].reset(0);
-	_lp_filter_actuator_d[1].set_cutoff_frequency(250, 20);
+	_lp_filter_actuator_d[1].set_cutoff_frequency(250, _param_domega_d_cutoff.get());
 
+	// Omega_0
 	_lp_filter_actuator[0].reset(0);
-	_lp_filter_actuator[0].set_cutoff_frequency(250, 5);
+	_lp_filter_actuator[0].set_cutoff_frequency(250, _param_omega_cutoff.get());
 
 	_notch_filter_actuator[0].reset(0);
 	_notch_filter_actuator[0].setParameters(250, _param_imu_gyro_nf_freq.get(), _param_imu_gyro_nf_bw.get());
 
-
+	// last_delta_cmd_rad
 	for (size_t i = 0; i < 4; ++i) {
 		_lp_filter_actuator[i+1].reset(0);
-		_lp_filter_actuator[i+1].set_cutoff_frequency(250, 20);
+		_lp_filter_actuator[i+1].set_cutoff_frequency(250, _param_cs_cutoff.get());
 
 		_notch_filter_actuator[i+1].reset(0);
 		_notch_filter_actuator[i+1].setParameters(250, _param_imu_gyro_nf_freq.get(), _param_imu_gyro_nf_bw.get());
@@ -530,10 +533,11 @@ bool MixingOutput::update()
 			double iters_all;
 			dir_alloc_sim(y_all, uMin, uMax, u_all, &z_all, &iters_all);
 			if (z_all>1)
+			// if(0)
 			{
 				for (size_t i = 0; i < 4; i++)
 				{
-					u[i] = u_all[i];
+					u[i] = (double) math::constrain((float) u_all[i], -1.f, 1.f);
 				}
 				// PX4_INFO("	dir 1");
 			}
@@ -544,6 +548,7 @@ bool MixingOutput::update()
 				double iters_e;
 				dir_alloc_sim(ye, uMin, uMax, u_e, &z_e, &iters_e);
 				if (z_e>1)
+				// if(1)
 				{
 					double uMin_new[4];
 					double uMax_new[4];
@@ -558,17 +563,17 @@ bool MixingOutput::update()
 					dir_alloc_sim(yd, uMin_new, uMax_new, u_d, &z_d, &iters_d);
 					for (size_t i = 0; i < 4; i++)
 					{
-						u[i] = u_d[i] + u_e[i];
+						u[i] = (double) math::constrain((float) (u_d[i] + u_e[i]), -1.f, 1.f);
 					}
-					// PX4_INFO("dir 3");
+					PX4_INFO("dir 3");
 				}
 				else
 				{
 					for (size_t i = 0; i < 4; i++)
 					{
-						u[i] = u_e[i];
+						u[i] = (double) math::constrain((float) u_e[i], -1.f, 1.f);
 					}
-					// PX4_INFO("dir 2");
+					PX4_INFO("dir 2");
 				}
 			}
 		}
@@ -606,7 +611,7 @@ bool MixingOutput::update()
 		{
 			// PX4_INFO("Hello rc! 7:%f. 9:%f. 10:%f. 13:%f.", (double) _rc_channels.channels[6], (double) _rc_channels.channels[8], (double) _rc_channels.channels[9], (double) _rc_channels.channels[12]);
 			//if (_rc_channels.channels[6] > -0.5f && _rc_channels.channels[6] < 0.5f)
-			if (_rc_channels.channels[9] < 0.f)
+			if (_rc_channels.channels[9] < 0.f || (_rc_channels.channels[6] > -0.5f && _rc_channels.channels[6] < 0.5f))
 			{
 				_disturb_flag = false;
 				// PX4_INFO("no sidturb !");
@@ -657,24 +662,25 @@ bool MixingOutput::update()
 		// if ((_disturb_flag && !_disturb_flag_prev) || (_param_use_square_ref.get()==1 && !_use_square_ref_prev) || (_param_use_sin_ref.get()==1 && !_use_sin_ref_prev))
 		if ((_disturb_flag && !_disturb_flag_prev) || (_param_mc_use_step_ref.get()==1 && !_use_step_ref_prev))
 		{
-			_min_value[2] = pwm_min3 + (abs(_param_servo1_disturb.get()) / 0.3491f) * (pwm_max3 - pwm_min3)/2;
-			_min_value[3] = pwm_min4 + (abs(_param_servo2_disturb.get()) / 0.3491f) * (pwm_max4 - pwm_min4)/2;
-			_min_value[4] = pwm_min5 + (abs(_param_servo3_disturb.get()) / 0.3491f) * (pwm_max5 - pwm_min5)/2;
-			_min_value[5] = pwm_min6 + (abs(_param_servo4_disturb.get()) / 0.3491f) * (pwm_max6 - pwm_min6)/2;
+			_min_value[2] = pwm_min3 + (int16_t) (((abs(10000 * _param_servo1_disturb.get())/ 10000.f) / 0.3491f) * (float) (pwm_max3 - pwm_min3)/2.f);
+			_min_value[3] = pwm_min4 + (int16_t) (((abs(10000 * _param_servo2_disturb.get())/ 10000.f) / 0.3491f) * (float) (pwm_max4 - pwm_min4)/2.f);
+			_min_value[4] = pwm_min5 + (int16_t) (((abs(10000 * _param_servo3_disturb.get())/ 10000.f) / 0.3491f) * (float) (pwm_max5 - pwm_min5)/2.f);
+			_min_value[5] = pwm_min6 + (int16_t) (((abs(10000 * _param_servo4_disturb.get())/ 10000.f) / 0.3491f) * (float) (pwm_max6 - pwm_min6)/2.f);
 
-			_max_value[2] = pwm_max3 - (abs(_param_servo1_disturb.get()) / 0.3491f) * (pwm_max3 - pwm_min3)/2;
-			_max_value[3] = pwm_max4 - (abs(_param_servo2_disturb.get()) / 0.3491f) * (pwm_max4 - pwm_min4)/2;
-			_max_value[4] = pwm_max5 - (abs(_param_servo3_disturb.get()) / 0.3491f) * (pwm_max5 - pwm_min5)/2;
-			_max_value[5] = pwm_max6 - (abs(_param_servo4_disturb.get()) / 0.3491f) * (pwm_max6 - pwm_min6)/2;
-			// PX4_INFO("_min_value[2]: %f", (double) _min_value[2]);
-			// PX4_INFO("_min_value[3]: %f", (double) _min_value[3]);
-			// PX4_INFO("_min_value[4]: %f", (double) _min_value[4]);
-			// PX4_INFO("_min_value[5]: %f", (double) _min_value[5]);
-			// PX4_INFO("_max_value[2]: %f", (double) _max_value[2]);
-			// PX4_INFO("_max_value[3]: %f", (double) _max_value[3]);
-			// PX4_INFO("_max_value[4]: %f", (double) _max_value[4]);
-			// PX4_INFO("_max_value[5]: %f", (double) _max_value[5]);
+			_max_value[2] = pwm_max3 - (int16_t) (((abs(10000 * _param_servo1_disturb.get())/ 10000.f) / 0.3491f) * (float) (pwm_max3 - pwm_min3)/2.f);
+			_max_value[3] = pwm_max4 - (int16_t) (((abs(10000 * _param_servo2_disturb.get())/ 10000.f) / 0.3491f) * (float) (pwm_max4 - pwm_min4)/2.f);
+			_max_value[4] = pwm_max5 - (int16_t) (((abs(10000 * _param_servo3_disturb.get())/ 10000.f) / 0.3491f) * (float) (pwm_max5 - pwm_min5)/2.f);
+			_max_value[5] = pwm_max6 - (int16_t) (((abs(10000 * _param_servo4_disturb.get())/ 10000.f) / 0.3491f) * (float) (pwm_max6 - pwm_min6)/2.f);
+			PX4_INFO("_min_value[2]: %f", (double) _min_value[2]);
+			PX4_INFO("_min_value[3]: %f", (double) _min_value[3]);
+			PX4_INFO("_min_value[4]: %f", (double) _min_value[4]);
+			PX4_INFO("_min_value[5]: %f", (double) _min_value[5]);
+			PX4_INFO("_max_value[2]: %f", (double) _max_value[2]);
+			PX4_INFO("_max_value[3]: %f", (double) _max_value[3]);
+			PX4_INFO("_max_value[4]: %f", (double) _max_value[4]);
+			PX4_INFO("_max_value[5]: %f", (double) _max_value[5]);
 			// PX4_INFO("the same, use_roll_disturb, change _min_value and _min_value !");
+
 		}
 
 		// if ((!_disturb_flag && _disturb_flag_prev) || (_param_use_square_ref.get()==0 && _use_square_ref_prev) || (_param_use_sin_ref.get()==0 && _use_sin_ref_prev))
@@ -689,14 +695,14 @@ bool MixingOutput::update()
 			_max_value[3] = pwm_max4;
 			_max_value[4] = pwm_max5;
 			_max_value[5] = pwm_max6;
-			// PX4_INFO("_min_value[2]: %f", (double) _min_value[2]);
-			// PX4_INFO("_min_value[3]: %f", (double) _min_value[3]);
-			// PX4_INFO("_min_value[4]: %f", (double) _min_value[4]);
-			// PX4_INFO("_min_value[5]: %f", (double) _min_value[5]);
-			// PX4_INFO("_max_value[2]: %f", (double) _max_value[2]);
-			// PX4_INFO("_max_value[3]: %f", (double) _max_value[3]);
-			// PX4_INFO("_max_value[4]: %f", (double) _max_value[4]);
-			// PX4_INFO("_max_value[5]: %f", (double) _max_value[5]);
+			PX4_INFO("_min_value[2]: %f", (double) _min_value[2]);
+			PX4_INFO("_min_value[3]: %f", (double) _min_value[3]);
+			PX4_INFO("_min_value[4]: %f", (double) _min_value[4]);
+			PX4_INFO("_min_value[5]: %f", (double) _min_value[5]);
+			PX4_INFO("_max_value[2]: %f", (double) _max_value[2]);
+			PX4_INFO("_max_value[3]: %f", (double) _max_value[3]);
+			PX4_INFO("_max_value[4]: %f", (double) _max_value[4]);
+			PX4_INFO("_max_value[5]: %f", (double) _max_value[5]);
 			// PX4_INFO("the same, not use_roll_disturb, restore _min_value and _min_value !");
 		}
 		// _use_square_ref_prev = _param_use_square_ref.get();
@@ -708,24 +714,27 @@ bool MixingOutput::update()
 	{
 		if ((_disturb_flag && !_disturb_flag_prev) || (_param_use_servo_dis.get()==1 && !_use_servo_dis_prev))
 		{
-			_min_value[2] = pwm_min3 + (abs(_param_servo1_disturb.get()) / 0.3491f) * (pwm_max3 - pwm_min3)/2;
-			_min_value[3] = pwm_min4 + (abs(_param_servo2_disturb.get()) / 0.3491f) * (pwm_max4 - pwm_min4)/2;
-			_min_value[4] = pwm_min5 + (abs(_param_servo3_disturb.get()) / 0.3491f) * (pwm_max5 - pwm_min5)/2;
-			_min_value[5] = pwm_min6 + (abs(_param_servo4_disturb.get()) / 0.3491f) * (pwm_max6 - pwm_min6)/2;
+			_min_value[2] = pwm_min3 + (int16_t) (((abs(10000 * _param_servo1_disturb.get())/ 10000.f) / 0.3491f) * (float) (pwm_max3 - pwm_min3)/2.f);
+			_min_value[3] = pwm_min4 + (int16_t) (((abs(10000 * _param_servo2_disturb.get())/ 10000.f) / 0.3491f) * (float) (pwm_max4 - pwm_min4)/2.f);
+			_min_value[4] = pwm_min5 + (int16_t) (((abs(10000 * _param_servo3_disturb.get())/ 10000.f) / 0.3491f) * (float) (pwm_max5 - pwm_min5)/2.f);
+			_min_value[5] = pwm_min6 + (int16_t) (((abs(10000 * _param_servo4_disturb.get())/ 10000.f) / 0.3491f) * (float) (pwm_max6 - pwm_min6)/2.f);
 
-			_max_value[2] = pwm_max3 - (abs(_param_servo1_disturb.get()) / 0.3491f) * (pwm_max3 - pwm_min3)/2;
-			_max_value[3] = pwm_max4 - (abs(_param_servo2_disturb.get()) / 0.3491f) * (pwm_max4 - pwm_min4)/2;
-			_max_value[4] = pwm_max5 - (abs(_param_servo3_disturb.get()) / 0.3491f) * (pwm_max5 - pwm_min5)/2;
-			_max_value[5] = pwm_max6 - (abs(_param_servo4_disturb.get()) / 0.3491f) * (pwm_max6 - pwm_min6)/2;
-			PX4_INFO("_min_value[2]: %f", (double) _min_value[2]);
-			PX4_INFO("_min_value[3]: %f", (double) _min_value[3]);
-			PX4_INFO("_min_value[4]: %f", (double) _min_value[4]);
-			PX4_INFO("_min_value[5]: %f", (double) _min_value[5]);
-			PX4_INFO("_max_value[2]: %f", (double) _max_value[2]);
-			PX4_INFO("_max_value[3]: %f", (double) _max_value[3]);
-			PX4_INFO("_max_value[4]: %f", (double) _max_value[4]);
-			PX4_INFO("_max_value[5]: %f", (double) _max_value[5]);
-			PX4_INFO("single, use_roll_disturb, change _min_value and _min_value !");
+			_max_value[2] = pwm_max3 - (int16_t) (((abs(10000 * _param_servo1_disturb.get())/ 10000.f) / 0.3491f) * (float) (pwm_max3 - pwm_min3)/2.f);
+			_max_value[3] = pwm_max4 - (int16_t) (((abs(10000 * _param_servo2_disturb.get())/ 10000.f) / 0.3491f) * (float) (pwm_max4 - pwm_min4)/2.f);
+			_max_value[4] = pwm_max5 - (int16_t) (((abs(10000 * _param_servo3_disturb.get())/ 10000.f) / 0.3491f) * (float) (pwm_max5 - pwm_min5)/2.f);
+			_max_value[5] = pwm_max6 - (int16_t) (((abs(10000 * _param_servo4_disturb.get())/ 10000.f) / 0.3491f) * (float) (pwm_max6 - pwm_min6)/2.f);
+			// PX4_INFO("_min_value[2]: %f", (double) _min_value[2]);
+			// PX4_INFO("_min_value[3]: %f", (double) _min_value[3]);
+			// PX4_INFO("_min_value[4]: %f", (double) _min_value[4]);
+			// PX4_INFO("_min_value[5]: %f", (double) _min_value[5]);
+			// PX4_INFO("_max_value[2]: %f", (double) _max_value[2]);
+			// PX4_INFO("_max_value[3]: %f", (double) _max_value[3]);
+			// PX4_INFO("_max_value[4]: %f", (double) _max_value[4]);
+			// PX4_INFO("_max_value[5]: %f", (double) _max_value[5]);
+			// PX4_INFO("single, use_roll_disturb, change _min_value and _min_value !");
+			// PX4_INFO("_param_servo1_disturb: %f", (double) (abs(10000 * _param_servo1_disturb.get()) / 10000.f) );
+			// PX4_INFO("_param_servo1_disturb: %f", (double) ((float) (pwm_max3 - pwm_min3)/2.f));
+			// PX4_INFO("_param_servo1_disturb: %f", (double) ((abs(_param_servo1_disturb.get()) / 0.3491f) * ((float) (pwm_max3 - pwm_min3)/2.f));
 		}
 		if ((!_disturb_flag && _disturb_flag_prev) || (_param_use_servo_dis.get()==0 && _use_servo_dis_prev))
 		{
@@ -738,15 +747,15 @@ bool MixingOutput::update()
 			_max_value[3] = pwm_max4;
 			_max_value[4] = pwm_max5;
 			_max_value[5] = pwm_max6;
-			PX4_INFO("_min_value[2]: %f", (double) _min_value[2]);
-			PX4_INFO("_min_value[3]: %f", (double) _min_value[3]);
-			PX4_INFO("_min_value[4]: %f", (double) _min_value[4]);
-			PX4_INFO("_min_value[5]: %f", (double) _min_value[5]);
-			PX4_INFO("_max_value[2]: %f", (double) _max_value[2]);
-			PX4_INFO("_max_value[3]: %f", (double) _max_value[3]);
-			PX4_INFO("_max_value[4]: %f", (double) _max_value[4]);
-			PX4_INFO("_max_value[5]: %f", (double) _max_value[5]);
-			PX4_INFO("single, not use_roll_disturb, restore _min_value and _min_value !");
+			// PX4_INFO("_min_value[2]: %f", (double) _min_value[2]);
+			// PX4_INFO("_min_value[3]: %f", (double) _min_value[3]);
+			// PX4_INFO("_min_value[4]: %f", (double) _min_value[4]);
+			// PX4_INFO("_min_value[5]: %f", (double) _min_value[5]);
+			// PX4_INFO("_max_value[2]: %f", (double) _max_value[2]);
+			// PX4_INFO("_max_value[3]: %f", (double) _max_value[3]);
+			// PX4_INFO("_max_value[4]: %f", (double) _max_value[4]);
+			// PX4_INFO("_max_value[5]: %f", (double) _max_value[5]);
+			// PX4_INFO("single, not use_roll_disturb, restore _min_value and _min_value !");
 		}
 		_use_servo_dis_prev = _param_use_servo_dis.get();
 		_disturb_flag_prev = _disturb_flag;
@@ -766,10 +775,10 @@ bool MixingOutput::update()
 			// PX4_INFO("before");
 			// PX4_INFO("_current_output_value[2]: %f", (double) _current_output_value[2]);
 			// PX4_INFO("_current_output_value[4]: %f", (double) _current_output_value[4]);
-			_current_output_value[2] = _current_output_value[2] + (_param_servo1_disturb.get() / 0.3491f) * (pwm_max3 - pwm_min3)/2;
-			_current_output_value[3] = _current_output_value[3] + (_param_servo2_disturb.get() / 0.3491f) * (pwm_max4 - pwm_min4)/2;
-			_current_output_value[4] = _current_output_value[4] + (_param_servo3_disturb.get() / 0.3491f) * (pwm_max5 - pwm_min5)/2;
-			_current_output_value[5] = _current_output_value[5] + (_param_servo4_disturb.get() / 0.3491f) * (pwm_max6 - pwm_min6)/2;
+			_current_output_value[2] = _current_output_value[2] + (int16_t) (((_param_servo1_disturb.get() / 0.3491f) * (float) (pwm_max3 - pwm_min3)/2.f));
+			_current_output_value[3] = _current_output_value[3] + (int16_t) (((_param_servo2_disturb.get() / 0.3491f) * (float) (pwm_max4 - pwm_min4)/2.f));
+			_current_output_value[4] = _current_output_value[4] + (int16_t) (((_param_servo3_disturb.get() / 0.3491f) * (float) (pwm_max5 - pwm_min5)/2.f));
+			_current_output_value[5] = _current_output_value[5] + (int16_t) (((_param_servo4_disturb.get() / 0.3491f) * (float) (pwm_max6 - pwm_min6)/2.f));
 
 			// _current_output_value[3] = _current_output_value[3] + (_param_servo_disturb.get() / 0.3491f) * (PWM_DEFAULT_MAX - PWM_DEFAULT_MIN)/2;
 			// _current_output_value[5] = _current_output_value[5] + (_param_servo_disturb.get() / 0.3491f) * (PWM_DEFAULT_MAX - PWM_DEFAULT_MIN)/2;
@@ -786,10 +795,10 @@ bool MixingOutput::update()
 			// PX4_INFO("before");
 			// PX4_INFO("_current_output_value[2]: %f", (double) _current_output_value[2]);
 			// PX4_INFO("_current_output_value[4]: %f", (double) _current_output_value[4]);
-			_current_output_value[2] = _current_output_value[2] + (_param_servo1_disturb.get() / 0.3491f) * (pwm_max3 - pwm_min3)/2;
-			_current_output_value[3] = _current_output_value[3] + (_param_servo2_disturb.get() / 0.3491f) * (pwm_max4 - pwm_min4)/2;
-			_current_output_value[4] = _current_output_value[4] + (_param_servo3_disturb.get() / 0.3491f) * (pwm_max5 - pwm_min5)/2;
-			_current_output_value[5] = _current_output_value[5] + (_param_servo4_disturb.get() / 0.3491f) * (pwm_max6 - pwm_min6)/2;
+			_current_output_value[2] = _current_output_value[2] + (int16_t) (((_param_servo1_disturb.get() / 0.3491f) * (float) (pwm_max3 - pwm_min3)/2.f));
+			_current_output_value[3] = _current_output_value[3] + (int16_t) (((_param_servo2_disturb.get() / 0.3491f) * (float) (pwm_max4 - pwm_min4)/2.f));
+			_current_output_value[4] = _current_output_value[4] + (int16_t) (((_param_servo3_disturb.get() / 0.3491f) * (float) (pwm_max5 - pwm_min5)/2.f));
+			_current_output_value[5] = _current_output_value[5] + (int16_t) (((_param_servo4_disturb.get() / 0.3491f) * (float) (pwm_max6 - pwm_min6)/2.f));
 			// _current_output_value[3] = _current_output_value[3] + (_param_servo_disturb.get() / 0.3491f) * (PWM_DEFAULT_MAX - PWM_DEFAULT_MIN)/2;
 			// _current_output_value[5] = _current_output_value[5] + (_param_servo_disturb.get() / 0.3491f) * (PWM_DEFAULT_MAX - PWM_DEFAULT_MIN)/2;
 			// PX4_INFO("after");
@@ -892,8 +901,8 @@ MixingOutput::setAndPublishActuatorOutputs(unsigned num_outputs, actuator_output
 	//control surfaces, 0.3491 rad -> 180pwm.
 	float last_delta_cmd_rad[4];
 	for (size_t i = 0; i < 4 ; ++i) {
-		const float pwm_center = (float) (_max_value[i+2] + _min_value[i+2]) / 2;
-		last_delta_cmd_rad[i] = ((float) _last_output_value[i+2] - pwm_center) *1.0f/((_max_value[i+2] - _min_value[i+2]) / 2);	//rad/pwm
+		const float pwm_center = (float) (_max_value[i+2] + _min_value[i+2]) / 2.f;
+		last_delta_cmd_rad[i] = ((float) _last_output_value[i+2] - pwm_center) *1.0f/((float) (_max_value[i+2] - _min_value[i+2]) / 2.f);	//rad/pwm
 		actuator_outputs_value.last_deltacmd[i] = last_delta_cmd_rad[i];
 	}
 
@@ -951,10 +960,10 @@ MixingOutput::setAndPublishActuatorOutputs(unsigned num_outputs, actuator_output
 			// PX4_INFO("before");
 			// PX4_INFO("_last_output_value[2]: %f", (double) _last_output_value[2]);
 			// PX4_INFO("_last_output_value[4]: %f", (double) _last_output_value[4]);
-			_last_output_value[2] = _last_output_value[2] - (_param_servo1_disturb.get() / 0.3491f) * (pwm_max3 - pwm_min3)/2;
-			_last_output_value[3] = _last_output_value[3] - (_param_servo2_disturb.get() / 0.3491f) * (pwm_max4 - pwm_min4)/2;
-			_last_output_value[4] = _last_output_value[4] - (_param_servo3_disturb.get() / 0.3491f) * (pwm_max5 - pwm_min5)/2;
-			_last_output_value[5] = _last_output_value[5] - (_param_servo4_disturb.get() / 0.3491f) * (pwm_max6 - pwm_min6)/2;
+			_last_output_value[2] = _last_output_value[2] - (int16_t) (((_param_servo1_disturb.get() / 0.3491f) * (float) (pwm_max3 - pwm_min3)/2.f));
+			_last_output_value[3] = _last_output_value[3] - (int16_t) (((_param_servo2_disturb.get() / 0.3491f) * (float) (pwm_max4 - pwm_min4)/2.f));
+			_last_output_value[4] = _last_output_value[4] - (int16_t) (((_param_servo3_disturb.get() / 0.3491f) * (float) (pwm_max5 - pwm_min5)/2.f));
+			_last_output_value[5] = _last_output_value[5] - (int16_t) (((_param_servo4_disturb.get() / 0.3491f) * (float) (pwm_max6 - pwm_min6)/2.f));
 
 			// _last_output_value[3] = _last_output_value[3] + (_param_servo_disturb.get() / 0.3491f) * (PWM_DEFAULT_MAX - PWM_DEFAULT_MIN)/2;
 			// _last_output_value[5] = _last_output_value[5] + (_param_servo_disturb.get() / 0.3491f) * (PWM_DEFAULT_MAX - PWM_DEFAULT_MIN)/2;
@@ -971,10 +980,10 @@ MixingOutput::setAndPublishActuatorOutputs(unsigned num_outputs, actuator_output
 			// PX4_INFO("before");
 			// PX4_INFO("_last_output_value[2]: %f", (double) _last_output_value[2]);
 			// PX4_INFO("_last_output_value[4]: %f", (double) _last_output_value[4]);
-			_last_output_value[2] = _last_output_value[2] - (_param_servo1_disturb.get() / 0.3491f) * (pwm_max3 - pwm_min3)/2;
-			_last_output_value[3] = _last_output_value[3] - (_param_servo2_disturb.get() / 0.3491f) * (pwm_max4 - pwm_min4)/2;
-			_last_output_value[4] = _last_output_value[4] - (_param_servo3_disturb.get() / 0.3491f) * (pwm_max5 - pwm_min5)/2;
-			_last_output_value[5] = _last_output_value[5] - (_param_servo4_disturb.get() / 0.3491f) * (pwm_max6 - pwm_min6)/2;
+			_last_output_value[2] = _last_output_value[2] - (int16_t) (((_param_servo1_disturb.get() / 0.3491f) * (float) (pwm_max3 - pwm_min3)/2.f));
+			_last_output_value[3] = _last_output_value[3] - (int16_t) (((_param_servo2_disturb.get() / 0.3491f) * (float) (pwm_max4 - pwm_min4)/2.f));
+			_last_output_value[4] = _last_output_value[4] - (int16_t) (((_param_servo3_disturb.get() / 0.3491f) * (float) (pwm_max5 - pwm_min5)/2.f));
+			_last_output_value[5] = _last_output_value[5] - (int16_t) (((_param_servo4_disturb.get() / 0.3491f) * (float) (pwm_max6 - pwm_min6)/2.f));
 
 			// _last_output_value[3] = _last_output_value[3] + (_param_servo_disturb.get() / 0.3491f) * (PWM_DEFAULT_MAX - PWM_DEFAULT_MIN)/2;
 			// _last_output_value[5] = _last_output_value[5] + (_param_servo_disturb.get() / 0.3491f) * (PWM_DEFAULT_MAX - PWM_DEFAULT_MIN)/2;

@@ -49,6 +49,8 @@ then
 	param set MC_ACRO_Y_MAX 90.0
 
 	param set MPC_THR_HOVER 0.5
+	param set RTL_RETURN_ALT 2.5
+	param set RTL_DESCEND_ALT 2.5
 	param set SDLOG_PROFILE  17
 
 	param set MC_PWM_HOVER 1500

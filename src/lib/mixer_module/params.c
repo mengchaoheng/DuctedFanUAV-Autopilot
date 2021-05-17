@@ -165,3 +165,67 @@ PARAM_DEFINE_INT32(USE_SERVO_DIS, 0);
  * @group Mixer Output
  */
 PARAM_DEFINE_INT32(USE_DIS_SAME, 0);
+
+/**
+* Low pass filter cutoff frequency for control surface
+*
+* The cutoff frequency for the 2nd order butterworth filter on the primary gyro.
+* This only affects the deflection angular sent to the controllers.
+*
+* A value of 0 disables the filter.
+*
+* @min 0
+* @max 1000
+* @unit Hz
+* @reboot_required true
+* @group Mixer Output
+*/
+PARAM_DEFINE_FLOAT(CS_CUTOFF, 30.0f);
+
+/**
+* Low pass filter cutoff frequency for omega
+*
+* The cutoff frequency for the 2nd order butterworth filter on the primary gyro.
+* This only affects the deflection angular sent to the controllers.
+*
+* A value of 0 disables the filter.
+*
+* @min 0
+* @max 1000
+* @unit Hz
+* @reboot_required true
+* @group Mixer Output
+*/
+PARAM_DEFINE_FLOAT(OMEGA_CUTOFF, 30.0f);
+
+/**
+* Low pass filter cutoff frequency for domega_d
+*
+* The cutoff frequency for the 2nd order butterworth filter on the primary gyro.
+* This only affects the deflection angular sent to the controllers.
+*
+* A value of 0 disables the filter.
+*
+* @min 0
+* @max 1000
+* @unit Hz
+* @reboot_required true
+* @group Mixer Output
+*/
+PARAM_DEFINE_FLOAT(DOMEGA_D_CUTOFF, 30.0f);
+
+/**
+* Low pass filter cutoff frequency for domega_0
+*
+* The cutoff frequency for the 2nd order butterworth filter on the primary gyro.
+* This only affects the deflection angular sent to the controllers.
+*
+* A value of 0 disables the filter.
+*
+* @min 0
+* @max 1000
+* @unit Hz
+* @reboot_required true
+* @group Mixer Output
+*/
+PARAM_DEFINE_FLOAT(DOMEGA_CUTOFF, 30.0f);

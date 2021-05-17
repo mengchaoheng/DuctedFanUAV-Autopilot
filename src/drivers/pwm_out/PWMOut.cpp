@@ -420,8 +420,8 @@ void PWMOut::update_current_rate()
 	}
 
 	// max interval 0.5 - 100 ms (10 - 2000Hz)
-	// const int update_interval_in_us = math::constrain(1000000 / max_rate, 500, 100000);
-	const int update_interval_in_us = math::constrain(1000000 / max_rate, 4000, 10000);//4ms - 100ms (10 - 250Hz)
+	const int update_interval_in_us = math::constrain(1000000 / max_rate, 500, 100000);
+	// const int update_interval_in_us = math::constrain(1000000 / max_rate, 4000, 10000);//4ms - 100ms (10 - 250Hz)
 
 	_current_update_rate = max_rate;
 	_mixing_output.setMaxTopicUpdateRate(update_interval_in_us);

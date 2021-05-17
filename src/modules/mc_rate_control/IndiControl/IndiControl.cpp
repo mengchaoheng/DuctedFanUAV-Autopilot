@@ -94,6 +94,9 @@ Vector3f IndiControl::update(const Vector3f &rate, const Vector3f &rate_sp, cons
 		// PX4_INFO("Nu_i of INDI is: roll: %f, pitch: %f, yaw: %f \n", (double) Nu_i(0), (double) Nu_i(1), (double) Nu_i(2));
 	}
 	Vector3f K = _H_inv / (actuator_outputs_value.propeller_omega_0 * actuator_outputs_value.propeller_omega_0) * _gain_p;
+	// PX4_INFO("propeller_omega_0: %f", (double) actuator_outputs_value.propeller_omega_0);
+	// PX4_INFO("K of INDI is: roll: %f, pitch: %f, yaw: %f \n", (double) _H_inv(0, 0), (double) _H_inv(1, 1), (double) _H_inv(2, 2));
+	// 18617.958984, pitch: 18682.771484, yaw: 8847.666992
 	// K(0) = PX4_ISFINITE(K(0)) ? K(0) : 0.0f;
 	// K(1) = PX4_ISFINITE(K(1)) ? K(1) : 0.0f;
 	// K(2) = PX4_ISFINITE(K(2)) ? K(2) : 0.0f;

@@ -67,7 +67,7 @@ MulticopterRateControl::init()
 	}
 
 	// limit to  250 Hz
-	_vehicle_angular_velocity_sub.set_interval_us(4_ms);
+	_vehicle_angular_velocity_sub.set_interval_us(5_ms);
 
 	_last_run = hrt_absolute_time();
 
@@ -244,16 +244,16 @@ MulticopterRateControl::Run()
 			}
 		}
 
-		// channels[6]:  -0.808163	0.008163	0.865306
-		// channels[8]:  -0.812		0.0.028         0.868
-		// channels[9]:  -0.812		0.0.028         0.868
-		// channels[12]: -1		-1              1
+		// channels[6]:  -0.808163	0.008163	0.865306	=rate square
+		// channels[8]:  -0.812		0.0.028         0.868		=servo disturb
+		// channels[9]:  -0.812		0.0.028         0.868		=roll and pitch step
+		// channels[12]: -1		-1              1		=pid or indi
 		if (_rc_channels_sub.update(&_rc_channels))
 		{
 			// PX4_INFO("Hello rc! 7:%f. 9:%f. 10:%f. 13:%f.", (double) _rc_channels.channels[6], (double) _rc_channels.channels[8], (double) _rc_channels.channels[9], (double) _rc_channels.channels[12]);
 			if (_rc_channels.channels[6] < -0.5f)
 			{
-				_use_sin_ref = true;
+				_use_sin_ref = false;
 				_use_square_ref = false;
 				// PX4_INFO("_sin_speed_flag !");
 			}
@@ -290,7 +290,7 @@ MulticopterRateControl::Run()
 			else if (hrt_elapsed_time(&_add_disturb_time) / 1e6f > _param_square_ref_time.get() && hrt_elapsed_time(&_add_disturb_time) / 1e6f < 2.f * _param_square_ref_time.get())
 				_rates_sp(0) = -_param_square_ref_amplitude.get();
 
-			// PX4_INFO("_square_roll_flag, _rates_sp: %f", (double) _rates_sp(0));
+			// PX4_INFO("_use_square_ref, _rates_sp: %f", (double) _rates_sp(0));
 		}
 		if (_use_sin_ref || _param_use_sin_ref.get()==1)
 		{
@@ -298,7 +298,7 @@ MulticopterRateControl::Run()
 				_add_sin_time = hrt_absolute_time();
 
 			_thrust_sp=_param_speed_sin_bia.get() + _param_speed_sin_amp.get() *sin(  (2.f*3.141592653f/_param_speed_sin_t.get()) * hrt_elapsed_time(&_add_sin_time) / 1e6f);//nuttx: 0.71. SITL: 0.5
-			// PX4_INFO("_sin_speed_flag, _thrust_sp: %f, time is: %f", (double) _thrust_sp, (double) (hrt_elapsed_time(&_add_sin_time) / 1e6f));
+			// PX4_INFO("_use_sin_ref, _thrust_sp: %f, time is: %f", (double) _thrust_sp, (double) (hrt_elapsed_time(&_add_sin_time) / 1e6f));
 			// PX4_INFO("_thrust_sp: %f", (double) _thrust_sp);
 		}
 		_use_sin_ref_prev = _use_sin_ref ||  _param_use_sin_ref.get();

@@ -361,7 +361,11 @@ private:
 		(ParamInt<px4::params::PWM_MAIN_MAX4>) _param_pwm_max4,
 		(ParamInt<px4::params::PWM_MAIN_MAX5>) _param_pwm_max5,
 		(ParamInt<px4::params::PWM_MAIN_MAX6>) _param_pwm_max6,
-		(ParamInt<px4::params::USE_DIS_SAME>) _param_use_dis_same
+		(ParamInt<px4::params::USE_DIS_SAME>) _param_use_dis_same,
+		(ParamFloat<px4::params::CS_CUTOFF>) _param_cs_cutoff,
+		(ParamFloat<px4::params::OMEGA_CUTOFF>) _param_omega_cutoff,
+		(ParamFloat<px4::params::DOMEGA_D_CUTOFF>) _param_domega_d_cutoff,
+		(ParamFloat<px4::params::DOMEGA_CUTOFF>) _param_domega_cutoff
 
 	)
 };
