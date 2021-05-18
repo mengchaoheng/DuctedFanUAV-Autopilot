@@ -169,6 +169,13 @@ MulticopterAttitudeControl::generate_attitude_setpoint(const Quatf &q, float dt,
 	//   yaw = atan(-2 * sin(b) * cos(b) * sin^2(a/2) / (1 - 2 * cos^2(b) * sin^2(a/2))).
 	attitude_setpoint.yaw_body = _man_yaw_sp + euler_sp(2);
 
+	if (_step_flag || _param_mc_use_step_ref.get() == 1)
+	{
+		attitude_setpoint.roll_body = _param_mc_roll_step_amp.get();
+		attitude_setpoint.pitch_body = _param_mc_pitch_step_amp.get();
+		// PX4_INFO("step, change roll and pitch !");
+	}
+
 	/* modify roll/pitch only if we're a VTOL */
 	if (_vtol) {
 		// Construct attitude setpoint rotation matrix. Modify the setpoints for roll
@@ -260,13 +267,6 @@ MulticopterAttitudeControl::Run()
 		if (_vehicle_attitude_setpoint_sub.updated()) {
 			vehicle_attitude_setpoint_s vehicle_attitude_setpoint;
 			_vehicle_attitude_setpoint_sub.update(&vehicle_attitude_setpoint);
-			if (_step_flag || _param_mc_use_step_ref.get() == 1)
-			{
-				Quatf q_sp = Eulerf(_param_mc_roll_step_amp.get(), _param_mc_pitch_step_amp.get(), vehicle_attitude_setpoint.yaw_body);
-				q_sp.copyTo(vehicle_attitude_setpoint.q_d);
-				// PX4_INFO("step, change roll and pitch !");
-			}
-
 			_attitude_control.setAttitudeSetpoint(Quatf(vehicle_attitude_setpoint.q_d), vehicle_attitude_setpoint.yaw_sp_move_rate);
 			_thrust_setpoint_body = Vector3f(vehicle_attitude_setpoint.thrust_body);
 		}
