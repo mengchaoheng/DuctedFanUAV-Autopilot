@@ -140,7 +140,15 @@ private:
 
 	uORB::Subscription _rc_channels_sub{ORB_ID(rc_channels)};
 	rc_channels_s		_rc_channels{};
-	bool _step_flag;
+	bool _use_step_ref{false};
+
+	bool _use_step_ref_prev{false};
+	hrt_abstime _add_step_time;
+
+	float _cycle_time;
+
+	float _step_roll_amp;
+	float _step_pitch_amp;
 
 	DEFINE_PARAMETERS(
 		(ParamFloat<px4::params::MC_ROLL_P>) _param_mc_roll_p,
@@ -167,9 +175,9 @@ private:
 		(ParamInt<px4::params::MC_AIRMODE>) _param_mc_airmode,
 		(ParamFloat<px4::params::MC_MAN_TILT_TAU>) _param_mc_man_tilt_tau,
 		(ParamInt<px4::params::USE_STEP_REF>) _param_mc_use_step_ref,
-		(ParamFloat<px4::params::MC_ROLL_AMP>) _param_mc_roll_step_amp,
-		(ParamFloat<px4::params::MC_PITCH_AMP>) _param_mc_pitch_step_amp,
-		(ParamFloat<px4::params::MC_YAW_AMP>) _param_mc_yaw_step_amp
+		(ParamFloat<px4::params::STEP_ROLL_AMP>) _param_step_roll_amp,
+		(ParamFloat<px4::params::STEP_PITCH_AMP>) _param_step_pitch_amp,
+		(ParamFloat<px4::params::STEP_REF_TIME>) _param_step_ref_time
 	)
 };
 

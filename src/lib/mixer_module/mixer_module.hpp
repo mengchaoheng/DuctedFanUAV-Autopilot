@@ -323,6 +323,15 @@ private:
 	uint16_t pwm_max5{PWM_DEFAULT_MAX};
 	uint16_t pwm_max6{PWM_DEFAULT_MAX};
 
+	int16_t _servo1_disturb;
+	int16_t _servo2_disturb;
+	int16_t _servo3_disturb;
+	int16_t _servo4_disturb;
+	int16_t _servo1_disturb_abs;
+	int16_t _servo2_disturb_abs;
+	int16_t _servo3_disturb_abs;
+	int16_t _servo4_disturb_abs;
+
 	matrix::Matrix<double, 4, 3> B_inv;
 
 	rc_channels_s		_rc_channels {};

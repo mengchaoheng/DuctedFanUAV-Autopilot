@@ -199,7 +199,7 @@ PARAM_DEFINE_INT32(USE_STEP_REF, 0);
  * @increment 0.05
  * @group Multicopter Attitude Control
  */
-PARAM_DEFINE_FLOAT(MC_ROLL_AMP, 0.0f);
+PARAM_DEFINE_FLOAT(STEP_ROLL_AMP, 0.0f);
 
 /**
  * pitch step amp
@@ -213,18 +213,31 @@ PARAM_DEFINE_FLOAT(MC_ROLL_AMP, 0.0f);
  * @increment 0.05
  * @group Multicopter Attitude Control
  */
-PARAM_DEFINE_FLOAT(MC_PITCH_AMP, 0.0f);
+PARAM_DEFINE_FLOAT(STEP_PITCH_AMP, 0.0f);
+
+// /**
+//  * yaw step amp
+//  *
+//  * rad.
+//  *
+//  * @unit rad
+//  * @min 0.0
+//  * @max 0.35
+//  * @decimal 2
+//  * @increment 0.05
+//  * @group Multicopter Attitude Control
+//  */
+// PARAM_DEFINE_FLOAT(MC_YAW_AMP, 0.0f);
 
 /**
- * yaw step amp
+ * Period of perturbation step wave
  *
- * rad.
+ * The period of the perturbed step wave, in seconds.
  *
- * @unit rad
  * @min 0.0
- * @max 0.35
- * @decimal 2
- * @increment 0.05
- * @group Multicopter Attitude Control
+ * @max 30
+ * @decimal 15
+ * @increment 0.01
+ * @group Multicopter Rate Control
  */
-PARAM_DEFINE_FLOAT(MC_YAW_AMP, 0.0f);
+PARAM_DEFINE_FLOAT(STEP_REF_TIME, 0.f);

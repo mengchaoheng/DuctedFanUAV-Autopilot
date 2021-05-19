@@ -48,6 +48,7 @@ void LoggedTopics::add_default_topics()
 	add_topic("actuator_armed");
 	add_topic("actuator_controls_0", 50);
 	add_topic("indi_feedback_input", 50);
+	add_topic("actuator_outputs_value", 100);
 	add_topic("actuator_controls_1", 100);
 	add_topic("airspeed", 1000);
 	add_topic("airspeed_validated", 200);
@@ -109,7 +110,6 @@ void LoggedTopics::add_default_topics()
 
 	// multi topics
 	add_topic_multi("actuator_outputs", 100, 2);
-	add_topic_multi("actuator_outputs_value", 100, 1);
 	add_topic_multi("logger_status", 0, 2);
 	add_topic_multi("multirotor_motor_limits", 1000, 2);
 	add_topic_multi("rate_ctrl_status", 200, 2);

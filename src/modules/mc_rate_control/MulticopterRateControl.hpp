@@ -124,16 +124,20 @@ private:
 	bool _maybe_landed{true};
 	bool _actuator_outputs_sub_flag{false};
 
-	bool _use_sin_ref{false};
+	// bool _use_sin_ref{false};
 	bool _use_square_ref{false};
-	bool _use_sin_ref_prev{false};
+	// bool _use_sin_ref_prev{false};
 	bool _use_square_ref_prev{false};
-	hrt_abstime _add_disturb_time;
+	hrt_abstime _add_square_time;
 	hrt_abstime _add_sin_time;
+
+	float _cycle_time;
+	float _square_ref_amplitude;
 
 	bool _indi_flag{false};
 
 	float _battery_status_scale{0.0f};
+
 
 	perf_counter_t	_loop_perf;			/**< loop duration performance counter */
 

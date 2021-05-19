@@ -67,7 +67,7 @@ MulticopterRateControl::init()
 	}
 
 	// limit to  250 Hz
-	_vehicle_angular_velocity_sub.set_interval_us(4_ms);
+	_vehicle_angular_velocity_sub.set_interval_us(5_ms);
 
 	_last_run = hrt_absolute_time();
 
@@ -125,6 +125,8 @@ MulticopterRateControl::Run()
 
 		updateParams();
 		parameters_updated();
+		_cycle_time = _param_square_ref_time.get();
+		_square_ref_amplitude = _param_square_ref_amplitude.get();
 	}
 
 
@@ -197,19 +199,19 @@ MulticopterRateControl::Run()
 			// PX4_INFO("Hello rc! 7:%f. 9:%f. 10:%f. 13:%f.", (double) _rc_channels.channels[6], (double) _rc_channels.channels[8], (double) _rc_channels.channels[9], (double) _rc_channels.channels[12]);
 			if (_rc_channels.channels[6] < -0.5f)
 			{
-				_use_sin_ref = false;
+				// _use_sin_ref = false;
 				_use_square_ref = false;
 				// PX4_INFO("_sin_speed_flag !");
 			}
 			else if (_rc_channels.channels[6] > 0.5f)
 			{
-				_use_sin_ref = false;
+				// _use_sin_ref = false;
 				_use_square_ref = true;
 				// PX4_INFO("_square_cs_flag !");
 			}
 			else
 			{
-				_use_sin_ref = false;
+				// _use_sin_ref = false;
 				_use_square_ref = false;
 			}
 
@@ -258,28 +260,30 @@ MulticopterRateControl::Run()
 				_rates_sp = man_rate_sp.emult(_acro_rate_max);
 				_thrust_sp = _manual_control_setpoint.z;
 
+				// ref command
+
 				if (_use_square_ref || _param_use_square_ref.get()==1)
 				{
 					if (!_use_square_ref_prev)
-						_add_disturb_time = hrt_absolute_time();
+						_add_square_time = hrt_absolute_time();
 
-					if (hrt_elapsed_time(&_add_disturb_time) / 1e6f < _param_square_ref_time.get())
-						_rates_sp(0) = _param_square_ref_amplitude.get();
-					else if (hrt_elapsed_time(&_add_disturb_time) / 1e6f > _param_square_ref_time.get() && hrt_elapsed_time(&_add_disturb_time) / 1e6f < 2.f * _param_square_ref_time.get())
-						_rates_sp(0) = -_param_square_ref_amplitude.get();
+					if (hrt_elapsed_time(&_add_square_time) / 1e6f < 0.5f * _cycle_time)
+						_rates_sp(0) = _square_ref_amplitude;
+					else if (hrt_elapsed_time(&_add_square_time) / 1e6f > 0.5f * _cycle_time && hrt_elapsed_time(&_add_square_time) / 1e6f < _cycle_time)
+						_rates_sp(0) = -_square_ref_amplitude;
 
 					// PX4_INFO("_use_square_ref, _rates_sp: %f", (double) _rates_sp(0));
 				}
-				if (_use_sin_ref || _param_use_sin_ref.get()==1)
-				{
-					if (!_use_sin_ref_prev)
-						_add_sin_time = hrt_absolute_time();
+				// if (_use_sin_ref || _param_use_sin_ref.get()==1)
+				// {
+				// 	if (!_use_sin_ref_prev)
+				// 		_add_sin_time = hrt_absolute_time();
 
-					_thrust_sp=_param_speed_sin_bia.get() + _param_speed_sin_amp.get() *sin(  (2.f*3.141592653f/_param_speed_sin_t.get()) * hrt_elapsed_time(&_add_sin_time) / 1e6f);//nuttx: 0.71. SITL: 0.5
-					// PX4_INFO("_use_sin_ref, _thrust_sp: %f, time is: %f", (double) _thrust_sp, (double) (hrt_elapsed_time(&_add_sin_time) / 1e6f));
-					// PX4_INFO("_thrust_sp: %f", (double) _thrust_sp);
-				}
-				_use_sin_ref_prev = _use_sin_ref ||  _param_use_sin_ref.get();
+				// 	_thrust_sp=_param_speed_sin_bia.get() + _param_speed_sin_amp.get() *sin(  (2.f*3.141592653f/_param_speed_sin_t.get()) * hrt_elapsed_time(&_add_sin_time) / 1e6f);//nuttx: 0.71. SITL: 0.5
+				// 	// PX4_INFO("_use_sin_ref, _thrust_sp: %f, time is: %f", (double) _thrust_sp, (double) (hrt_elapsed_time(&_add_sin_time) / 1e6f));
+				// 	// PX4_INFO("_thrust_sp: %f", (double) _thrust_sp);
+				// }
+				// _use_sin_ref_prev = _use_sin_ref ||  _param_use_sin_ref.get();
 				_use_square_ref_prev = _use_square_ref || _param_use_square_ref.get();
 
 				// publish rate setpoint
@@ -355,12 +359,13 @@ MulticopterRateControl::Run()
 			else
 			{
 				att_control = _rate_control.update(rates, _rates_sp, angular_accel, dt, _maybe_landed || _landed);
+
 				// PX4_INFO("PID");
 			}
 			indi_feedback_input_s indi_feedback_input{};
-			indi_feedback_input.indi_fb[indi_feedback_input_s::INDEX_ROLL] = PX4_ISFINITE(Nu_i(0)) ? Nu_i(0) : 0.0f;
-			indi_feedback_input.indi_fb[indi_feedback_input_s::INDEX_PITCH] = PX4_ISFINITE(Nu_i(1)) ? Nu_i(1) : 0.0f;
-			indi_feedback_input.indi_fb[indi_feedback_input_s::INDEX_YAW] = PX4_ISFINITE(Nu_i(2)) ? Nu_i(2) : 0.0f;
+			indi_feedback_input.indi_fb[indi_feedback_input_s::INDEX_ROLL] = math::constrain(PX4_ISFINITE(Nu_i(0)) ? Nu_i(0) : 0.0f, -1.f, 1.f);
+			indi_feedback_input.indi_fb[indi_feedback_input_s::INDEX_PITCH] = math::constrain(PX4_ISFINITE(Nu_i(1)) ? Nu_i(1) : 0.0f, -1.f, 1.f);
+			indi_feedback_input.indi_fb[indi_feedback_input_s::INDEX_YAW] = math::constrain(PX4_ISFINITE(Nu_i(2)) ? Nu_i(2) : 0.0f, -1.f, 1.f);
 			indi_feedback_input.timestamp_sample = angular_velocity.timestamp_sample;
 			indi_feedback_input.timestamp = hrt_absolute_time();
 			_indi_fb_pub.publish(indi_feedback_input);
@@ -373,10 +378,10 @@ MulticopterRateControl::Run()
 
 			// publish actuator controls
 			actuator_controls_s actuators{};
-			actuators.control[actuator_controls_s::INDEX_ROLL] = PX4_ISFINITE(att_control(0)) ? att_control(0) : 0.0f;
-			actuators.control[actuator_controls_s::INDEX_PITCH] = PX4_ISFINITE(att_control(1)) ? att_control(1) : 0.0f;
-			actuators.control[actuator_controls_s::INDEX_YAW] = PX4_ISFINITE(att_control(2)) ? att_control(2) : 0.0f;
-			actuators.control[actuator_controls_s::INDEX_THROTTLE] = PX4_ISFINITE(_thrust_sp) ? _thrust_sp : 0.0f;
+			actuators.control[actuator_controls_s::INDEX_ROLL] = math::constrain(PX4_ISFINITE(att_control(0)) ? att_control(0) : 0.0f, -1.f, 1.f);
+			actuators.control[actuator_controls_s::INDEX_PITCH] = math::constrain(PX4_ISFINITE(att_control(1)) ? att_control(1) : 0.0f, -1.f, 1.f);
+			actuators.control[actuator_controls_s::INDEX_YAW] = math::constrain(PX4_ISFINITE(att_control(2)) ? att_control(2) : 0.0f, -1.f, 1.f);
+			actuators.control[actuator_controls_s::INDEX_THROTTLE] = math::constrain(PX4_ISFINITE(_thrust_sp) ? _thrust_sp : 0.0f, 0.f, 1.f);
 			actuators.control[actuator_controls_s::INDEX_LANDING_GEAR] = _landing_gear;
 			actuators.timestamp_sample = angular_velocity.timestamp_sample;
 
