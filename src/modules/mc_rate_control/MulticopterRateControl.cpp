@@ -127,6 +127,7 @@ MulticopterRateControl::Run()
 		parameters_updated();
 		_cycle_time = _param_square_ref_time.get();
 		_square_ref_amplitude = _param_square_ref_amplitude.get();
+		_use_square_ref_sitl = _param_use_square_ref.get();
 	}
 
 
@@ -147,6 +148,47 @@ MulticopterRateControl::Run()
 	vehicle_angular_velocity_s angular_velocity;
 	actuator_outputs_value_s actuator_outputs_value{};
 
+	// channels[6]:  -0.808163	0.008163	0.865306	=rate square
+	// channels[8]:  -0.812		0.0.028         0.868		=servo disturb
+	// channels[9]:  -0.812		0.0.028         0.868		=roll and pitch step
+	// channels[12]: -1		-1              1		=pid or indi
+	// if(!_rc_channels_sub.advertised())
+	// 	PX4_INFO("Hello rc!");
+	if (_rc_channels_sub.update(&_rc_channels))
+	{
+		// PX4_INFO("Hello rc! 7:%f. 9:%f. 10:%f. 13:%f.", (double) _rc_channels.channels[6], (double) _rc_channels.channels[8], (double) _rc_channels.channels[9], (double) _rc_channels.channels[12]);
+		if (_rc_channels.channels[6] < -0.5f)
+		{
+			// _use_sin_ref = false;
+			_use_square_ref = false;
+			// PX4_INFO("_sin_speed_flag !");
+		}
+		else if (_rc_channels.channels[6] > 0.5f)
+		{
+			// _use_sin_ref = false;
+			_use_square_ref = true;
+			// PX4_INFO("_square_cs_flag !");
+		}
+		else
+		{
+			// _use_sin_ref = false;
+			_use_square_ref = false;
+		}
+
+		if (_rc_channels.channels[12] > 0.f)
+		{
+			_indi_flag = true;
+			// PX4_INFO("_indi_flag !");
+		}
+		else
+		{
+			_indi_flag = false;
+			// PX4_INFO("PID !");
+		}
+	}
+
+
+
 	if (_vehicle_angular_velocity_sub.update(&angular_velocity) && _actuator_outputs_sub_flag && _actuator_outputs_value_sub.update(&actuator_outputs_value)) {
 
 		// grab corresponding vehicle_angular_acceleration immediately after vehicle_angular_velocity copy
@@ -161,6 +203,8 @@ MulticopterRateControl::Run()
 
 		const Vector3f angular_accel{v_angular_acceleration.xyz};
 		const Vector3f rates{angular_velocity.xyz};
+
+
 
 		/* check for updates in other topics */
 		_v_control_mode_sub.update(&_v_control_mode);
@@ -188,44 +232,7 @@ MulticopterRateControl::Run()
 
 		const bool manual_control_updated = _manual_control_setpoint_sub.update(&_manual_control_setpoint);
 
-		// channels[6]:  -0.808163	0.008163	0.865306	=rate square
-		// channels[8]:  -0.812		0.0.028         0.868		=servo disturb
-		// channels[9]:  -0.812		0.0.028         0.868		=roll and pitch step
-		// channels[12]: -1		-1              1		=pid or indi
-		// if(!_rc_channels_sub.advertised())
-		// 	PX4_INFO("Hello rc!");
-		if (_rc_channels_sub.update(&_rc_channels))
-		{
-			// PX4_INFO("Hello rc! 7:%f. 9:%f. 10:%f. 13:%f.", (double) _rc_channels.channels[6], (double) _rc_channels.channels[8], (double) _rc_channels.channels[9], (double) _rc_channels.channels[12]);
-			if (_rc_channels.channels[6] < -0.5f)
-			{
-				// _use_sin_ref = false;
-				_use_square_ref = false;
-				// PX4_INFO("_sin_speed_flag !");
-			}
-			else if (_rc_channels.channels[6] > 0.5f)
-			{
-				// _use_sin_ref = false;
-				_use_square_ref = true;
-				// PX4_INFO("_square_cs_flag !");
-			}
-			else
-			{
-				// _use_sin_ref = false;
-				_use_square_ref = false;
-			}
 
-			if (_rc_channels.channels[12] > 0.f)
-			{
-				_indi_flag = true;
-				// PX4_INFO("_indi_flag !");
-			}
-			else
-			{
-				_indi_flag = false;
-				// PX4_INFO("PID !");
-			}
-		}
 
 		// generate the rate setpoint from sticks?
 		bool manual_rate_sp = false;
@@ -248,70 +255,97 @@ MulticopterRateControl::Run()
 			}
 		}
 
-		if (manual_rate_sp) {
-			if (manual_control_updated) {
+		// ref command
 
-				// manual rates control - ACRO mode
-				const Vector3f man_rate_sp{
-					math::superexpo(_manual_control_setpoint.y, _param_mc_acro_expo.get(), _param_mc_acro_supexpo.get()),
-					math::superexpo(-_manual_control_setpoint.x, _param_mc_acro_expo.get(), _param_mc_acro_supexpo.get()),
-					math::superexpo(_manual_control_setpoint.r, _param_mc_acro_expo_y.get(), _param_mc_acro_supexpoy.get())};
-
-				_rates_sp = man_rate_sp.emult(_acro_rate_max);
-				_thrust_sp = _manual_control_setpoint.z;
-
-				// ref command
-
-				if (_use_square_ref || _param_use_square_ref.get()==1)
-				{
-					if (!_use_square_ref_prev)
-						_add_square_time = hrt_absolute_time();
-
-					if (hrt_elapsed_time(&_add_square_time) / 1e6f < 0.5f * _cycle_time)
-						_rates_sp(0) = _square_ref_amplitude;
-					else if (hrt_elapsed_time(&_add_square_time) / 1e6f > 0.5f * _cycle_time && hrt_elapsed_time(&_add_square_time) / 1e6f < _cycle_time)
-						_rates_sp(0) = -_square_ref_amplitude;
-
-					// PX4_INFO("_use_square_ref, _rates_sp: %f", (double) _rates_sp(0));
-				}
-				// if (_use_sin_ref || _param_use_sin_ref.get()==1)
-				// {
-				// 	if (!_use_sin_ref_prev)
-				// 		_add_sin_time = hrt_absolute_time();
-
-				// 	_thrust_sp=_param_speed_sin_bia.get() + _param_speed_sin_amp.get() *sin(  (2.f*3.141592653f/_param_speed_sin_t.get()) * hrt_elapsed_time(&_add_sin_time) / 1e6f);//nuttx: 0.71. SITL: 0.5
-				// 	// PX4_INFO("_use_sin_ref, _thrust_sp: %f, time is: %f", (double) _thrust_sp, (double) (hrt_elapsed_time(&_add_sin_time) / 1e6f));
-				// 	// PX4_INFO("_thrust_sp: %f", (double) _thrust_sp);
-				// }
-				// _use_sin_ref_prev = _use_sin_ref ||  _param_use_sin_ref.get();
-				_use_square_ref_prev = _use_square_ref || _param_use_square_ref.get();
-
-				// publish rate setpoint
-				vehicle_rates_setpoint_s v_rates_sp{};
-				v_rates_sp.roll = _rates_sp(0);
-				v_rates_sp.pitch = _rates_sp(1);
-				v_rates_sp.yaw = _rates_sp(2);
-				v_rates_sp.thrust_body[0] = 0.0f;
-				v_rates_sp.thrust_body[1] = 0.0f;
-				v_rates_sp.thrust_body[2] = -_thrust_sp;
-				v_rates_sp.timestamp = hrt_absolute_time();
-
-				_v_rates_sp_pub.publish(v_rates_sp);
+		if (_use_square_ref || _use_square_ref_sitl==1)
+		{
+			if (!_use_square_ref_prev)
+			{
+				// _add_square_time = hrt_absolute_time();
+				int_time = 0.f;
 			}
 
-		} else {
-			// use rates setpoint topic
-			vehicle_rates_setpoint_s v_rates_sp;
+			int_time += dt;
+			// float interval = hrt_elapsed_time(&_add_square_time) * 1e-6f;
+			// if (interval  <= 0.5f * _cycle_time)
+			if (int_time <= 0.5f * _cycle_time)
+				_rates_sp(0) = _square_ref_amplitude;
+			// else if (interval  > 0.5f * _cycle_time && interval <= _cycle_time)
+			else if (int_time  > 0.5f * _cycle_time && int_time <= _cycle_time)
+				_rates_sp(0) = -_square_ref_amplitude;
+			else
+				_rates_sp(0) = 0;
 
-			if (_v_rates_sp_sub.update(&v_rates_sp)) {
-				_rates_sp(0) = v_rates_sp.roll;
-				_rates_sp(1) = v_rates_sp.pitch;
-				_rates_sp(2) = v_rates_sp.yaw;
-				_thrust_sp = -v_rates_sp.thrust_body[2];
+			// PX4_INFO("_use_square_ref, _rates_sp: %f", (double) _rates_sp(0));
+			_rates_sp(1)=0;
+			_rates_sp(2)=0;
+
+			if (manual_rate_sp) {
+				if (manual_control_updated) {
+
+					_thrust_sp = _manual_control_setpoint.z;
+				}
+			}
+			// publish rate setpoint
+			vehicle_rates_setpoint_s v_rates_sp{};
+
+			v_rates_sp.roll = _rates_sp(0);
+			v_rates_sp.pitch = _rates_sp(1);
+			v_rates_sp.yaw = _rates_sp(2);
+			v_rates_sp.thrust_body[0] = 0.0f;
+			v_rates_sp.thrust_body[1] = 0.0f;
+			v_rates_sp.thrust_body[2] = -_thrust_sp;
+			v_rates_sp.timestamp = hrt_absolute_time();
+
+			_v_rates_sp_pub.publish(v_rates_sp);
+		}
+		else
+		{
+			if (manual_rate_sp) {
+				if (manual_control_updated) {
+
+					// manual rates control - ACRO mode
+					const Vector3f man_rate_sp{
+						math::superexpo(_manual_control_setpoint.y, _param_mc_acro_expo.get(), _param_mc_acro_supexpo.get()),
+						math::superexpo(-_manual_control_setpoint.x, _param_mc_acro_expo.get(), _param_mc_acro_supexpo.get()),
+						math::superexpo(_manual_control_setpoint.r, _param_mc_acro_expo_y.get(), _param_mc_acro_supexpoy.get())};
+
+					_rates_sp = man_rate_sp.emult(_acro_rate_max);
+					_thrust_sp = _manual_control_setpoint.z;
+
+					// if (_use_square_ref || _use_square_ref_sitl==1)
+					// 	_rates_sp(0) = _ref_cmd;
+
+					// publish rate setpoint
+					vehicle_rates_setpoint_s v_rates_sp{};
+
+					v_rates_sp.roll = _rates_sp(0);
+					v_rates_sp.pitch = _rates_sp(1);
+					v_rates_sp.yaw = _rates_sp(2);
+					v_rates_sp.thrust_body[0] = 0.0f;
+					v_rates_sp.thrust_body[1] = 0.0f;
+					v_rates_sp.thrust_body[2] = -_thrust_sp;
+					v_rates_sp.timestamp = hrt_absolute_time();
+
+					_v_rates_sp_pub.publish(v_rates_sp);
+				}
+
+			} else {
+				// use rates setpoint topic
+				vehicle_rates_setpoint_s v_rates_sp;
+
+				if (_v_rates_sp_sub.update(&v_rates_sp)) {
+					_rates_sp(0) = v_rates_sp.roll;
+					_rates_sp(1) = v_rates_sp.pitch;
+					_rates_sp(2) = v_rates_sp.yaw;
+					_thrust_sp = -v_rates_sp.thrust_body[2];
+				}
 			}
 		}
 
 
+
+		_use_square_ref_prev = _use_square_ref || _use_square_ref_sitl;
 
 
 

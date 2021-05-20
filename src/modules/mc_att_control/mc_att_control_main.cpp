@@ -197,30 +197,29 @@ MulticopterAttitudeControl::generate_attitude_setpoint(const Quatf &q, float dt,
 	// 	// PX4_INFO("step in att, change roll and pitch !");
 	// }
 	// _use_step_ref_prev = _use_step_ref || _param_mc_use_step_ref.get() == 1;
-	_cycle_time = _param_step_ref_time.get();
-	_step_roll_amp = _param_step_roll_amp.get();
-	_step_pitch_amp = _param_step_pitch_amp.get();
+
 	if (_use_step_ref || _param_mc_use_step_ref.get() == 1)
 	{
 		if (!_use_step_ref_prev)
 			_add_step_time = hrt_absolute_time();
 
-		if (hrt_elapsed_time(&_add_step_time) / 1e6f < 0.5f * _cycle_time)
+		hrt_abstime interval = hrt_elapsed_time(&_add_step_time);
+		if (interval / 1e6f < 0.5f * _cycle_time)
 		{
 			attitude_setpoint.roll_body = _step_roll_amp;
 			attitude_setpoint.pitch_body = _step_pitch_amp;
 		}
-		else if (hrt_elapsed_time(&_add_step_time) / 1e6f > 0.5f * _cycle_time && hrt_elapsed_time(&_add_step_time) / 1e6f < _cycle_time)
+		else if (interval / 1e6f > 0.5f * _cycle_time && interval / 1e6f < _cycle_time)
 		{
 			attitude_setpoint.roll_body = -_step_roll_amp;
 			attitude_setpoint.pitch_body = -_step_pitch_amp;
 		}
-		else if (hrt_elapsed_time(&_add_step_time) / 1e6f > _cycle_time && hrt_elapsed_time(&_add_step_time) / 1e6f < 1.5f * _cycle_time)
+		else if (interval / 1e6f > _cycle_time && interval / 1e6f < 1.5f * _cycle_time)
 		{
 			attitude_setpoint.roll_body = _step_roll_amp;
 			attitude_setpoint.pitch_body = _step_pitch_amp;
 		}
-		else if (hrt_elapsed_time(&_add_step_time) / 1e6f > 1.5f * _cycle_time && hrt_elapsed_time(&_add_step_time) / 1e6f < 2.0f * _cycle_time)
+		else if (interval / 1e6f > 1.5f * _cycle_time && interval / 1e6f < 2.0f * _cycle_time)
 		{
 			attitude_setpoint.roll_body = -_step_roll_amp;
 			attitude_setpoint.pitch_body = -_step_pitch_amp;
@@ -296,6 +295,10 @@ MulticopterAttitudeControl::Run()
 
 		updateParams();
 		parameters_updated();
+
+		_cycle_time = _param_step_ref_time.get();
+		_step_roll_amp = _param_step_roll_amp.get();
+		_step_pitch_amp = _param_step_pitch_amp.get();
 	}
 
 	// run controller on attitude updates

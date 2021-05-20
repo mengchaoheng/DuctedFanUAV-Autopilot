@@ -131,8 +131,11 @@ private:
 	hrt_abstime _add_square_time;
 	hrt_abstime _add_sin_time;
 
+	float int_time;
 	float _cycle_time;
 	float _square_ref_amplitude;
+	float _ref_cmd;
+	int _use_square_ref_sitl;
 
 	bool _indi_flag{false};
 
