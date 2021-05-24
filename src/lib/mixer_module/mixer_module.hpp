@@ -189,6 +189,8 @@ protected:
 	void updateParams() override;
 
 private:
+
+	void CheckAndUpdateFilters();
 	void handleCommands();
 
 	bool armNoThrottle() const
@@ -263,6 +265,7 @@ private:
 	hrt_abstime _time_last_dt_update_simple_mixer{0};
 
 	float _Omega_0_prev{0};
+	float _delta_prev[4];
 	float _dOmega_0_raw_prev{0};
 	float _Omega_d_prev{0};
 	float _dOmega_d_raw_prev{0};

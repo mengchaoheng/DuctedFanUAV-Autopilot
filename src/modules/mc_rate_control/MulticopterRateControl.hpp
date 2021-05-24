@@ -134,6 +134,7 @@ private:
 	float int_time;
 	float _cycle_time;
 	float _square_ref_amplitude;
+	float _square_yaw_amplitude;
 	float _ref_cmd;
 	int _use_square_ref_sitl;
 
@@ -205,6 +206,7 @@ private:
 		(ParamInt<px4::params::USE_CA>) _param_use_control_alloc,
 		(ParamFloat<px4::params::SQUARE_REF_TIME>) _param_square_ref_time,
 		(ParamFloat<px4::params::SQUARE_REF_AMP>) _param_square_ref_amplitude,
+		(ParamFloat<px4::params::SQUARE_YAW_AMP>) _param_square_yaw_amplitude,
 		(ParamFloat<px4::params::SPEED_SIN_T>) _param_speed_sin_t,
 		(ParamFloat<px4::params::SPEED_SIN_AMP>) _param_speed_sin_amp,
 		(ParamFloat<px4::params::SPEED_SIN_BIA>) _param_speed_sin_bia

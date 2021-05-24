@@ -127,6 +127,7 @@ MulticopterRateControl::Run()
 		parameters_updated();
 		_cycle_time = _param_square_ref_time.get();
 		_square_ref_amplitude = _param_square_ref_amplitude.get();
+		_square_yaw_amplitude = _param_square_yaw_amplitude.get();
 		_use_square_ref_sitl = _param_use_square_ref.get();
 	}
 
@@ -269,16 +270,24 @@ MulticopterRateControl::Run()
 			// float interval = hrt_elapsed_time(&_add_square_time) * 1e-6f;
 			// if (interval  <= 0.5f * _cycle_time)
 			if (int_time <= 0.5f * _cycle_time)
+			{
 				_rates_sp(0) = _square_ref_amplitude;
+				_rates_sp(2) = _square_yaw_amplitude;
+			}
 			// else if (interval  > 0.5f * _cycle_time && interval <= _cycle_time)
 			else if (int_time  > 0.5f * _cycle_time && int_time <= _cycle_time)
+			{
 				_rates_sp(0) = -_square_ref_amplitude;
+				_rates_sp(2) = -_square_yaw_amplitude;
+			}
 			else
+			{
 				_rates_sp(0) = 0;
+				_rates_sp(2) = 0;
+			}
 
 			// PX4_INFO("_use_square_ref, _rates_sp: %f", (double) _rates_sp(0));
 			_rates_sp(1)=0;
-			_rates_sp(2)=0;
 
 			if (manual_rate_sp) {
 				if (manual_control_updated) {
@@ -382,6 +391,7 @@ MulticopterRateControl::Run()
 				}
 				else
 				{
+					_rate_control.resetIntegral();
 					Vector3f att_control_p = _indi_control.update(rates, _rates_sp, angular_accel, dt, actuator_outputs_value, Nu_i, _maybe_landed || _landed);
 					if (_param_use_control_alloc.get() == 1)
 						att_control = att_control_p;

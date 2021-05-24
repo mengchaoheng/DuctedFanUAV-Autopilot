@@ -507,9 +507,9 @@ PARAM_DEFINE_INT32(USE_SQUARE_REF, 0);
 PARAM_DEFINE_FLOAT(SQUARE_REF_TIME, 0.f);
 
 /**
- * Period of perturbation square wave
+ * amplitude of the square wave
  *
- * The amplitude of the disturbance square wave, in radians per second
+ * The amplitude of the roll/pitch square wave, in radians per second
  *
  * @min 0.0
  * @max 30
@@ -519,6 +519,18 @@ PARAM_DEFINE_FLOAT(SQUARE_REF_TIME, 0.f);
  */
 PARAM_DEFINE_FLOAT(SQUARE_REF_AMP, 0.0);
 
+/**
+ * amplitude of the square wave
+ *
+ * The amplitude of the yaw square wave, in radians per second
+ *
+ * @min 0.0
+ * @max 30
+ * @decimal 15
+ * @increment 0.01
+ * @group Multicopter Rate Control
+ */
+PARAM_DEFINE_FLOAT(SQUARE_YAW_AMP, 0.0);
 /**
  * Period of sin speed signal
  *

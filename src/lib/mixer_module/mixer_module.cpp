@@ -82,25 +82,25 @@ _control_latency_perf(perf_alloc(PC_ELAPSED, "control latency"))
 	// filter init
 	// dOmega_0
 	_lp_filter_actuator_d[0].reset(0);
-	_lp_filter_actuator_d[0].set_cutoff_frequency(250, _param_domega_cutoff.get());
+	_lp_filter_actuator_d[0].set_cutoff_frequency(200, _param_domega_cutoff.get());
 	// dOmega_d
 	_lp_filter_actuator_d[1].reset(0);
-	_lp_filter_actuator_d[1].set_cutoff_frequency(250, _param_domega_d_cutoff.get());
+	_lp_filter_actuator_d[1].set_cutoff_frequency(200, _param_domega_d_cutoff.get());
 
 	// Omega_0
 	_lp_filter_actuator[0].reset(0);
-	_lp_filter_actuator[0].set_cutoff_frequency(250, _param_omega_cutoff.get());
+	_lp_filter_actuator[0].set_cutoff_frequency(200, _param_omega_cutoff.get());
 
 	_notch_filter_actuator[0].reset(0);
-	_notch_filter_actuator[0].setParameters(250, _param_imu_gyro_nf_freq.get(), _param_imu_gyro_nf_bw.get());
+	_notch_filter_actuator[0].setParameters(200, _param_imu_gyro_nf_freq.get(), _param_imu_gyro_nf_bw.get());
 
 	// last_delta_cmd_rad
 	for (size_t i = 0; i < 4; ++i) {
 		_lp_filter_actuator[i+1].reset(0);
-		_lp_filter_actuator[i+1].set_cutoff_frequency(250, _param_cs_cutoff.get());
+		_lp_filter_actuator[i+1].set_cutoff_frequency(200, _param_cs_cutoff.get());
 
 		_notch_filter_actuator[i+1].reset(0);
-		_notch_filter_actuator[i+1].setParameters(250, _param_imu_gyro_nf_freq.get(), _param_imu_gyro_nf_bw.get());
+		_notch_filter_actuator[i+1].setParameters(200, _param_imu_gyro_nf_freq.get(), _param_imu_gyro_nf_bw.get());
 	}
 	B_inv.setZero();
 	B_inv(0, 0)=-1.0f;
@@ -147,6 +147,51 @@ void MixingOutput::setHoverParams(const float pwm_hover, const float omega_hover
 	_omega_hover = omega_hover;
 }
 
+void MixingOutput::CheckAndUpdateFilters()
+{
+	// update software low pass filters
+
+	// Omega_0
+	if ((fabsf(_lp_filter_actuator[0].get_cutoff_freq() - _param_omega_cutoff.get()) > 0.1f)) {
+		_lp_filter_actuator[0].set_cutoff_frequency(200, _param_omega_cutoff.get());
+		_lp_filter_actuator[0].reset(_Omega_0_prev);
+	}
+
+	if ((fabsf(_notch_filter_actuator[0].getNotchFreq() - _param_imu_gyro_nf_freq.get()) > 0.1f)
+	|| (fabsf(_notch_filter_actuator[0].getBandwidth() - _param_imu_gyro_nf_bw.get()) > 0.1f)
+	) {
+		_notch_filter_actuator[0].setParameters(200, _param_imu_gyro_nf_freq.get(), _param_imu_gyro_nf_bw.get());
+		_notch_filter_actuator[0].reset(_Omega_0_prev);
+	}
+
+	// last_delta_cmd_rad
+	for (size_t i = 0; i < 4; ++i) {
+		if ((fabsf(_lp_filter_actuator[i+1].get_cutoff_freq() - _param_cs_cutoff.get()) > 0.1f)) {
+			_lp_filter_actuator[i+1].set_cutoff_frequency(200, _param_cs_cutoff.get());
+			_lp_filter_actuator[i+1].reset(_delta_prev[i]);
+		}
+
+		if ((fabsf(_notch_filter_actuator[i+1].getNotchFreq() - _param_imu_gyro_nf_freq.get()) > 0.1f)
+		|| (fabsf(_notch_filter_actuator[i+1].getBandwidth() - _param_imu_gyro_nf_bw.get()) > 0.1f)
+		) {
+			_notch_filter_actuator[i+1].setParameters(200, _param_imu_gyro_nf_freq.get(), _param_imu_gyro_nf_bw.get());
+			_notch_filter_actuator[i+1].reset(_delta_prev[i]);
+		}
+	}
+
+
+	// dOmega_0
+	if ((fabsf(_lp_filter_actuator_d[0].get_cutoff_freq() - _param_domega_cutoff.get()) > 0.1f)) {
+		_lp_filter_actuator_d[0].set_cutoff_frequency(200, _param_domega_cutoff.get());
+		_lp_filter_actuator_d[0].reset(_dOmega_0_raw_prev);
+	}
+	// dOmega_d
+	if ((fabsf(_lp_filter_actuator_d[1].get_cutoff_freq() - _param_domega_d_cutoff.get()) > 0.1f)) {
+		_lp_filter_actuator_d[1].set_cutoff_frequency(200, _param_domega_d_cutoff.get());
+		_lp_filter_actuator_d[1].reset(_dOmega_d_raw_prev);
+	}
+}
+
 void MixingOutput::updateParams()
 {
 	ModuleParams::updateParams();
@@ -179,6 +224,7 @@ void MixingOutput::updateParams()
 	if (_param_pwm_max6.get() != -1)
 		pwm_max6 = _param_pwm_max6.get();
 
+	CheckAndUpdateFilters();
 
 	// update mixer if we have one
 	if (_mixers) {
@@ -958,6 +1004,7 @@ MixingOutput::setAndPublishActuatorOutputs(unsigned num_outputs, actuator_output
 		actuator_notched[i+1] = _notch_filter_actuator[i+1].apply(last_delta_cmd_rad[i]);
 		actuator_outputs_value.delta[i] = _lp_filter_actuator[i+1].apply(actuator_notched[i+1]);
 		// PX4_INFO("actuator_has_lp_filter: %f \n", (double) actuator_has_lp_filter[i+1]); //sitl
+		_delta_prev[i] = actuator_outputs_value.delta[i];
 	}
 
 	//Derivative of thrust
