@@ -51,7 +51,10 @@ then
 	param set MPC_THR_HOVER 0.5
 	param set RTL_RETURN_ALT 2.5
 	param set RTL_DESCEND_ALT 2.5
-	param set SDLOG_PROFILE  17
+	param set SDLOG_PROFILE  1
+
+	param set CS_CUTOFF  15
+	param set IMU_DGYRO_CUTOFF  10
 
 	param set MC_PWM_HOVER 1500
 

@@ -46,9 +46,9 @@ using namespace px4::logger;
 void LoggedTopics::add_default_topics()
 {
 	add_topic("actuator_armed");
-	add_topic("actuator_controls_0", 50);
-	add_topic("indi_feedback_input", 50);
-	add_topic("actuator_outputs_value", 50);
+	add_topic("actuator_controls_0", 20);
+	add_topic("indi_feedback_input", 20);
+	add_topic("actuator_outputs_value", 20);
 	add_topic("actuator_controls_1", 100);
 	add_topic("airspeed", 1000);
 	add_topic("airspeed_validated", 200);
@@ -62,7 +62,7 @@ void LoggedTopics::add_default_topics()
 	add_topic("generator_status");
 	add_topic("home_position");
 	add_topic("hover_thrust_estimate", 100);
-	add_topic("input_rc", 50);
+	add_topic("input_rc", 20);
 	add_topic("manual_control_setpoint", 200);
 	add_topic("manual_control_switches");
 	add_topic("mission");
@@ -107,9 +107,10 @@ void LoggedTopics::add_default_topics()
 	add_topic("vehicle_status");
 	add_topic("vehicle_status_flags");
 	add_topic("vtol_vehicle_status", 200);
+	add_topic("vehicle_angular_acceleration", 20);
 
 	// multi topics
-	add_topic_multi("actuator_outputs", 50, 2);
+	add_topic_multi("actuator_outputs", 20, 2);
 	add_topic_multi("logger_status", 0, 2);
 	add_topic_multi("multirotor_motor_limits", 1000, 2);
 	add_topic_multi("rate_ctrl_status", 200, 2);
