@@ -67,7 +67,7 @@ MulticopterRateControl::init()
 	}
 
 	// limit to  250 Hz
-	_vehicle_angular_velocity_sub.set_interval_us(5_ms);
+	_vehicle_angular_velocity_sub.set_interval_us(4_ms);
 
 	_last_run = hrt_absolute_time();
 
@@ -393,9 +393,9 @@ MulticopterRateControl::Run()
 				{
 					_rate_control.resetIntegral();
 					Vector3f att_control_p = _indi_control.update(rates, _rates_sp, angular_accel, dt, actuator_outputs_value, Nu_i, _maybe_landed || _landed);
-					if (_param_use_control_alloc.get() == 1)
-						att_control = att_control_p;
-					else
+					// if (_param_use_control_alloc.get() == 1)
+						// att_control = att_control_p;
+					// else
 						att_control = att_control_p + Nu_i;
 					// PX4_INFO("INDI");
 				}

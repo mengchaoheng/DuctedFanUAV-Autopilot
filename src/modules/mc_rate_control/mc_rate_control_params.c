@@ -432,7 +432,7 @@ PARAM_DEFINE_FLOAT(MC_WIND_2_TORQUE, 0.0073f);//0.0073 //0.015f
  * @increment 0.01
  * @group Multicopter Rate Control
  */
-PARAM_DEFINE_FLOAT(MC_INDI_ROLL_P, 20.0f);
+PARAM_DEFINE_FLOAT(MC_INDI_ROLL_P, 10.0f);
 
 /**
  * Pitch rate P gain of INDI
@@ -445,7 +445,7 @@ PARAM_DEFINE_FLOAT(MC_INDI_ROLL_P, 20.0f);
  * @increment 0.01
  * @group Multicopter Rate Control
  */
-PARAM_DEFINE_FLOAT(MC_INDI_PITCH_P, 20.f);
+PARAM_DEFINE_FLOAT(MC_INDI_PITCH_P, 10.f);
 
 /**
  * Yaw rate P gain of INDI
@@ -458,7 +458,7 @@ PARAM_DEFINE_FLOAT(MC_INDI_PITCH_P, 20.f);
  * @increment 0.01
  * @group Multicopter Rate Control
  */
-PARAM_DEFINE_FLOAT(MC_INDI_YAW_P, 15.0f);
+PARAM_DEFINE_FLOAT(MC_INDI_YAW_P, 10.0f);
 
 /**
  * USE_INDI

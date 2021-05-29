@@ -245,6 +245,7 @@ private:
 	uint16_t _max_value[MAX_ACTUATORS] {};
 	uint16_t _current_output_value[MAX_ACTUATORS] {}; ///< current output values (reordered)
 	uint16_t _last_output_value[MAX_ACTUATORS] {}; ///< last output values (reordered)
+
 	hrt_abstime     _last_config_update{0};
 	uint16_t _reverse_output_mask{0}; ///< reverses the interval [min, max] -> [max, min], NOT motor direction
 	output_limit_t _output_limit;
@@ -266,6 +267,7 @@ private:
 
 	float _Omega_0_prev{0};
 	float _delta_prev[4];
+	float _last_outputs[MAX_ACTUATORS];
 	float _dOmega_0_raw_prev{0};
 	float _Omega_d_prev{0};
 	float _dOmega_d_raw_prev{0};
@@ -317,23 +319,28 @@ private:
 	bool _use_sin_ref_prev{false};
 	bool _use_servo_dis_prev{false};
 	bool _use_step_ref_prev{false};
-	uint16_t pwm_min3{PWM_DEFAULT_MIN};
-	uint16_t pwm_min4{PWM_DEFAULT_MIN};
-	uint16_t pwm_min5{PWM_DEFAULT_MIN};
-	uint16_t pwm_min6{PWM_DEFAULT_MIN};
-	uint16_t pwm_max3{PWM_DEFAULT_MAX};
-	uint16_t pwm_max4{PWM_DEFAULT_MAX};
-	uint16_t pwm_max5{PWM_DEFAULT_MAX};
-	uint16_t pwm_max6{PWM_DEFAULT_MAX};
+	// uint16_t pwm_min3{PWM_DEFAULT_MIN};
+	// uint16_t pwm_min4{PWM_DEFAULT_MIN};
+	// uint16_t pwm_min5{PWM_DEFAULT_MIN};
+	// uint16_t pwm_min6{PWM_DEFAULT_MIN};
+	// uint16_t pwm_max3{PWM_DEFAULT_MAX};
+	// uint16_t pwm_max4{PWM_DEFAULT_MAX};
+	// uint16_t pwm_max5{PWM_DEFAULT_MAX};
+	// uint16_t pwm_max6{PWM_DEFAULT_MAX};
 
-	int16_t _servo1_disturb;
-	int16_t _servo2_disturb;
-	int16_t _servo3_disturb;
-	int16_t _servo4_disturb;
-	int16_t _servo1_disturb_abs;
-	int16_t _servo2_disturb_abs;
-	int16_t _servo3_disturb_abs;
-	int16_t _servo4_disturb_abs;
+	// int16_t _servo1_disturb{0};
+	// int16_t _servo2_disturb{0};
+	// int16_t _servo3_disturb{0};
+	// int16_t _servo4_disturb{0};
+	// int16_t _servo1_disturb_abs{0};
+	// int16_t _servo2_disturb_abs{0};
+	// int16_t _servo3_disturb_abs{0};
+	// int16_t _servo4_disturb_abs{0};
+
+	float _servo_disturb[4] {};
+	float _servo_disturb_abs[4] {};
+	double _uMin[4] {};
+	double _uMax[4] {};
 
 	matrix::Matrix<double, 4, 3> B_inv;
 

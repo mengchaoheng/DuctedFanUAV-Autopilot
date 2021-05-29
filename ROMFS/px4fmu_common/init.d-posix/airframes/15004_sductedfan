@@ -22,21 +22,21 @@
 if [ $AUTOCNF = yes ]
 then
 
-        param set MC_ROLL_P 5
+        param set MC_ROLL_P 6
 	param set MC_ROLLRATE_P 0.45
 	param set MC_ROLLRATE_I 0.3
 	param set MC_ROLLRATE_D 0.0
 	param set MC_ROLLRATE_FF 0
 
-	param set MC_PITCH_P 5
+	param set MC_PITCH_P 6
 	param set MC_PITCHRATE_P 0.45
 	param set MC_PITCHRATE_I 0.3
 	param set MC_PITCHRATE_D 0.0
 	param set MC_PITCHRATE_FF 0
 
 	param set MC_YAW_P 5
-	param set MC_YAWRATE_P 0.4
-	param set MC_YAWRATE_I 0.3
+	param set MC_YAWRATE_P 0.3
+	param set MC_YAWRATE_I 0.1
 	param set MC_YAWRATE_D 0
 	param set MC_YAWRATE_FF 0
 
@@ -48,13 +48,21 @@ then
 	param set MC_ACRO_P_MAX 90.0
 	param set MC_ACRO_Y_MAX 90.0
 
+	param set MC_INDI_ROLL_P 12
+	param set MC_INDI_PITCH_P 12
+	param set MC_INDI_YAW_P 10
+
 	param set MPC_THR_HOVER 0.5
 	param set RTL_RETURN_ALT 2.5
 	param set RTL_DESCEND_ALT 2.5
 	param set SDLOG_PROFILE  1
 
-	param set CS_CUTOFF  15
+	param set CS_CUTOFF  10
+	param set DOMEGA_CUTOFF  10
+	param set DOMEGA_D_CUTOFF  10
+	param set OMEGA_CUTOFF  10
 	param set IMU_DGYRO_CUTOFF  10
+	param set USE_CA 1
 
 	param set MC_PWM_HOVER 1500
 

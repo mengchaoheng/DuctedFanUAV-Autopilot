@@ -50,9 +50,9 @@ void IndiControl::setParams(const Vector3f &P, const float k_cv, const float k_v
 void IndiControl::init()
 {
 	_H_1.setZero();
-	_H_1(0, 0) = _k_cv*_k_v*_k_v*2.f*_L_1/_I_x;
-	_H_1(1, 1) = _k_cv*_k_v*_k_v*2.f*_L_1/_I_y;
-	_H_1(2, 2) = _k_cv*_k_v*_k_v*4.f*_L_2/_I_z;
+	_H_1(0, 0) = 0.3491f*_k_cv*_k_v*_k_v*2.f*_L_1/_I_x;
+	_H_1(1, 1) = 0.3491f*_k_cv*_k_v*_k_v*2.f*_L_1/_I_y;
+	_H_1(2, 2) = 0.3491f*_k_cv*_k_v*_k_v*4.f*_L_2/_I_z;
 
 	_H_inv.setZero();
 	_H_inv(0, 0) = 1.f/_H_1(0, 0);
@@ -92,10 +92,12 @@ Vector3f IndiControl::update(const Vector3f &rate, const Vector3f &rate_sp, cons
 
 		Nu_i = _B * delta_0 - _H_inv / (actuator_outputs_value.propeller_omega_0 * actuator_outputs_value.propeller_omega_0) * (angular_accel + T);
 		// PX4_INFO("Nu_i of INDI is: roll: %f, pitch: %f, yaw: %f \n", (double) Nu_i(0), (double) Nu_i(1), (double) Nu_i(2));
+		// PX4_INFO("T: roll: %f, pitch: %f, yaw: %f \n", (double) T(0), (double) T(1), (double) T(2));
+		// PX4_INFO("angular_accel+T: roll: %f, pitch: %f, yaw: %f \n", (double) (angular_accel(0)+T(0)), (double) (angular_accel(1)+T(1)), (double) (angular_accel(2)+T(2)));
 	}
 	Vector3f K = _H_inv / (actuator_outputs_value.propeller_omega_0 * actuator_outputs_value.propeller_omega_0) * _gain_p;
 	// PX4_INFO("propeller_omega_0: %f", (double) actuator_outputs_value.propeller_omega_0);
-	// PX4_INFO("K of INDI is: roll: %f, pitch: %f, yaw: %f \n", (double) _H_inv(0, 0), (double) _H_inv(1, 1), (double) _H_inv(2, 2));
+	// PX4_INFO("_H_inv: roll: %f, pitch: %f, yaw: %f \n", (double) _H_inv(0, 0), (double) _H_inv(1, 1), (double) _H_inv(2, 2));
 	// 18617.958984, pitch: 18682.771484, yaw: 8847.666992
 	// K(0) = PX4_ISFINITE(K(0)) ? K(0) : 0.0f;
 	// K(1) = PX4_ISFINITE(K(1)) ? K(1) : 0.0f;
