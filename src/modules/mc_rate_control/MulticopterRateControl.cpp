@@ -67,7 +67,7 @@ MulticopterRateControl::init()
 	}
 
 	// limit to  250 Hz
-	_vehicle_angular_velocity_sub.set_interval_us(4_ms);
+	_vehicle_angular_velocity_sub.set_interval_us(5_ms);
 
 	_last_run = hrt_absolute_time();
 

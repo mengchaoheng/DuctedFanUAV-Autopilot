@@ -49,6 +49,7 @@ void LoggedTopics::add_default_topics()
 	add_topic("actuator_controls_0", 50);
 	add_topic("indi_feedback_input", 50);
 	add_topic("actuator_outputs_value", 50);
+	add_topic("allocation_value", 50);
 	add_topic("actuator_controls_1", 100);
 	add_topic("airspeed", 1000);
 	add_topic("airspeed_validated", 200);
@@ -177,6 +178,7 @@ void LoggedTopics::add_high_rate_topics()
 	add_topic("actuator_outputs");
 	add_topic("indi_feedback_input");
 	add_topic("actuator_outputs_value");
+	add_topic("allocation_value");
 	add_topic("manual_control_setpoint");
 	add_topic("rate_ctrl_status", 20);
 	add_topic("sensor_combined");

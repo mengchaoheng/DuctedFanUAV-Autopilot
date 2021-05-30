@@ -49,6 +49,7 @@
 #include <uORB/topics/actuator_controls.h>
 #include <uORB/topics/actuator_outputs.h>
 #include <uORB/topics/actuator_outputs_value.h>
+#include <uORB/topics/allocation_value.h>
 #include <uORB/topics/indi_feedback_input.h>
 #include <uORB/topics/multirotor_motor_limits.h>
 #include <uORB/topics/parameter_update.h>
@@ -244,9 +245,9 @@ private:
 	uint16_t _min_value[MAX_ACTUATORS] {};
 	uint16_t _max_value[MAX_ACTUATORS] {};
 	uint16_t _current_output_value[MAX_ACTUATORS] {}; ///< current output values (reordered)
-	uint16_t _last_output_value[MAX_ACTUATORS] {}; ///< last output values (reordered)
+	uint16_t _last_output_value[2] {}; ///< last output values (reordered)
 
-	hrt_abstime     _last_config_update{0};
+	// hrt_abstime     _last_config_update{0};
 	uint16_t _reverse_output_mask{0}; ///< reverses the interval [min, max] -> [max, min], NOT motor direction
 	output_limit_t _output_limit;
 
@@ -255,6 +256,7 @@ private:
 	uORB::Subscription _indi_fb_sub{ORB_ID(indi_feedback_input)};
 
 	uORB::PublicationMulti<actuator_outputs_s> _outputs_pub{ORB_ID(actuator_outputs)};
+	uORB::PublicationMulti<allocation_value_s> _allocation_value_pub{ORB_ID(allocation_value)};
 	uORB::Publication<actuator_outputs_value_s> _outputs_value_pub{ORB_ID(actuator_outputs_value)};
 	uORB::PublicationMulti<multirotor_motor_limits_s> _to_mixer_status{ORB_ID(multirotor_motor_limits)}; 	///< mixer status flags
 
@@ -341,7 +343,8 @@ private:
 	float _servo_disturb_abs[4] {};
 	double _uMin[4] {};
 	double _uMax[4] {};
-
+	double _u[4] {}; //  [-1, 1]
+	double _last_u[4] {};
 	matrix::Matrix<double, 4, 3> B_inv;
 
 	rc_channels_s		_rc_channels {};

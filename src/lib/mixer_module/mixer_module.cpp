@@ -82,25 +82,25 @@ _control_latency_perf(perf_alloc(PC_ELAPSED, "control latency"))
 	// filter init
 	// dOmega_0
 	_lp_filter_actuator_d[0].reset(0);
-	_lp_filter_actuator_d[0].set_cutoff_frequency(250, _param_domega_cutoff.get());
+	_lp_filter_actuator_d[0].set_cutoff_frequency(200, _param_domega_cutoff.get());
 	// dOmega_d
 	_lp_filter_actuator_d[1].reset(0);
-	_lp_filter_actuator_d[1].set_cutoff_frequency(250, _param_domega_d_cutoff.get());
+	_lp_filter_actuator_d[1].set_cutoff_frequency(200, _param_domega_d_cutoff.get());
 
 	// Omega_0
 	_lp_filter_actuator[0].reset(0);
-	_lp_filter_actuator[0].set_cutoff_frequency(250, _param_omega_cutoff.get());
+	_lp_filter_actuator[0].set_cutoff_frequency(200, _param_omega_cutoff.get());
 
 	_notch_filter_actuator[0].reset(0);
-	_notch_filter_actuator[0].setParameters(250, _param_imu_gyro_nf_freq.get(), _param_imu_gyro_nf_bw.get());
+	_notch_filter_actuator[0].setParameters(200, _param_imu_gyro_nf_freq.get(), _param_imu_gyro_nf_bw.get());
 
 	// last_delta_cmd_rad
 	for (size_t i = 0; i < 4; ++i) {
 		_lp_filter_actuator[i+1].reset(0);
-		_lp_filter_actuator[i+1].set_cutoff_frequency(250, _param_cs_cutoff.get());
+		_lp_filter_actuator[i+1].set_cutoff_frequency(200, _param_cs_cutoff.get());
 
 		_notch_filter_actuator[i+1].reset(0);
-		_notch_filter_actuator[i+1].setParameters(250, _param_imu_gyro_nf_freq.get(), _param_imu_gyro_nf_bw.get());
+		_notch_filter_actuator[i+1].setParameters(200, _param_imu_gyro_nf_freq.get(), _param_imu_gyro_nf_bw.get());
 	}
 	B_inv.setZero();
 	B_inv(0, 0)=-1.0f;
@@ -157,28 +157,28 @@ void MixingOutput::CheckAndUpdateFilters()
 
 	// Omega_0
 	if ((fabsf(_lp_filter_actuator[0].get_cutoff_freq() - _param_omega_cutoff.get()) > 0.1f)) {
-		_lp_filter_actuator[0].set_cutoff_frequency(250, _param_omega_cutoff.get());
+		_lp_filter_actuator[0].set_cutoff_frequency(200, _param_omega_cutoff.get());
 		_lp_filter_actuator[0].reset(_Omega_0_prev);
 	}
 
 	if ((fabsf(_notch_filter_actuator[0].getNotchFreq() - _param_imu_gyro_nf_freq.get()) > 0.1f)
 	|| (fabsf(_notch_filter_actuator[0].getBandwidth() - _param_imu_gyro_nf_bw.get()) > 0.1f)
 	) {
-		_notch_filter_actuator[0].setParameters(250, _param_imu_gyro_nf_freq.get(), _param_imu_gyro_nf_bw.get());
+		_notch_filter_actuator[0].setParameters(200, _param_imu_gyro_nf_freq.get(), _param_imu_gyro_nf_bw.get());
 		_notch_filter_actuator[0].reset(_Omega_0_prev);
 	}
 
 	// last_delta_cmd_rad
 	for (size_t i = 0; i < 4; ++i) {
 		if ((fabsf(_lp_filter_actuator[i+1].get_cutoff_freq() - _param_cs_cutoff.get()) > 0.1f)) {
-			_lp_filter_actuator[i+1].set_cutoff_frequency(250, _param_cs_cutoff.get());
+			_lp_filter_actuator[i+1].set_cutoff_frequency(200, _param_cs_cutoff.get());
 			_lp_filter_actuator[i+1].reset(_delta_prev[i]);
 		}
 
 		if ((fabsf(_notch_filter_actuator[i+1].getNotchFreq() - _param_imu_gyro_nf_freq.get()) > 0.1f)
 		|| (fabsf(_notch_filter_actuator[i+1].getBandwidth() - _param_imu_gyro_nf_bw.get()) > 0.1f)
 		) {
-			_notch_filter_actuator[i+1].setParameters(250, _param_imu_gyro_nf_freq.get(), _param_imu_gyro_nf_bw.get());
+			_notch_filter_actuator[i+1].setParameters(200, _param_imu_gyro_nf_freq.get(), _param_imu_gyro_nf_bw.get());
 			_notch_filter_actuator[i+1].reset(_delta_prev[i]);
 		}
 	}
@@ -186,12 +186,12 @@ void MixingOutput::CheckAndUpdateFilters()
 
 	// dOmega_0
 	if ((fabsf(_lp_filter_actuator_d[0].get_cutoff_freq() - _param_domega_cutoff.get()) > 0.1f)) {
-		_lp_filter_actuator_d[0].set_cutoff_frequency(250, _param_domega_cutoff.get());
+		_lp_filter_actuator_d[0].set_cutoff_frequency(200, _param_domega_cutoff.get());
 		_lp_filter_actuator_d[0].reset(_dOmega_0_raw_prev);
 	}
 	// dOmega_d
 	if ((fabsf(_lp_filter_actuator_d[1].get_cutoff_freq() - _param_domega_d_cutoff.get()) > 0.1f)) {
-		_lp_filter_actuator_d[1].set_cutoff_frequency(250, _param_domega_d_cutoff.get());
+		_lp_filter_actuator_d[1].set_cutoff_frequency(200, _param_domega_d_cutoff.get());
 		_lp_filter_actuator_d[1].reset(_dOmega_d_raw_prev);
 	}
 }
@@ -528,7 +528,7 @@ bool MixingOutput::update()
 	float outputs[MAX_ACTUATORS] {};
 	const unsigned mixed_num_outputs = _mixers->mix(outputs, _max_num_outputs);
 	// PX4_INFO("u1: %f, u2: %f, u3: %f, u4: %f. \n",(double) outputs[0],(double) outputs[1],(double) outputs[2],(double) outputs[3]);
-	double u[4] {}; // The actual deflection angle of the control vane. [-delta, delta]
+
 	if (_rc_channels_sub.update(&_rc_channels))
 	{
 		// Simultaneously or not
@@ -576,8 +576,10 @@ bool MixingOutput::update()
 		{
 			for (size_t i = 0; i < 4; i++)
 			{
-				_uMin[i] = -(1.0-(double) _servo_disturb_abs[i]/0.3491);
-				_uMax[i] = 1.0-(double) _servo_disturb_abs[i]/0.3491;
+				if(_servo_disturb[i]>0.f)
+					_uMax[i] = 1.0-(double) _servo_disturb_abs[i]/0.3491;
+				else
+					_uMin[i] = -(1.0-(double) _servo_disturb_abs[i]/0.3491);
 				// PX4_INFO("_uMin[%ld]: %f", i, _uMin[i]);
 				// PX4_INFO("_uMin[%ld]: %f", i, _uMax[i]);
 			}
@@ -609,8 +611,12 @@ bool MixingOutput::update()
 
 			for (size_t i = 0; i < 4; i++)
 			{
-				_uMin[i] = -(1.0-(double) _servo_disturb_abs[i]/0.3491);
-				_uMax[i] = 1.0-(double) _servo_disturb_abs[i]/0.3491;
+				if(_servo_disturb[i]>0.f)
+					_uMax[i] = 1.0-(double) _servo_disturb_abs[i]/0.3491;
+				else
+					_uMin[i] = -(1.0-(double) _servo_disturb_abs[i]/0.3491);
+				// _uMin[i] = -(1.0-(double) _servo_disturb_abs[i]/0.3491);
+				// _uMax[i] = 1.0-(double) _servo_disturb_abs[i]/0.3491;
 				// PX4_INFO("_uMin[%ld]: %f", i, _uMin[i]);
 				// PX4_INFO("_uMin[%ld]: %f", i, _uMax[i]);
 			}
@@ -637,6 +643,7 @@ bool MixingOutput::update()
 	// // "outputs" is the value alfter mix, range from [-1, 1]. _current_output_value is pwm value alfter output_limit_calc.
 	// // just using in ductedfan
 	// // PX4_INFO("dir_alloc_sim:\n");
+	allocation_value_s allocation_value{};
 	if (_param_use_alloc.get() == 1)
 	{
 		// ye
@@ -676,8 +683,8 @@ bool MixingOutput::update()
 		matrix::Matrix<double, 4, 1> u_inv = B_inv * y_desire;
 		for (size_t i = 0; i < 4; i++)
 		{
-			// u[i] =(double) math::constrain((float) u_inv(i,0), -1.f, 1.f);
-			u[i] =(double) math::constrain((float) u_inv(i,0), (float) (_uMin[i]), (float) (_uMax[i]));
+			// _u[i] =(double) math::constrain((float) u_inv(i,0), -1.f, 1.f);
+			_u[i] =(double) math::constrain((float) u_inv(i,0), (float) (_uMin[i]), (float) (_uMax[i]));
 			if( (u_inv(i,0) > 1.0) ||  (u_inv(i,0) < -1.0))
 			{
 				obtainable = false;
@@ -698,7 +705,7 @@ bool MixingOutput::update()
 			// {
 			// 	for (size_t i = 0; i < 4; i++)
 			// 	{
-			// 		u[i] = (double) math::constrain((float) u_all[i], -1.f, 1.f);
+			// 		_u[i] = (double) math::constrain((float) u_all[i], -1.f, 1.f);
 			// 	}
 			// 	// PX4_INFO(" dir 1");
 			// }
@@ -724,7 +731,7 @@ bool MixingOutput::update()
 					dir_alloc_sim(yd, uMin_new, uMax_new, u_d, &z_d, &iters_d);
 					for (size_t i = 0; i < 4; i++)
 					{
-						u[i] = (double) math::constrain((float) (u_d[i] + u_e[i]), (float) (_uMin[i]), (float) (_uMax[i]));
+						_u[i] = (double) math::constrain((float) (u_d[i] + u_e[i]), (float) (_uMin[i]), (float) (_uMax[i]));
 					}
 					// PX4_INFO("dir 3");
 				}
@@ -732,13 +739,22 @@ bool MixingOutput::update()
 				{
 					for (size_t i = 0; i < 4; i++)
 					{
-						u[i] = (double) math::constrain((float) u_e[i], (float) (_uMin[i]), (float) (_uMax[i]));
+						_u[i] = (double) math::constrain((float) u_e[i], (float) (_uMin[i]), (float) (_uMax[i]));
 					}
 					// PX4_INFO("dir 2");
 				}
 			// }
 		}
-		float u_ultimate[4]={(float) u[0], (float) u[1], (float) u[2], (float) u[3]};
+		float u_ultimate[4];
+
+		for (size_t i = 0; i < 4; i++)
+		{
+			u_ultimate[i] =(float) _u[i];
+			allocation_value.u[i] = _u[i];
+			allocation_value.umin[i] = _uMin[i];
+			allocation_value.umax[i] = _uMax[i];
+
+		}
 		if (_param_use_dis_same.get() == 1)
 		{
 			// if (_disturb_flag || (_param_use_square_ref.get()==1) ||  (_param_use_sin_ref.get()==1))
@@ -746,7 +762,7 @@ bool MixingOutput::update()
 			{
 				for (size_t i = 0; i < 4; i++)
 				{
-					u_ultimate[i] = (float) u[i] + _servo_disturb[i]/0.3491f;
+					u_ultimate[i] = (float) _u[i] + _servo_disturb[i]/0.3491f;
 				}
 			}
 		}
@@ -756,7 +772,7 @@ bool MixingOutput::update()
 			{
 				for (size_t i = 0; i < 4; i++)
 				{
-					u_ultimate[i] = (float) u[i] + _servo_disturb[i]/0.3491f;
+					u_ultimate[i] = (float) _u[i] + _servo_disturb[i]/0.3491f;
 				}
 			}
 
@@ -765,12 +781,15 @@ bool MixingOutput::update()
 		// PX4_INFO("iters: %f, z: %f, u1: %f, u2: %f, u3: %f, u4: %f. \n", iters, z, u[0]*r2d, u[1]*r2d, u[2]*r2d, u[3]*r2d);
 		for (size_t i = 0; i < 4; i++)
 		{
-			outputs[i+2] = (float) (u_ultimate[i]);
+			outputs[i+2] = (u_ultimate[i]);
+			allocation_value.outputs[i] = outputs[i+2];
 		}
 		// timestamp_ca_end = hrt_absolute_time();
 		// PX4_INFO("dir_alloc_sim time: %lld \n", (timestamp_ca_end - timestamp_ca_start) ); //nuttx
 		// PX4_INFO("dir_alloc_sim time: %ld \n", (timestamp_ca_end - timestamp_ca_start) ); //sitl
 	}
+	allocation_value.timestamp = hrt_absolute_time();
+	_allocation_value_pub.publish(allocation_value);
 
 	/* the output limit call takes care of out of band errors, NaN and constrains */ // [-1, 1] -> [min_rad, max_rad] == [min_pwm, max_pwm]
 	output_limit_calc(_throttle_armed, armNoThrottle(), mixed_num_outputs, _reverse_output_mask,
@@ -801,6 +820,8 @@ bool MixingOutput::update()
 	// _current_output_value[1] = _param_ductedfan_mid1.get();
 	//_current_output_value[2] = _param_ductedfan_mid2.get();
 
+
+
 	/* now return the outputs to the driver */
 	if (_interface.updateOutputs(stop_motors, _current_output_value, mixed_num_outputs, n_updates)) {
 		actuator_outputs_s actuator_outputs{};
@@ -809,6 +830,8 @@ bool MixingOutput::update()
 		publishMixerStatus(actuator_outputs);
 		updateLatencyPerfCounter(actuator_outputs);
 	}
+
+
 
 	handleCommands();
 
@@ -828,12 +851,13 @@ MixingOutput::setAndPublishActuatorOutputs(unsigned num_outputs, actuator_output
 	_outputs_pub.publish(actuator_outputs);
 
 	// run once for init
-	if (_last_config_update == 0)
-	{
-		for (size_t i = 0; i < num_outputs; ++i) {
-			_last_output_value[i] = _current_output_value[i];
-		}
-	}
+	// if (_last_config_update == 0)
+	// {
+	// 	_last_output_value[0] = _current_output_value[0];
+	// 	for (size_t i = 0; i < 4; ++i) {
+	// 		_last_u[i] = _u[i];
+	// 	}
+	// }
 
 	const float dt = math::constrain(((actuator_outputs.timestamp - _timestamp_sample_prev) / 1e6f), 0.0002f, 0.02f);
 	_timestamp_sample_prev = actuator_outputs.timestamp;
@@ -865,11 +889,11 @@ MixingOutput::setAndPublishActuatorOutputs(unsigned num_outputs, actuator_output
 		Omega_0=((float) (_last_output_value[0] - _min_value[0]) / (float) (_max_value[0] - _min_value[0])) * coefficient;
 	// PX4_INFO("Omega_0: %f \n", (double) Omega_0); //sitl
 	//control surfaces, 0.3491 rad -> 180pwm.
-	float last_delta_cmd_rad[4];
+	// float last_delta_cmd_rad[4];
 	for (size_t i = 0; i < 4 ; ++i) {
-		const float pwm_center = (float) (_max_value[i+2] + _min_value[i+2]) / 2.f;
-		last_delta_cmd_rad[i] = ((float) _last_output_value[i+2] - pwm_center) *1.0f/((float) (_max_value[i+2] - _min_value[i+2]) / 2.f);	// 100%
-		actuator_outputs_value.last_deltacmd[i] = last_delta_cmd_rad[i];
+		// const float pwm_center = (float) (_max_value[i+2] + _min_value[i+2]) / 2.f;
+		// last_delta_cmd_rad[i] = ((float) _last_output_value[i+2] - pwm_center) *1.0f/((float) (_max_value[i+2] - _min_value[i+2]) / 2.f);	// 100%
+		actuator_outputs_value.last_deltacmd[i] =(float) _last_u[i];
 	}
 	// PX4_INFO("last_delta_cmd_rad: %f \n", (double) last_delta_cmd_rad[0]); //sitl
 	// actuator filtering:
@@ -885,8 +909,8 @@ MixingOutput::setAndPublishActuatorOutputs(unsigned num_outputs, actuator_output
 
 	//control surfaces
 	for (size_t i = 0; i < 4; ++i) {
-		actuator_notched[i+1] = _notch_filter_actuator[i+1].apply(last_delta_cmd_rad[i]);
-		actuator_outputs_value.delta[i] = math::constrain(_lp_filter_actuator[i+1].apply(actuator_notched[i+1]),-1.f,1.f);// 100%
+		actuator_notched[i+1] = _notch_filter_actuator[i+1].apply(actuator_outputs_value.last_deltacmd[i]);
+		actuator_outputs_value.delta[i] = math::constrain(_lp_filter_actuator[i+1].apply(actuator_notched[i+1]), (float) (_uMin[i]), (float) (_uMax[i]));// 100%
 		// PX4_INFO("actuator_has_lp_filter: %f \n", (double) actuator_has_lp_filter[i+1]); //sitl
 		_delta_prev[i] = actuator_outputs_value.delta[i];
 	}
@@ -910,60 +934,61 @@ MixingOutput::setAndPublishActuatorOutputs(unsigned num_outputs, actuator_output
 	actuator_outputs_value.dpropeller_omega_d = dOmega_d;
 	actuator_outputs_value.dpropeller_omega_0 = dOmega_0;
 	actuator_outputs_value.timestamp = hrt_absolute_time();
-	_last_config_update = actuator_outputs_value.timestamp;
+	// _last_config_update = actuator_outputs_value.timestamp;
 	_outputs_value_pub.publish(actuator_outputs_value);
 
 	//update _last_output_value
-	for (size_t i = 0; i < num_outputs; ++i) {
-		_last_output_value[i] = _current_output_value[i];
+	_last_output_value[0] = _current_output_value[0];
+	for (size_t i = 0; i < 4; ++i) {
+		_last_u[i] = _u[i];
 	}
 
-	if (_param_use_alloc.get() == 1)
-	{
-		if (_param_use_dis_same.get() == 1)
-		{
-			// if (_disturb_flag || (_param_use_square_ref.get()==1) ||  (_param_use_sin_ref.get()==1))
-			if (_disturb_flag || (_param_mc_use_step_ref.get()==1))
-			{
-				// PX4_INFO("_last_output_value the same remove");
-				// PX4_INFO("before");
-				// PX4_INFO("_last_output_value[2]: %f", (double) _last_output_value[2]);
-				// PX4_INFO("_last_output_value[4]: %f", (double) _last_output_value[4]);
+	// if (_param_use_alloc.get() == 1)
+	// {
+	// 	if (_param_use_dis_same.get() == 1)
+	// 	{
+	// 		// if (_disturb_flag || (_param_use_square_ref.get()==1) ||  (_param_use_sin_ref.get()==1))
+	// 		if (_disturb_flag || (_param_mc_use_step_ref.get()==1))
+	// 		{
+	// 			// PX4_INFO("_last_output_value the same remove");
+	// 			// PX4_INFO("before");
+	// 			// PX4_INFO("_last_output_value[2]: %f", (double) _last_output_value[2]);
+	// 			// PX4_INFO("_last_output_value[4]: %f", (double) _last_output_value[4]);
 
-				_last_output_value[2] = _last_output_value[2] - (int16_t) (_servo_disturb[0]/ 0.3491f * ((_max_value[2] - _min_value[2])/2.f));
-				_last_output_value[3] = _last_output_value[3] - (int16_t) (_servo_disturb[1]/ 0.3491f * ((_max_value[3] - _min_value[3])/2.f));
-				_last_output_value[4] = _last_output_value[4] - (int16_t) (_servo_disturb[2]/ 0.3491f * ((_max_value[4] - _min_value[4])/2.f));
-				_last_output_value[5] = _last_output_value[5] - (int16_t) (_servo_disturb[3]/ 0.3491f * ((_max_value[5] - _min_value[5])/2.f));
+	// 			_last_output_value[2] = _last_output_value[2] - (int16_t) (_servo_disturb[0]/ 0.3491f * ((_max_value[2] - _min_value[2])/2.f));
+	// 			_last_output_value[3] = _last_output_value[3] - (int16_t) (_servo_disturb[1]/ 0.3491f * ((_max_value[3] - _min_value[3])/2.f));
+	// 			_last_output_value[4] = _last_output_value[4] - (int16_t) (_servo_disturb[2]/ 0.3491f * ((_max_value[4] - _min_value[4])/2.f));
+	// 			_last_output_value[5] = _last_output_value[5] - (int16_t) (_servo_disturb[3]/ 0.3491f * ((_max_value[5] - _min_value[5])/2.f));
 
-				// _last_output_value[3] = _last_output_value[3] + (_param_servo_disturb.get() / 0.3491f) * (PWM_DEFAULT_MAX - PWM_DEFAULT_MIN)/2;
-				// _last_output_value[5] = _last_output_value[5] + (_param_servo_disturb.get() / 0.3491f) * (PWM_DEFAULT_MAX - PWM_DEFAULT_MIN)/2;
-				// PX4_INFO("after");
-				// PX4_INFO("_last_output_value[2]: %f", (double) _last_output_value[2]);
-				// PX4_INFO("_last_output_value[4]: %f", (double) _last_output_value[4]);
-			}
-		}
-		else
-		{
-			if (_disturb_flag || (_param_use_servo_dis.get()==1))
-			{
-				// PX4_INFO("_last_output_value single remove");
-				// PX4_INFO("before");
-				// PX4_INFO("_last_output_value[2]: %f", (double) _last_output_value[2]);
-				// PX4_INFO("_last_output_value[4]: %f", (double) _last_output_value[4]);
-				_last_output_value[2] = _last_output_value[2] - (int16_t) (_servo_disturb[0]/ 0.3491f * ((_max_value[2] - _min_value[2])/2.f));
-				_last_output_value[3] = _last_output_value[3] - (int16_t) (_servo_disturb[1]/ 0.3491f * ((_max_value[3] - _min_value[3])/2.f));
-				_last_output_value[4] = _last_output_value[4] - (int16_t) (_servo_disturb[2]/ 0.3491f * ((_max_value[4] - _min_value[4])/2.f));
-				_last_output_value[5] = _last_output_value[5] - (int16_t) (_servo_disturb[3]/ 0.3491f * ((_max_value[5] - _min_value[5])/2.f));
+	// 			// _last_output_value[3] = _last_output_value[3] + (_param_servo_disturb.get() / 0.3491f) * (PWM_DEFAULT_MAX - PWM_DEFAULT_MIN)/2;
+	// 			// _last_output_value[5] = _last_output_value[5] + (_param_servo_disturb.get() / 0.3491f) * (PWM_DEFAULT_MAX - PWM_DEFAULT_MIN)/2;
+	// 			// PX4_INFO("after");
+	// 			// PX4_INFO("_last_output_value[2]: %f", (double) _last_output_value[2]);
+	// 			// PX4_INFO("_last_output_value[4]: %f", (double) _last_output_value[4]);
+	// 		}
+	// 	}
+	// 	else
+	// 	{
+	// 		if (_disturb_flag || (_param_use_servo_dis.get()==1))
+	// 		{
+	// 			// PX4_INFO("_last_output_value single remove");
+	// 			// PX4_INFO("before");
+	// 			// PX4_INFO("_last_output_value[2]: %f", (double) _last_output_value[2]);
+	// 			// PX4_INFO("_last_output_value[4]: %f", (double) _last_output_value[4]);
+	// 			_last_output_value[2] = _last_output_value[2] - (int16_t) (_servo_disturb[0]/ 0.3491f * ((_max_value[2] - _min_value[2])/2.f));
+	// 			_last_output_value[3] = _last_output_value[3] - (int16_t) (_servo_disturb[1]/ 0.3491f * ((_max_value[3] - _min_value[3])/2.f));
+	// 			_last_output_value[4] = _last_output_value[4] - (int16_t) (_servo_disturb[2]/ 0.3491f * ((_max_value[4] - _min_value[4])/2.f));
+	// 			_last_output_value[5] = _last_output_value[5] - (int16_t) (_servo_disturb[3]/ 0.3491f * ((_max_value[5] - _min_value[5])/2.f));
 
-				// _last_output_value[3] = _last_output_value[3] + (_param_servo_disturb.get() / 0.3491f) * (PWM_DEFAULT_MAX - PWM_DEFAULT_MIN)/2;
-				// _last_output_value[5] = _last_output_value[5] + (_param_servo_disturb.get() / 0.3491f) * (PWM_DEFAULT_MAX - PWM_DEFAULT_MIN)/2;
-				// PX4_INFO("after");
-				// PX4_INFO("_last_output_value[2]: %f", (double) _last_output_value[2]);
-				// PX4_INFO("_last_output_value[4]: %f", (double) _last_output_value[4]);
-			}
+	// 			// _last_output_value[3] = _last_output_value[3] + (_param_servo_disturb.get() / 0.3491f) * (PWM_DEFAULT_MAX - PWM_DEFAULT_MIN)/2;
+	// 			// _last_output_value[5] = _last_output_value[5] + (_param_servo_disturb.get() / 0.3491f) * (PWM_DEFAULT_MAX - PWM_DEFAULT_MIN)/2;
+	// 			// PX4_INFO("after");
+	// 			// PX4_INFO("_last_output_value[2]: %f", (double) _last_output_value[2]);
+	// 			// PX4_INFO("_last_output_value[4]: %f", (double) _last_output_value[4]);
+	// 		}
 
-		}
-	}
+	// 	}
+	// }
 }
 
 void
