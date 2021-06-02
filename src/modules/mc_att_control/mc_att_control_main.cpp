@@ -174,59 +174,30 @@ MulticopterAttitudeControl::generate_attitude_setpoint(const Quatf &q, float dt,
 	// 	if (!_use_step_ref_prev)
 	// 		_add_step_time = hrt_absolute_time();
 
-	// 	if (hrt_elapsed_time(&_add_step_time) / 1e6f < 0.5f * _param_step_ref_time.get())
+	// 	hrt_abstime interval = hrt_elapsed_time(&_add_step_time);
+	// 	if (interval / 1e6f < 0.5f * _cycle_time)
 	// 	{
-	// 		attitude_setpoint.roll_body = _param_step_roll_amp.get();
-	// 		attitude_setpoint.pitch_body = _param_step_pitch_amp.get();
+	// 		attitude_setpoint.roll_body = _step_roll_amp;
+	// 		attitude_setpoint.pitch_body = _step_pitch_amp;
 	// 	}
-	// 	else if (hrt_elapsed_time(&_add_step_time) / 1e6f > 0.5f * _param_step_ref_time.get() && hrt_elapsed_time(&_add_step_time) / 1e6f < _param_step_ref_time.get())
+	// 	else if (interval / 1e6f > 0.5f * _cycle_time && interval / 1e6f < _cycle_time)
 	// 	{
-	// 		attitude_setpoint.roll_body = -_param_step_roll_amp.get();
-	// 		attitude_setpoint.pitch_body = -_param_step_pitch_amp.get();
+	// 		attitude_setpoint.roll_body = -_step_roll_amp;
+	// 		attitude_setpoint.pitch_body = -_step_pitch_amp;
 	// 	}
-	// 	else if (hrt_elapsed_time(&_add_step_time) / 1e6f > _param_step_ref_time.get() && hrt_elapsed_time(&_add_step_time) / 1e6f < 1.5f * _param_step_ref_time.get())
+	// 	else if (interval / 1e6f > _cycle_time && interval / 1e6f < 1.5f * _cycle_time)
 	// 	{
-	// 		attitude_setpoint.roll_body = _param_step_roll_amp.get();
-	// 		attitude_setpoint.pitch_body = _param_step_pitch_amp.get();
+	// 		attitude_setpoint.roll_body = _step_roll_amp;
+	// 		attitude_setpoint.pitch_body = _step_pitch_amp;
 	// 	}
-	// 	else if (hrt_elapsed_time(&_add_step_time) / 1e6f > 1.5f * _param_step_ref_time.get() && hrt_elapsed_time(&_add_step_time) / 1e6f < 2.0f * _param_step_ref_time.get())
+	// 	else if (interval / 1e6f > 1.5f * _cycle_time && interval / 1e6f < 2.0f * _cycle_time)
 	// 	{
-	// 		attitude_setpoint.roll_body = -_param_step_roll_amp.get();
-	// 		attitude_setpoint.pitch_body = -_param_step_pitch_amp.get();
+	// 		attitude_setpoint.roll_body = -_step_roll_amp;
+	// 		attitude_setpoint.pitch_body = -_step_pitch_amp;
 	// 	}
-	// 	// PX4_INFO("step in att, change roll and pitch !");
+	// 	// PX4_INFO("step in position, change roll and pitch !");
 	// }
 	// _use_step_ref_prev = _use_step_ref || _param_mc_use_step_ref.get() == 1;
-
-	if (_use_step_ref || _param_mc_use_step_ref.get() == 1)
-	{
-		if (!_use_step_ref_prev)
-			_add_step_time = hrt_absolute_time();
-
-		hrt_abstime interval = hrt_elapsed_time(&_add_step_time);
-		if (interval / 1e6f < 0.5f * _cycle_time)
-		{
-			attitude_setpoint.roll_body = _step_roll_amp;
-			attitude_setpoint.pitch_body = _step_pitch_amp;
-		}
-		else if (interval / 1e6f > 0.5f * _cycle_time && interval / 1e6f < _cycle_time)
-		{
-			attitude_setpoint.roll_body = -_step_roll_amp;
-			attitude_setpoint.pitch_body = -_step_pitch_amp;
-		}
-		else if (interval / 1e6f > _cycle_time && interval / 1e6f < 1.5f * _cycle_time)
-		{
-			attitude_setpoint.roll_body = _step_roll_amp;
-			attitude_setpoint.pitch_body = _step_pitch_amp;
-		}
-		else if (interval / 1e6f > 1.5f * _cycle_time && interval / 1e6f < 2.0f * _cycle_time)
-		{
-			attitude_setpoint.roll_body = -_step_roll_amp;
-			attitude_setpoint.pitch_body = -_step_pitch_amp;
-		}
-		// PX4_INFO("step in position, change roll and pitch !");
-	}
-	_use_step_ref_prev = _use_step_ref || _param_mc_use_step_ref.get() == 1;
 
 
 	/* modify roll/pitch only if we're a VTOL */
@@ -296,27 +267,27 @@ MulticopterAttitudeControl::Run()
 		updateParams();
 		parameters_updated();
 
-		_cycle_time = _param_step_ref_time.get();
-		_step_roll_amp = _param_step_roll_amp.get();
-		_step_pitch_amp = _param_step_pitch_amp.get();
+		// _cycle_time = _param_step_ref_time.get();
+		// _step_roll_amp = _param_step_roll_amp.get();
+		// _step_pitch_amp = _param_step_pitch_amp.get();
 	}
 
 	// run controller on attitude updates
 	vehicle_attitude_s v_att;
 
-	if (_rc_channels_sub.update(&_rc_channels))
-	{
-		if (_rc_channels.channels[9] < 0.f)
-		{
-			_use_step_ref = false;
-			// PX4_INFO("no step !");
-		}
-		else
-		{
-			_use_step_ref = true;
-			// PX4_INFO("step !");
-		}
-	}
+	// if (_rc_channels_sub.update(&_rc_channels))
+	// {
+	// 	if (_rc_channels.channels[9] < 0.f)
+	// 	{
+	// 		_use_step_ref = false;
+	// 		// PX4_INFO("no step !");
+	// 	}
+	// 	else
+	// 	{
+	// 		_use_step_ref = true;
+	// 		// PX4_INFO("step !");
+	// 	}
+	// }
 
 	if (_vehicle_attitude_sub.update(&v_att)) {
 

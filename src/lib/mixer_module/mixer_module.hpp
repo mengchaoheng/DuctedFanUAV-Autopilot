@@ -316,11 +316,12 @@ private:
 	uORB::Subscription _rc_channels_sub{ORB_ID(rc_channels)};
 
 	bool _disturb_flag{false};
+	bool _use_lp_alloc{false};
 	bool _disturb_flag_prev{false};
 	bool _use_square_ref_prev{false};
-	bool _use_sin_ref_prev{false};
+	// bool _use_sin_ref_prev{false};
 	bool _use_servo_dis_prev{false};
-	bool _use_step_ref_prev{false};
+	// bool _use_step_ref_prev{false};
 	// uint16_t pwm_min3{PWM_DEFAULT_MIN};
 	// uint16_t pwm_min4{PWM_DEFAULT_MIN};
 	// uint16_t pwm_min5{PWM_DEFAULT_MIN};
@@ -348,6 +349,7 @@ private:
 	matrix::Matrix<double, 4, 3> B_inv;
 
 	rc_channels_s		_rc_channels {};
+	const double _B[3][4] = { {-0.5,0.0,0.5,0.0}, {0.0,-0.5,0.0,0.5},{0.25,0.25,0.25,0.25}};
 
 	DEFINE_PARAMETERS(
 		(ParamInt<px4::params::MC_AIRMODE>) _param_mc_airmode,   ///< multicopter air-mode
@@ -383,11 +385,12 @@ private:
 		(ParamInt<px4::params::PWM_MAIN_MAX4>) _param_pwm_max4,
 		(ParamInt<px4::params::PWM_MAIN_MAX5>) _param_pwm_max5,
 		(ParamInt<px4::params::PWM_MAIN_MAX6>) _param_pwm_max6,
-		(ParamInt<px4::params::USE_DIS_SAME>) _param_use_dis_same,
+		// (ParamInt<px4::params::USE_DIS_SAME>) _param_use_dis_same,
 		(ParamFloat<px4::params::CS_CUTOFF>) _param_cs_cutoff,
 		(ParamFloat<px4::params::OMEGA_CUTOFF>) _param_omega_cutoff,
 		(ParamFloat<px4::params::DOMEGA_D_CUTOFF>) _param_domega_d_cutoff,
-		(ParamFloat<px4::params::DOMEGA_CUTOFF>) _param_domega_cutoff
+		(ParamFloat<px4::params::DOMEGA_CUTOFF>) _param_domega_cutoff,
+		(ParamInt<px4::params::SAMPLE_FREQ>) _param_sample_freq
 
 	)
 };

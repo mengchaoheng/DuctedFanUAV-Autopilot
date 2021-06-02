@@ -88,9 +88,9 @@ int MulticopterPositionControl::parameters_update(bool force)
 		ModuleParams::updateParams();
 		SuperBlock::updateParams();
 
-		_cycle_time = _param_step_ref_time.get();
-		_step_roll_amp = _param_step_roll_amp.get();
-		_step_pitch_amp = _param_step_pitch_amp.get();
+		// _cycle_time = _param_step_ref_time.get();
+		// _step_roll_amp = _param_step_roll_amp.get();
+		// _step_pitch_amp = _param_step_pitch_amp.get();
 
 		if (_param_mpc_tiltmax_air.get() > MAX_SAFE_TILT_DEG) {
 			_param_mpc_tiltmax_air.set(MAX_SAFE_TILT_DEG);
@@ -244,19 +244,19 @@ void MulticopterPositionControl::Run()
 
 		vehicle_local_position_setpoint_s setpoint;
 
-		if (_rc_channels_sub.update(&_rc_channels))
-		{
-			if (_rc_channels.channels[9] < 0.f)
-			{
-				_use_step_ref = false;
-				// PX4_INFO("no step !");
-			}
-			else
-			{
-				_use_step_ref = true;
-				// PX4_INFO("step !");
-			}
-		}
+		// if (_rc_channels_sub.update(&_rc_channels))
+		// {
+		// 	if (_rc_channels.channels[9] < 0.f)
+		// 	{
+		// 		_use_step_ref = false;
+		// 		// PX4_INFO("no step !");
+		// 	}
+		// 	else
+		// 	{
+		// 		_use_step_ref = true;
+		// 		// PX4_INFO("step !");
+		// 	}
+		// }
 
 		// check if any task is active
 		if (_trajectory_setpoint_sub.update(&setpoint)) {
@@ -310,38 +310,38 @@ void MulticopterPositionControl::Run()
 			_control.getAttitudeSetpoint(attitude_setpoint);
 
 
-			if (_use_step_ref || _param_mc_use_step_ref.get() == 1)
-			{
-				if (!_use_step_ref_prev)
-					_add_step_time = hrt_absolute_time();
+			// if (_use_step_ref || _param_mc_use_step_ref.get() == 1)
+			// {
+			// 	if (!_use_step_ref_prev)
+			// 		_add_step_time = hrt_absolute_time();
 
-				hrt_abstime interval = hrt_elapsed_time(&_add_step_time);
-				if (interval / 1e6f < 0.5f * _cycle_time)
-				{
-					attitude_setpoint.roll_body = _step_roll_amp;
-					attitude_setpoint.pitch_body = _step_pitch_amp;
-				}
-				else if (interval / 1e6f > 0.5f * _cycle_time && interval / 1e6f < _cycle_time)
-				{
-					attitude_setpoint.roll_body = -_step_roll_amp;
-					attitude_setpoint.pitch_body = -_step_pitch_amp;
-				}
-				else if (interval / 1e6f > _cycle_time && interval / 1e6f < 1.5f * _cycle_time)
-				{
-					attitude_setpoint.roll_body = _step_roll_amp;
-					attitude_setpoint.pitch_body = _step_pitch_amp;
-				}
-				else if (interval / 1e6f > 1.5f * _cycle_time && interval / 1e6f < 2.0f * _cycle_time)
-				{
-					attitude_setpoint.roll_body = -_step_roll_amp;
-					attitude_setpoint.pitch_body = -_step_pitch_amp;
-				}
-				// PX4_INFO("step in position, change roll and pitch !");
-			}
-			_use_step_ref_prev = _use_step_ref || _param_mc_use_step_ref.get() == 1;
+			// 	hrt_abstime interval = hrt_elapsed_time(&_add_step_time);
+			// 	if (interval / 1e6f < 0.5f * _cycle_time)
+			// 	{
+			// 		attitude_setpoint.roll_body = _step_roll_amp;
+			// 		attitude_setpoint.pitch_body = _step_pitch_amp;
+			// 	}
+			// 	else if (interval / 1e6f > 0.5f * _cycle_time && interval / 1e6f < _cycle_time)
+			// 	{
+			// 		attitude_setpoint.roll_body = -_step_roll_amp;
+			// 		attitude_setpoint.pitch_body = -_step_pitch_amp;
+			// 	}
+			// 	else if (interval / 1e6f > _cycle_time && interval / 1e6f < 1.5f * _cycle_time)
+			// 	{
+			// 		attitude_setpoint.roll_body = _step_roll_amp;
+			// 		attitude_setpoint.pitch_body = _step_pitch_amp;
+			// 	}
+			// 	else if (interval / 1e6f > 1.5f * _cycle_time && interval / 1e6f < 2.0f * _cycle_time)
+			// 	{
+			// 		attitude_setpoint.roll_body = -_step_roll_amp;
+			// 		attitude_setpoint.pitch_body = -_step_pitch_amp;
+			// 	}
+			// 	// PX4_INFO("step in position, change roll and pitch !");
+			// }
+			// _use_step_ref_prev = _use_step_ref || _param_mc_use_step_ref.get() == 1;
 
-			Quatf q_sp = Eulerf(attitude_setpoint.roll_body, attitude_setpoint.pitch_body, attitude_setpoint.yaw_body);
-			q_sp.copyTo(attitude_setpoint.q_d);
+			// Quatf q_sp = Eulerf(attitude_setpoint.roll_body, attitude_setpoint.pitch_body, attitude_setpoint.yaw_body);
+			// q_sp.copyTo(attitude_setpoint.q_d);
 
 			_vehicle_attitude_setpoint_pub.publish(attitude_setpoint);
 

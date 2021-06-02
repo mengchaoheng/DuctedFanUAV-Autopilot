@@ -570,3 +570,15 @@ PARAM_DEFINE_FLOAT(SPEED_SIN_AMP, 0.f);
  */
 PARAM_DEFINE_FLOAT(SPEED_SIN_BIA, 0.5f);
 
+/**
+ * cycle time
+ *
+ * Run cycle of rate controller.
+ *
+ * @min 1000
+ * @max 8000
+ * @decimal 4000
+ * @increment 1000
+ * @group Multicopter Rate Control
+ */
+PARAM_DEFINE_INT32(CYC_T, 5000);
