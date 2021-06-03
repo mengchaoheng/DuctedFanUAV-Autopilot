@@ -97,10 +97,13 @@ _control_latency_perf(perf_alloc(PC_ELAPSED, "control latency"))
 	// last_delta_cmd_rad
 	for (size_t i = 0; i < 4; ++i) {
 		_lp_filter_actuator[i+1].reset(0);
-		_lp_filter_actuator[i+1].set_cutoff_frequency(_param_sample_freq.get(), _param_cs_cutoff.get());
+		_lp_filter_actuator[i+1].set_cutoff_frequency(_param_sample_freq.get(), _param_cs1_cutoff.get());
 
 		_notch_filter_actuator[i+1].reset(0);
 		_notch_filter_actuator[i+1].setParameters(_param_sample_freq.get(), _param_imu_gyro_nf_freq.get(), _param_imu_gyro_nf_bw.get());
+
+		_lp_filter_actuator_d[i+2].reset(0);
+		_lp_filter_actuator_d[i+2].set_cutoff_frequency(_param_sample_freq.get(), _param_cs2_cutoff.get());
 	}
 	B_inv.setZero();
 	B_inv(0, 0)=-1.0f;
@@ -170,11 +173,16 @@ void MixingOutput::CheckAndUpdateFilters()
 
 	// last_delta_cmd_rad
 	for (size_t i = 0; i < 4; ++i) {
-		if ((fabsf(_lp_filter_actuator[i+1].get_cutoff_freq() - _param_cs_cutoff.get()) > 0.1f)) {
-			_lp_filter_actuator[i+1].set_cutoff_frequency(_param_sample_freq.get(), _param_cs_cutoff.get());
+		if ((fabsf(_lp_filter_actuator[i+1].get_cutoff_freq() - _param_cs1_cutoff.get()) > 0.1f)) {
+			_lp_filter_actuator[i+1].set_cutoff_frequency(_param_sample_freq.get(), _param_cs1_cutoff.get());
 			_lp_filter_actuator[i+1].reset(_delta_prev[i]);
-		}
 
+		}
+		if ((fabsf(_lp_filter_actuator_d[i+2].get_cutoff_freq() - _param_cs2_cutoff.get()) > 0.1f)) {
+			_lp_filter_actuator_d[i+2].set_cutoff_frequency(_param_sample_freq.get(), _param_cs2_cutoff.get());
+			_lp_filter_actuator_d[i+2].reset(_delta_prev[i]);
+
+		}
 		if ((fabsf(_notch_filter_actuator[i+1].getNotchFreq() - _param_imu_gyro_nf_freq.get()) > 0.1f)
 		|| (fabsf(_notch_filter_actuator[i+1].getBandwidth() - _param_imu_gyro_nf_bw.get()) > 0.1f)
 		) {
@@ -861,9 +869,18 @@ MixingOutput::setAndPublishActuatorOutputs(unsigned num_outputs, actuator_output
 	// PX4_INFO("actuator_has_lp_filter: %f \n", (double) actuator_has_lp_filter[0]); //sitl
 
 	//control surfaces
+	float first_lp[4];
 	for (size_t i = 0; i < 4; ++i) {
 		actuator_notched[i+1] = _notch_filter_actuator[i+1].apply(actuator_outputs_value.last_deltacmd[i]);
-		actuator_outputs_value.delta[i] = math::constrain(_lp_filter_actuator[i+1].apply(actuator_notched[i+1]), (float) (_uMin[i]), (float) (_uMax[i]));// 100%
+		if(_param_use_2lp.get() == 0)
+		{
+			actuator_outputs_value.delta[i] = math::constrain(_lp_filter_actuator[i+1].apply(actuator_notched[i+1]), (float) (_uMin[i]), (float) (_uMax[i]));// 100%
+		}
+		else
+		{
+			first_lp[i] = _lp_filter_actuator[i+1].apply(actuator_notched[i+1]);
+			actuator_outputs_value.delta[i] = math::constrain(_lp_filter_actuator_d[i+2].apply(first_lp[i]), (float) (_uMin[i]), (float) (_uMax[i]));// 100%
+		}
 		// PX4_INFO("actuator_has_lp_filter: %f \n", (double) actuator_has_lp_filter[i+1]); //sitl
 		_delta_prev[i] = actuator_outputs_value.delta[i];
 	}

@@ -210,7 +210,9 @@ private:
 		(ParamFloat<px4::params::SPEED_SIN_T>) _param_speed_sin_t,
 		(ParamFloat<px4::params::SPEED_SIN_AMP>) _param_speed_sin_amp,
 		(ParamFloat<px4::params::SPEED_SIN_BIA>) _param_speed_sin_bia,
-		(ParamInt<px4::params::CYC_T>) _param_cycle_time
+		(ParamInt<px4::params::CYC_T>) _param_cycle_time,
+		(ParamInt<px4::params::USE_TAUI>) _param_use_tau_i
+
 	)
 
 	matrix::Vector3f _acro_rate_max;	/**< max attitude rates in acro mode */

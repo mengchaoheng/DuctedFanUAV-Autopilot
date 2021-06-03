@@ -582,3 +582,12 @@ PARAM_DEFINE_FLOAT(SPEED_SIN_BIA, 0.5f);
  * @group Multicopter Rate Control
  */
 PARAM_DEFINE_INT32(CYC_T, 5000);
+
+/**
+ * use tau_i.
+ *
+ * @value 0 not
+ * @value 1 yes
+ * @group Multicopter Rate Control
+ */
+PARAM_DEFINE_INT32(USE_TAUI, 1);

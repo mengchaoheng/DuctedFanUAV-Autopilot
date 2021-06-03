@@ -180,7 +180,24 @@ PARAM_DEFINE_INT32(USE_DIS_SAME, 0);
 * @reboot_required true
 * @group Mixer Output
 */
-PARAM_DEFINE_FLOAT(CS_CUTOFF, 30.0f);
+PARAM_DEFINE_FLOAT(CS1_CUTOFF, 30.0f);
+
+/**
+* Low pass filter cutoff frequency for control surface
+*
+* The cutoff frequency for the 2nd order butterworth filter on the primary gyro.
+* This only affects the deflection angular sent to the controllers.
+*
+* A value of 0 disables the filter.
+*
+* @min 0
+* @max 1000
+* @unit Hz
+* @reboot_required true
+* @group Mixer Output
+*/
+PARAM_DEFINE_FLOAT(CS2_CUTOFF, 30.0f);
+
 
 /**
 * Low pass filter cutoff frequency for omega
@@ -238,3 +255,14 @@ PARAM_DEFINE_FLOAT(DOMEGA_CUTOFF, 30.0f);
  * @group Mixer Output
  */
 PARAM_DEFINE_INT32(SAMPLE_FREQ, 200);
+
+/**
+ * USE_2LP
+ *
+ * Simultaneously add Servo and roll disturbance or not
+ *
+ * @value 0 not
+ * @value 1 use the same time
+ * @group Mixer Output
+ */
+PARAM_DEFINE_INT32(USE_2LP, 0);

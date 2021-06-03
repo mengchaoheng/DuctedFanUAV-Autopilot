@@ -284,7 +284,7 @@ private:
 	math::NotchFilter<float> _notch_filter_actuator[5];
 
 	// angular acceleration filter
-	math::LowPassFilter2p _lp_filter_actuator_d[2]={math::LowPassFilter2p{250,20.f},math::LowPassFilter2p{250,20.f}};
+	math::LowPassFilter2p _lp_filter_actuator_d[6]={math::LowPassFilter2p{250,20.f},math::LowPassFilter2p{250,20.f},math::LowPassFilter2p{250,20.f},math::LowPassFilter2p{250,20.f},math::LowPassFilter2p{250,20.f},math::LowPassFilter2p{250,20.f}};
 
 	unsigned _max_topic_update_interval_us{0}; ///< max _control_subs topic update interval (0=unlimited)
 
@@ -370,6 +370,7 @@ private:
 		(ParamFloat<px4::params::MC_PWM_HOVER>) _param_mc_pwm_hover,
 		(ParamFloat<px4::params::MC_OMEGA_HOVER>) _param_mc_omega_hover,
 		(ParamInt<px4::params::USE_SIN_REF>) _param_use_sin_ref,
+		(ParamInt<px4::params::USE_2LP>) _param_use_2lp,
 		(ParamInt<px4::params::USE_SQUARE_REF>) _param_use_square_ref,
 		(ParamInt<px4::params::USE_STEP_REF>) _param_mc_use_step_ref,
 		(ParamFloat<px4::params::SERVO1_DISTURB>) _param_servo1_disturb,
@@ -386,7 +387,8 @@ private:
 		(ParamInt<px4::params::PWM_MAIN_MAX5>) _param_pwm_max5,
 		(ParamInt<px4::params::PWM_MAIN_MAX6>) _param_pwm_max6,
 		// (ParamInt<px4::params::USE_DIS_SAME>) _param_use_dis_same,
-		(ParamFloat<px4::params::CS_CUTOFF>) _param_cs_cutoff,
+		(ParamFloat<px4::params::CS1_CUTOFF>) _param_cs1_cutoff,
+		(ParamFloat<px4::params::CS2_CUTOFF>) _param_cs2_cutoff,
 		(ParamFloat<px4::params::OMEGA_CUTOFF>) _param_omega_cutoff,
 		(ParamFloat<px4::params::DOMEGA_D_CUTOFF>) _param_domega_d_cutoff,
 		(ParamFloat<px4::params::DOMEGA_CUTOFF>) _param_domega_cutoff,
