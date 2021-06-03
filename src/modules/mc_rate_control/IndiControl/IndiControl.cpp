@@ -50,9 +50,9 @@ void IndiControl::setParams(const Vector3f &P, const float k_cv, const float k_v
 void IndiControl::init()
 {
 	_H_1.setZero();
-	_H_1(0, 0) = 0.3491f*_k_cv*_k_v*_k_v*2.f*_L_1/_I_x;
-	_H_1(1, 1) = 0.3491f*_k_cv*_k_v*_k_v*2.f*_L_1/_I_y;
-	_H_1(2, 2) = 0.3491f*_k_cv*_k_v*_k_v*4.f*_L_2/_I_z;
+	_H_1(0, 0) = _k_cv*_k_v*_k_v*2.f*_L_1/_I_x;
+	_H_1(1, 1) = _k_cv*_k_v*_k_v*2.f*_L_1/_I_y;
+	_H_1(2, 2) = _k_cv*_k_v*_k_v*4.f*_L_2/_I_z;
 
 	_H_inv.setZero();
 	_H_inv(0, 0) = 1.f/_H_1(0, 0);

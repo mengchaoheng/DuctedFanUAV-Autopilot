@@ -117,8 +117,8 @@ _control_latency_perf(perf_alloc(PC_ELAPSED, "control latency"))
 
 	for (size_t i = 0; i < 4; i++)
 	{
-		_uMin[i] = -1.0;
-		_uMax[i] = 1.0;
+		_uMin[i] = -0.3491;
+		_uMax[i] = 0.3491;
 	}
 }
 
@@ -565,9 +565,9 @@ bool MixingOutput::update()
 		for (size_t i = 0; i < 4; i++)
 		{
 			if(_servo_disturb[i]>0.f)
-				_uMax[i] = 1.0-(double) _servo_disturb_abs[i]/0.3491;
+				_uMax[i] = 0.3491-(double) _servo_disturb_abs[i];
 			else
-				_uMin[i] = -(1.0-(double) _servo_disturb_abs[i]/0.3491);
+				_uMin[i] = -(0.3491-(double) _servo_disturb_abs[i]);
 			// _uMin[i] = -(1.0-(double) _servo_disturb_abs[i]/0.3491);
 			// _uMax[i] = 1.0-(double) _servo_disturb_abs[i]/0.3491;
 			// PX4_INFO("_uMin[%ld]: %f", i, _uMin[i]);
@@ -583,8 +583,8 @@ bool MixingOutput::update()
 	{
 		for (size_t i = 0; i < 4; i++)
 		{
-			_uMin[i] = -1.0;
-			_uMax[i] = 1.0;
+			_uMin[i] = -0.3491;
+			_uMax[i] = 0.3491;
 			// PX4_INFO("_uMin[%ld]: %f", i, _uMin[i]);
 			// PX4_INFO("_uMin[%ld]: %f", i, _uMax[i]);
 		}
@@ -635,7 +635,7 @@ bool MixingOutput::update()
 		{
 			// _u[i] =(double) math::constrain((float) u_inv(i,0), -1.f, 1.f);
 			_u[i] =(double) math::constrain((float) u_inv(i,0), (float) (_uMin[i]), (float) (_uMax[i]));
-			if( (u_inv(i,0) > 1.0) ||  (u_inv(i,0) < -1.0))
+			if( (u_inv(i,0) > 0.3491) ||  (u_inv(i,0) < -0.3491))
 			{
 				attainable  = false;
 				// PX4_INFO("attainable  false");
@@ -730,13 +730,13 @@ bool MixingOutput::update()
 		{
 			for (size_t i = 0; i < 4; i++)
 			{
-				u_ultimate[i] = (float) _u[i] + _servo_disturb[i]/0.3491f;
+				u_ultimate[i] = (float) _u[i] + _servo_disturb[i];
 			}
 		}
 		// PX4_INFO("iters: %f, z: %f, u1: %f, u2: %f, u3: %f, u4: %f. \n", iters, z, u[0]*r2d, u[1]*r2d, u[2]*r2d, u[3]*r2d);
 		for (size_t i = 0; i < 4; i++)
 		{
-			outputs[i+2] = (u_ultimate[i]);
+			outputs[i+2] = (u_ultimate[i])/0.3491f;
 			allocation_value.outputs[i] = outputs[i+2];
 		}
 		// timestamp_ca_end = hrt_absolute_time();
