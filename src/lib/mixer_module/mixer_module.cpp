@@ -572,14 +572,14 @@ bool MixingOutput::update()
 
 		for (size_t i = 0; i < 4; i++)
 		{
-			if(_servo_disturb[i]>0.f)
-				_uMax[i] = 0.3491-(double) _servo_disturb_abs[i];
-			else
-				_uMin[i] = -(0.3491-(double) _servo_disturb_abs[i]);
-			// _uMin[i] = -(1.0-(double) _servo_disturb_abs[i]/0.3491);
-			// _uMax[i] = 1.0-(double) _servo_disturb_abs[i]/0.3491;
+			// if(_servo_disturb[i]>0.f)
+			// 	_uMax[i] = 0.3491-(double) _servo_disturb_abs[i];
+			// else
+			// 	_uMin[i] = -(0.3491-(double) _servo_disturb_abs[i]);
+			_uMin[i] = -(0.3491-(double) _servo_disturb_abs[i]);
+			_uMax[i] = 0.3491-(double) _servo_disturb_abs[i];
 			// PX4_INFO("_uMin[%ld]: %f", i, _uMin[i]);
-			// PX4_INFO("_uMin[%ld]: %f", i, _uMax[i]);
+			// PX4_INFO("_uMax[%ld]: %f", i, _uMax[i]);
 		}
 		// PX4_INFO("single, use_roll_disturb, change _min_value and _min_value !");
 
@@ -594,7 +594,7 @@ bool MixingOutput::update()
 			_uMin[i] = -0.3491;
 			_uMax[i] = 0.3491;
 			// PX4_INFO("_uMin[%ld]: %f", i, _uMin[i]);
-			// PX4_INFO("_uMin[%ld]: %f", i, _uMax[i]);
+			// PX4_INFO("_uMax[%ld]: %f", i, _uMax[i]);
 		}
 		// PX4_INFO("single, not use_roll_disturb, restore _min_value and _min_value !");
 	}
@@ -634,49 +634,43 @@ bool MixingOutput::update()
 		double yd[3] = { y_all[0]-ye[0], y_all[1]-ye[1], y_all[2]-ye[2] };
 		// double d2r=3.141592653/180;
 		// double r2d=180/3.141592653;
-		bool attainable =true;
 
-		//inv
-		matrix::Matrix<double, 3, 1> y_desire (y_all);
-		matrix::Matrix<double, 4, 1> u_inv = B_inv * y_desire;
-		for (size_t i = 0; i < 4; i++)
-		{
-			// _u[i] =(double) math::constrain((float) u_inv(i,0), -1.f, 1.f);
-			_u[i] =(double) math::constrain((float) u_inv(i,0), (float) (_uMin[i]), (float) (_uMax[i]));
-			if( (u_inv(i,0) > 0.3491) ||  (u_inv(i,0) < -0.3491))
-			{
-				attainable  = false;
-				// PX4_INFO("attainable  false");
-			}
-		}
-		double u_e[4] {};
-		double u_d[4] {};
 		//dir
-		if ( (_use_lp_alloc || _param_use_lp_alloc.get()==1) && !(attainable ))
-		{
-			// // PX4_INFO("dir 1");
-			// double u_all[4];
-			// double z_all;
-			// double iters_all;
-			// dir_alloc_sim(y_all, _uMin, _uMax, u_all, &z_all, &iters_all);
-			// if (z_all>1)
-			// // if(0)
-			// {
-			// 	for (size_t i = 0; i < 4; i++)
-			// 	{
-			// 		_u[i] = (double) math::constrain((float) u_all[i], -1.f, 1.f);
-			// 	}
-			// 	// PX4_INFO(" dir 1");
-			// }
-			// else
-			// {
 
+
+		if ( (_use_lp_alloc || _param_use_lp_alloc.get()==1))
+		{
+			// PX4_INFO("dir");
+
+			double u_all[4];
+			double z_all;
+			double iters_all;
+			dir_alloc_sim(y_all, _uMin, _uMax, u_all, &z_all, &iters_all);
+			if (z_all>1)
+			{
+				for (size_t i = 0; i < 4; i++)
+				{
+					_u[i] = (double) math::constrain((float) u_all[i], (float) (_uMin[i]), (float) (_uMax[i]));
+				}
+				allocation_value.flag=0;
+				// PX4_INFO(" dir 1");
+			}
+			else
+			{
+				double u_e[4] = {0.0, 0.0, 0.0, 0.0};
 				double z_e;
 				double iters_e;
 				dir_alloc_sim(ye, _uMin, _uMax, u_e, &z_e, &iters_e);
-
+				for (size_t i = 0; i < 3; i++)
+				{
+					double  temp = 0.0f;
+					for(int k = 0 ; k < 4 ; k++)
+					{
+						temp += _B[i][k] * u_e[k];
+					}
+					allocation_value.ue_error[i] =ye[i] - temp;
+				}
 				if (z_e>1)
-				// if(1)
 				{
 					double uMin_new[4];
 					double uMax_new[4];
@@ -685,18 +679,25 @@ bool MixingOutput::update()
 						uMin_new[i] = _uMin[i] - u_e[i];
 						uMax_new[i] = _uMax[i] - u_e[i];
 					}
-
+					double u_d[4] = {0.0, 0.0, 0.0, 0.0};
 					double z_d;
 					double iters_d;
 					dir_alloc_sim(yd, uMin_new, uMax_new, u_d, &z_d, &iters_d);
-
+					for (size_t i = 0; i < 3; i++)
+					{
+						double  temp = 0.0f;
+						for(int k = 0 ; k < 4 ; k++)
+						{
+							temp += _B[i][k] * u_d[k];
+						}
+						allocation_value.ud_error[i] =yd[i] - temp;
+					}
 					for (size_t i = 0; i < 4; i++)
 					{
-						// allocation_value.ue[i]=u_e[i];
-						// allocation_value.ud[i]=u_d[i];
 						_u[i] = (double) math::constrain((float) (u_d[i] + u_e[i]), (float) (_uMin[i]), (float) (_uMax[i]));
 					}
 					// PX4_INFO("dir 3");
+					allocation_value.flag=1;
 				}
 				else
 				{
@@ -705,26 +706,34 @@ bool MixingOutput::update()
 						_u[i] = (double) math::constrain((float) u_e[i], (float) (_uMin[i]), (float) (_uMax[i]));
 					}
 					// PX4_INFO("dir 2");
+					allocation_value.flag=-1;
 				}
-			// }
+			}
 
+
+		}
+		else
+		{
+			//inv
+			// PX4_INFO("inv");
+			matrix::Matrix<double, 3, 1> y_desire (y_all);
+			matrix::Matrix<double, 4, 1> u_inv = B_inv * y_desire;
+			for (size_t i = 0; i < 4; i++)
+			{
+				_u[i] =(double) math::constrain((float) u_inv(i,0), (float) (_uMin[i]), (float) (_uMax[i]));
+			}
+			allocation_value.flag=-2;
 		}
 		float u_ultimate[4];
 
 		for (size_t i = 0; i < 3; i++)
 		{
-			double  temp1 = 0.0f;
-			double  temp2 = 0.0f;
-			double  temp3 = 0.0f;
+			double  temp = 0.0f;
 			for(int k = 0 ; k < 4 ; k++)
 			{
-				temp1 += _B[i][k] * _u[k];
-				temp2 += _B[i][k] * u_d[k];
-				temp3 += _B[i][k] * u_e[k];
+				temp += _B[i][k] * _u[k];
 			}
-			allocation_value.error[i] =y_all[i] - temp1;
-			allocation_value.ud_error[i] =yd[i] - temp2;
-			allocation_value.ue_error[i] =ye[i] - temp3;
+			allocation_value.error[i] =y_all[i] - temp;
 		}
 
 		for (size_t i = 0; i < 4; i++)
@@ -745,7 +754,7 @@ bool MixingOutput::update()
 		for (size_t i = 0; i < 4; i++)
 		{
 			outputs[i+2] = (u_ultimate[i])/0.3491f;
-			allocation_value.outputs[i] = outputs[i+2];
+			allocation_value.u_ultimate[i] = u_ultimate[i];
 		}
 		// timestamp_ca_end = hrt_absolute_time();
 		// PX4_INFO("dir_alloc_sim time: %lld \n", (timestamp_ca_end - timestamp_ca_start) ); //nuttx
