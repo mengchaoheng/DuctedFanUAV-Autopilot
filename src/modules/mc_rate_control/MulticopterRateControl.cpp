@@ -155,38 +155,38 @@ MulticopterRateControl::Run()
 	// channels[12]: -1		-1              1		=pid or indi
 	// if(!_rc_channels_sub.advertised())
 	// 	PX4_INFO("Hello rc!");
-	if (_rc_channels_sub.update(&_rc_channels))
-	{
-		// PX4_INFO("Hello rc! 7:%f. 9:%f. 10:%f. 13:%f.", (double) _rc_channels.channels[6], (double) _rc_channels.channels[8], (double) _rc_channels.channels[9], (double) _rc_channels.channels[12]);
-		if (_rc_channels.channels[6] < -0.5f)
-		{
-			// _use_sin_ref = false;
-			_use_square_ref = false;
-			// PX4_INFO("_sin_speed_flag !");
-		}
-		else if (_rc_channels.channels[6] > 0.5f)
-		{
-			// _use_sin_ref = false;
-			_use_square_ref = true;
-			// PX4_INFO("_square_cs_flag !");
-		}
-		else
-		{
-			// _use_sin_ref = false;
-			_use_square_ref = false;
-		}
+	// if (_rc_channels_sub.update(&_rc_channels))
+	// {
+	// 	// PX4_INFO("Hello rc! 7:%f. 9:%f. 10:%f. 13:%f.", (double) _rc_channels.channels[6], (double) _rc_channels.channels[8], (double) _rc_channels.channels[9], (double) _rc_channels.channels[12]);
+	// 	if (_rc_channels.channels[6] < -0.5f)
+	// 	{
+	// 		// _use_sin_ref = false;
+	// 		_use_square_ref = false;
+	// 		// PX4_INFO("_sin_speed_flag !");
+	// 	}
+	// 	else if (_rc_channels.channels[6] > 0.5f)
+	// 	{
+	// 		// _use_sin_ref = false;
+	// 		_use_square_ref = true;
+	// 		// PX4_INFO("_square_cs_flag !");
+	// 	}
+	// 	else
+	// 	{
+	// 		// _use_sin_ref = false;
+	// 		_use_square_ref = false;
+	// 	}
 
-		if (_rc_channels.channels[12] > 0.f)
-		{
-			_indi_flag = true;
-			// PX4_INFO("_indi_flag !");
-		}
-		else
-		{
-			_indi_flag = false;
-			// PX4_INFO("PID !");
-		}
-	}
+	// 	if (_rc_channels.channels[12] > 0.f)
+	// 	{
+	// 		_indi_flag = true;
+	// 		// PX4_INFO("_indi_flag !");
+	// 	}
+	// 	else
+	// 	{
+	// 		_indi_flag = false;
+	// 		// PX4_INFO("PID !");
+	// 	}
+	// }
 
 
 

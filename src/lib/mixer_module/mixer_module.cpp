@@ -537,29 +537,29 @@ bool MixingOutput::update()
 	const unsigned mixed_num_outputs = _mixers->mix(outputs, _max_num_outputs);
 	// PX4_INFO("u1: %f, u2: %f, u3: %f, u4: %f. \n",(double) outputs[0],(double) outputs[1],(double) outputs[2],(double) outputs[3]);
 
-	if (_rc_channels_sub.update(&_rc_channels))
-	{
-		if (_rc_channels.channels[8] < 0.5f)
-		{
-			_disturb_flag = false;
-			// PX4_INFO("no sidturb !");
-		}
-		else
-		{
-			_disturb_flag = true;
-			// PX4_INFO("sidturb !");
-		}
+	// if (_rc_channels_sub.update(&_rc_channels))
+	// {
+	// 	if (_rc_channels.channels[8] < 0.5f)
+	// 	{
+	// 		_disturb_flag = false;
+	// 		// PX4_INFO("no sidturb !");
+	// 	}
+	// 	else
+	// 	{
+	// 		_disturb_flag = true;
+	// 		// PX4_INFO("sidturb !");
+	// 	}
 
-		if(_rc_channels.channels[9] < 0.5f)
-		{
-			_use_lp_alloc = false;
-		}
-		else
-		{
-			_use_lp_alloc = true;
-			// PX4_INFO("step !");
-		}
-	}
+	// 	if(_rc_channels.channels[9] < 0.5f)
+	// 	{
+	// 		_use_lp_alloc = false;
+	// 	}
+	// 	else
+	// 	{
+	// 		_use_lp_alloc = true;
+	// 		// PX4_INFO("step !");
+	// 	}
+	// }
 
 	// PX4_INFO("_param_pwm_min1: %f", (double) _param_pwm_min1.get());
 
