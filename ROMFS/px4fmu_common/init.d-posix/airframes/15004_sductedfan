@@ -58,7 +58,7 @@ then
 	param set SDLOG_PROFILE  1
 	param set SDLOG_MODE  0
 
-	param set CS_CUTOFF  10
+	param set CS1_CUTOFF  10
 	param set DOMEGA_CUTOFF  10
 	param set DOMEGA_D_CUTOFF  10
 	param set OMEGA_CUTOFF  10
