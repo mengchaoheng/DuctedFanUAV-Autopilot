@@ -54,7 +54,7 @@
 #include <uORB/topics/multirotor_motor_limits.h>
 #include <uORB/topics/parameter_update.h>
 #include <uORB/topics/test_motor.h>
-#include <uORB/topics/rc_channels.h>
+// #include <uORB/topics/rc_channels.h>
 #include <lib/mathlib/math/Limits.hpp>
 #include <lib/matrix/matrix/math.hpp>
 #include <mathlib/math/filter/LowPassFilter2p.hpp>
@@ -313,14 +313,14 @@ private:
 
 	perf_counter_t _control_latency_perf;
 
-	uORB::Subscription _rc_channels_sub{ORB_ID(rc_channels)};
+	// uORB::Subscription _rc_channels_sub{ORB_ID(rc_channels)};
 
-	bool _disturb_flag{false};
-	bool _use_lp_alloc{false};
-	bool _disturb_flag_prev{false};
-	bool _use_square_ref_prev{false};
+	// bool _disturb_flag{false};
+	// bool _use_lp_alloc{false};
+	// bool _disturb_flag_prev{false};
+	// bool _use_square_ref_prev{false};
 	// bool _use_sin_ref_prev{false};
-	bool _use_servo_dis_prev{false};
+	// bool _use_servo_dis_prev{false};
 	// bool _use_step_ref_prev{false};
 	// uint16_t pwm_min3{PWM_DEFAULT_MIN};
 	// uint16_t pwm_min4{PWM_DEFAULT_MIN};
@@ -340,15 +340,15 @@ private:
 	// int16_t _servo3_disturb_abs{0};
 	// int16_t _servo4_disturb_abs{0};
 
-	float _servo_disturb[4] {};
-	float _servo_disturb_abs[4] {};
+	// float _servo_disturb[4] {};
+	// float _servo_disturb_abs[4] {};
 	double _uMin[4] {};
 	double _uMax[4] {};
 	double _u[4] {}; //  [-1, 1]
 	double _last_u[4] {};
 	matrix::Matrix<double, 4, 3> B_inv;
 
-	rc_channels_s		_rc_channels {};
+	// rc_channels_s		_rc_channels {};
 	const double _B[3][4] = { {-0.5,0.0,0.5,0.0}, {0.0,-0.5,0.0,0.5},{0.25,0.25,0.25,0.25}};
 
 	DEFINE_PARAMETERS(
@@ -360,7 +360,7 @@ private:
 		(ParamInt<px4::params::DUCTEDFAN_MID2>) _param_ductedfan_mid2,
 		(ParamInt<px4::params::USE_LPCA>) _param_use_lp_alloc,
 		(ParamInt<px4::params::USE_CA>) _param_use_alloc,
-		(ParamInt<px4::params::USE_SERVO_DIS>) _param_use_servo_dis,
+		// (ParamInt<px4::params::USE_SERVO_DIS>) _param_use_servo_dis,
 		(ParamFloat<px4::params::IMU_GYRO_CUTOFF>) _param_imu_gyro_cutoff,
 		(ParamFloat<px4::params::IMU_GYRO_NF_FREQ>) _param_imu_gyro_nf_freq,
 		(ParamFloat<px4::params::IMU_GYRO_NF_BW>) _param_imu_gyro_nf_bw,
@@ -369,26 +369,26 @@ private:
 		(ParamFloat<px4::params::IMU_DGYRO_CUTOFF>) _param_imu_dgyro_cutoff,
 		(ParamFloat<px4::params::MC_PWM_HOVER>) _param_mc_pwm_hover,
 		(ParamFloat<px4::params::MC_OMEGA_HOVER>) _param_mc_omega_hover,
-		(ParamInt<px4::params::USE_SIN_REF>) _param_use_sin_ref,
-		(ParamInt<px4::params::USE_2LP>) _param_use_2lp,
-		(ParamInt<px4::params::USE_SQUARE_REF>) _param_use_square_ref,
-		(ParamInt<px4::params::USE_STEP_REF>) _param_mc_use_step_ref,
-		(ParamFloat<px4::params::SERVO1_DISTURB>) _param_servo1_disturb,
-		(ParamFloat<px4::params::SERVO2_DISTURB>) _param_servo2_disturb,
-		(ParamFloat<px4::params::SERVO3_DISTURB>) _param_servo3_disturb,
-		(ParamFloat<px4::params::SERVO4_DISTURB>) _param_servo4_disturb,
-		(ParamInt<px4::params::PWM_MAIN_MIN3>) _param_pwm_min3,
-		(ParamInt<px4::params::PWM_MAIN_MIN4>) _param_pwm_min4,
-		(ParamInt<px4::params::PWM_MAIN_MIN5>) _param_pwm_min5,
-		(ParamInt<px4::params::PWM_MAIN_MIN6>) _param_pwm_min6,
+		// (ParamInt<px4::params::USE_SIN_REF>) _param_use_sin_ref,
+		// (ParamInt<px4::params::USE_2LP>) _param_use_2lp,
+		// (ParamInt<px4::params::USE_SQUARE_REF>) _param_use_square_ref,
+		// (ParamInt<px4::params::USE_STEP_REF>) _param_mc_use_step_ref,
+		// (ParamFloat<px4::params::SERVO1_DISTURB>) _param_servo1_disturb,
+		// (ParamFloat<px4::params::SERVO2_DISTURB>) _param_servo2_disturb,
+		// (ParamFloat<px4::params::SERVO3_DISTURB>) _param_servo3_disturb,
+		// (ParamFloat<px4::params::SERVO4_DISTURB>) _param_servo4_disturb,
+		// (ParamInt<px4::params::PWM_MAIN_MIN3>) _param_pwm_min3,
+		// (ParamInt<px4::params::PWM_MAIN_MIN4>) _param_pwm_min4,
+		// (ParamInt<px4::params::PWM_MAIN_MIN5>) _param_pwm_min5,
+		// (ParamInt<px4::params::PWM_MAIN_MIN6>) _param_pwm_min6,
 
-		(ParamInt<px4::params::PWM_MAIN_MAX3>) _param_pwm_max3,
-		(ParamInt<px4::params::PWM_MAIN_MAX4>) _param_pwm_max4,
-		(ParamInt<px4::params::PWM_MAIN_MAX5>) _param_pwm_max5,
-		(ParamInt<px4::params::PWM_MAIN_MAX6>) _param_pwm_max6,
+		// (ParamInt<px4::params::PWM_MAIN_MAX3>) _param_pwm_max3,
+		// (ParamInt<px4::params::PWM_MAIN_MAX4>) _param_pwm_max4,
+		// (ParamInt<px4::params::PWM_MAIN_MAX5>) _param_pwm_max5,
+		// (ParamInt<px4::params::PWM_MAIN_MAX6>) _param_pwm_max6,
 		// (ParamInt<px4::params::USE_DIS_SAME>) _param_use_dis_same,
 		(ParamFloat<px4::params::CS1_CUTOFF>) _param_cs1_cutoff,
-		(ParamFloat<px4::params::CS2_CUTOFF>) _param_cs2_cutoff,
+		// (ParamFloat<px4::params::CS2_CUTOFF>) _param_cs2_cutoff,
 		(ParamFloat<px4::params::OMEGA_CUTOFF>) _param_omega_cutoff,
 		(ParamFloat<px4::params::DOMEGA_D_CUTOFF>) _param_domega_d_cutoff,
 		(ParamFloat<px4::params::DOMEGA_CUTOFF>) _param_domega_cutoff,

@@ -125,10 +125,10 @@ MulticopterRateControl::Run()
 
 		updateParams();
 		parameters_updated();
-		_cycle_time = _param_square_ref_time.get();
-		_square_ref_amplitude = _param_square_ref_amplitude.get();
-		_square_yaw_amplitude = _param_square_yaw_amplitude.get();
-		_use_square_ref_sitl = _param_use_square_ref.get();
+		// _cycle_time = _param_square_ref_time.get();
+		// _square_ref_amplitude = _param_square_ref_amplitude.get();
+		// _square_yaw_amplitude = _param_square_yaw_amplitude.get();
+		// _use_square_ref_sitl = _param_use_square_ref.get();
 	}
 
 
@@ -155,38 +155,38 @@ MulticopterRateControl::Run()
 	// channels[12]: -1		-1              1		=pid or indi
 	// if(!_rc_channels_sub.advertised())
 	// 	PX4_INFO("Hello rc!");
-	if (_rc_channels_sub.update(&_rc_channels))
-	{
-		// PX4_INFO("Hello rc! 7:%f. 9:%f. 10:%f. 13:%f.", (double) _rc_channels.channels[6], (double) _rc_channels.channels[8], (double) _rc_channels.channels[9], (double) _rc_channels.channels[12]);
-		if (_rc_channels.channels[6] < -0.5f)
-		{
-			// _use_sin_ref = false;
-			_use_square_ref = false;
-			// PX4_INFO("_sin_speed_flag !");
-		}
-		else if (_rc_channels.channels[6] > 0.5f)
-		{
-			// _use_sin_ref = false;
-			_use_square_ref = true;
-			// PX4_INFO("_square_cs_flag !");
-		}
-		else
-		{
-			// _use_sin_ref = false;
-			_use_square_ref = false;
-		}
+	// if (_rc_channels_sub.update(&_rc_channels))
+	// {
+	// 	// PX4_INFO("Hello rc! 7:%f. 9:%f. 10:%f. 13:%f.", (double) _rc_channels.channels[6], (double) _rc_channels.channels[8], (double) _rc_channels.channels[9], (double) _rc_channels.channels[12]);
+	// 	if (_rc_channels.channels[6] < -0.5f)
+	// 	{
+	// 		// _use_sin_ref = false;
+	// 		_use_square_ref = false;
+	// 		// PX4_INFO("_sin_speed_flag !");
+	// 	}
+	// 	else if (_rc_channels.channels[6] > 0.5f)
+	// 	{
+	// 		// _use_sin_ref = false;
+	// 		_use_square_ref = true;
+	// 		// PX4_INFO("_square_cs_flag !");
+	// 	}
+	// 	else
+	// 	{
+	// 		// _use_sin_ref = false;
+	// 		_use_square_ref = false;
+	// 	}
 
-		if (_rc_channels.channels[12] > 0.f)
-		{
-			_indi_flag = true;
-			// PX4_INFO("_indi_flag !");
-		}
-		else
-		{
-			_indi_flag = false;
-			// PX4_INFO("PID !");
-		}
-	}
+	// 	if (_rc_channels.channels[12] > 0.f)
+	// 	{
+	// 		_indi_flag = true;
+	// 		// PX4_INFO("_indi_flag !");
+	// 	}
+	// 	else
+	// 	{
+	// 		_indi_flag = false;
+	// 		// PX4_INFO("PID !");
+	// 	}
+	// }
 
 
 
@@ -258,58 +258,58 @@ MulticopterRateControl::Run()
 
 		// ref command
 
-		if (_use_square_ref || _use_square_ref_sitl==1)
-		{
-			if (!_use_square_ref_prev)
-			{
-				// _add_square_time = hrt_absolute_time();
-				int_time = 0.f;
-			}
+		// if (_use_square_ref || _use_square_ref_sitl==1)
+		// {
+		// 	if (!_use_square_ref_prev)
+		// 	{
+		// 		// _add_square_time = hrt_absolute_time();
+		// 		int_time = 0.f;
+		// 	}
 
-			int_time += dt;
-			// float interval = hrt_elapsed_time(&_add_square_time) * 1e-6f;
-			// if (interval  <= 0.5f * _cycle_time)
-			if (int_time <= 0.5f * _cycle_time)
-			{
-				_rates_sp(0) = _square_ref_amplitude;
-				_rates_sp(2) = _square_yaw_amplitude;
-			}
-			// else if (interval  > 0.5f * _cycle_time && interval <= _cycle_time)
-			else if (int_time  > 0.5f * _cycle_time && int_time <= _cycle_time)
-			{
-				_rates_sp(0) = -_square_ref_amplitude;
-				_rates_sp(2) = -_square_yaw_amplitude;
-			}
-			else
-			{
-				_rates_sp(0) = 0;
-				_rates_sp(2) = 0;
-			}
+		// 	int_time += dt;
+		// 	// float interval = hrt_elapsed_time(&_add_square_time) * 1e-6f;
+		// 	// if (interval  <= 0.5f * _cycle_time)
+		// 	if (int_time <= 0.5f * _cycle_time)
+		// 	{
+		// 		_rates_sp(0) = _square_ref_amplitude;
+		// 		_rates_sp(2) = _square_yaw_amplitude;
+		// 	}
+		// 	// else if (interval  > 0.5f * _cycle_time && interval <= _cycle_time)
+		// 	else if (int_time  > 0.5f * _cycle_time && int_time <= _cycle_time)
+		// 	{
+		// 		_rates_sp(0) = -_square_ref_amplitude;
+		// 		_rates_sp(2) = -_square_yaw_amplitude;
+		// 	}
+		// 	else
+		// 	{
+		// 		_rates_sp(0) = 0;
+		// 		_rates_sp(2) = 0;
+		// 	}
 
-			// PX4_INFO("_use_square_ref, _rates_sp: %f", (double) _rates_sp(0));
-			_rates_sp(1)=0;
+		// 	// PX4_INFO("_use_square_ref, _rates_sp: %f", (double) _rates_sp(0));
+		// 	_rates_sp(1)=0;
 
-			if (manual_rate_sp) {
-				if (manual_control_updated) {
+		// 	if (manual_rate_sp) {
+		// 		if (manual_control_updated) {
 
-					_thrust_sp = _manual_control_setpoint.z;
-				}
-			}
-			// publish rate setpoint
-			vehicle_rates_setpoint_s v_rates_sp{};
+		// 			_thrust_sp = _manual_control_setpoint.z;
+		// 		}
+		// 	}
+		// 	// publish rate setpoint
+		// 	vehicle_rates_setpoint_s v_rates_sp{};
 
-			v_rates_sp.roll = _rates_sp(0);
-			v_rates_sp.pitch = _rates_sp(1);
-			v_rates_sp.yaw = _rates_sp(2);
-			v_rates_sp.thrust_body[0] = 0.0f;
-			v_rates_sp.thrust_body[1] = 0.0f;
-			v_rates_sp.thrust_body[2] = -_thrust_sp;
-			v_rates_sp.timestamp = hrt_absolute_time();
+		// 	v_rates_sp.roll = _rates_sp(0);
+		// 	v_rates_sp.pitch = _rates_sp(1);
+		// 	v_rates_sp.yaw = _rates_sp(2);
+		// 	v_rates_sp.thrust_body[0] = 0.0f;
+		// 	v_rates_sp.thrust_body[1] = 0.0f;
+		// 	v_rates_sp.thrust_body[2] = -_thrust_sp;
+		// 	v_rates_sp.timestamp = hrt_absolute_time();
 
-			_v_rates_sp_pub.publish(v_rates_sp);
-		}
-		else
-		{
+		// 	_v_rates_sp_pub.publish(v_rates_sp);
+		// }
+		// else
+		// {
 			if (manual_rate_sp) {
 				if (manual_control_updated) {
 
@@ -350,11 +350,11 @@ MulticopterRateControl::Run()
 					_thrust_sp = -v_rates_sp.thrust_body[2];
 				}
 			}
-		}
+		// }
 
 
 
-		_use_square_ref_prev = _use_square_ref || _use_square_ref_sitl;
+		// _use_square_ref_prev = _use_square_ref || _use_square_ref_sitl;
 
 
 
@@ -382,7 +382,8 @@ MulticopterRateControl::Run()
 			Vector3f Nu_i(0.f,0.f,0.f);
 			Vector3f att_control;
 			// run rate controller
-			if ( _indi_flag || _param_use_indi.get() == 1 )
+			// if ( _indi_flag || _param_use_indi.get() == 1 )
+			if (_param_use_indi.get() == 1 )
 			{
 				if (_maybe_landed || _landed)
 				{

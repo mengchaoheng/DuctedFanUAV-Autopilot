@@ -471,104 +471,104 @@ PARAM_DEFINE_FLOAT(MC_INDI_YAW_P, 10.0f);
  */
 PARAM_DEFINE_INT32(USE_INDI, 0);
 
-/**
- * USE_SIN_REF
- *
- * add sin speed.
- *
- * @value 0 not
- * @value 1 yes
- * @group Multicopter Rate Control
- */
-PARAM_DEFINE_INT32(USE_SIN_REF, 0);
+// /**
+//  * USE_SIN_REF
+//  *
+//  * add sin speed.
+//  *
+//  * @value 0 not
+//  * @value 1 yes
+//  * @group Multicopter Rate Control
+//  */
+// PARAM_DEFINE_INT32(USE_SIN_REF, 0);
 
-/**
- * USE_SQUARE_REF
- *
- * add square roll ref.
- *
- * @value 0 not
- * @value 1 yes
- * @group Multicopter Rate Control
- */
-PARAM_DEFINE_INT32(USE_SQUARE_REF, 0);
+// /**
+//  * USE_SQUARE_REF
+//  *
+//  * add square roll ref.
+//  *
+//  * @value 0 not
+//  * @value 1 yes
+//  * @group Multicopter Rate Control
+//  */
+// PARAM_DEFINE_INT32(USE_SQUARE_REF, 0);
 
-/**
- * Period of perturbation square wave
- *
- * The period of the perturbed square wave, in seconds.
- *
- * @min 0.0
- * @max 30
- * @decimal 15
- * @increment 0.01
- * @group Multicopter Rate Control
- */
-PARAM_DEFINE_FLOAT(SQUARE_REF_TIME, 0.f);
+// /**
+//  * Period of perturbation square wave
+//  *
+//  * The period of the perturbed square wave, in seconds.
+//  *
+//  * @min 0.0
+//  * @max 30
+//  * @decimal 15
+//  * @increment 0.01
+//  * @group Multicopter Rate Control
+//  */
+// PARAM_DEFINE_FLOAT(SQUARE_REF_TIME, 0.f);
 
-/**
- * amplitude of the square wave
- *
- * The amplitude of the roll/pitch square wave, in radians per second
- *
- * @min 0.0
- * @max 30
- * @decimal 15
- * @increment 0.01
- * @group Multicopter Rate Control
- */
-PARAM_DEFINE_FLOAT(SQUARE_REF_AMP, 0.0);
+// /**
+//  * amplitude of the square wave
+//  *
+//  * The amplitude of the roll/pitch square wave, in radians per second
+//  *
+//  * @min 0.0
+//  * @max 30
+//  * @decimal 15
+//  * @increment 0.01
+//  * @group Multicopter Rate Control
+//  */
+// PARAM_DEFINE_FLOAT(SQUARE_REF_AMP, 0.0);
 
-/**
- * amplitude of the square wave
- *
- * The amplitude of the yaw square wave, in radians per second
- *
- * @min 0.0
- * @max 30
- * @decimal 15
- * @increment 0.01
- * @group Multicopter Rate Control
- */
-PARAM_DEFINE_FLOAT(SQUARE_YAW_AMP, 0.0);
-/**
- * Period of sin speed signal
- *
- * Period of sinusoidal speed signal, in seconds.
- *
- * @min 0.0
- * @max 30
- * @decimal 15
- * @increment 0.01
- * @group Multicopter Rate Control
- */
-PARAM_DEFINE_FLOAT(SPEED_SIN_T, 1.0f);
+// /**
+//  * amplitude of the square wave
+//  *
+//  * The amplitude of the yaw square wave, in radians per second
+//  *
+//  * @min 0.0
+//  * @max 30
+//  * @decimal 15
+//  * @increment 0.01
+//  * @group Multicopter Rate Control
+//  */
+// PARAM_DEFINE_FLOAT(SQUARE_YAW_AMP, 0.0);
+// /**
+//  * Period of sin speed signal
+//  *
+//  * Period of sinusoidal speed signal, in seconds.
+//  *
+//  * @min 0.0
+//  * @max 30
+//  * @decimal 15
+//  * @increment 0.01
+//  * @group Multicopter Rate Control
+//  */
+// PARAM_DEFINE_FLOAT(SPEED_SIN_T, 1.0f);
 
-/**
- * The amplitude of the sin speed signal
- *
- * The amplitude of the sinusoidal speed signal
- *
- * @min 0.0
- * @max 30
- * @decimal 15
- * @increment 0.01
- * @group Multicopter Rate Control
- */
-PARAM_DEFINE_FLOAT(SPEED_SIN_AMP, 0.f);
+// /**
+//  * The amplitude of the sin speed signal
+//  *
+//  * The amplitude of the sinusoidal speed signal
+//  *
+//  * @min 0.0
+//  * @max 30
+//  * @decimal 15
+//  * @increment 0.01
+//  * @group Multicopter Rate Control
+//  */
+// PARAM_DEFINE_FLOAT(SPEED_SIN_AMP, 0.f);
 
-/**
- * Bias of sin speed signal
- *
- * corresponding to the proportion of hovering point pwm
- *
- * @min 0.0
- * @max 30
- * @decimal 15
- * @increment 0.01
- * @group Multicopter Rate Control
- */
-PARAM_DEFINE_FLOAT(SPEED_SIN_BIA, 0.5f);
+// /**
+//  * Bias of sin speed signal
+//  *
+//  * corresponding to the proportion of hovering point pwm
+//  *
+//  * @min 0.0
+//  * @max 30
+//  * @decimal 15
+//  * @increment 0.01
+//  * @group Multicopter Rate Control
+//  */
+// PARAM_DEFINE_FLOAT(SPEED_SIN_BIA, 0.5f);
 
 /**
  * cycle time
@@ -581,7 +581,7 @@ PARAM_DEFINE_FLOAT(SPEED_SIN_BIA, 0.5f);
  * @increment 1000
  * @group Multicopter Rate Control
  */
-PARAM_DEFINE_INT32(CYC_T, 5000);
+PARAM_DEFINE_INT32(CYC_T, 4000);
 
 /**
  * use tau_i.
