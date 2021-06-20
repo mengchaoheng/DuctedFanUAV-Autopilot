@@ -318,6 +318,8 @@ private:
 	matrix::Matrix<double, 4, 3> B_inv;
 	const double _B[3][4] = { {-0.5,0.0,0.5,0.0}, {0.0,-0.5,0.0,0.5},{0.25,0.25,0.25,0.25}};
 
+	int _sample_freq;
+
 	DEFINE_PARAMETERS(
 		(ParamInt<px4::params::MC_AIRMODE>) _param_mc_airmode,   ///< multicopter air-mode
 		(ParamFloat<px4::params::MOT_SLEW_MAX>) _param_mot_slew_max,
@@ -339,7 +341,7 @@ private:
 		(ParamFloat<px4::params::OMEGA_CUTOFF>) _param_omega_cutoff,
 		(ParamFloat<px4::params::DOMEGA_D_CUTOFF>) _param_domega_d_cutoff,
 		(ParamFloat<px4::params::DOMEGA_CUTOFF>) _param_domega_cutoff,
-		(ParamInt<px4::params::SAMPLE_FREQ>) _param_sample_freq
+		(ParamInt<px4::params::CYC_T>) _param_cycle_time
 
 	)
 };

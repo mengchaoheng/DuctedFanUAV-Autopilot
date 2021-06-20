@@ -80,27 +80,28 @@ _control_latency_perf(perf_alloc(PC_ELAPSED, "control latency"))
 	_motor_test.test_motor_sub.subscribe();
 
 	// filter init
+	_sample_freq = (int) (1.0/((double) _param_cycle_time.get()/1e6));
 	// dOmega_0
 	_lp_filter_actuator_d[0].reset(0);
-	_lp_filter_actuator_d[0].set_cutoff_frequency(_param_sample_freq.get(), _param_domega_cutoff.get());
+	_lp_filter_actuator_d[0].set_cutoff_frequency(_sample_freq, _param_domega_cutoff.get());
 	// dOmega_d
 	_lp_filter_actuator_d[1].reset(0);
-	_lp_filter_actuator_d[1].set_cutoff_frequency(_param_sample_freq.get(), _param_domega_d_cutoff.get());
+	_lp_filter_actuator_d[1].set_cutoff_frequency(_sample_freq, _param_domega_d_cutoff.get());
 
 	// Omega_0
 	_lp_filter_actuator[0].reset(0);
-	_lp_filter_actuator[0].set_cutoff_frequency(_param_sample_freq.get(), _param_omega_cutoff.get());
+	_lp_filter_actuator[0].set_cutoff_frequency(_sample_freq, _param_omega_cutoff.get());
 
 	_notch_filter_actuator[0].reset(0);
-	_notch_filter_actuator[0].setParameters(_param_sample_freq.get(), _param_imu_gyro_nf_freq.get(), _param_imu_gyro_nf_bw.get());
+	_notch_filter_actuator[0].setParameters(_sample_freq, _param_imu_gyro_nf_freq.get(), _param_imu_gyro_nf_bw.get());
 
 	// last_delta_cmd_rad
 	for (size_t i = 0; i < 4; ++i) {
 		_lp_filter_actuator[i+1].reset(0);
-		_lp_filter_actuator[i+1].set_cutoff_frequency(_param_sample_freq.get(), _param_cs1_cutoff.get());
+		_lp_filter_actuator[i+1].set_cutoff_frequency(_sample_freq, _param_cs1_cutoff.get());
 
 		_notch_filter_actuator[i+1].reset(0);
-		_notch_filter_actuator[i+1].setParameters(_param_sample_freq.get(), _param_imu_gyro_nf_freq.get(), _param_imu_gyro_nf_bw.get());
+		_notch_filter_actuator[i+1].setParameters(_sample_freq, _param_imu_gyro_nf_freq.get(), _param_imu_gyro_nf_bw.get());
 	}
 	B_inv.setZero();
 	B_inv(0, 0)=-1.0f;
@@ -157,28 +158,28 @@ void MixingOutput::CheckAndUpdateFilters()
 
 	// Omega_0
 	if ((fabsf(_lp_filter_actuator[0].get_cutoff_freq() - _param_omega_cutoff.get()) > 0.1f)) {
-		_lp_filter_actuator[0].set_cutoff_frequency(_param_sample_freq.get(), _param_omega_cutoff.get());
+		_lp_filter_actuator[0].set_cutoff_frequency(_sample_freq, _param_omega_cutoff.get());
 		_lp_filter_actuator[0].reset(_Omega_0_prev);
 	}
 
 	if ((fabsf(_notch_filter_actuator[0].getNotchFreq() - _param_imu_gyro_nf_freq.get()) > 0.1f)
 	|| (fabsf(_notch_filter_actuator[0].getBandwidth() - _param_imu_gyro_nf_bw.get()) > 0.1f)
 	) {
-		_notch_filter_actuator[0].setParameters(_param_sample_freq.get(), _param_imu_gyro_nf_freq.get(), _param_imu_gyro_nf_bw.get());
+		_notch_filter_actuator[0].setParameters(_sample_freq, _param_imu_gyro_nf_freq.get(), _param_imu_gyro_nf_bw.get());
 		_notch_filter_actuator[0].reset(_Omega_0_prev);
 	}
 
 	// last_delta_cmd_rad
 	for (size_t i = 0; i < 4; ++i) {
 		if ((fabsf(_lp_filter_actuator[i+1].get_cutoff_freq() - _param_cs1_cutoff.get()) > 0.1f)) {
-			_lp_filter_actuator[i+1].set_cutoff_frequency(_param_sample_freq.get(), _param_cs1_cutoff.get());
+			_lp_filter_actuator[i+1].set_cutoff_frequency(_sample_freq, _param_cs1_cutoff.get());
 			_lp_filter_actuator[i+1].reset(_delta_prev[i]);
 
 		}
 		if ((fabsf(_notch_filter_actuator[i+1].getNotchFreq() - _param_imu_gyro_nf_freq.get()) > 0.1f)
 		|| (fabsf(_notch_filter_actuator[i+1].getBandwidth() - _param_imu_gyro_nf_bw.get()) > 0.1f)
 		) {
-			_notch_filter_actuator[i+1].setParameters(_param_sample_freq.get(), _param_imu_gyro_nf_freq.get(), _param_imu_gyro_nf_bw.get());
+			_notch_filter_actuator[i+1].setParameters(_sample_freq, _param_imu_gyro_nf_freq.get(), _param_imu_gyro_nf_bw.get());
 			_notch_filter_actuator[i+1].reset(_delta_prev[i]);
 		}
 	}
@@ -186,12 +187,12 @@ void MixingOutput::CheckAndUpdateFilters()
 
 	// dOmega_0
 	if ((fabsf(_lp_filter_actuator_d[0].get_cutoff_freq() - _param_domega_cutoff.get()) > 0.1f)) {
-		_lp_filter_actuator_d[0].set_cutoff_frequency(_param_sample_freq.get(), _param_domega_cutoff.get());
+		_lp_filter_actuator_d[0].set_cutoff_frequency(_sample_freq, _param_domega_cutoff.get());
 		_lp_filter_actuator_d[0].reset(_dOmega_0_raw_prev);
 	}
 	// dOmega_d
 	if ((fabsf(_lp_filter_actuator_d[1].get_cutoff_freq() - _param_domega_d_cutoff.get()) > 0.1f)) {
-		_lp_filter_actuator_d[1].set_cutoff_frequency(_param_sample_freq.get(), _param_domega_d_cutoff.get());
+		_lp_filter_actuator_d[1].set_cutoff_frequency(_sample_freq, _param_domega_d_cutoff.get());
 		_lp_filter_actuator_d[1].reset(_dOmega_d_raw_prev);
 	}
 }

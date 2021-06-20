@@ -163,12 +163,3 @@ PARAM_DEFINE_FLOAT(DOMEGA_D_CUTOFF, 30.0f);
 * @group Mixer Output
 */
 PARAM_DEFINE_FLOAT(DOMEGA_CUTOFF, 30.0f);
-
-/**
- * sample_freq
- *
- * sample_freq of filter
- *
- * @group Mixer Output
- */
-PARAM_DEFINE_INT32(SAMPLE_FREQ, 200);
