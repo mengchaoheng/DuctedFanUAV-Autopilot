@@ -100,72 +100,6 @@ PARAM_DEFINE_FLOAT(MC_PWM_HOVER, 1500.f);
  */
 PARAM_DEFINE_FLOAT(MC_OMEGA_HOVER, 1225.f);
 
-// /**
-//  * Servo 1 disturbance, unit radian
-//  *
-//  * radian rad
-//  *
-//  * @min 0
-//  * @max 0.34
-//  * @group Mixer Output
-//  */
-// PARAM_DEFINE_FLOAT(SERVO1_DISTURB, 0.f);
-
-// /**
-//  * Servo 2 disturbance, unit radian
-//  *
-//  * radian rad
-//  *
-//  * @min 0
-//  * @max 0.34
-//  * @group Mixer Output
-//  */
-// PARAM_DEFINE_FLOAT(SERVO2_DISTURB, 0.f);
-
-// /**
-//  * Servo 3 disturbance, unit radian
-//  *
-//  * radian rad
-//  *
-//  * @min 0
-//  * @max 0.34
-//  * @group Mixer Output
-//  */
-// PARAM_DEFINE_FLOAT(SERVO3_DISTURB, 0.f);
-
-// /**
-//  * Servo 4 disturbance, unit radian
-//  *
-//  * radian rad
-//  *
-//  * @min 0
-//  * @max 0.34
-//  * @group Mixer Output
-//  */
-// PARAM_DEFINE_FLOAT(SERVO4_DISTURB, 0.f);
-
-// /**
-//  * USE_SERVO_DIS
-//  *
-//  * use control allocation or not.
-//  *
-//  * @value 0 not
-//  * @value 1 use CA
-//  * @group Mixer Output
-//  */
-// PARAM_DEFINE_INT32(USE_SERVO_DIS, 0);
-
-// /**
-//  * USE_DIS_SAME
-//  *
-//  * Simultaneously add Servo and roll disturbance or not
-//  *
-//  * @value 0 not
-//  * @value 1 use the same time
-//  * @group Mixer Output
-//  */
-// PARAM_DEFINE_INT32(USE_DIS_SAME, 0);
-
 /**
 * Low pass filter cutoff frequency for control surface
 *
@@ -181,23 +115,6 @@ PARAM_DEFINE_FLOAT(MC_OMEGA_HOVER, 1225.f);
 * @group Mixer Output
 */
 PARAM_DEFINE_FLOAT(CS1_CUTOFF, 30.0f);
-
-// /**
-// * Low pass filter cutoff frequency for control surface
-// *
-// * The cutoff frequency for the 2nd order butterworth filter on the primary gyro.
-// * This only affects the deflection angular sent to the controllers.
-// *
-// * A value of 0 disables the filter.
-// *
-// * @min 0
-// * @max 1000
-// * @unit Hz
-// * @reboot_required true
-// * @group Mixer Output
-// */
-// PARAM_DEFINE_FLOAT(CS2_CUTOFF, 30.0f);
-
 
 /**
 * Low pass filter cutoff frequency for omega
@@ -255,14 +172,3 @@ PARAM_DEFINE_FLOAT(DOMEGA_CUTOFF, 30.0f);
  * @group Mixer Output
  */
 PARAM_DEFINE_INT32(SAMPLE_FREQ, 200);
-
-// /**
-//  * USE_2LP
-//  *
-//  * Simultaneously add Servo and roll disturbance or not
-//  *
-//  * @value 0 not
-//  * @value 1 use the same time
-//  * @group Mixer Output
-//  */
-// PARAM_DEFINE_INT32(USE_2LP, 0);

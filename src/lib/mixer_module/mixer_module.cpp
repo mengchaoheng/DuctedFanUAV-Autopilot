@@ -101,9 +101,6 @@ _control_latency_perf(perf_alloc(PC_ELAPSED, "control latency"))
 
 		_notch_filter_actuator[i+1].reset(0);
 		_notch_filter_actuator[i+1].setParameters(_param_sample_freq.get(), _param_imu_gyro_nf_freq.get(), _param_imu_gyro_nf_bw.get());
-
-		// _lp_filter_actuator_d[i+2].reset(0);
-		// _lp_filter_actuator_d[i+2].set_cutoff_frequency(_param_sample_freq.get(), _param_cs2_cutoff.get());
 	}
 	B_inv.setZero();
 	B_inv(0, 0)=-1.0f;
@@ -178,11 +175,6 @@ void MixingOutput::CheckAndUpdateFilters()
 			_lp_filter_actuator[i+1].reset(_delta_prev[i]);
 
 		}
-		// if ((fabsf(_lp_filter_actuator_d[i+2].get_cutoff_freq() - _param_cs2_cutoff.get()) > 0.1f)) {
-		// 	_lp_filter_actuator_d[i+2].set_cutoff_frequency(_param_sample_freq.get(), _param_cs2_cutoff.get());
-		// 	_lp_filter_actuator_d[i+2].reset(_delta_prev[i]);
-
-		// }
 		if ((fabsf(_notch_filter_actuator[i+1].getNotchFreq() - _param_imu_gyro_nf_freq.get()) > 0.1f)
 		|| (fabsf(_notch_filter_actuator[i+1].getBandwidth() - _param_imu_gyro_nf_bw.get()) > 0.1f)
 		) {
@@ -207,36 +199,6 @@ void MixingOutput::CheckAndUpdateFilters()
 void MixingOutput::updateParams()
 {
 	ModuleParams::updateParams();
-
-	// _servo_disturb[0] =_param_servo1_disturb.get();
-	// _servo_disturb[1] =_param_servo2_disturb.get();
-	// _servo_disturb[2] =_param_servo3_disturb.get();
-	// _servo_disturb[3] =_param_servo4_disturb.get();
-
-	// for (size_t i = 0; i < 4; i++)
-	// {
-	// 	_servo_disturb_abs[i] = _servo_disturb[i]>0 ? _servo_disturb[i] : -_servo_disturb[i];
-	// 	// _uMin[i] = -(0.3491-_servo_disturb_abs[i]);
-	// 	// _uMax[i] = 0.3491-_servo_disturb_abs[i];
-	// }
-
-	// if (_param_pwm_min3.get() != -1)
-	// 	pwm_min3 = _param_pwm_min3.get();
-	// if (_param_pwm_min4.get() != -1)
-	// 	pwm_min4 = _param_pwm_min4.get();
-	// if (_param_pwm_min5.get() != -1)
-	// 	pwm_min5 = _param_pwm_min5.get();
-	// if (_param_pwm_min6.get() != -1)
-	// 	pwm_min6 = _param_pwm_min6.get();
-
-	// if (_param_pwm_max3.get() != -1)
-	// 	pwm_max3 = _param_pwm_max3.get();
-	// if (_param_pwm_max4.get() != -1)
-	// 	pwm_max4 = _param_pwm_max4.get();
-	// if (_param_pwm_max5.get() != -1)
-	// 	pwm_max5 = _param_pwm_max5.get();
-	// if (_param_pwm_max6.get() != -1)
-	// 	pwm_max6 = _param_pwm_max6.get();
 
 	CheckAndUpdateFilters();
 
@@ -535,74 +497,9 @@ bool MixingOutput::update()
 	/* do mixing */
 	float outputs[MAX_ACTUATORS] {};
 	const unsigned mixed_num_outputs = _mixers->mix(outputs, _max_num_outputs);
-	// PX4_INFO("u1: %f, u2: %f, u3: %f, u4: %f. \n",(double) outputs[0],(double) outputs[1],(double) outputs[2],(double) outputs[3]);
 
-	// if (_rc_channels_sub.update(&_rc_channels))
-	// {
-	// 	if (_rc_channels.channels[8] < 0.5f)
-	// 	{
-	// 		_disturb_flag = false;
-	// 		// PX4_INFO("no sidturb !");
-	// 	}
-	// 	else
-	// 	{
-	// 		_disturb_flag = true;
-	// 		// PX4_INFO("sidturb !");
-	// 	}
-
-	// 	if(_rc_channels.channels[9] < 0.5f)
-	// 	{
-	// 		_use_lp_alloc = false;
-	// 	}
-	// 	else
-	// 	{
-	// 		_use_lp_alloc = true;
-	// 		// PX4_INFO("step !");
-	// 	}
-	// }
-
-	// PX4_INFO("_param_pwm_min1: %f", (double) _param_pwm_min1.get());
-
-	// PX4_INFO("_param_servo1_disturb: %f", (double)  ( (int16_t) ((_param_servo1_disturb.get() / 0.3491f) * ((pwm_max3 - pwm_min3)/2.f))) );
-	// PX4_INFO("(pwm_max3 - pwm_min3)/2.f: %f", (double) ((pwm_max3 - pwm_min3)/2.f) );
-	// PX4_INFO("((abs(_param_servo2_disturb.get()) / 0.3491f): %f", (double) ((int16_t) ( ( (_param_servo1_disturb.get()>0 ? _param_servo1_disturb.get() : -_param_servo1_disturb.get()) / 0.3491f ) * ((pwm_max3 - pwm_min3)/2.f))) );
-	// printf("printf: %f \n", abs(_param_servo1_disturb.get()));
-	// if ((_disturb_flag && !_disturb_flag_prev) || (_param_use_servo_dis.get()==1 && !_use_servo_dis_prev))
-	// {
-
-	// 	for (size_t i = 0; i < 4; i++)
-	// 	{
-	// 		// if(_servo_disturb[i]>0.f)
-	// 		// 	_uMax[i] = 0.3491-(double) _servo_disturb_abs[i];
-	// 		// else
-	// 		// 	_uMin[i] = -(0.3491-(double) _servo_disturb_abs[i]);
-	// 		_uMin[i] = -(0.3491-(double) _servo_disturb_abs[i]);
-	// 		_uMax[i] = 0.3491-(double) _servo_disturb_abs[i];
-	// 		// PX4_INFO("_uMin[%ld]: %f", i, _uMin[i]);
-	// 		// PX4_INFO("_uMax[%ld]: %f", i, _uMax[i]);
-	// 	}
-	// 	// PX4_INFO("single, use_roll_disturb, change _min_value and _min_value !");
-
-	// 	// PX4_INFO("_param_servo1_disturb: %f", (double) (abs(10000 * _param_servo1_disturb.get()) / 10000.f) );
-	// 	// PX4_INFO("_param_servo1_disturb: %f", (double) ((float) (pwm_max3 - pwm_min3)/2.f));
-	// 	// PX4_INFO("_param_servo1_disturb: %f", (double) ((abs(_param_servo1_disturb.get()) / 0.3491f) * ((float) (pwm_max3 - pwm_min3)/2.f));
-	// }
-	// if ((!_disturb_flag && _disturb_flag_prev) || (_param_use_servo_dis.get()==0 && _use_servo_dis_prev))
-	// {
-	// 	for (size_t i = 0; i < 4; i++)
-	// 	{
-	// 		_uMin[i] = -0.3491;
-	// 		_uMax[i] = 0.3491;
-	// 		// PX4_INFO("_uMin[%ld]: %f", i, _uMin[i]);
-	// 		// PX4_INFO("_uMax[%ld]: %f", i, _uMax[i]);
-	// 	}
-	// 	// PX4_INFO("single, not use_roll_disturb, restore _min_value and _min_value !");
-	// }
-	// _use_servo_dis_prev = _param_use_servo_dis.get();
-	// _disturb_flag_prev = _disturb_flag;
 	// // "outputs" is the value alfter mix, range from [-1, 1]. _current_output_value is pwm value alfter output_limit_calc.
 	// // just using in ductedfan
-	// // PX4_INFO("dir_alloc_sim:\n");
 	allocation_value_s allocation_value{};
 	if (_param_use_alloc.get() == 1)
 	{
@@ -744,14 +641,6 @@ bool MixingOutput::update()
 			allocation_value.umin[i] = _uMin[i];
 			allocation_value.umax[i] = _uMax[i];
 		}
-		// if (_disturb_flag || (_param_use_servo_dis.get()==1))
-		// {
-		// 	for (size_t i = 0; i < 4; i++)
-		// 	{
-		// 		u_ultimate[i] = (float) _u[i] + _servo_disturb[i];
-		// 	}
-		// }
-		// PX4_INFO("iters: %f, z: %f, u1: %f, u2: %f, u3: %f, u4: %f. \n", iters, z, u[0]*r2d, u[1]*r2d, u[2]*r2d, u[3]*r2d);
 		for (size_t i = 0; i < 4; i++)
 		{
 			outputs[i+2] = (u_ultimate[i])/0.3491f;
@@ -832,7 +721,6 @@ MixingOutput::setAndPublishActuatorOutputs(unsigned num_outputs, actuator_output
 
 	const float dt = math::constrain(((actuator_outputs.timestamp - _timestamp_sample_prev) / 1e6f), 0.0002f, 0.02f);
 	_timestamp_sample_prev = actuator_outputs.timestamp;
-	// PX4_INFO("dt: %f \n", (double) dt); //sitl
 
 	actuator_outputs_value_s actuator_outputs_value{};
 	// relationship of Omega and PWM, hold: PWM=1706 -> Omega=1225; PWM=1000 -> Omega=0.--by fly  test
@@ -840,33 +728,20 @@ MixingOutput::setAndPublishActuatorOutputs(unsigned num_outputs, actuator_output
 	// must Must have the correct _omega_hover and _pwm_hover
 	float hover_thrust_ratio = (_pwm_hover - (float) _min_value[0]) / (float) (_max_value[0]-_min_value[0]);
 	float coefficient = _omega_hover / hover_thrust_ratio;
-	// PX4_INFO("_omega_hover: %f \n", (double) _omega_hover); //sitl
-	// PX4_INFO("coefficient: %f \n", (double) coefficient); //sitl
-	// PX4_INFO("hover_thrust_ratio: %f \n", (double) hover_thrust_ratio); //sitl
-
 	// using _current_output_value to calculate current Omega cmd.
 
 	float Omega_d = 0;
 	if (_current_output_value[0] >  _min_value[0])
 		Omega_d= ((float) (_current_output_value[0] - _min_value[0]) / (float) (_max_value[0] - _min_value[0])) * coefficient; // assumption a const value
-	// PX4_INFO("Omega_d: %f \n", (double) Omega_d); //sitl
-	// PX4_INFO("_min_value[0]: %f \n", (double) _min_value[0]); // sitl
-	// PX4_INFO("_max_value[0]: %f \n", (double) _max_value[0]); // sitl
-	// PX4_INFO("_current_output_value[0]: %f \n", (double) _current_output_value[0]); // sitl
 
 	// using _last_output_value to estimate true value.
 	float Omega_0 = 0;
 	if (_last_output_value[0] >  _min_value[0])
 		Omega_0=((float) (_last_output_value[0] - _min_value[0]) / (float) (_max_value[0] - _min_value[0])) * coefficient;
-	// PX4_INFO("Omega_0: %f \n", (double) Omega_0); //sitl
 	//control surfaces, 0.3491 rad -> 180pwm.
-	// float last_delta_cmd_rad[4];
 	for (size_t i = 0; i < 4 ; ++i) {
-		// const float pwm_center = (float) (_max_value[i+2] + _min_value[i+2]) / 2.f;
-		// last_delta_cmd_rad[i] = ((float) _last_output_value[i+2] - pwm_center) *1.0f/((float) (_max_value[i+2] - _min_value[i+2]) / 2.f);	// 100%
 		actuator_outputs_value.last_deltacmd[i] =(float) _last_u[i];
 	}
-	// PX4_INFO("last_delta_cmd_rad: %f \n", (double) last_delta_cmd_rad[0]); //sitl
 	// actuator filtering:
 	// - Apply general notch filter (IMU_GYRO_NF_FREQ)
 	// - Apply general low-pass filter (IMU_GYRO_CUTOFF)
@@ -876,22 +751,11 @@ MixingOutput::setAndPublishActuatorOutputs(unsigned num_outputs, actuator_output
 	//thrust
 	actuator_notched[0] = _notch_filter_actuator[0].apply(Omega_0);
 	Omega_0_has_lp_filter = _lp_filter_actuator[0].apply(actuator_notched[0]);
-	// PX4_INFO("actuator_has_lp_filter: %f \n", (double) actuator_has_lp_filter[0]); //sitl
 
 	//control surfaces
-	// float first_lp[4];
 	for (size_t i = 0; i < 4; ++i) {
 		actuator_notched[i+1] = _notch_filter_actuator[i+1].apply(actuator_outputs_value.last_deltacmd[i]);
-		// if(_param_use_2lp.get() == 0)
-		// {
-			actuator_outputs_value.delta[i] = math::constrain(_lp_filter_actuator[i+1].apply(actuator_notched[i+1]), (float) (_uMin[i]), (float) (_uMax[i]));// 100%
-		// }
-		// else
-		// {
-		// 	first_lp[i] = _lp_filter_actuator[i+1].apply(actuator_notched[i+1]);
-		// 	actuator_outputs_value.delta[i] = math::constrain(_lp_filter_actuator_d[i+2].apply(first_lp[i]), (float) (_uMin[i]), (float) (_uMax[i]));// 100%
-		// }
-		// PX4_INFO("actuator_has_lp_filter: %f \n", (double) actuator_has_lp_filter[i+1]); //sitl
+		actuator_outputs_value.delta[i] = math::constrain(_lp_filter_actuator[i+1].apply(actuator_notched[i+1]), (float) (_uMin[i]), (float) (_uMax[i]));// 100%
 		_delta_prev[i] = actuator_outputs_value.delta[i];
 	}
 
@@ -907,7 +771,6 @@ MixingOutput::setAndPublishActuatorOutputs(unsigned num_outputs, actuator_output
 	_dOmega_d_raw_prev = dOmega_d_raw;
 	float dOmega_d = _lp_filter_actuator_d[1].apply(dOmega_d_raw);
 
-	// PX4_INFO("actuator_value_d: %f \n", (double) actuator_value_d); //sitl
 	//------------------------publish-----------------------------
 	actuator_outputs_value.propeller_omega_d = Omega_d;
 	actuator_outputs_value.propeller_omega_0 = Omega_0_has_lp_filter;

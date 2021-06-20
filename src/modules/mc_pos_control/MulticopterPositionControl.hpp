@@ -108,17 +108,6 @@ private:
 	vehicle_control_mode_s	_control_mode{};		/**< vehicle control mode */
 	vehicle_local_position_s _local_pos{};			/**< vehicle local position */
 
-	// uORB::Subscription _rc_channels_sub{ORB_ID(rc_channels)};
-	// rc_channels_s		_rc_channels{};
-	// bool _use_step_ref{false};
-
-	// bool _use_step_ref_prev{false};
-	// hrt_abstime _add_step_time;
-	// float _cycle_time;
-
-	// float _step_roll_amp;
-	// float _step_pitch_amp;
-
 	DEFINE_PARAMETERS(
 		// Position Control
 		(ParamFloat<px4::params::MPC_XY_P>) _param_mpc_xy_p,
@@ -148,10 +137,6 @@ private:
 		(ParamFloat<px4::params::MPC_TILTMAX_LND>) _param_mpc_tiltmax_lnd, /**< maximum tilt for landing and smooth takeoff */
 		(ParamFloat<px4::params::MPC_THR_MIN>) _param_mpc_thr_min,
 		(ParamFloat<px4::params::MPC_THR_MAX>) _param_mpc_thr_max
-		// (ParamInt<px4::params::USE_STEP_REF>) _param_mc_use_step_ref,
-		// (ParamFloat<px4::params::STEP_ROLL_AMP>) _param_step_roll_amp,
-		// (ParamFloat<px4::params::STEP_PITCH_AMP>) _param_step_pitch_amp,
-		// (ParamFloat<px4::params::STEP_REF_TIME>) _param_step_ref_time
 	);
 
 	control::BlockDerivative _vel_x_deriv; /**< velocity derivative in x */

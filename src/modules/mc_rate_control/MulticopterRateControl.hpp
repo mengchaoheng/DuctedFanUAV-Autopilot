@@ -56,7 +56,6 @@
 #include <uORB/topics/rate_ctrl_status.h>
 #include <uORB/topics/actuator_outputs_value.h>
 #include <uORB/topics/indi_feedback_input.h>
-// #include <uORB/topics/rc_channels.h>
 #include <uORB/topics/vehicle_angular_acceleration.h>
 #include <uORB/topics/vehicle_angular_velocity.h>
 #include <uORB/topics/vehicle_control_mode.h>
@@ -124,22 +123,6 @@ private:
 	bool _maybe_landed{true};
 	bool _actuator_outputs_sub_flag{false};
 
-	// bool _use_sin_ref{false};
-	// bool _use_square_ref{false};
-	// bool _use_sin_ref_prev{false};
-	// bool _use_square_ref_prev{false};
-	// hrt_abstime _add_square_time;
-	// hrt_abstime _add_sin_time;
-
-	// float int_time;
-	// float _cycle_time;
-	// float _square_ref_amplitude;
-	// float _square_yaw_amplitude;
-	// float _ref_cmd;
-	// int _use_square_ref_sitl;
-
-	// bool _indi_flag{false};
-
 	float _battery_status_scale{0.0f};
 
 
@@ -152,10 +135,6 @@ private:
 	hrt_abstime _last_run{0};
 
 	int8_t _landing_gear{landing_gear_s::GEAR_DOWN};
-
-	// uORB::Subscription _rc_channels_sub{ORB_ID(rc_channels)};
-
-	// rc_channels_s		_rc_channels {};
 
 	DEFINE_PARAMETERS(
 		(ParamFloat<px4::params::MC_ROLLRATE_P>) _param_mc_rollrate_p,
@@ -201,15 +180,7 @@ private:
 		(ParamFloat<px4::params::MC_INDI_PITCH_P>) _param_mc_indipitch_p,
 		(ParamFloat<px4::params::MC_INDI_YAW_P>) _param_mc_indiyaw_p,
 		(ParamInt<px4::params::USE_INDI>) _param_use_indi,
-		// (ParamInt<px4::params::USE_SIN_REF>) _param_use_sin_ref,
-		// (ParamInt<px4::params::USE_SQUARE_REF>) _param_use_square_ref,
 		(ParamInt<px4::params::USE_CA>) _param_use_control_alloc,
-		// (ParamFloat<px4::params::SQUARE_REF_TIME>) _param_square_ref_time,
-		// (ParamFloat<px4::params::SQUARE_REF_AMP>) _param_square_ref_amplitude,
-		// (ParamFloat<px4::params::SQUARE_YAW_AMP>) _param_square_yaw_amplitude,
-		// (ParamFloat<px4::params::SPEED_SIN_T>) _param_speed_sin_t,
-		// (ParamFloat<px4::params::SPEED_SIN_AMP>) _param_speed_sin_amp,
-		// (ParamFloat<px4::params::SPEED_SIN_BIA>) _param_speed_sin_bia,
 		(ParamInt<px4::params::CYC_T>) _param_cycle_time,
 		(ParamInt<px4::params::USE_TAUI>) _param_use_tau_i
 
