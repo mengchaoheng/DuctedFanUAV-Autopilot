@@ -50,7 +50,6 @@
 #include <uORB/topics/actuator_outputs.h>
 #include <uORB/topics/actuator_outputs_value.h>
 #include <uORB/topics/allocation_value.h>
-#include <uORB/topics/indi_feedback_input.h>
 #include <uORB/topics/multirotor_motor_limits.h>
 #include <uORB/topics/parameter_update.h>
 #include <uORB/topics/test_motor.h>
@@ -254,7 +253,6 @@ private:
 
 	uORB::Subscription _armed_sub{ORB_ID(actuator_armed)};
 	uORB::SubscriptionCallbackWorkItem _control_subs[actuator_controls_s::NUM_ACTUATOR_CONTROL_GROUPS];
-	uORB::Subscription _indi_fb_sub{ORB_ID(indi_feedback_input)};
 
 	uORB::PublicationMulti<actuator_outputs_s> _outputs_pub{ORB_ID(actuator_outputs)};
 	uORB::PublicationMulti<allocation_value_s> _allocation_value_pub{ORB_ID(allocation_value)};
@@ -263,7 +261,6 @@ private:
 
 	actuator_controls_s _controls[actuator_controls_s::NUM_ACTUATOR_CONTROL_GROUPS] {};
 	actuator_armed_s _armed{};
-	indi_feedback_input_s _indi_feedback_input;
 
 	hrt_abstime _time_last_dt_update_multicopter{0};
 	hrt_abstime _time_last_dt_update_simple_mixer{0};
@@ -319,8 +316,13 @@ private:
 	double _last_u[4] {};
 	matrix::Matrix<double, 4, 3> B_inv;
 	const double _B[3][4] = { {-0.5,0.0,0.5,0.0}, {0.0,-0.5,0.0,0.5},{0.25,0.25,0.25,0.25}};
-
+	double _indi_fb[3] = {0.0, 0.0, 0.0};
+	double _error_fb[3] = {0.0, 0.0, 0.0};
+	double _fb[3] = {0.0, 0.0, 0.0};
 	int _sample_freq;
+	bool _use_indi{false};
+	bool _use_alloc{false};
+	bool _use_pca{false};
 
 	DEFINE_PARAMETERS(
 		(ParamInt<px4::params::MC_AIRMODE>) _param_mc_airmode,   ///< multicopter air-mode
@@ -329,8 +331,9 @@ private:
 		(ParamInt<px4::params::MOT_ORDERING>) _param_mot_ordering,
 		(ParamInt<px4::params::DUCTEDFAN_MID1>) _param_ductedfan_mid1,
 		(ParamInt<px4::params::DUCTEDFAN_MID2>) _param_ductedfan_mid2,
-		(ParamInt<px4::params::USE_LPCA>) _param_use_lp_alloc,
+		(ParamInt<px4::params::USE_PCA>) _param_use_pca,
 		(ParamInt<px4::params::USE_CA>) _param_use_alloc,
+		(ParamInt<px4::params::USE_INDI>) _param_use_indi,
 		(ParamFloat<px4::params::IMU_GYRO_CUTOFF>) _param_imu_gyro_cutoff,
 		(ParamFloat<px4::params::IMU_GYRO_NF_FREQ>) _param_imu_gyro_nf_freq,
 		(ParamFloat<px4::params::IMU_GYRO_NF_BW>) _param_imu_gyro_nf_bw,

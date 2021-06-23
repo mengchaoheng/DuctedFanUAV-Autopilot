@@ -50,9 +50,9 @@ void IndiControl::setParams(const Vector3f &P, const float k_cv, const float k_v
 void IndiControl::init()
 {
 	_H_1.setZero();
-	_H_1(0, 0) = _k_cv*_k_v*_k_v*2.f*_L_1/_I_x;
-	_H_1(1, 1) = _k_cv*_k_v*_k_v*2.f*_L_1/_I_y;
-	_H_1(2, 2) = _k_cv*_k_v*_k_v*4.f*_L_2/_I_z;
+	_H_1(0, 0) = 0.3491f * _k_cv*_k_v*_k_v*2.f*_L_1/_I_x;
+	_H_1(1, 1) = 0.3491f * _k_cv*_k_v*_k_v*2.f*_L_1/_I_y;
+	_H_1(2, 2) = 0.3491f * _k_cv*_k_v*_k_v*4.f*_L_2/_I_z;
 
 	_H_inv.setZero();
 	_H_inv(0, 0) = 1.f/_H_1(0, 0);
@@ -91,6 +91,9 @@ Vector3f IndiControl::update(const Vector3f &rate, const Vector3f &rate_sp, cons
 		Vector3f T = (2.f * _H_1 * _B * delta_0 + H_2) * (actuator_outputs_value.propeller_omega_d - actuator_outputs_value.propeller_omega_0) + _H_3*(actuator_outputs_value.dpropeller_omega_d - actuator_outputs_value.dpropeller_omega_0);
 
 		Nu_i = _B * delta_0 - _H_inv / (actuator_outputs_value.propeller_omega_0 * actuator_outputs_value.propeller_omega_0) * (angular_accel + T);
+		// Nu_i(0) = math::constrain(Nu_i(0), -1.f, 1.f);
+		// Nu_i(1) = math::constrain(Nu_i(1), -1.f, 1.f);
+		// Nu_i(2) = math::constrain(Nu_i(2), -1.f, 1.f);
 		// PX4_INFO("Nu_i of INDI is: roll: %f, pitch: %f, yaw: %f \n", (double) Nu_i(0), (double) Nu_i(1), (double) Nu_i(2));
 		// PX4_INFO("T: roll: %f, pitch: %f, yaw: %f \n", (double) T(0), (double) T(1), (double) T(2));
 		// PX4_INFO("angular_accel+T: roll: %f, pitch: %f, yaw: %f \n", (double) (angular_accel(0)+T(0)), (double) (angular_accel(1)+T(1)), (double) (angular_accel(2)+T(2)));
@@ -104,6 +107,8 @@ Vector3f IndiControl::update(const Vector3f &rate, const Vector3f &rate_sp, cons
 	// K(2) = PX4_ISFINITE(K(2)) ? K(2) : 0.0f;
 	Vector3f Nu_f= K.emult(rate_error);
 	// PX4_INFO("K of INDI is: roll: %f, pitch: %f, yaw: %f \n", (double) K(0), (double) K(1), (double) K(2));
-
+	// Nu_f(0) = math::constrain(Nu_f(0), -1.f, 1.f);
+	// Nu_f(1) = math::constrain(Nu_f(1), -1.f, 1.f);
+	// Nu_f(2) = math::constrain(Nu_f(2), -1.f, 1.f);
 	return Nu_f;
 }

@@ -40,7 +40,6 @@ set(msg_files
 	actuator_outputs.msg
 	actuator_outputs_value.msg
 	allocation_value.msg
-	indi_feedback_input.msg
 	adc_report.msg
 	airspeed.msg
 	airspeed_validated.msg

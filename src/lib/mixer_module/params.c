@@ -61,22 +61,22 @@ PARAM_DEFINE_INT32(DUCTEDFAN_MID2, 1500);
  *
  * use control allocation or not.
  *
- * @value 0 not
+ * @value 0 use the default mix=inv
  * @value 1 use CA
  * @group Mixer Output
  */
 PARAM_DEFINE_INT32(USE_CA, 0);
 
 /**
- * USE_LPCA
+ * USE_PCA
  *
- * use LP control allocation or not.
+ * use priority control allocation or not.
  *
- * @value 0 not
- * @value 1 use LPCA
+ * @value 0 use inv
+ * @value 1 use PCA
  * @group Mixer Output
  */
-PARAM_DEFINE_INT32(USE_LPCA, 0);
+PARAM_DEFINE_INT32(USE_PCA, 0);
 
 /**
  * PWM_HOVER

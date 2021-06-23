@@ -55,7 +55,6 @@
 #include <uORB/topics/parameter_update.h>
 #include <uORB/topics/rate_ctrl_status.h>
 #include <uORB/topics/actuator_outputs_value.h>
-#include <uORB/topics/indi_feedback_input.h>
 #include <uORB/topics/vehicle_angular_acceleration.h>
 #include <uORB/topics/vehicle_angular_velocity.h>
 #include <uORB/topics/vehicle_control_mode.h>
@@ -109,7 +108,6 @@ private:
 	uORB::SubscriptionCallbackWorkItem _vehicle_angular_velocity_sub{this, ORB_ID(vehicle_angular_velocity)};
 
 	uORB::Publication<actuator_controls_s>		_actuators_0_pub;
-	uORB::Publication<indi_feedback_input_s>	_indi_fb_pub{ORB_ID(indi_feedback_input)};
 	uORB::PublicationMulti<rate_ctrl_status_s>	_controller_status_pub{ORB_ID(rate_ctrl_status)};	/**< controller status publication */
 	uORB::Publication<vehicle_rates_setpoint_s>	_v_rates_sp_pub{ORB_ID(vehicle_rates_setpoint)};			/**< rate setpoint publication */
 
@@ -120,6 +118,7 @@ private:
 	bool _landed{true};
 	bool _maybe_landed{true};
 	bool _actuator_outputs_sub_flag{false};
+	bool _use_indi{false};
 
 	float _battery_status_scale{0.0f};
 

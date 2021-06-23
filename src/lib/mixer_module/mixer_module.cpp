@@ -120,8 +120,8 @@ _control_latency_perf(perf_alloc(PC_ELAPSED, "control latency"))
 
 	for (size_t i = 0; i < 4; i++)
 	{
-		_uMin[i] = -0.3491;
-		_uMax[i] = 0.3491;
+		_uMin[i] = -1.0;
+		_uMax[i] = 1.0;
 	}
 }
 
@@ -204,6 +204,9 @@ void MixingOutput::updateParams()
 	ModuleParams::updateParams();
 
 	CheckAndUpdateFilters();
+	_use_indi = _param_use_indi.get();
+	_use_alloc = _param_use_alloc.get();
+	_use_pca = _param_use_pca.get();
 
 	// update mixer if we have one
 	if (_mixers) {
@@ -504,64 +507,51 @@ bool MixingOutput::update()
 	// // "outputs" is the value alfter mix, range from [-1, 1]. _current_output_value is pwm value alfter output_limit_calc.
 	// // just using in ductedfan
 	allocation_value_s allocation_value{};
-	if (_param_use_alloc.get() == 1)
+	if (_use_alloc == 1)
 	{
-		// ye
-		double ye[3]={0.0, 0.0, 0.0};
-		if (_indi_fb_sub.update(&_indi_feedback_input)) {
-
-			ye[0]=(double) _indi_feedback_input.indi_fb[indi_feedback_input_s::INDEX_ROLL];
-			ye[1]=(double) _indi_feedback_input.indi_fb[indi_feedback_input_s::INDEX_PITCH];
-			ye[2]=(double) _indi_feedback_input.indi_fb[indi_feedback_input_s::INDEX_YAW];
-			// PX4_INFO("roll: %f, pitch: %f, yaw: %f \n", ye[0], ye[1], ye[2]);
-		}
-		// uint64_t timestamp_ca_start;
-		// uint64_t timestamp_ca_end;
-		// timestamp_ca_start = hrt_absolute_time();
-		float roll=0.0f;
-		float pitch=0.0f;
-		float yaw=0.0f;
-		controlCallback((uintptr_t)this, 0, 0, roll);
-		controlCallback((uintptr_t)this, 0, 1, pitch);
-		controlCallback((uintptr_t)this, 0, 2, yaw);
-		// math::constrain(   , -1.f, 1.f);
-		// roll = _controls[0].control[actuator_controls_s::INDEX_ROLL];
-		// pitch = _controls[0].control[actuator_controls_s::INDEX_PITCH];
-		// yaw = _controls[0].control[actuator_controls_s::INDEX_YAW];
-		// PX4_INFO("rpy:\n");
-		// PX4_INFO("roll: %f, pitch: %f, yaw: %f \n", (double) roll, (double) pitch, (double) yaw);
-		double y_all[3]={(double) roll, (double) pitch, (double)  yaw};
-		double yd[3] = { y_all[0]-ye[0], y_all[1]-ye[1], y_all[2]-ye[2] };
-		// double d2r=3.141592653/180;
-		// double r2d=180/3.141592653;
-
-		//dir
-
-
-		// if ( (_use_lp_alloc || _param_use_lp_alloc.get()==1))
-		if (_param_use_lp_alloc.get()==1)
+		if(_use_indi == 1)
 		{
-			// PX4_INFO("dir");
+			_error_fb[0] = math::constrain(_controls[0].error_fb[actuator_controls_s::INDEX_ROLL], -1.f, 1.f);
+			_error_fb[1] = math::constrain(_controls[0].error_fb[actuator_controls_s::INDEX_PITCH], -1.f, 1.f);
+			_error_fb[2] = math::constrain(_controls[0].error_fb[actuator_controls_s::INDEX_YAW], -1.f, 1.f);
 
+			_indi_fb[0] = math::constrain(_controls[0].indi_fb[actuator_controls_s::INDEX_ROLL], -1.f, 1.f);
+			_indi_fb[1] = math::constrain(_controls[0].indi_fb[actuator_controls_s::INDEX_PITCH], -1.f, 1.f);
+			_indi_fb[2] = math::constrain(_controls[0].indi_fb[actuator_controls_s::INDEX_YAW], -1.f, 1.f);
+		}
+		_fb[0] = math::constrain(_controls[0].control[actuator_controls_s::INDEX_ROLL], -1.f, 1.f);
+		_fb[1] = math::constrain(_controls[0].control[actuator_controls_s::INDEX_PITCH], -1.f, 1.f);
+		_fb[2] = math::constrain(_controls[0].control[actuator_controls_s::INDEX_YAW], -1.f, 1.f);
+
+		// float roll=0.0f;
+		// float pitch=0.0f;
+		// float yaw=0.0f;
+		// controlCallback((uintptr_t)this, 0, 0, roll);
+		// controlCallback((uintptr_t)this, 0, 1, pitch);
+		// controlCallback((uintptr_t)this, 0, 2, yaw);
+
+		if (_use_pca==1)
+		{
+			//dir
 			double u_all[4];
 			double z_all;
 			double iters_all;
-			dir_alloc_sim(y_all, _uMin, _uMax, u_all, &z_all, &iters_all);
-			if (z_all>1)
+			dir_alloc_sim(_fb, _uMin, _uMax, u_all, &z_all, &iters_all);
+			if (z_all>1 || _use_indi != 1)
 			{
 				for (size_t i = 0; i < 4; i++)
 				{
 					_u[i] = (double) math::constrain((float) u_all[i], (float) (_uMin[i]), (float) (_uMax[i]));
 				}
 				allocation_value.flag=0;
-				// PX4_INFO(" dir 1");
+				PX4_INFO(" dir 1");
 			}
 			else
 			{
 				double u_e[4] = {0.0, 0.0, 0.0, 0.0};
 				double z_e;
 				double iters_e;
-				dir_alloc_sim(ye, _uMin, _uMax, u_e, &z_e, &iters_e);
+				dir_alloc_sim(_indi_fb, _uMin, _uMax, u_e, &z_e, &iters_e);
 				for (size_t i = 0; i < 3; i++)
 				{
 					double  temp = 0.0f;
@@ -569,7 +559,7 @@ bool MixingOutput::update()
 					{
 						temp += _B[i][k] * u_e[k];
 					}
-					allocation_value.ue_error[i] =ye[i] - temp;
+					allocation_value.ue_error[i] =_indi_fb[i] - temp;
 				}
 				if (z_e>1)
 				{
@@ -583,7 +573,7 @@ bool MixingOutput::update()
 					double u_d[4] = {0.0, 0.0, 0.0, 0.0};
 					double z_d;
 					double iters_d;
-					dir_alloc_sim(yd, uMin_new, uMax_new, u_d, &z_d, &iters_d);
+					dir_alloc_sim(_error_fb, uMin_new, uMax_new, u_d, &z_d, &iters_d);
 					for (size_t i = 0; i < 3; i++)
 					{
 						double  temp = 0.0f;
@@ -591,13 +581,13 @@ bool MixingOutput::update()
 						{
 							temp += _B[i][k] * u_d[k];
 						}
-						allocation_value.ud_error[i] =yd[i] - temp;
+						allocation_value.ud_error[i] =_error_fb[i] - temp;
 					}
 					for (size_t i = 0; i < 4; i++)
 					{
 						_u[i] = (double) math::constrain((float) (u_d[i] + u_e[i]), (float) (_uMin[i]), (float) (_uMax[i]));
 					}
-					// PX4_INFO("dir 3");
+					PX4_INFO("dir 3");
 					allocation_value.flag=1;
 				}
 				else
@@ -606,19 +596,17 @@ bool MixingOutput::update()
 					{
 						_u[i] = (double) math::constrain((float) u_e[i], (float) (_uMin[i]), (float) (_uMax[i]));
 					}
-					// PX4_INFO("dir 2");
+					PX4_INFO("dir 2");
 					allocation_value.flag=-1;
 				}
 			}
-
-
 		}
 		else
 		{
 			//inv
-			// PX4_INFO("inv");
-			matrix::Matrix<double, 3, 1> y_desire (y_all);
-			matrix::Matrix<double, 4, 1> u_inv = B_inv * y_desire;
+			PX4_INFO("inv");
+			matrix::Matrix<double, 3, 1> control_desire (_fb);
+			matrix::Matrix<double, 4, 1> u_inv = B_inv * control_desire;
 			for (size_t i = 0; i < 4; i++)
 			{
 				_u[i] =(double) math::constrain((float) u_inv(i,0), (float) (_uMin[i]), (float) (_uMax[i]));
@@ -634,7 +622,7 @@ bool MixingOutput::update()
 			{
 				temp += _B[i][k] * _u[k];
 			}
-			allocation_value.error[i] =y_all[i] - temp;
+			allocation_value.error[i] =_fb[i] - temp;
 		}
 
 		for (size_t i = 0; i < 4; i++)
@@ -646,12 +634,9 @@ bool MixingOutput::update()
 		}
 		for (size_t i = 0; i < 4; i++)
 		{
-			outputs[i+2] = (u_ultimate[i])/0.3491f;
+			outputs[i+2] = (u_ultimate[i])/1.0f;
 			allocation_value.u_ultimate[i] = u_ultimate[i];
 		}
-		// timestamp_ca_end = hrt_absolute_time();
-		// PX4_INFO("dir_alloc_sim time: %lld \n", (timestamp_ca_end - timestamp_ca_start) ); //nuttx
-		// PX4_INFO("dir_alloc_sim time: %ld \n", (timestamp_ca_end - timestamp_ca_start) ); //sitl
 	}
 	else
 	{
@@ -871,11 +856,8 @@ int MixingOutput::controlCallback(uintptr_t handle, uint8_t control_group, uint8
 	const MixingOutput *output = (const MixingOutput *)handle;
 
 	input = output->_controls[control_group].control[control_index];
-	// if ((double) input > 1.0)
-	// 	PX4_INFO("before: %f.", (double) input);
 	/* limit control input */
-	// input = math::constrain(input, -1.f, 1.f);//already done
-	// 4_INFO("after: %f.", (double) input);
+	input = math::constrain(input, -1.f, 1.f);//already done
 	/* motor spinup phase - lock throttle to zero */
 	if (output->_output_limit.state == OUTPUT_LIMIT_STATE_RAMP) {
 		if (((control_group == actuator_controls_s::GROUP_INDEX_ATTITUDE ||
