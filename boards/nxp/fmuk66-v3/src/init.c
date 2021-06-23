@@ -117,7 +117,7 @@ __END_DECLS
 void board_on_reset(int status)
 {
 	for (int i = 0; i < 6; ++i) {
-		px4_arch_configgpio(PX4_MAKE_GPIO_INPUT(io_timer_channel_get_as_pwm_input(i)));
+		px4_arch_configgpio(PX4_MAKE_GPIO_INPUT_PULL_DOWN(io_timer_channel_get_as_pwm_input(i)));
 	}
 
 	if (status >= 0) {
@@ -288,6 +288,14 @@ __EXPORT int board_app_initialize(uintptr_t arg)
 
 # ifdef CONFIG_KINETIS_ENET
 	kinetis_netinitialize(0);
+# endif
+
+# ifdef CONFIG_KINETIS_FLEXCAN0
+	kinetis_caninitialize(0);
+# endif
+
+# ifdef CONFIG_KINETIS_FLEXCAN1
+	kinetis_caninitialize(1);
 # endif
 
 #endif

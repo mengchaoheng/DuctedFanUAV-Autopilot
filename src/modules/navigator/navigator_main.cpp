@@ -101,6 +101,7 @@ Navigator::Navigator() :
 	_handle_reverse_delay = param_find("VT_B_REV_DEL");
 
 	_local_pos_sub = orb_subscribe(ORB_ID(vehicle_local_position));
+	_mission_sub = orb_subscribe(ORB_ID(mission));
 	_vehicle_status_sub = orb_subscribe(ORB_ID(vehicle_status));
 
 	reset_triplets();
@@ -110,6 +111,7 @@ Navigator::~Navigator()
 {
 	perf_free(_loop_perf);
 	orb_unsubscribe(_local_pos_sub);
+	orb_unsubscribe(_mission_sub);
 	orb_unsubscribe(_vehicle_status_sub);
 }
 
@@ -144,13 +146,15 @@ Navigator::run()
 	params_update();
 
 	/* wakeup source(s) */
-	px4_pollfd_struct_t fds[2] {};
+	px4_pollfd_struct_t fds[3] {};
 
 	/* Setup of loop */
 	fds[0].fd = _local_pos_sub;
 	fds[0].events = POLLIN;
 	fds[1].fd = _vehicle_status_sub;
 	fds[1].events = POLLIN;
+	fds[2].fd = _mission_sub;
+	fds[2].events = POLLIN;
 
 	/* rate-limit position subscription to 20 Hz / 50 ms */
 	orb_set_interval(_local_pos_sub, 50);
@@ -168,17 +172,18 @@ Navigator::run()
 			PX4_ERR("poll error %d, %d", pret, errno);
 			px4_usleep(10000);
 			continue;
-
-		} else {
-			if (fds[0].revents & POLLIN) {
-				/* success, local pos is available */
-				orb_copy(ORB_ID(vehicle_local_position), _local_pos_sub, &_local_pos);
-			}
 		}
 
 		perf_begin(_loop_perf);
 
+		orb_copy(ORB_ID(vehicle_local_position), _local_pos_sub, &_local_pos);
 		orb_copy(ORB_ID(vehicle_status), _vehicle_status_sub, &_vstatus);
+
+		if (fds[2].revents & POLLIN) {
+			// copy mission to clear any update
+			mission_s mission;
+			orb_copy(ORB_ID(mission), _mission_sub, &mission);
+		}
 
 		/* gps updated */
 		if (_gps_pos_sub.updated()) {
@@ -212,7 +217,7 @@ Navigator::run()
 		_position_controller_status_sub.update();
 		_home_pos_sub.update(&_home_pos);
 
-		if (_vehicle_command_sub.updated()) {
+		while (_vehicle_command_sub.updated()) {
 			const unsigned last_generation = _vehicle_command_sub.get_last_generation();
 			vehicle_command_s cmd{};
 			_vehicle_command_sub.copy(&cmd);
@@ -874,12 +879,6 @@ Navigator::get_default_acceptance_radius()
 }
 
 float
-Navigator::get_acceptance_radius()
-{
-	return get_acceptance_radius(_param_nav_acc_rad.get());
-}
-
-float
 Navigator::get_default_altitude_acceptance_radius()
 {
 	if (get_vstatus()->vehicle_type == vehicle_status_s::VEHICLE_TYPE_FIXED_WING) {
@@ -996,24 +995,19 @@ Navigator::get_cruising_throttle()
 }
 
 float
-Navigator::get_acceptance_radius(float mission_item_radius)
+Navigator::get_acceptance_radius()
 {
-	float radius = mission_item_radius;
-
-	// XXX only use navigation capabilities for now
-	// when in fixed wing mode
-	// this might need locking against a commanded transition
-	// so that a stale _vstatus doesn't trigger an accepted mission item.
-
+	float acceptance_radius = get_default_acceptance_radius(); // the value specified in the parameter NAV_ACC_RAD
 	const position_controller_status_s &pos_ctrl_status = _position_controller_status_sub.get();
 
+	// for fixed-wing and rover, return the max of NAV_ACC_RAD and the controller acceptance radius (e.g. L1 distance)
 	if (_vstatus.vehicle_type != vehicle_status_s::VEHICLE_TYPE_ROTARY_WING
-	    && (pos_ctrl_status.timestamp > _pos_sp_triplet.timestamp)
-	    && pos_ctrl_status.acceptance_radius > radius) {
-		radius = pos_ctrl_status.acceptance_radius;
+	    && PX4_ISFINITE(pos_ctrl_status.acceptance_radius) && pos_ctrl_status.timestamp != 0) {
+
+		acceptance_radius = math::max(acceptance_radius, pos_ctrl_status.acceptance_radius);
 	}
 
-	return radius;
+	return acceptance_radius;
 }
 
 float
@@ -1383,6 +1377,30 @@ Navigator::publish_vehicle_command_ack(const vehicle_command_s &cmd, uint8_t res
 	command_ack.result_param2 = 0;
 
 	_vehicle_cmd_ack_pub.publish(command_ack);
+}
+
+void
+Navigator::acquire_gimbal_control()
+{
+	vehicle_command_s vcmd = {};
+	vcmd.command = vehicle_command_s::VEHICLE_CMD_DO_GIMBAL_MANAGER_CONFIGURE;
+	vcmd.param1 = _vstatus.system_id;
+	vcmd.param2 = _vstatus.component_id;
+	vcmd.param3 = -1.0f; // Leave unchanged.
+	vcmd.param4 = -1.0f; // Leave unchanged.
+	publish_vehicle_cmd(&vcmd);
+}
+
+void
+Navigator::release_gimbal_control()
+{
+	vehicle_command_s vcmd = {};
+	vcmd.command = vehicle_command_s::VEHICLE_CMD_DO_GIMBAL_MANAGER_CONFIGURE;
+	vcmd.param1 = -3.0f; // Remove control if it had it.
+	vcmd.param2 = -3.0f; // Remove control if it had it.
+	vcmd.param3 = -1.0f; // Leave unchanged.
+	vcmd.param4 = -1.0f; // Leave unchanged.
+	publish_vehicle_cmd(&vcmd);
 }
 
 int Navigator::print_usage(const char *reason)

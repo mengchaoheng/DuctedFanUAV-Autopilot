@@ -63,6 +63,7 @@ rtps:
     id: 29
   - msg: input_rc
     id: 30
+    send: true
   - msg: iridiumsbd_status
     id: 31
   - msg: irlock_report
@@ -159,6 +160,7 @@ rtps:
     id: 75
   - msg: telemetry_status
     id: 76
+    receive: true
   - msg: test_motor
     id: 77
   - msg: timesync
@@ -168,6 +170,7 @@ rtps:
   - msg: trajectory_waypoint
     id: 79
     receive: true
+    send: true
   - msg: transponder_report
     id: 80
   - msg: tune_control
@@ -184,6 +187,7 @@ rtps:
     id: 86
   - msg: vehicle_attitude
     id: 87
+    send: true
   - msg: vehicle_attitude_setpoint
     id: 88
   - msg: vehicle_command
@@ -204,8 +208,10 @@ rtps:
     id: 95
   - msg: vehicle_local_position
     id: 96
+    send: true
   - msg: vehicle_local_position_setpoint
     id: 97
+    receive: true
   - msg: vehicle_magnetometer
     id: 98
   - msg: vehicle_odometry
@@ -217,6 +223,7 @@ rtps:
     id: 101
   - msg: vehicle_status
     id: 102
+    send: true
   - msg: vehicle_status_flags
     id: 103
   - msg: vehicle_trajectory_waypoint
@@ -224,7 +231,7 @@ rtps:
     receive: true
   - msg: vtol_vehicle_status
     id: 105
-  - msg: wind_estimate
+  - msg: wind
     id: 106
   - msg: collision_constraints
     id: 107
@@ -239,6 +246,7 @@ rtps:
     id: 111
   - msg: vehicle_angular_velocity
     id: 112
+    send: true
   - msg: vehicle_acceleration
     id: 113
   - msg: airspeed_validated
@@ -266,8 +274,10 @@ rtps:
     id: 125
   - msg: trajectory_bezier
     id: 126
+    receive: true
   - msg: vehicle_trajectory_bezier
     id: 127
+    receive: true
   - msg: timesync_status
     id: 128
   - msg: orb_test
@@ -298,6 +308,40 @@ rtps:
     id: 141
   - msg: rtl_flight_time
     id: 142
+  - msg: vehicle_angular_acceleration_setpoint
+    id: 143
+  - msg: vehicle_torque_setpoint
+    id: 144
+  - msg: vehicle_thrust_setpoint
+    id: 145
+  - msg: vehicle_actuator_setpoint
+    id: 146
+  - msg: control_allocator_status
+    id: 147
+  - msg: mag_worker_data
+    id: 148
+  - msg: takeoff_status
+    id: 149
+  - msg: heater_status
+    id: 150
+  - msg: gimbal_device_attitude_status
+    id: 151
+  - msg: gimbal_device_information
+    id: 152
+  - msg: gimbal_device_set_attitude
+    id: 153
+  - msg: gimbal_manager_information
+    id: 154
+  - msg: gimbal_manager_set_attitude
+    id: 155
+  - msg: gimbal_manager_status
+    id: 156
+  - msg: gimbal_manager_set_manual_control
+    id: 157
+  - msg: airspeed_wind
+    id: 158
+  - msg: estimator_event_flags
+    id: 159
   ########## multi topics: begin ##########
   - msg: actuator_controls_0
     id: 170
@@ -343,6 +387,7 @@ rtps:
   - msg: vehicle_trajectory_waypoint_desired
     id: 183
     alias: vehicle_trajectory_waypoint
+    send: true
   - msg: obstacle_distance_fused
     id: 184
     alias: obstacle_distance
@@ -352,6 +397,7 @@ rtps:
   - msg: trajectory_setpoint
     id: 186
     alias: vehicle_local_position_setpoint
+    receive: true
   - msg: camera_trigger_secondary
     id: 187
     alias: camera_trigger
@@ -394,4 +440,13 @@ rtps:
   - msg: estimator_odometry
     id: 200
     alias: vehicle_odometry
+  - msg: actuator_controls_4
+    id: 201
+    alias: actuator_controls
+  - msg: actuator_controls_5
+    id: 202
+    alias: actuator_controls
+  - msg: estimator_wind
+    id: 203
+    alias: wind
   ########## multi topics: end ##########

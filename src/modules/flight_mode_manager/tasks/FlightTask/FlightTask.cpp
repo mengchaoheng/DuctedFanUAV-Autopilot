@@ -6,7 +6,7 @@ constexpr uint64_t FlightTask::_timeout;
 // First index of empty_setpoint corresponds to time-stamp and requires a finite number.
 const vehicle_local_position_setpoint_s FlightTask::empty_setpoint = {0, NAN, NAN, NAN, NAN, NAN, NAN, NAN, NAN, {NAN, NAN, NAN}, {NAN, NAN, NAN}, {NAN, NAN, NAN}, {}};
 
-const vehicle_constraints_s FlightTask::empty_constraints = {0, NAN, NAN, NAN, NAN, NAN, NAN, NAN, false, {}};
+const vehicle_constraints_s FlightTask::empty_constraints = {0, NAN, NAN, NAN, false, {}};
 const landing_gear_s FlightTask::empty_landing_gear_default_keep = {0, landing_gear_s::GEAR_KEEP, {}};
 
 bool FlightTask::activate(const vehicle_local_position_setpoint_s &last_setpoint)
@@ -20,7 +20,7 @@ bool FlightTask::activate(const vehicle_local_position_setpoint_s &last_setpoint
 
 void FlightTask::reActivate()
 {
-	activate(getPositionSetpoint());
+	activate(empty_setpoint);
 }
 
 bool FlightTask::updateInitialize()
@@ -34,6 +34,7 @@ bool FlightTask::updateInitialize()
 	_sub_home_position.update();
 
 	_evaluateVehicleLocalPosition();
+	_evaluateVehicleLocalPositionSetpoint();
 	_evaluateDistanceToGround();
 	return true;
 }
@@ -87,10 +88,11 @@ const vehicle_local_position_setpoint_s FlightTask::getPositionSetpoint()
 	vehicle_local_position_setpoint.vy = _velocity_setpoint(1);
 	vehicle_local_position_setpoint.vz = _velocity_setpoint(2);
 
-	_acceleration_setpoint.copyTo(vehicle_local_position_setpoint.acceleration);
-	_jerk_setpoint.copyTo(vehicle_local_position_setpoint.jerk);
 	vehicle_local_position_setpoint.yaw = _yaw_setpoint;
 	vehicle_local_position_setpoint.yawspeed = _yawspeed_setpoint;
+
+	_acceleration_setpoint.copyTo(vehicle_local_position_setpoint.acceleration);
+	_jerk_setpoint.copyTo(vehicle_local_position_setpoint.jerk);
 
 	// deprecated, only kept for output logging
 	matrix::Vector3f(NAN, NAN, NAN).copyTo(vehicle_local_position_setpoint.thrust);
@@ -104,7 +106,8 @@ void FlightTask::_resetSetpoints()
 	_velocity_setpoint.setNaN();
 	_acceleration_setpoint.setNaN();
 	_jerk_setpoint.setNaN();
-	_yaw_setpoint = _yawspeed_setpoint = NAN;
+	_yaw_setpoint = NAN;
+	_yawspeed_setpoint = NAN;
 }
 
 void FlightTask::_evaluateVehicleLocalPosition()
@@ -148,9 +151,35 @@ void FlightTask::_evaluateVehicleLocalPosition()
 
 		// global frame reference coordinates to enable conversions
 		if (_sub_vehicle_local_position.get().xy_global && _sub_vehicle_local_position.get().z_global) {
-			globallocalconverter_init(_sub_vehicle_local_position.get().ref_lat, _sub_vehicle_local_position.get().ref_lon,
-						  _sub_vehicle_local_position.get().ref_alt, _sub_vehicle_local_position.get().ref_timestamp);
+			if (!map_projection_initialized(&_global_local_proj_ref)
+			    || (_global_local_proj_ref.timestamp != _sub_vehicle_local_position.get().ref_timestamp)) {
+
+				map_projection_init_timestamped(&_global_local_proj_ref,
+								_sub_vehicle_local_position.get().ref_lat, _sub_vehicle_local_position.get().ref_lon,
+								_sub_vehicle_local_position.get().ref_timestamp);
+
+				_global_local_alt0 = _sub_vehicle_local_position.get().ref_alt;
+			}
 		}
+	}
+}
+
+void FlightTask::_evaluateVehicleLocalPositionSetpoint()
+{
+	vehicle_local_position_setpoint_s vehicle_local_position_setpoint;
+
+	// Only use data that is received within a certain timestamp
+	if (_vehicle_local_position_setpoint_sub.copy(&vehicle_local_position_setpoint)
+	    && (_time_stamp_current - vehicle_local_position_setpoint.timestamp) < _timeout) {
+		// Inform about the input and output of the velocity controller
+		// This is used to properly initialize the velocity setpoint when onpening the position loop (position unlock)
+		_velocity_setpoint_feedback = matrix::Vector3f(vehicle_local_position_setpoint.vx, vehicle_local_position_setpoint.vy,
+					      vehicle_local_position_setpoint.vz);
+		_acceleration_setpoint_feedback = matrix::Vector3f(vehicle_local_position_setpoint.acceleration);
+
+	} else {
+		_velocity_setpoint_feedback.setAll(NAN);
+		_acceleration_setpoint_feedback.setAll(NAN);
 	}
 }
 
@@ -172,9 +201,6 @@ void FlightTask::_setDefaultConstraints()
 	_constraints.speed_xy = _param_mpc_xy_vel_max.get();
 	_constraints.speed_up = _param_mpc_z_vel_max_up.get();
 	_constraints.speed_down = _param_mpc_z_vel_max_dn.get();
-	_constraints.tilt = NAN;
-	_constraints.min_distance_to_ground = NAN;
-	_constraints.max_distance_to_ground = NAN;
 	_constraints.want_takeoff = false;
 }
 

@@ -108,12 +108,15 @@ public:
 
 	bool is_fixed_wing_requested();
 	void quadchute(const char *reason);
+	int get_transition_command() {return _transition_command;}
+	bool get_immediate_transition() {return _immediate_transition;}
+	void reset_immediate_transition() {_immediate_transition = false;}
 
 	struct actuator_controls_s 			*get_actuators_fw_in() {return &_actuators_fw_in;}
 	struct actuator_controls_s 			*get_actuators_mc_in() {return &_actuators_mc_in;}
 	struct actuator_controls_s 			*get_actuators_out0() {return &_actuators_out_0;}
 	struct actuator_controls_s 			*get_actuators_out1() {return &_actuators_out_1;}
-	struct airspeed_validated_s 				*get_airspeed() {return &_airspeed_validated;}
+	struct airspeed_validated_s 			*get_airspeed() {return &_airspeed_validated;}
 	struct position_setpoint_triplet_s		*get_pos_sp_triplet() {return &_pos_sp_triplet;}
 	struct tecs_status_s 				*get_tecs_status() {return &_tecs_status;}
 	struct vehicle_attitude_s 			*get_att() {return &_v_att;}
@@ -172,7 +175,6 @@ private:
 	position_setpoint_triplet_s		_pos_sp_triplet{};
 	tecs_status_s				_tecs_status{};
 	vehicle_attitude_s			_v_att{};				//vehicle attitude
-	vehicle_command_s			_vehicle_cmd{};
 	vehicle_control_mode_s			_v_control_mode{};	//vehicle control mode
 	vehicle_land_detected_s			_land_detected{};
 	vehicle_local_position_s		_local_pos{};
@@ -222,6 +224,7 @@ private:
 	 * for fixed wings we want to have an idle speed of zero since we do not want
 	 * to waste energy when gliding. */
 	int		_transition_command{vtol_vehicle_status_s::VEHICLE_VTOL_STATE_MC};
+	bool		_immediate_transition{false};
 
 	VtolType	*_vtol_type{nullptr};	// base class for different vtol types
 
@@ -232,6 +235,4 @@ private:
 	void		vehicle_cmd_poll();
 
 	int 		parameters_update();			//Update local parameter cache
-
-	void		handle_command();
 };

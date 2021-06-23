@@ -53,6 +53,7 @@
 #include <uORB/topics/vehicle_attitude.h>
 #include <uORB/topics/vehicle_trajectory_waypoint.h>
 #include <uORB/topics/home_position.h>
+#include <lib/ecl/geo/geo.h>
 #include <lib/weather_vane/WeatherVane.hpp>
 
 struct ekf_reset_counters_s {
@@ -175,8 +176,8 @@ public:
 	 */
 	virtual void setYawHandler(WeatherVane *ext_yaw_handler) {}
 
-	void updateVelocityControllerIO(const matrix::Vector3f &vel_sp,
-					const matrix::Vector3f &acc_sp)
+	void updateVelocityControllerFeedback(const matrix::Vector3f &vel_sp,
+					      const matrix::Vector3f &acc_sp)
 	{
 		_velocity_setpoint_feedback = vel_sp;
 		_acceleration_setpoint_feedback = acc_sp;
@@ -185,13 +186,14 @@ public:
 protected:
 	uORB::SubscriptionData<vehicle_local_position_s> _sub_vehicle_local_position{ORB_ID(vehicle_local_position)};
 	uORB::SubscriptionData<home_position_s> _sub_home_position{ORB_ID(home_position)};
+	uORB::Subscription _vehicle_local_position_setpoint_sub{ORB_ID(vehicle_local_position_setpoint)};
 
 	/** Reset all setpoints to NAN */
 	void _resetSetpoints();
 
 	/** Check and update local position */
 	void _evaluateVehicleLocalPosition();
-
+	void _evaluateVehicleLocalPositionSetpoint();
 	void _evaluateDistanceToGround();
 
 	/** Set constraints to default values */
@@ -212,10 +214,15 @@ protected:
 	virtual void _ekfResetHandlerVelocityZ() {};
 	virtual void _ekfResetHandlerHeading(float delta_psi) {};
 
+	map_projection_reference_s _global_local_proj_ref{};
+	float                      _global_local_alt0{NAN};
+
 	/* Time abstraction */
 	static constexpr uint64_t _timeout = 500000; /**< maximal time in us before a loop or data times out */
+
 	float _time{}; /**< passed time in seconds since the task was activated */
 	float _deltatime{}; /**< passed time in seconds since the task was last updated */
+
 	hrt_abstime _time_stamp_activate{}; /**< time stamp when task was activated */
 	hrt_abstime _time_stamp_current{}; /**< time stamp at the beginning of the current task update */
 	hrt_abstime _time_stamp_last{}; /**< time stamp when task was last updated */
@@ -223,6 +230,7 @@ protected:
 	/* Current vehicle state */
 	matrix::Vector3f _position; /**< current vehicle position */
 	matrix::Vector3f _velocity; /**< current vehicle velocity */
+
 	float _yaw{}; /**< current vehicle yaw heading */
 	float _dist_to_bottom{}; /**< current height above ground level */
 	float _dist_to_ground{}; /**< equals _dist_to_bottom if valid, height above home otherwise */
@@ -232,17 +240,18 @@ protected:
 	 * Setpoints that are set to NAN are not controlled. Not all setpoints can be set at the same time.
 	 * If more than one type of setpoint is set, then order of control is a as follow: position, velocity,
 	 * acceleration, thrust. The exception is _position_setpoint together with _velocity_setpoint, where the
-	 * _velocity_setpoint is used as feedforward.
-	 * _acceleration_setpoint and _jerk_setpoint are currently not supported.
+	 * _velocity_setpoint and _acceleration_setpoint are used as feedforward.
+	 * _jerk_setpoint does not executed but just serves as internal state.
 	 */
 	matrix::Vector3f _position_setpoint;
 	matrix::Vector3f _velocity_setpoint;
+	matrix::Vector3f _velocity_setpoint_feedback;
 	matrix::Vector3f _acceleration_setpoint;
+	matrix::Vector3f _acceleration_setpoint_feedback;
 	matrix::Vector3f _jerk_setpoint;
+
 	float _yaw_setpoint{};
 	float _yawspeed_setpoint{};
-	matrix::Vector3f _velocity_setpoint_feedback;
-	matrix::Vector3f _acceleration_setpoint_feedback;
 
 	ekf_reset_counters_s _reset_counters{}; ///< Counters for estimator local position resets
 

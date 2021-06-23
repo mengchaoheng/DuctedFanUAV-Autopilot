@@ -140,6 +140,8 @@ void VtolType::update_mc_state()
 		_flag_idle_mc = set_idle_mc();
 	}
 
+	resetAccelToPitchPitchIntegrator();
+
 	VtolType::set_all_motor_state(motor_state::ENABLED);
 
 	// copy virtual attitude setpoint to real attitude setpoint
@@ -156,6 +158,8 @@ void VtolType::update_fw_state()
 	if (_flag_idle_mc) {
 		_flag_idle_mc = !set_idle_fw();
 	}
+
+	resetAccelToPitchPitchIntegrator();
 
 	VtolType::set_alternate_motor_state(motor_state::DISABLED);
 
@@ -231,6 +235,15 @@ bool VtolType::can_transition_on_ground()
 
 void VtolType::check_quadchute_condition()
 {
+	if (_attc->get_transition_command() == vtol_vehicle_status_s::VEHICLE_VTOL_STATE_MC && _attc->get_immediate_transition()
+	    && !_quadchute_command_treated) {
+		_attc->quadchute("QuadChute by external command");
+		_quadchute_command_treated = true;
+		_attc->reset_immediate_transition();
+
+	} else {
+		_quadchute_command_treated = false;
+	}
 
 	if (!_tecs_running) {
 		// reset the filtered height rate and heigh rate setpoint if TECS is not running
@@ -319,7 +332,7 @@ bool VtolType::set_idle_fw()
 
 	for (int i = 0; i < num_outputs_max; i++) {
 		if (is_channel_set(i, generate_bitmap_from_channel_numbers(_params->vtol_motor_id))) {
-			pwm_values.values[i] = PWM_MOTOR_OFF;
+			pwm_values.values[i] = PWM_DEFAULT_MIN;
 
 		} else {
 			pwm_values.values[i] = _min_mc_pwm_values.values[i];
@@ -494,6 +507,26 @@ float VtolType::pusher_assist()
 
 	case ENABLE_ABOVE_MPC_LAND_ALT2: // disable if below MPC_LAND_ALT2
 		if (!PX4_ISFINITE(dist_to_ground) || (dist_to_ground < _params->mpc_land_alt2)) {
+			return 0.0f;
+		}
+
+		break;
+
+	case ENABLE_ABOVE_MPC_LAND_ALT1_WITHOUT_LAND: // disable if below MPC_LAND_ALT1 or in land mode
+		if ((_attc->get_pos_sp_triplet()->current.valid
+		     && _attc->get_pos_sp_triplet()->current.type == position_setpoint_s::SETPOINT_TYPE_LAND
+		     && _v_control_mode->flag_control_auto_enabled) ||
+		    (!PX4_ISFINITE(dist_to_ground) || (dist_to_ground < _params->mpc_land_alt1))) {
+			return 0.0f;
+		}
+
+		break;
+
+	case ENABLE_ABOVE_MPC_LAND_ALT2_WITHOUT_LAND: // disable if below MPC_LAND_ALT2 or in land mode
+		if ((_attc->get_pos_sp_triplet()->current.valid
+		     && _attc->get_pos_sp_triplet()->current.type == position_setpoint_s::SETPOINT_TYPE_LAND
+		     && _v_control_mode->flag_control_auto_enabled) ||
+		    (!PX4_ISFINITE(dist_to_ground) || (dist_to_ground < _params->mpc_land_alt2))) {
 			return 0.0f;
 		}
 

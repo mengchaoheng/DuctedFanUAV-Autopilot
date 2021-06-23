@@ -78,6 +78,7 @@ public:
 		MODE_5PWM1CAP,
 		MODE_6PWM,
 		MODE_8PWM,
+		MODE_12PWM,
 		MODE_14PWM,
 		MODE_4CAP,
 		MODE_5CAP,
@@ -89,6 +90,8 @@ public:
 		PORT_MODE_UNSET = 0,
 		PORT_FULL_GPIO,
 		PORT_FULL_PWM,
+		PORT_PWM14,
+		PORT_PWM12,
 		PORT_PWM8,
 		PORT_PWM6,
 		PORT_PWM5,
@@ -228,6 +231,9 @@ private:
 	DEFINE_PARAMETERS(
 		(ParamInt<px4::params::DSHOT_CONFIG>)   _param_dshot_config,
 		(ParamFloat<px4::params::DSHOT_MIN>)    _param_dshot_min,
+		(ParamBool<px4::params::DSHOT_3D_ENABLE>) _param_dshot_3d_enable,
+		(ParamInt<px4::params::DSHOT_3D_DEAD_H>) _param_dshot_3d_dead_h,
+		(ParamInt<px4::params::DSHOT_3D_DEAD_L>) _param_dshot_3d_dead_l,
 		(ParamInt<px4::params::MOT_POLE_COUNT>) _param_mot_pole_count
 	)
 };

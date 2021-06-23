@@ -58,13 +58,14 @@ UavcanGnssBridge::UavcanGnssBridge(uavcan::INode &node) :
 	_sub_fix(node),
 	_sub_fix2(node),
 	_pub_rtcm(node),
-	_report_pub(nullptr),
 	_channel_using_fix2(new bool[_max_channels]),
 	_rtcm_perf(perf_alloc(PC_INTERVAL, "uavcan: gnss: rtcm pub"))
 {
 	for (uint8_t i = 0; i < _max_channels; i++) {
 		_channel_using_fix2[i] = false;
 	}
+
+	set_device_type(DRV_GPS_DEVTYPE_UAVCAN);
 }
 
 UavcanGnssBridge::~UavcanGnssBridge()
@@ -283,6 +284,7 @@ void UavcanGnssBridge::process_fixx(const uavcan::ReceivedDataStructure<FixType>
 				    const bool valid_pos_cov, const bool valid_vel_cov)
 {
 	sensor_gps_s report{};
+	report.device_id = get_device_id();
 
 	/*
 	 * FIXME HACK
@@ -477,7 +479,7 @@ bool UavcanGnssBridge::injectData(const uint8_t *const data, const size_t data_l
 		}
 
 		result = _pub_rtcm.broadcast(msg) >= 0;
-		msg.data = {};
+		msg.data.clear();
 	}
 
 	return result;

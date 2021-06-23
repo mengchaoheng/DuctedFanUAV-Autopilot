@@ -44,7 +44,9 @@
 #include <uORB/Subscription.hpp>
 #include <uORB/SubscriptionCallback.hpp>
 #include <uORB/Publication.hpp>
+#include <uORB/topics/landing_gear.h>
 #include <uORB/topics/parameter_update.h>
+#include <uORB/topics/takeoff_status.h>
 #include <uORB/topics/vehicle_attitude_setpoint.h>
 #include <uORB/topics/vehicle_command.h>
 #include <uORB/topics/vehicle_command_ack.h>
@@ -53,8 +55,6 @@
 #include <uORB/topics/vehicle_local_position.h>
 #include <uORB/topics/vehicle_local_position_setpoint.h>
 #include <uORB/topics/vehicle_status.h>
-
-#include "Takeoff/Takeoff.hpp"
 
 #include <new>
 
@@ -93,7 +93,6 @@ private:
 	void handleCommand();
 	void generateTrajectorySetpoint(const float dt, const vehicle_local_position_s &vehicle_local_position);
 	void limitAltitude(vehicle_local_position_setpoint_s &setpoint, const vehicle_local_position_s &vehicle_local_position);
-	void reset_setpoint_to_nan(vehicle_local_position_setpoint_s &setpoint);
 
 	/**
 	 * Switch to a specific task (for normal usage)
@@ -131,9 +130,9 @@ private:
 		FlightTaskIndex index{FlightTaskIndex::None};
 	} _current_task{};
 
-	Takeoff _takeoff; ///< state machine and ramp to bring the vehicle off the ground without a jump
 	WeatherVane *_wv_controller{nullptr};
 	int8_t _old_landing_gear_position{landing_gear_s::GEAR_KEEP};
+	uint8_t _takeoff_state{takeoff_status_s::TAKEOFF_STATE_UNINITIALIZED};
 	int _task_failure_count{0};
 	uint8_t _last_vehicle_nav_state{0};
 
@@ -142,9 +141,9 @@ private:
 
 	uORB::SubscriptionInterval _parameter_update_sub{ORB_ID(parameter_update), 1_s};
 
+	uORB::Subscription _takeoff_status_sub{ORB_ID(takeoff_status)};
 	uORB::Subscription _vehicle_attitude_setpoint_sub{ORB_ID(vehicle_attitude_setpoint)};
 	uORB::Subscription _vehicle_command_sub{ORB_ID(vehicle_command)};
-	uORB::Subscription _vehicle_local_position_setpoint_sub{ORB_ID(vehicle_local_position_setpoint)};
 	uORB::SubscriptionData<home_position_s> _home_position_sub{ORB_ID(home_position)};
 	uORB::SubscriptionData<vehicle_control_mode_s> _vehicle_control_mode_sub{ORB_ID(vehicle_control_mode)};
 	uORB::SubscriptionData<vehicle_land_detected_s> _vehicle_land_detected_sub{ORB_ID(vehicle_land_detected)};
@@ -159,12 +158,6 @@ private:
 	uORB::Publication<vehicle_constraints_s> _vehicle_constraints_pub{ORB_ID(vehicle_constraints)};
 
 	DEFINE_PARAMETERS(
-		(ParamInt<px4::params::MPC_POS_MODE>) _param_mpc_pos_mode,
-		(ParamFloat<px4::params::MPC_TILTMAX_LND>) _param_mpc_tiltmax_lnd,
-		(ParamFloat<px4::params::MPC_Z_VEL_MAX_UP>) _param_mpc_z_vel_max_up,
-		(ParamFloat<px4::params::MPC_SPOOLUP_TIME>) _param_mpc_spoolup_time,
-		(ParamFloat<px4::params::MPC_TKO_RAMP_T>) _param_mpc_tko_ramp_t,
-		(ParamFloat<px4::params::MPC_Z_VEL_P_ACC>) _param_mpc_z_vel_p_acc,
-		(ParamFloat<px4::params::MPC_THR_MIN>) _param_mpc_thr_min
+		(ParamInt<px4::params::MPC_POS_MODE>) _param_mpc_pos_mode
 	);
 };

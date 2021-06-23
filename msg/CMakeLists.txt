@@ -44,6 +44,7 @@ set(msg_files
 	adc_report.msg
 	airspeed.msg
 	airspeed_validated.msg
+	airspeed_wind.msg
 	battery_status.msg
 	camera_capture.msg
 	camera_trigger.msg
@@ -51,6 +52,7 @@ set(msg_files
 	collision_constraints.msg
 	collision_report.msg
 	commander_state.msg
+	control_allocator_status.msg
 	cpuload.msg
 	differential_pressure.msg
 	distance_sensor.msg
@@ -58,6 +60,7 @@ set(msg_files
 	ekf_gps_drift.msg
 	esc_report.msg
 	esc_status.msg
+	estimator_event_flags.msg
 	estimator_innovations.msg
 	estimator_optical_flow_vel.msg
 	estimator_selector_status.msg
@@ -68,8 +71,16 @@ set(msg_files
 	follow_target.msg
 	generator_status.msg
 	geofence_result.msg
+	gimbal_device_attitude_status.msg
+	gimbal_device_information.msg
+	gimbal_device_set_attitude.msg
+	gimbal_manager_information.msg
+	gimbal_manager_set_attitude.msg
+	gimbal_manager_set_manual_control.msg
+	gimbal_manager_status.msg
 	gps_dump.msg
 	gps_inject_data.msg
+	heater_status.msg
 	home_position.msg
 	hover_thrust_estimate.msg
 	input_rc.msg
@@ -81,6 +92,7 @@ set(msg_files
 	led_control.msg
 	log_message.msg
 	logger_status.msg
+	mag_worker_data.msg
 	manual_control_setpoint.msg
 	manual_control_switches.msg
 	mavlink_log.msg
@@ -128,6 +140,7 @@ set(msg_files
 	sensor_selection.msg
 	sensors_status_imu.msg
 	system_power.msg
+	takeoff_status.msg
 	task_stack_info.msg
 	tecs_status.msg
 	telemetry_status.msg
@@ -143,8 +156,10 @@ set(msg_files
 	ulog_stream.msg
 	ulog_stream_ack.msg
 	vehicle_acceleration.msg
+	vehicle_actuator_setpoint.msg
 	vehicle_air_data.msg
 	vehicle_angular_acceleration.msg
+	vehicle_angular_acceleration_setpoint.msg
 	vehicle_angular_velocity.msg
 	vehicle_attitude.msg
 	vehicle_attitude_setpoint.msg
@@ -165,11 +180,13 @@ set(msg_files
 	vehicle_roi.msg
 	vehicle_status.msg
 	vehicle_status_flags.msg
+	vehicle_thrust_setpoint.msg
+	vehicle_torque_setpoint.msg
 	vehicle_trajectory_bezier.msg
 	vehicle_trajectory_waypoint.msg
 	vtol_vehicle_status.msg
 	wheel_encoders.msg
-	wind_estimate.msg
+	wind.msg
 	yaw_estimator_status.msg
 )
 

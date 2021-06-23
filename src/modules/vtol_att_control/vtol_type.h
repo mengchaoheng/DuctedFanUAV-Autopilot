@@ -100,7 +100,9 @@ enum VtolForwardActuationMode {
 	ENABLE_WITHOUT_LAND,
 	ENABLE_ABOVE_MPC_LAND_ALT1,
 	ENABLE_ABOVE_MPC_LAND_ALT2,
-	ENABLE_ALL_MODES
+	ENABLE_ALL_MODES,
+	ENABLE_ABOVE_MPC_LAND_ALT1_WITHOUT_LAND,
+	ENABLE_ABOVE_MPC_LAND_ALT2_WITHOUT_LAND
 };
 
 // these are states that can be applied to a selection of multirotor motors.
@@ -188,6 +190,8 @@ public:
 
 	mode get_mode() {return _vtol_mode;}
 
+	bool was_in_trans_mode() {return _flag_was_in_trans_mode;}
+
 	virtual void parameters_update() = 0;
 
 protected:
@@ -243,6 +247,7 @@ protected:
 
 	float _accel_to_pitch_integ = 0;
 
+	bool _quadchute_command_treated{false};
 
 
 	/**
@@ -308,6 +313,8 @@ private:
 	int generate_bitmap_from_channel_numbers(const int channels);
 
 	bool set_motor_state(const motor_state target_state, const int32_t channel_bitmap,  const int value);
+
+	void resetAccelToPitchPitchIntegrator() { _accel_to_pitch_integ = 0.f; }
 
 };
 

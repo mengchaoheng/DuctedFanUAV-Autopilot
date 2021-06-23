@@ -1,3 +1,5 @@
+# workaround for syslink parameter PARAM_DEFINE_INT32(SLNK_RADIO_ADDR2, 3890735079); // 0xE7E7E7E7
+add_compile_options(-Wno-narrowing)
 
 px4_add_board(
 	PLATFORM nuttx
@@ -5,14 +7,15 @@ px4_add_board(
 	MODEL crazyflie
 	TOOLCHAIN arm-none-eabi
 	ARCHITECTURE cortex-m4
+	CONSTRAINED_MEMORY
 	ROMFSROOT px4fmu_common
 	CONSTRAINED_FLASH
 	DRIVERS
 		barometer/lps25h
 		distance_sensor/vl53l0x
 		gps
-		magnetometer/akm/ak8963
 		imu/invensense/mpu9250
+		magnetometer/akm/ak8963
 		optical_flow/pmw3901
 		pwm_out
 	MODULES
@@ -23,6 +26,7 @@ px4_add_board(
 		ekf2
 		events
 		flight_mode_manager
+		gyro_fft
 		land_detector
 		#landing_target_estimator
 		load_mon
@@ -41,7 +45,7 @@ px4_add_board(
 		#bl_update
 		dmesg
 		dumpfile
-		esc_calib
+		#esc_calib
 		hardfault_log
 		i2cdetect
 		led_control
@@ -61,6 +65,7 @@ px4_add_board(
 		top
 		topic_listener
 		tune_control
+		uorb
 		usb_connected
 		ver
 		work_queue

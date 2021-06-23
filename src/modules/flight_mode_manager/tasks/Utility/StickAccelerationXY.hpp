@@ -40,9 +40,10 @@
 #pragma once
 
 #include <px4_platform_common/module_params.h>
-#include <float.h> // TODO add this include to AlphaFilter since it's used there
 #include <lib/ecl/AlphaFilter/AlphaFilter.hpp>
 #include <matrix/math.hpp>
+#include <uORB/Subscription.hpp>
+#include <uORB/topics/takeoff_status.h>
 
 #include "SlewRate.hpp"
 
@@ -56,24 +57,26 @@ public:
 	void resetVelocity(const matrix::Vector2f &velocity);
 	void resetAcceleration(const matrix::Vector2f &acceleration);
 	void generateSetpoints(matrix::Vector2f stick_xy, const float yaw, const float yaw_sp, const matrix::Vector3f &pos,
-			       const float dt);
+			       const matrix::Vector2f &vel_sp_feedback, const float dt);
 	void getSetpoints(matrix::Vector3f &pos_sp, matrix::Vector3f &vel_sp, matrix::Vector3f &acc_sp);
 
 private:
-	void applyFeasibilityLimit(matrix::Vector2f &acceleration, const float dt);
+	void applyJerkLimit(const float dt);
 	matrix::Vector2f calculateDrag(matrix::Vector2f drag_coefficient, const float dt, const matrix::Vector2f &stick_xy,
 				       const matrix::Vector2f &vel_sp);
 	void applyTiltLimit(matrix::Vector2f &acceleration);
-	void lockPosition(const matrix::Vector2f &vel_sp, const matrix::Vector3f &pos, const float dt,
-			  matrix::Vector2f &pos_sp);
+	void lockPosition(const matrix::Vector3f &pos, const matrix::Vector2f &vel_sp_feedback, const float dt);
+
+	uORB::Subscription _takeoff_status_sub{ORB_ID(takeoff_status)};
 
 	SlewRate<float> _acceleration_slew_rate_x;
 	SlewRate<float> _acceleration_slew_rate_y;
 	AlphaFilter<float> _brake_boost_filter;
 
-	matrix::Vector2f _position;
-	matrix::Vector2f _velocity;
-	matrix::Vector2f _acceleration;
+	matrix::Vector2f _position_setpoint;
+	matrix::Vector2f _velocity_setpoint;
+	matrix::Vector2f _acceleration_setpoint;
+	matrix::Vector2f _acceleration_setpoint_prev;
 
 	DEFINE_PARAMETERS(
 		(ParamFloat<px4::params::MPC_VEL_MANUAL>) _param_mpc_vel_manual,

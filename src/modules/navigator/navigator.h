@@ -247,15 +247,6 @@ public:
 	void		set_cruising_throttle(float throttle = NAN) { _mission_throttle = throttle; }
 
 	/**
-	 * Get the acceptance radius given the mission item preset radius
-	 *
-	 * @param mission_item_radius the radius to use in case the controller-derived radius is smaller
-	 *
-	 * @return the distance at which the next waypoint should be used
-	 */
-	float		get_acceptance_radius(float mission_item_radius);
-
-	/**
 	 * Get the yaw acceptance given the current mission item
 	 *
 	 * @param mission_item_yaw the yaw to use in case the controller-derived radius is finite
@@ -311,6 +302,9 @@ public:
 
 	bool		force_vtol();
 
+	void		acquire_gimbal_control();
+	void		release_gimbal_control();
+
 private:
 	DEFINE_PARAMETERS(
 		(ParamFloat<px4::params::NAV_LOITER_RAD>) _param_nav_loiter_rad,	/**< loiter radius for fixedwing */
@@ -335,8 +329,9 @@ private:
 		(ParamFloat<px4::params::MIS_YAW_ERR>) _param_mis_yaw_err
 	)
 
-	int		_local_pos_sub{-1};		/**< local position subscription */
-	int		_vehicle_status_sub{-1};	/**< local position subscription */
+	int		_local_pos_sub{-1};
+	int		_mission_sub{-1};
+	int		_vehicle_status_sub{-1};
 
 	uORB::SubscriptionInterval _parameter_update_sub{ORB_ID(parameter_update), 1_s};
 
@@ -411,7 +406,6 @@ private:
 	float _mission_cruising_speed_mc{-1.0f};
 	float _mission_cruising_speed_fw{-1.0f};
 	float _mission_throttle{NAN};
-
 
 	bool _mission_landing_in_progress{false};	// this flag gets set if the mission is currently executing on a landing pattern
 	// if mission mode is inactive, this flag will be cleared after 2 seconds
