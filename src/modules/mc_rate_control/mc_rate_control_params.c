@@ -435,7 +435,7 @@ PARAM_DEFINE_FLOAT(MC_WIND_2_TORQUE, 0.0073f);//0.0073 //0.015f
  * @increment 0.01
  * @group Multicopter Rate Control
  */
-PARAM_DEFINE_FLOAT(MC_INDI_ROLL_P, 10.0f);
+PARAM_DEFINE_FLOAT(MC_INDI_ROLL_P, 10.f);
 
 /**
  * Pitch rate P gain of INDI
@@ -461,7 +461,7 @@ PARAM_DEFINE_FLOAT(MC_INDI_PITCH_P, 10.f);
  * @increment 0.01
  * @group Multicopter Rate Control
  */
-PARAM_DEFINE_FLOAT(MC_INDI_YAW_P, 10.0f);
+PARAM_DEFINE_FLOAT(MC_INDI_YAW_P, 10.f);
 
 /**
  * USE_INDI
@@ -490,8 +490,8 @@ PARAM_DEFINE_INT32(CYC_T, 4000);
 /**
  * use tau_i.
  *
- * @value 0 not
- * @value 1 yes
+ * @value 0 remove indi, just use error fb.
+ * @value 1 use indi fb
  * @group Multicopter Rate Control
  */
 PARAM_DEFINE_INT32(USE_TAUI, 1);

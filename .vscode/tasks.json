@@ -350,8 +350,8 @@
               "tiltrotor",
               "r1_rover",
               "boat",
-              "ductedfan",
-              "sductedfan"
+              "ductedfan2",
+              "ductedfan4"
             ],
             "default": "iris"
         },

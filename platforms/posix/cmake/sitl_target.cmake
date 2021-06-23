@@ -133,8 +133,8 @@ set(models
 	typhoon_h480
 	uuv_bluerov2_heavy
 	uuv_hippocampus
-	ductedfan
-	sductedfan
+	ductedfan2
+	ductedfan4
 )
 
 set(worlds

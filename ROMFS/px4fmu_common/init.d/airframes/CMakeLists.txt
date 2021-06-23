@@ -146,8 +146,8 @@ px4_add_romfs_files(
 	14002_tri_y_yaw-
 
 	15001_coax_heli
-	15003_ducted_fan
-	15004_ducted_fan
+	15002_ducted_fan2
+	15003_ducted_fan4
 
 	16001_helicopter
 
