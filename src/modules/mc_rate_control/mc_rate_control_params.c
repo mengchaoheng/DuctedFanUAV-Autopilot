@@ -444,7 +444,6 @@ PARAM_DEFINE_FLOAT(MC_INDI_ROLL_P, 10.f);
  *
  * @min 0.1
  * @max 30
- * @decimal 10
  * @increment 0.01
  * @group Multicopter Rate Control
  */
@@ -457,7 +456,6 @@ PARAM_DEFINE_FLOAT(MC_INDI_PITCH_P, 10.f);
  *
  * @min 0.0
  * @max 30
- * @decimal 15
  * @increment 0.01
  * @group Multicopter Rate Control
  */
