@@ -1,0 +1,74 @@
+#!/bin/sh
+#
+# @name Esky (Big) Lama v4
+#
+# @type Coaxial Helicopter
+# @class Copter
+#
+# @output MAIN1 Left swashplate servomotor, pitch axis
+# @output MAIN2 Right swashplate servomotor, roll axis
+# @output MAIN3 Upper rotor (CCW)
+# @output MAIN4 Lower rotor (CW)
+#
+# @maintainer Emmanuel Roussel
+#
+# @board px4_fmu-v2 exclude
+# @board intel_aerofc-v1 exclude
+# @board bitcraze_crazyflie exclude
+#
+
+. ${R}etc/init.d/rc.mc_defaults
+
+
+param set-default MC_ROLL_P 6
+param set-default MC_ROLLRATE_P 0.45
+param set-default MC_ROLLRATE_I 0.3
+param set-default MC_ROLLRATE_D 0.0
+param set-default MC_ROLLRATE_FF 0
+
+param set-default MC_PITCH_P 6
+param set-default MC_PITCHRATE_P 0.45
+param set-default MC_PITCHRATE_I 0.3
+param set-default MC_PITCHRATE_D 0.0
+param set-default MC_PITCHRATE_FF 0
+
+param set-default MC_YAW_P 5
+param set-default MC_YAWRATE_P 0.3
+param set-default MC_YAWRATE_I 0.1
+param set-default MC_YAWRATE_D 0
+param set-default MC_YAWRATE_FF 0
+
+param set-default MC_ACRO_EXPO_Y 0
+param set-default MC_ACRO_EXPO 0
+param set-default MC_ACRO_SUPEXPO 0
+param set-default MC_ACRO_SUPEXPOY 0
+param set-default MC_ACRO_R_MAX 90.0
+param set-default MC_ACRO_P_MAX 90.0
+param set-default MC_ACRO_Y_MAX 90.0
+
+param set-default MC_INDI_ROLL_P 12
+param set-default MC_INDI_PITCH_P 12
+param set-default MC_INDI_YAW_P 10
+
+param set-default MPC_THR_HOVER 0.5
+param set-default RTL_RETURN_ALT 2.5
+param set-default RTL_DESCEND_ALT 2.5
+param set-default SDLOG_PROFILE  1
+param set-default SDLOG_MODE  0
+
+param set-default CS1_CUTOFF  10
+param set-default DOMEGA_CUTOFF  10
+param set-default DOMEGA_D_CUTOFF  10
+param set-default OMEGA_CUTOFF  10
+param set-default IMU_DGYRO_CUTOFF  10
+param set-default USE_CA 1
+param set-default SAMPLE_FREQ 250
+param set-default CYC_T 4000
+
+param set-default MC_PWM_HOVER 1500
+
+
+
+set MAV_TYPE 3
+
+set MIXER ductedfan4

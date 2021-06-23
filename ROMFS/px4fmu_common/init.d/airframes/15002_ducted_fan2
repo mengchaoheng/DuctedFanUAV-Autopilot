@@ -1,0 +1,82 @@
+#!/bin/sh
+#
+# @name ductedfan
+#
+# @type Ducted Fan
+# @class Copter
+#
+# @output MAIN1 Upper rotor (CW)
+# @output MAIN2 Lower rotor (CCW)
+# @output MAIN3 servomotor, roll axis
+# @output MAIN4 servomotor, pitch axis
+#
+# @maintainer meng chaoheng
+#
+
+. ${R}etc/init.d/rc.mc_defaults
+
+param set-default MC_ROLL_P 5
+param set-default MC_ROLLRATE_P 0.45
+param set-default MC_ROLLRATE_I 0.4
+param set-default MC_ROLLRATE_D 0.0
+param set-default MC_ROLLRATE_FF 0
+param set-default MC_PITCH_P 5
+param set-default MC_PITCHRATE_P 0.45
+param set-default MC_PITCHRATE_I 0.4
+param set-default MC_PITCHRATE_D 0.0
+param set-default MC_PITCHRATE_FF 0
+param set-default MC_YAW_P 5
+param set-default MC_YAWRATE_P 0.4
+param set-default MC_YAWRATE_I 0.2
+param set-default MC_YAWRATE_D 0
+param set-default MC_YAWRATE_FF 0
+
+param set-default MC_ACRO_EXPO_Y 0
+param set-default MC_ACRO_EXPO 0
+param set-default MC_ACRO_SUPEXPO 0
+param set-default MC_ACRO_SUPEXPOY 0
+param set-default MC_ACRO_R_MAX 90.0
+param set-default MC_ACRO_P_MAX 90.0
+param set-default MC_ACRO_Y_MAX 90.0
+
+param set-default NAV_ACC_RAD 2
+
+param set-default PWM_DISARMED 900
+param set-default PWM_MIN 1090
+param set-default PWM_MAX 1910
+param set-default PWM_MAIN_MIN3 1340
+param set-default PWM_MAIN_MIN4 1330
+param set-default PWM_MAIN_MAX3 1700
+param set-default PWM_MAIN_MAX4 1690
+param set-default PWM_RATE 333
+
+param set-default RTL_RETURN_ALT 2.5
+param set-default RTL_DESCEND_ALT 2.5
+
+param set-default CBRK_USB_CHK 197848
+param set-default BAT1_N_CELLS 6
+param set-default BAT1_V_CHARGED 4.2
+
+# TELEM1 ttyS1
+param set-default MAV_0_CONFIG 101
+param set-default MAV_0_MODE 0
+param set-default MAV_0_FORWARD 1
+param set-default SER_TEL1_BAUD 921600
+
+# TELEM2 ttyS2
+param set-default MAV_1_CONFIG 102
+param set-default MAV_1_MODE 0
+param set-default MAV_1_FORWARD 1
+#param set-default MAV_1_RATE 1200
+param set-default SER_TEL2_BAUD 57600
+
+param set-default SDLOG_PROFILE  17
+
+#param set-default IMU_GYRO_RATEMAX 400
+
+set MAV_TYPE 3
+
+set MIXER ductedfan2
+
+# use PWM parameters for throttle channel
+set PWM_OUT 12
