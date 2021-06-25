@@ -604,7 +604,7 @@ bool MixingOutput::update()
 		else
 		{
 			//inv
-			PX4_INFO("inv");
+			// PX4_INFO("inv");
 			matrix::Matrix<double, 3, 1> control_desire (_fb);
 			matrix::Matrix<double, 4, 1> u_inv = B_inv * control_desire;
 			for (size_t i = 0; i < 4; i++)
