@@ -196,7 +196,6 @@ else
 	# Start the tone_alarm driver.
 	# Needs to be started after the parameters are loaded (for CBRK_BUZZER).
 	#
-	# set STARTUP_TUNE 12	#change start tune
 	tone_alarm start
 
 	#

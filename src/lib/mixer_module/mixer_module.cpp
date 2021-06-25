@@ -544,7 +544,7 @@ bool MixingOutput::update()
 					_u[i] = (double) math::constrain((float) u_all[i], (float) (_uMin[i]), (float) (_uMax[i]));
 				}
 				allocation_value.flag=0;
-				PX4_INFO(" dir 1");
+				// PX4_INFO(" dir 1");
 			}
 			else
 			{
@@ -587,7 +587,7 @@ bool MixingOutput::update()
 					{
 						_u[i] = (double) math::constrain((float) (u_d[i] + u_e[i]), (float) (_uMin[i]), (float) (_uMax[i]));
 					}
-					PX4_INFO("dir 3");
+					// PX4_INFO("dir 3");
 					allocation_value.flag=1;
 				}
 				else
@@ -596,7 +596,7 @@ bool MixingOutput::update()
 					{
 						_u[i] = (double) math::constrain((float) u_e[i], (float) (_uMin[i]), (float) (_uMax[i]));
 					}
-					PX4_INFO("dir 2");
+					// PX4_INFO("dir 2");
 					allocation_value.flag=-1;
 				}
 			}
