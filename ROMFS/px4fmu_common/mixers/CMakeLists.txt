@@ -97,4 +97,5 @@ px4_add_romfs_files(
 	wingwing.main.mix
 	ductedfan2.main.mix
 	ductedfan4.main.mix
+	ductedfan4_hitl.main.mix
 )
