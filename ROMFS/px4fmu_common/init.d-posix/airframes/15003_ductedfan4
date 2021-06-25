@@ -1,8 +1,8 @@
 #!/bin/sh
 #
-# @name Esky (Big) Lama v4
+# @name ductedfan4
 #
-# @type Coaxial Helicopter
+# @type Ducted Fan
 # @class Copter
 #
 # @output MAIN1 Left swashplate servomotor, pitch axis

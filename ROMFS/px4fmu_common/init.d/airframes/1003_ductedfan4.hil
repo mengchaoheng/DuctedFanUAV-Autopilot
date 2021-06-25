@@ -1,8 +1,8 @@
 #!/bin/sh
 #
-# @name ductedfan4
+# @name HIL ductedfan4
 #
-# @type Ducted Fan
+# @type Simulation
 # @class Copter
 #
 # @output MAIN1 Upper rotor (CCW)
@@ -77,7 +77,7 @@ param set-default PWM_RATE 333
 param set-default RTL_RETURN_ALT 2.5
 param set-default RTL_DESCEND_ALT 2.5
 
-param set-default CBRK_USB_CHK 197848
+#param set-default CBRK_USB_CHK 197848
 param set-default BAT1_N_CELLS 4
 param set-default BAT1_V_CHARGED 4.2
 
@@ -99,3 +99,15 @@ set MIXER ductedfan4
 
 # use PWM parameters for throttle channel
 set PWM_OUT 1
+
+param set SYS_HITL 1
+
+# disable some checks to allow to fly
+# - with usb
+param set-default CBRK_USB_CHK 197848
+# - without real battery
+param set-default CBRK_SUPPLY_CHK 894281
+# - without safety switch
+param set-default COM_PREARM_MODE 0
+param set-default CBRK_IO_SAFETY 22027
+
