@@ -63,8 +63,9 @@ param set-default CYC_T 4000
 
 param set-default MC_PWM_HOVER 1500
 
+set MAV_TYPE 3
 set MIXER ductedfan4_hitl
-set PWM_OUT 1234
+set PWM_OUT 1
 
 param set SYS_HITL 1
 

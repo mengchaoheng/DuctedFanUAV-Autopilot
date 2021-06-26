@@ -61,7 +61,7 @@ param set-default DOMEGA_CUTOFF  10
 param set-default DOMEGA_D_CUTOFF  10
 param set-default OMEGA_CUTOFF  10
 param set-default IMU_DGYRO_CUTOFF  10
-param set-default USE_CA 1
+param set-default USE_CA 0
 param set-default CYC_T 4000
 
 param set-default MC_PWM_HOVER 1500
@@ -69,5 +69,6 @@ param set-default MC_PWM_HOVER 1500
 
 
 set MAV_TYPE 3
+set PWM_OUT 1
 
 set MIXER ductedfan4
