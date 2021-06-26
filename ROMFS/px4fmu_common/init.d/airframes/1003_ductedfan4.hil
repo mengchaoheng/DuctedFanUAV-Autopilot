@@ -17,7 +17,6 @@
 
 . ${R}etc/init.d/rc.mc_defaults
 
-
 param set-default MC_ROLL_P 6
 param set-default MC_ROLLRATE_P 0.45
 param set-default MC_ROLLRATE_I 0.3
@@ -64,12 +63,8 @@ param set-default CYC_T 4000
 
 param set-default MC_PWM_HOVER 1500
 
-set MAV_TYPE 3
-
 set MIXER ductedfan4_hitl
-
-# use PWM parameters for throttle channel
-set PWM_OUT 1
+set PWM_OUT 1234
 
 param set SYS_HITL 1
 
@@ -81,4 +76,3 @@ param set-default CBRK_SUPPLY_CHK 894281
 # - without safety switch
 param set-default COM_PREARM_MODE 0
 param set-default CBRK_IO_SAFETY 22027
-
