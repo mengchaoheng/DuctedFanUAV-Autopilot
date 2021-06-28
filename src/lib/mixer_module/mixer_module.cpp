@@ -634,7 +634,7 @@ bool MixingOutput::update()
 		}
 		for (size_t i = 0; i < 4; i++)
 		{
-			outputs[i+2] = (u_ultimate[i])/1.0f;
+			outputs[i+4] = (u_ultimate[i])/1.0f;
 			allocation_value.u_ultimate[i] = u_ultimate[i];
 		}
 	}
@@ -642,7 +642,7 @@ bool MixingOutput::update()
 	{
 		for (size_t i = 0; i < 4; i++)
 		{
-			_u[i] = (double) outputs[i+2];
+			_u[i] = (double) outputs[i+4];
 		}
 	}
 	allocation_value.timestamp = hrt_absolute_time();
