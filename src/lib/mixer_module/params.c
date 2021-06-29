@@ -163,3 +163,14 @@ PARAM_DEFINE_FLOAT(DOMEGA_D_CUTOFF, 30.0f);
 * @group Mixer Output
 */
 PARAM_DEFINE_FLOAT(DOMEGA_CUTOFF, 30.0f);
+
+/**
+ * alloc_buffer_length
+ *
+ * use priority control allocation or not.
+ *
+ * @min 1
+ * @max 1000
+ * @group Mixer Output
+ */
+PARAM_DEFINE_INT32(ALLOC_BUFF_L, 2);

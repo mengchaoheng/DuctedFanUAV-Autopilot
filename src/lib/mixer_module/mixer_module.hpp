@@ -58,6 +58,7 @@
 #include <lib/matrix/matrix/math.hpp>
 #include <mathlib/math/filter/LowPassFilter2p.hpp>
 #include <lib/mathlib/math/filter/NotchFilter.hpp>
+#include <lib/ecl/EKF/RingBuffer.h>
 
 /**
  * @class OutputModuleInterface
@@ -313,6 +314,7 @@ private:
 	double _uMin[4] {};
 	double _uMax[4] {};
 	double _u[4] {}; //  [-1, 1]
+	double _u_oldest[4] {};
 	double _last_u[4] {};
 	matrix::Matrix<double, 4, 3> B_inv;
 	const double _B[3][4] = { {-0.5,0.0,0.5,0.0}, {0.0,-0.5,0.0,0.5},{0.25,0.25,0.25,0.25}};
@@ -323,6 +325,7 @@ private:
 	bool _use_indi{false};
 	bool _use_alloc{false};
 	bool _use_pca{false};
+	RingBuffer<double> _u_buffer[4];
 
 	DEFINE_PARAMETERS(
 		(ParamInt<px4::params::MC_AIRMODE>) _param_mc_airmode,   ///< multicopter air-mode
@@ -346,7 +349,7 @@ private:
 		(ParamFloat<px4::params::OMEGA_CUTOFF>) _param_omega_cutoff,
 		(ParamFloat<px4::params::DOMEGA_D_CUTOFF>) _param_domega_d_cutoff,
 		(ParamFloat<px4::params::DOMEGA_CUTOFF>) _param_domega_cutoff,
-		(ParamInt<px4::params::CYC_T>) _param_cycle_time
-
+		(ParamInt<px4::params::CYC_T>) _param_cycle_time,
+		(ParamInt<px4::params::ALLOC_BUFF_L>) _param_alloc_buff_l
 	)
 };
