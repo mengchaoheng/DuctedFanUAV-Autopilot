@@ -279,11 +279,11 @@ private:
 	hrt_abstime _timestamp_sample_prev{0};
 
 	// angular velocity filters
-	math::LowPassFilter2p _lp_filter_actuator[5]={math::LowPassFilter2p{250,20.f},math::LowPassFilter2p{250,20.f},math::LowPassFilter2p{250,20.f},math::LowPassFilter2p{250,20.f},math::LowPassFilter2p{250,20.f}};
+	math::LowPassFilter2p<float> _lp_filter_actuator[5]={math::LowPassFilter2p<float>{250,20.f},math::LowPassFilter2p<float>{250,20.f},math::LowPassFilter2p<float>{250,20.f},math::LowPassFilter2p<float>{250,20.f},math::LowPassFilter2p<float>{250,20.f}};
 	math::NotchFilter<float> _notch_filter_actuator[5];
 
 	// angular acceleration filter
-	math::LowPassFilter2p _lp_filter_actuator_d[2]={math::LowPassFilter2p{250,20.f},math::LowPassFilter2p{250,20.f}};
+	math::LowPassFilter2p<float> _lp_filter_actuator_d[2]={math::LowPassFilter2p<float>{250,20.f},math::LowPassFilter2p<float>{250,20.f}};
 
 	unsigned _max_topic_update_interval_us{0}; ///< max _control_subs topic update interval (0=unlimited)
 
