@@ -64,15 +64,15 @@ param set-default PWM_DISARMED 900
 param set-default PWM_MIN 1000
 param set-default PWM_MAX 2000
 param set-default PWM_MAIN_MIN5 1275
-param set-default PWM_MAIN_MIN6 1400
-param set-default PWM_MAIN_MIN7 1430
-param set-default PWM_MAIN_MIN8 1400
+param set-default PWM_MAIN_MIN6 1277
+param set-default PWM_MAIN_MIN7 1360
+param set-default PWM_MAIN_MIN8 1320
 
 param set-default PWM_MAIN_MAX5 1635
-param set-default PWM_MAIN_MAX6 1760
-param set-default PWM_MAIN_MAX7 1790
-param set-default PWM_MAIN_MAX8 1760
-param set-default PWM_RATE 333
+param set-default PWM_MAIN_MAX6 1637
+param set-default PWM_MAIN_MAX7 1720
+param set-default PWM_MAIN_MAX8 1680
+param set-default PWM_MAIN_RATE 333
 
 param set-default RTL_RETURN_ALT 2.5
 param set-default RTL_DESCEND_ALT 2.5
@@ -95,6 +95,8 @@ param set-default DOMEGA_D_CUTOFF  10
 param set-default OMEGA_CUTOFF  10
 param set-default IMU_DGYRO_CUTOFF  5
 
+param set-default COM_PREARM_MODE  1
+#param set-default CBRK_IO_SAFETY  22027
 #param set-default IMU_GYRO_RATEMAX 400
 
 param set-default MC_PWM_HOVER 1706
