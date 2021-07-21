@@ -261,6 +261,26 @@ MulticopterAttitudeControl::Run()
 			_quat_reset_counter = v_att.quat_reset_counter;
 		}
 
+		if(_vehicle_local_position_sub.updated())
+		{
+			vehicle_local_position_s lpos;
+			_vehicle_local_position_sub.update(&lpos);
+			matrix::Vector3f a = {lpos.ax,lpos.ay,lpos.az};
+			matrix::Vector3f sigma_F = 50.0f * a;//m=50
+			matrix::AxisAnglef AA(Quatf(v_att.q));
+			matrix::Vector3f  n = AA.axis();
+			_alpha = AA.angle();
+			matrix::Vector3f F_e = 100.f * _alpha * n.cross(matrix::Vector3f(0,0,1));//k=100
+			_F_h = sigma_F - F_e;
+			_F_h_length = _F_h.length();
+			force_s force_sp{};
+			force_sp.f_h_length = _F_h_length;
+			force_sp.alpha=_alpha;
+			_F_h.copyTo(force_sp.f_h);
+			force_sp.timestamp = hrt_absolute_time();
+			_force_pub.publish(force_sp);
+
+		}
 		// Guard against too small (< 0.2ms) and too large (> 20ms) dt's.
 		const float dt = math::constrain(((v_att.timestamp - _last_run) * 1e-6f), 0.0002f, 0.02f);
 		_last_run = v_att.timestamp;

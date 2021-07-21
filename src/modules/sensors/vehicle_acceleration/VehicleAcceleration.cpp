@@ -223,6 +223,8 @@ void VehicleAcceleration::Run()
 		}
 	}
 
+	_attitudeSub.update(&_vehicleAttitude);
+
 	// process all outstanding messages
 	sensor_accel_s sensor_data;
 
@@ -245,6 +247,10 @@ void VehicleAcceleration::Run()
 				vehicle_acceleration_s v_acceleration;
 				v_acceleration.timestamp_sample = sensor_data.timestamp_sample;
 				accel_filtered.copyTo(v_acceleration.xyz);
+				matrix::Dcmf R_to_ned = matrix::Dcmf(Quatf(_vehicleAttitude.q));
+				_acc_ned = R_to_ned*accel_filtered;
+				_acc_ned(2) += CONSTANTS_ONE_G;
+				_acc_ned.copyTo(v_acceleration.xyz_a);
 				v_acceleration.timestamp = hrt_absolute_time();
 				_vehicle_acceleration_pub.publish(v_acceleration);
 

@@ -50,6 +50,8 @@
 #include <uORB/topics/sensor_accel.h>
 #include <uORB/topics/sensor_selection.h>
 #include <uORB/topics/vehicle_acceleration.h>
+#include <uORB/topics/vehicle_attitude.h>
+#include <lib/ecl/geo/geo.h>
 
 using namespace time_literals;
 
@@ -86,6 +88,9 @@ private:
 
 	uORB::SubscriptionCallbackWorkItem _sensor_selection_sub{this, ORB_ID(sensor_selection)};
 	uORB::SubscriptionCallbackWorkItem _sensor_sub{this, ORB_ID(sensor_accel)};
+	uORB::Subscription _attitudeSub{ORB_ID(vehicle_attitude)};
+	vehicle_attitude_s _vehicleAttitude{};
+	matrix::Vector3f _acc_ned;
 
 	calibration::Accelerometer _calibration{};
 
