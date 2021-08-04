@@ -140,9 +140,12 @@ private:
 
 	uint8_t _quat_reset_counter{0};
 
-	matrix::Vector3f _F_h;
-	float _F_h_length;
-	float _alpha;
+	// matrix::Vector3f _F_h;
+	// float _F_h_length;
+	// float _alpha;
+	// bool _is_init{false};
+	// matrix::Dcmf _R_init{};
+	// matrix::Eulerf _euler_init;
 
 	DEFINE_PARAMETERS(
 		(ParamFloat<px4::params::MC_ROLL_P>) _param_mc_roll_p,

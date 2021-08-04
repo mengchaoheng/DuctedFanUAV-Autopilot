@@ -57,6 +57,8 @@
 #include <uORB/topics/actuator_outputs_value.h>
 #include <uORB/topics/vehicle_angular_acceleration.h>
 #include <uORB/topics/vehicle_angular_velocity.h>
+#include <uORB/topics/vehicle_attitude.h>
+#include <uORB/topics/force.h>
 #include <uORB/topics/vehicle_control_mode.h>
 #include <uORB/topics/vehicle_land_detected.h>
 #include <uORB/topics/vehicle_rates_setpoint.h>
@@ -102,6 +104,8 @@ private:
 	uORB::Subscription _actuator_outputs_value_sub{ORB_ID(actuator_outputs_value)};
 	uORB::Subscription _vehicle_land_detected_sub{ORB_ID(vehicle_land_detected)};
 	uORB::Subscription _vehicle_status_sub{ORB_ID(vehicle_status)};
+	uORB::Subscription _vehicle_attitude_sub{ORB_ID(vehicle_attitude)};
+	uORB::Publication<force_s>	_force_pub{ORB_ID(force)};
 
 	uORB::SubscriptionInterval _parameter_update_sub{ORB_ID(parameter_update), 1_s};
 
@@ -132,6 +136,16 @@ private:
 	hrt_abstime _last_run{0};
 
 	int8_t _landing_gear{landing_gear_s::GEAR_DOWN};
+
+	matrix::Vector3f _F_h;
+	float _F_h_length;
+	float _alpha;
+	bool _is_init{false};
+	matrix::Dcmf _R_init{};
+	matrix::Quatf _q_init;
+	matrix::Matrix3f _inertia{matrix::eye<float, 3>()};
+	float _L{1.5};
+
 
 	DEFINE_PARAMETERS(
 		(ParamFloat<px4::params::MC_ROLLRATE_P>) _param_mc_rollrate_p,

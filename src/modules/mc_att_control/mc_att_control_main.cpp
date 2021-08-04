@@ -261,26 +261,48 @@ MulticopterAttitudeControl::Run()
 			_quat_reset_counter = v_att.quat_reset_counter;
 		}
 
-		if(_vehicle_local_position_sub.updated())
-		{
-			vehicle_local_position_s lpos;
-			_vehicle_local_position_sub.update(&lpos);
-			matrix::Vector3f a = {lpos.ax,lpos.ay,lpos.az};
-			matrix::Vector3f sigma_F = 50.0f * a;//m=50
-			matrix::AxisAnglef AA(Quatf(v_att.q));
-			matrix::Vector3f  n = AA.axis();
-			_alpha = AA.angle();
-			matrix::Vector3f F_e = 100.f * _alpha * n.cross(matrix::Vector3f(0,0,1));//k=100
-			_F_h = sigma_F - F_e;
-			_F_h_length = _F_h.length();
-			force_s force_sp{};
-			force_sp.f_h_length = _F_h_length;
-			force_sp.alpha=_alpha;
-			_F_h.copyTo(force_sp.f_h);
-			force_sp.timestamp = hrt_absolute_time();
-			_force_pub.publish(force_sp);
+		// if(!_is_init)
+		// {
+		// 	_euler_init=Quatf(v_att.q);
+		// 	_R_init = matrix::Dcmf(Eulerf(_euler_init));
+		// 	_is_init = true;
+		// }
+		// if(_vehicle_local_position_sub.updated() && _is_init)
+		// {
+		// 	vehicle_local_position_s lpos;
+		// 	_vehicle_local_position_sub.update(&lpos);
+		// 	matrix::Vector3f a = {lpos.ax,lpos.ay,lpos.az};
+		// 	matrix::Vector3f sigma_F = 50.0f * a;//m=50
+		// 	matrix::Eulerf euler_current(Quatf(v_att.q));
+		// 	matrix::Eulerf euler_delta = euler_current-_euler_init;
+		// 	matrix::Dcmf R_current = matrix::Dcmf(Eulerf(euler_current));
+		// 	matrix::Dcmf R_e = (_R_init.transpose())*R_current;
+		// 	matrix::Eulerf euler_R_e(R_e);
+		// 	// matrix::Dcmf R_tilt_e(Eulerf(euler_R_e.phi(),euler_R_e.theta(),0));
+		// 	matrix::AxisAnglef AA(Eulerf(euler_R_e.phi(),euler_R_e.theta(),0));
+		// 	matrix::Vector3f  n = AA.axis();
+		// 	_alpha = AA.angle();
+		// 	matrix::Vector3f F_e = 100.f * _alpha * n.cross(matrix::Vector3f(0,0,1));//k=100
+		// 	_F_h = sigma_F - F_e;
+		// 	_F_h_length = _F_h.length();
 
-		}
+		// 	//pubulish topic
+		// 	force_s force_sp{};
+		// 	n.copyTo(force_sp.n);
+		// 	force_sp.f_h_length = _F_h_length;
+		// 	force_sp.alpha=_alpha;
+		// 	_F_h.copyTo(force_sp.f_h);
+		// 	euler_R_e.copyTo(force_sp.euler);
+		// 	_euler_init.copyTo(force_sp.euler_init);
+		// 	euler_current.copyTo(force_sp.euler_current);
+		// 	euler_delta.copyTo(force_sp.euler_delta);
+		// 	force_sp.timestamp = hrt_absolute_time();
+		// 	_force_pub.publish(force_sp);
+
+		// }
+
+
+
 		// Guard against too small (< 0.2ms) and too large (> 20ms) dt's.
 		const float dt = math::constrain(((v_att.timestamp - _last_run) * 1e-6f), 0.0002f, 0.02f);
 		_last_run = v_att.timestamp;
