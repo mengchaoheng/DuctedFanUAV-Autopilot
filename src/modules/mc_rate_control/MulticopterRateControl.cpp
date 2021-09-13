@@ -287,28 +287,20 @@ MulticopterRateControl::Run()
 					const Vector3f e_z_i = _q_init.dcm_z().normalized();
 					const Vector3f e_z_c = _q_current.dcm_z().normalized();
 					Quatf q_tilt(e_z_i, e_z_c);
-					// const float dot_product_unit = e_z_i.dot(e_z_c); // need more consider, ref Quatf q_tilt(e_z_i, e_z_c);
-					// float _alpha_ = acosf(dot_product_unit);
-					// Vector3f k_ = e_z_i.cross(e_z_c);
 					matrix::AxisAnglef axis_angle = AxisAnglef(q_tilt);
 					_alpha = axis_angle.angle();
 					Vector3f k = axis_angle.axis();
-					// Vector3f k_e=k-k_.normalized();
 					Vector3f sigma_M = _inertia * angular_accel + rates.cross(_inertia * rates);
-
 					matrix::Vector3f M_e = 1.f * _alpha * k;//k=100
 					matrix::Vector3f M_h = sigma_M - M_e;
-
 					_F_h = Vector3f(-M_h(1)/_L, M_h(0)/_L, 0.0f);
 					_F_h_length = _F_h.length();
 
 					//pubulish topic
 					force_s force_sp{};
 					k.copyTo(force_sp.k);
-					// k_e.copyTo(force_sp.k_e);
 					force_sp.f_h_length = _F_h_length;
 					force_sp.alpha=_alpha;
-					// force_sp.alpha_e=_alpha-_alpha_;
 					force_sp.sigma_m=sigma_M.norm();
 					force_sp.m_e=M_e.norm();
 					_F_h.copyTo(force_sp.f_h);
