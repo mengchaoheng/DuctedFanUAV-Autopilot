@@ -76,7 +76,7 @@ px4_add_board(
 		#gyro_fft
 		land_detector
 		#landing_target_estimator
-		load_mon
+		#load_mon
 		#local_position_estimator
 		logger
 		mavlink
@@ -118,7 +118,7 @@ px4_add_board(
 		#sd_bench
 		#serial_test
 		#system_time
-		top
+		#top
 		#topic_listener
 		tune_control
 		#uorb
