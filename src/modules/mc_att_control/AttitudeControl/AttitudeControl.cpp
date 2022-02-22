@@ -74,21 +74,62 @@ matrix::Vector3f AttitudeControl::update(const Quatf &q) const
 
 	// mix full and reduced desired attitude
 	Quatf q_mix = qd_red.inversed() * qd;
+	// float temp=acosf(q_mix(0))-asinf(q_mix(3));
+	// PX4_INFO("===================");
+	// PX4_INFO("acosf:%8.6f\n", (double) acosf(q_mix(0)));
+	// PX4_INFO("asinf:%8.6f\n", (double) asinf(q_mix(3)));
+	// PX4_INFO("===================");
+	// PX4_INFO("temp:%8.6f\n", (double) temp);
+	// PX4_INFO("===================");
+	Dcmf R_sp{qd};
+	Dcmf R{q};
+	// const Eulerf euler{R_sp};
+	// PX4_INFO("psi:%8.6f\n", (double) euler.psi());
+	// PX4_INFO("===================");
 	q_mix.canonicalize();
+
 	// catch numerical problems with the domain of acosf and asinf
 	q_mix(0) = math::constrain(q_mix(0), -1.f, 1.f);
 	q_mix(3) = math::constrain(q_mix(3), -1.f, 1.f);
-	qd = qd_red * Quatf(cosf(_yaw_w * acosf(q_mix(0))), 0, 0, sinf(_yaw_w * asinf(q_mix(3))));
+	// qd = qd_red * Quatf(cosf(_yaw_w * acosf(q_mix(0))), 0, 0, sinf(_yaw_w * asinf(q_mix(3))));
+
 
 	// quaternion attitude control law, qe is rotation from q to qd
-	const Quatf qe = q.inversed() * qd;
+	// const Quatf qe = q.inversed() * qd;
+	// AxisAngle<float> rot{qe};
+	// Vector<float, 3> rot_e = rot.axis() * sin(rot.angle());
+	// Vector<float, 3> rot_e_h = 2.0f*rot.axis() * sin(rot.angle()/2.0f); // close to rot_e
 
+	Dcmf R_e = (R.transpose()*R_sp - R_sp.transpose()*R);
+	Vector<float, 3> e_R =R_e.vee()/2; //e_R = rot_e
 	// using sin(alpha/2) scaled rotation axis as attitude error (see quaternion definition by axis angle)
 	// also taking care of the antipodal unit quaternion ambiguity
-	const Vector3f eq = 2.f * qe.canonical().imag();
+	// const Vector3f eq = 2.f * qe.canonical().imag(); // eq =  sign(q(0))*rot_e_h =  sign(q(0)) * 2.0f*rot.axis() * sin(rot.angle()/2.0f)
+	// const Vector3f eq = 2.f * qe.imag()*qe(0); //eq=rot_e= q(0)*rot_e_h
 
+
+	// PX4_INFO("===================");
+	// PX4_INFO("qe1:%8.6f\t qe2:%8.6f\t qe3:%8.6f\t", (double) qe(1), (double) qe(2), (double) qe(3));
+	// PX4_INFO("===================");
+	// PX4_INFO("rot_e_h0:%8.6f\t rot_e_h1:%8.6f\t rot_e_h2:%8.6f\t", (double) rot_e_h(0), (double) rot_e_h(1), (double) rot_e_h(2));
+	// PX4_INFO("===================");
+	// PX4_INFO("rot_e0:%8.6f\t rot_e1:%8.6f\t rot_e2:%8.6f\t", (double) rot_e(0), (double) rot_e(1), (double) rot_e(2));
+	// PX4_INFO("===================");
+	// PX4_INFO("e0:%8.6f\t e1:%8.6f\t e2:%8.6f\t", (double) (rot_e(0)-rot_e_h(0)), (double) (rot_e(1)-rot_e_h(1)), (double) (rot_e(2)-rot_e_h(2)));
+	// PX4_INFO("===================");
+	// PX4_INFO("rot0:%8.6f\t rot1:%8.6f\t rot2:%8.6f\t", (double) rot(0), (double) rot(1), (double) rot(2));
+	// PX4_INFO("===================");
+	// PX4_INFO("e0:%8.6f\t e1:%8.6f\t e2:%8.6f\t", (double) (rot(0)-rot_e(0)), (double) (rot(1)-rot_e(1)), (double) (rot(2)-rot_e(2)));
+	// PX4_INFO("===================");
+	// PX4_INFO("e_R0:%8.6f\t e_R1:%8.6f\t e_R2:%8.6f\t", (double) e_R(0), (double) e_R(1), (double) e_R(2));
+	// PX4_INFO("===================");
+	// PX4_INFO("e0:%8.6f\t e1:%8.6f\t e2:%8.6f\t", (double) (e_R(0)-rot_e(0)), (double) (e_R(1)-rot_e(1)), (double) (e_R(2)-rot_e(2)));
+	// PX4_INFO("===================");
+	// PX4_INFO("eq0:%8.6f\t eq1:%8.6f\t eq2:%8.6f\t", (double) eq(0), (double) eq(1), (double) eq(2));
+	// PX4_INFO("===================");
+	// PX4_INFO("e0:%8.6f\t e1:%8.6f\t e2:%8.6f\t", (double) (eq(0)-rot_e_h(0)), (double) (eq(1)-rot_e_h(1)), (double) (eq(2)-rot_e_h(2)));
 	// calculate angular rates setpoint
-	matrix::Vector3f rate_setpoint = eq.emult(_proportional_gain);
+	matrix::Vector3f rate_setpoint = e_R.emult(_proportional_gain);
 
 	// Feed forward the yaw setpoint rate.
 	// yawspeed_setpoint is the feed forward commanded rotation around the world z-axis,
