@@ -267,7 +267,11 @@ void FlightModeManager::start_flight_task()
 		case 0:
 			error = switchTask(FlightTaskIndex::ManualPosition);
 			break;
+		case 1: // Add case for new task: MyTask
+     			error = switchTask(FlightTaskIndex::MyTask);
+			PX4_INFO("after switchTask"); // report if activation was succesful
 
+     			break;
 		case 3:
 			error = switchTask(FlightTaskIndex::ManualPositionSmoothVel);
 			break;

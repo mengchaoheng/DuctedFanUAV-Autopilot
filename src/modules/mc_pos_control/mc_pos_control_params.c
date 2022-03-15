@@ -698,8 +698,10 @@ PARAM_DEFINE_FLOAT(MPC_TKO_RAMP_T, 3.0f);
  * 4 Smooth position control where sticks map to acceleration and there's a virtual brake drag
  *
  * @value 0 Simple position control
+ * @value 1 MyTask position mode implementation
  * @value 3 Smooth position control (Jerk optimized)
  * @value 4 Acceleration based input
+
  * @group Multicopter Position Control
  */
 PARAM_DEFINE_INT32(MPC_POS_MODE, 4);

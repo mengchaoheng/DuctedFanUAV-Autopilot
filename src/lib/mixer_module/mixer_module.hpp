@@ -268,7 +268,7 @@ private:
 
 	float _Omega_0_prev{0};
 	float _delta_prev[4];
-	float _last_outputs[MAX_ACTUATORS];
+	//float _last_outputs[MAX_ACTUATORS];
 	float _dOmega_0_raw_prev{0};
 	float _Omega_d_prev{0};
 	float _dOmega_d_raw_prev{0};
@@ -314,7 +314,7 @@ private:
 	double _uMin[4] {};
 	double _uMax[4] {};
 	double _u[4] {}; //  [-1, 1]
-	double _u_oldest[4] {};
+	//double _u_oldest[4] {};
 	double _last_u[4] {};
 	matrix::Matrix<double, 4, 3> B_inv;
 	const double _B[3][4] = { {-0.5,0.0,0.5,0.0}, {0.0,-0.5,0.0,0.5},{0.25,0.25,0.25,0.25}};

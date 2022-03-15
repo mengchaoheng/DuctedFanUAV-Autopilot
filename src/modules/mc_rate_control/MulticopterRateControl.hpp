@@ -117,7 +117,7 @@ private:
 	bool _actuators_0_circuit_breaker_enabled{false};	/**< circuit breaker to suppress output */
 	bool _landed{true};
 	bool _maybe_landed{true};
-	bool _actuator_outputs_sub_flag{false};
+	// bool _actuator_outputs_sub_flag{false};
 	bool _use_indi{false};
 
 	float _battery_status_scale{0.0f};
