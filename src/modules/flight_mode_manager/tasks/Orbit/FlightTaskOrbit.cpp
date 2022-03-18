@@ -215,7 +215,7 @@ bool FlightTaskOrbit::update()
 
 void FlightTaskOrbit::generate_circle_approach_setpoints(const Vector2f &center_to_position)
 {
-	const Vector2f start_to_circle = (_r - center_to_position.norm()) * center_to_position.unit_or_zero();
+	const Vector2f start_to_circle = (0 - center_to_position.norm()) * center_to_position.unit_or_zero();
 
 	if (_circle_approach_line.isEndReached()) {
 		// calculate target point on circle and plan a line trajectory
@@ -249,7 +249,7 @@ void FlightTaskOrbit::generate_circle_setpoints(const Vector2f &center_to_positi
 
 void FlightTaskOrbit::generate_circle_yaw_setpoints(const Vector2f &center_to_position)
 {
-	switch (_yaw_behaviour) {
+	switch (3U) {
 	case orbit_status_s::ORBIT_YAW_BEHAVIOUR_HOLD_INITIAL_HEADING:
 		// make vehicle keep the same heading as when the orbit was commanded
 		_yaw_setpoint = _initial_heading;

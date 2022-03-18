@@ -110,7 +110,7 @@ private:
 	const float _acceleration_max = 2.f;
 
 	/** yaw behaviour during the orbit flight according to MAVLink's ORBIT_YAW_BEHAVIOUR enum */
-	int _yaw_behaviour = orbit_status_s::ORBIT_YAW_BEHAVIOUR_HOLD_FRONT_TO_CIRCLE_CENTER;
+	int _yaw_behaviour = orbit_status_s::ORBIT_YAW_BEHAVIOUR_HOLD_FRONT_TANGENT_TO_CIRCLE;
 	float _initial_heading = 0.f; /**< the heading of the drone when the orbit command was issued */
 	SlewRateYaw<float> _slew_rate_yaw;
 

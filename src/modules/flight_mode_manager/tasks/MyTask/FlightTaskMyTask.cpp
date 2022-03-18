@@ -11,6 +11,9 @@ bool FlightTaskMyTask::activate(vehicle_local_position_setpoint_s last_setpoint)
 
 bool FlightTaskMyTask::update()
 {
-//   PX4_INFO("FlightTaskMyTask update was called!"); // report update
+  _position_setpoint(0) = 0.f;
+	_position_setpoint(1) = 0.f;
+  _position_setpoint(2) = _position(2);
+  PX4_INFO("FlightTaskMyTask update was called! go to home!!!\n"); // report update
   return true;
 }

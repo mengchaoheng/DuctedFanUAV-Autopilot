@@ -73,6 +73,7 @@ float VelocitySmoothing::saturateT1ForAccel(float a0, float j_max, float T1, flo
 
 float VelocitySmoothing::computeT1(float a0, float v3, float j_max, float a_max)
 {
+	// assume that Constant acceleration time is zero firstly.
 	float delta = 2.f * a0 * a0 + 4.f * j_max * v3;
 
 	if (delta < 0.f) {

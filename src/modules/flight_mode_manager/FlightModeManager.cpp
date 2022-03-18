@@ -221,7 +221,7 @@ void FlightModeManager::start_flight_task()
 		FlightTaskError error = FlightTaskError::NoError;
 
 		error = switchTask(FlightTaskIndex::AutoLineSmoothVel);
-
+		PX4_INFO("AutoLineSmoothVel : %s", errorToString(error));
 		if (error != FlightTaskError::NoError) {
 			if (prev_failure_count == 0) {
 				PX4_WARN("Auto activation failed with error: %s", errorToString(error));
@@ -233,6 +233,8 @@ void FlightModeManager::start_flight_task()
 		} else {
 			// we want to be in this mode, reset the failure count
 			_task_failure_count = 0;
+			// PX4_INFO("after AutoLineSmoothVel succesful"); // report if activation was succesful
+
 		}
 
 	} else if (_vehicle_status_sub.get().nav_state == vehicle_status_s::NAVIGATION_STATE_DESCEND) {
@@ -269,7 +271,7 @@ void FlightModeManager::start_flight_task()
 			break;
 		case 1: // Add case for new task: MyTask
      			error = switchTask(FlightTaskIndex::MyTask);
-			PX4_INFO("after switchTask"); // report if activation was succesful
+			PX4_INFO("MyTask : %s", errorToString(error));
 
      			break;
 		case 3:
@@ -285,6 +287,9 @@ void FlightModeManager::start_flight_task()
 			}
 
 			error = switchTask(FlightTaskIndex::ManualAcceleration);
+			PX4_INFO("ManualAcceleration : %s", errorToString(error));
+
+
 			break;
 		}
 
@@ -299,6 +304,7 @@ void FlightModeManager::start_flight_task()
 		} else {
 			check_failure(task_failure, vehicle_status_s::NAVIGATION_STATE_POSCTL);
 			task_failure = false;
+			// PX4_INFO("after switchTask to ManualAcceleration succesful"); // report if activation was succesful
 		}
 	}
 
@@ -411,7 +417,7 @@ void FlightModeManager::handleCommand()
 {
 	// get command
 	vehicle_command_s command;
-
+	PX4_INFO("before while");
 	while (_vehicle_command_sub.update(&command)) {
 		// check what command it is
 		FlightTaskIndex desired_task = switchVehicleCommand(command.command);
@@ -420,6 +426,8 @@ void FlightModeManager::handleCommand()
 		if (desired_task != FlightTaskIndex::None) {
 			// switch to the commanded task
 			FlightTaskError switch_result = switchTask(desired_task);
+			PX4_INFO("desired_task : %s", errorToString(switch_result));
+
 			uint8_t cmd_result = vehicle_command_ack_s::VEHICLE_RESULT_FAILED;
 
 			// if we are in/switched to the desired task
@@ -463,6 +471,8 @@ void FlightModeManager::generateTrajectorySetpoint(const float dt,
 	if (_current_task.task->updateInitialize() && _current_task.task->update() && _current_task.task->updateFinalize()) {
 		// setpoints and constraints for the position controller from flighttask
 		setpoint = _current_task.task->getPositionSetpoint();
+		// PX4_INFO("Running, active flight task: %" PRIu32, static_cast<uint32_t>(_current_task.index));
+		PX4_INFO("getPositionSetpoint x: %f, y: %f, z: %f, yaw: %f, vx: %f, vy: %f, vz: %f, yawspeed: %f", (double) setpoint.x, (double) setpoint.y, (double) setpoint.z, (double) setpoint.yaw, (double) setpoint.vx, (double) setpoint.vy, (double) setpoint.vz, (double) setpoint.yawspeed);
 		constraints = _current_task.task->getConstraints();
 	}
 
