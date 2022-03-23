@@ -215,6 +215,7 @@ MulticopterAttitudeControl::generate_attitude_setpoint(const Quatf &q, float dt,
 	attitude_setpoint.timestamp = hrt_absolute_time();
 
 	_vehicle_attitude_setpoint_pub.publish(attitude_setpoint);
+	// PX4_INFO("==============generate_attitude_setpoint _vehicle_attitude_setpoint_pub publish================= \n");
 }
 
 void
@@ -249,6 +250,7 @@ MulticopterAttitudeControl::Run()
 			_vehicle_attitude_setpoint_sub.update(&vehicle_attitude_setpoint);
 			_attitude_control.setAttitudeSetpoint(Quatf(vehicle_attitude_setpoint.q_d), vehicle_attitude_setpoint.yaw_sp_move_rate);
 			_thrust_setpoint_body = Vector3f(vehicle_attitude_setpoint.thrust_body);
+			// PX4_INFO("==============Check for new attitude setpoint================= \n");
 		}
 
 		// Check for a heading reset

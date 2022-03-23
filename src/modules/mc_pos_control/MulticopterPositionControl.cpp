@@ -419,6 +419,7 @@ void MulticopterPositionControl::Run()
 
 			// Run position control
 			if (_control.update(dt)) {
+				// PX4_INFO("position control");
 				_failsafe_land_hysteresis.set_state_and_update(false, time_stamp_now);
 
 			} else {
@@ -453,6 +454,7 @@ void MulticopterPositionControl::Run()
 			_control.getAttitudeSetpoint(attitude_setpoint);
 			attitude_setpoint.timestamp = hrt_absolute_time();
 			_vehicle_attitude_setpoint_pub.publish(attitude_setpoint);
+			// PX4_INFO("position _vehicle_attitude_setpoint_pub");
 
 		} else {
 			// an update is necessary here because otherwise the takeoff state doesn't get skiped with non-altitude-controlled modes

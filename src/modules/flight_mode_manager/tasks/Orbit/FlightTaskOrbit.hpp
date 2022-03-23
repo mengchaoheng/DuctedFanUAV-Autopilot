@@ -89,6 +89,8 @@ protected:
 	bool setVelocity(const float v);
 
 private:
+	void generate_lissajous_setpoints(const matrix::Vector2f &center_to_position, const float dt);
+
 	/** generates setpoints to smoothly reach the closest point on the circle when starting from far away */
 	void generate_circle_approach_setpoints(const matrix::Vector2f &center_to_position);
 	/** generates xy setpoints to make the vehicle orbit */
@@ -96,18 +98,22 @@ private:
 	/** generates yaw setpoints to control the vehicle's heading */
 	void generate_circle_yaw_setpoints(const matrix::Vector2f &center_to_position);
 
+	hrt_abstime _time_stamp_last_loop{0}; ///< time stamp of last loop iteration
+	int _iter;
+	float _length = 1.f;
 	float _r = 0.f; /**< radius with which to orbit the target */
 	float _v = 0.f; /**< clockwise tangential velocity for orbiting in m/s */
 	matrix::Vector2f _center; /**< local frame coordinates of the center point */
+	matrix::Vector2f _init_pos;
 
 	bool _in_circle_approach = false;
 	StraightLine _circle_approach_line;
 
 	// TODO: create/use parameters for limits
 	const float _radius_min = 1.f;
-	const float _radius_max = 100.f;
-	const float _velocity_max = 10.f;
-	const float _acceleration_max = 2.f;
+	const float _radius_max = 10000.f;
+	const float _velocity_max = 1000.f;
+	const float _acceleration_max = 2000.f;
 
 	/** yaw behaviour during the orbit flight according to MAVLink's ORBIT_YAW_BEHAVIOUR enum */
 	int _yaw_behaviour = orbit_status_s::ORBIT_YAW_BEHAVIOUR_HOLD_FRONT_TANGENT_TO_CIRCLE;

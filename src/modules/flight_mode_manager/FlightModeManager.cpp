@@ -102,6 +102,7 @@ void FlightModeManager::Run()
 		const hrt_abstime time_stamp_now = hrt_absolute_time();
 		// Guard against too small (< 0.2ms) and too large (> 100ms) dt's.
 		const float dt = math::constrain(((time_stamp_now - _time_stamp_last_loop) / 1e6f), 0.0002f, 0.1f);
+		// PX4_INFO("Running, dt: %f", (double) dt);
 		_time_stamp_last_loop = time_stamp_now;
 
 		_home_position_sub.update();
@@ -221,7 +222,7 @@ void FlightModeManager::start_flight_task()
 		FlightTaskError error = FlightTaskError::NoError;
 
 		error = switchTask(FlightTaskIndex::AutoLineSmoothVel);
-		PX4_INFO("AutoLineSmoothVel : %s", errorToString(error));
+		// PX4_INFO("AutoLineSmoothVel : %s", errorToString(error));
 		if (error != FlightTaskError::NoError) {
 			if (prev_failure_count == 0) {
 				PX4_WARN("Auto activation failed with error: %s", errorToString(error));
@@ -271,7 +272,7 @@ void FlightModeManager::start_flight_task()
 			break;
 		case 1: // Add case for new task: MyTask
      			error = switchTask(FlightTaskIndex::MyTask);
-			PX4_INFO("MyTask : %s", errorToString(error));
+			// PX4_INFO("MyTask : %s", errorToString(error));
 
      			break;
 		case 3:
@@ -287,7 +288,7 @@ void FlightModeManager::start_flight_task()
 			}
 
 			error = switchTask(FlightTaskIndex::ManualAcceleration);
-			PX4_INFO("ManualAcceleration : %s", errorToString(error));
+			// PX4_INFO("ManualAcceleration : %s", errorToString(error));
 
 
 			break;
@@ -417,7 +418,7 @@ void FlightModeManager::handleCommand()
 {
 	// get command
 	vehicle_command_s command;
-	PX4_INFO("before while");
+	// PX4_INFO("before while");
 	while (_vehicle_command_sub.update(&command)) {
 		// check what command it is
 		FlightTaskIndex desired_task = switchVehicleCommand(command.command);
@@ -426,7 +427,7 @@ void FlightModeManager::handleCommand()
 		if (desired_task != FlightTaskIndex::None) {
 			// switch to the commanded task
 			FlightTaskError switch_result = switchTask(desired_task);
-			PX4_INFO("desired_task : %s", errorToString(switch_result));
+			// PX4_INFO("desired_task : %s", errorToString(switch_result));
 
 			uint8_t cmd_result = vehicle_command_ack_s::VEHICLE_RESULT_FAILED;
 
@@ -472,7 +473,7 @@ void FlightModeManager::generateTrajectorySetpoint(const float dt,
 		// setpoints and constraints for the position controller from flighttask
 		setpoint = _current_task.task->getPositionSetpoint();
 		// PX4_INFO("Running, active flight task: %" PRIu32, static_cast<uint32_t>(_current_task.index));
-		PX4_INFO("getPositionSetpoint x: %f, y: %f, z: %f, yaw: %f, vx: %f, vy: %f, vz: %f, yawspeed: %f", (double) setpoint.x, (double) setpoint.y, (double) setpoint.z, (double) setpoint.yaw, (double) setpoint.vx, (double) setpoint.vy, (double) setpoint.vz, (double) setpoint.yawspeed);
+		// PX4_INFO("x: %f, y: %f, z: %f, vx: %f, vy: %f, vz: %f, ax: %f, ay: %f, az: %f", (double) setpoint.x, (double) setpoint.y, (double) setpoint.z, (double) setpoint.vx, (double) setpoint.vy, (double) setpoint.vz, (double) setpoint.acceleration[0], (double) setpoint.acceleration[1], (double) setpoint.acceleration[2]);
 		constraints = _current_task.task->getConstraints();
 	}
 

@@ -75,7 +75,6 @@ bool FlightTaskOrbit::applyCommandParameters(const vehicle_command_s &command)
 
 	// save current yaw estimate for ORBIT_YAW_BEHAVIOUR_HOLD_INITIAL_HEADING
 	_initial_heading = _yaw;
-
 	// commanded center coordinates
 	if (PX4_ISFINITE(command.param5) && PX4_ISFINITE(command.param6)) {
 		if (map_projection_initialized(&_global_local_proj_ref)) {
@@ -87,6 +86,10 @@ bool FlightTaskOrbit::applyCommandParameters(const vehicle_command_s &command)
 			ret = false;
 		}
 	}
+	// PX4_INFO("after applyCommandParameters, _center: %f", (double) _center(0));
+	const Vector2f center_to_init_position = Vector2f(_position) - _center;
+	_length = center_to_init_position.norm();
+
 
 	// commanded altitude
 	if (PX4_ISFINITE(command.param7)) {
@@ -167,9 +170,13 @@ bool FlightTaskOrbit::activate(const vehicle_local_position_setpoint_s &last_set
 	_r = _radius_min;
 	_v =  1.f;
 	_center = _position.xy();
+	_init_pos = _position.xy();
+
 	_initial_heading = _yaw;
 	_slew_rate_yaw.setForcedValue(_yaw);
 	_slew_rate_yaw.setSlewRate(math::radians(_param_mpc_yawrauto_max.get()));
+	_time_stamp_last_loop = hrt_absolute_time();
+	_iter = 0.f;
 
 	// need a valid position and velocity
 	ret = ret && PX4_ISFINITE(_position(0))
@@ -184,6 +191,12 @@ bool FlightTaskOrbit::activate(const vehicle_local_position_setpoint_s &last_set
 
 bool FlightTaskOrbit::update()
 {
+	const hrt_abstime time_stamp_now = hrt_absolute_time();
+	// Guard against too small (< 0.2ms) and too large (> 100ms) dt's.
+	const float dt = math::constrain(((time_stamp_now - _time_stamp_last_loop) / 1e6f), 0.0002f, 0.1f);
+	// PX4_INFO("FlightTaskOrbit Running, dt: %f", (double) dt);
+	_time_stamp_last_loop = time_stamp_now;
+
 	// update altitude
 	bool ret = FlightTaskManualAltitudeSmoothVel::update();
 
@@ -195,14 +208,16 @@ bool FlightTaskOrbit::update()
 	setVelocity(v);
 
 	const Vector2f center_to_position = Vector2f(_position) - _center;
+	const Vector2f init_to_position = Vector2f(_position) - _init_pos;
 
-	if (_in_circle_approach) {
-		generate_circle_approach_setpoints(center_to_position);
+	// if (_in_circle_approach) {
+		// generate_circle_approach_setpoints(center_to_position);
 
-	} else {
-		generate_circle_setpoints(center_to_position);
-		generate_circle_yaw_setpoints(center_to_position);
-	}
+	// } else {
+		// generate_circle_setpoints(center_to_position);
+		generate_lissajous_setpoints(init_to_position, dt);
+		// generate_circle_yaw_setpoints(center_to_position);
+	// }
 
 	// Apply yaw smoothing
 	_yaw_setpoint = _slew_rate_yaw.update(_yaw_setpoint, _deltatime);
@@ -215,7 +230,7 @@ bool FlightTaskOrbit::update()
 
 void FlightTaskOrbit::generate_circle_approach_setpoints(const Vector2f &center_to_position)
 {
-	const Vector2f start_to_circle = (0 - center_to_position.norm()) * center_to_position.unit_or_zero();
+	const Vector2f start_to_circle = ( - center_to_position.norm()) * center_to_position.unit_or_zero();
 
 	if (_circle_approach_line.isEndReached()) {
 		// calculate target point on circle and plan a line trajectory
@@ -230,6 +245,54 @@ void FlightTaskOrbit::generate_circle_approach_setpoints(const Vector2f &center_
 	// follow the planned line and switch to orbiting once the circle is reached
 	_circle_approach_line.generateSetpoints(_position_setpoint, _velocity_setpoint);
 	_in_circle_approach = !_circle_approach_line.isEndReached();
+}
+void FlightTaskOrbit::generate_lissajous_setpoints(const Vector2f &init_to_position, const float dt)
+{
+	// Lissajous
+	float T=12;
+	// float T=_length*6.f/_v;
+	_iter++;
+
+	if( ((float) _iter) > 2147483647)
+	{
+		_iter = 0;
+	}
+	float t= ((float) _iter) *dt;
+	// PX4_INFO("FlightTaskOrbit Running, t: %f", (double) t);
+	// PX4_INFO("FlightTaskOrbit Running, _iter: %d", _iter);
+
+
+	// x = r*sin((2*pi/T)*t);
+	// y = r*sin(2*(2*pi/T)*t);
+	_position_setpoint(0) = _length*sin(2*3.14f*t/T);
+	_position_setpoint(1) = _length*sin(2* 2*3.14f*t/T);
+	// _position_setpoint(0) = _position_setpoint(1) = NAN;
+
+	// velocity
+	Vector2f velocity_ref_xy( (_length*(2*3.14f/T))*cos(2*3.14f*t/T),  (_length*(2* 2*3.14f/T))*cos(2* 2*3.14f*t/T) );
+	// velocity_ref_xy = velocity_ref_xy.unit_or_zero();
+	// velocity_ref_xy *= _v;
+
+	// xy velocity adjustment to stay on the curve
+	// float x = _length*sin(2*3.14f*t/T);
+	// float y = _length*sin(2* 2*3.14f*t/T);
+	// float delta_x = x-init_to_position(0);
+	// float delta_y = y-init_to_position(1);
+	// Vector2f delta_xy(delta_x, delta_y);
+	// Vector2f velocity_ref_xy = delta_xy.norm() * delta_xy.unit_or_zero();
+	_velocity_setpoint.xy() = velocity_ref_xy;
+	// _velocity_setpoint(0) = NAN;
+	// _velocity_setpoint(1) = NAN;
+
+	// acc
+	Vector2f acc_ref_xy( -(_length*(2*3.14f/T)*(2*3.14f/T)) * sin(2*3.14f*t/T),  -(_length*(2* 2*3.14f/T))*(2* 2*3.14f/T) * sin(2* 2*3.14f*t/T) );
+	_acceleration_setpoint.xy() = acc_ref_xy;
+	// _acceleration_setpoint(0) = NAN;
+	// _acceleration_setpoint(0) = NAN;
+
+	//yaw
+	_yaw_setpoint = _initial_heading;
+	_yawspeed_setpoint = NAN;
 }
 
 void FlightTaskOrbit::generate_circle_setpoints(const Vector2f &center_to_position)

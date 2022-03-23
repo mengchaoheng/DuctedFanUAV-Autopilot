@@ -94,7 +94,7 @@ bool PositionControl::update(const float dt)
 	const bool valid = (PX4_ISFINITE(_pos_sp(0)) == PX4_ISFINITE(_pos_sp(1)))
 			   && (PX4_ISFINITE(_vel_sp(0)) == PX4_ISFINITE(_vel_sp(1)))
 			   && (PX4_ISFINITE(_acc_sp(0)) == PX4_ISFINITE(_acc_sp(1)));
-
+	// PX4_INFO("PX4_ISFINITE of NAN: %d", (int) PX4_ISFINITE(_pos_sp(0)));
 	_positionControl();
 	_velocityControl(dt);
 
@@ -108,16 +108,46 @@ void PositionControl::_positionControl()
 {
 	// P-position controller
 	Vector3f vel_sp_position = (_pos_sp - _pos).emult(_gain_pos_p);
+	// PX4_INFO("==============_positionControl================= \n");
+	// PX4_INFO("_pos_sp 0: %f", (double) (_pos_sp(0)));
+	// PX4_INFO("_pos_sp 1: %f", (double) (_pos_sp(1)));
+	// PX4_INFO("_pos_sp 2: %f", (double) (_pos_sp(2)));
 	// Position and feed-forward velocity setpoints or position states being NAN results in them not having an influence
+	// PX4_INFO("_vel_sp 0: %f", (double) (_vel_sp(0)));
+	// PX4_INFO("_vel_sp 1: %f", (double) (_vel_sp(1)));
+	// PX4_INFO("_vel_sp 2: %f", (double) (_vel_sp(2)));
+
+	// PX4_INFO("vel_sp_position 0: %f", (double) (vel_sp_position(0)));
+	// PX4_INFO("vel_sp_position 1: %f", (double) (vel_sp_position(1)));
+	// PX4_INFO("vel_sp_position 2: %f", (double) (vel_sp_position(2)));
+
 	ControlMath::addIfNotNanVector3f(_vel_sp, vel_sp_position);
+	// PX4_INFO("===============addIfNotNanVector3f================ \n");
+	// PX4_INFO("_vel_sp 0: %f", (double) (_vel_sp(0)));
+	// PX4_INFO("_vel_sp 1: %f", (double) (_vel_sp(1)));
+	// PX4_INFO("_vel_sp 2: %f", (double) (_vel_sp(2)));
+
+
 	// make sure there are no NAN elements for further reference while constraining
+
+
 	ControlMath::setZeroIfNanVector3f(vel_sp_position);
+	// PX4_INFO("==============setZeroIfNanVector3f================= \n");
+	// PX4_INFO("vel_sp_position 0: %f", (double) (vel_sp_position(0)));
+	// PX4_INFO("vel_sp_position 1: %f", (double) (vel_sp_position(1)));
+	// PX4_INFO("vel_sp_position 2: %f", (double) (vel_sp_position(2)));
 
 	// Constrain horizontal velocity by prioritizing the velocity component along the
 	// the desired position setpoint over the feed-forward term.
 	_vel_sp.xy() = ControlMath::constrainXY(vel_sp_position.xy(), (_vel_sp - vel_sp_position).xy(), _lim_vel_horizontal);
 	// Constrain velocity in z-direction.
 	_vel_sp(2) = math::constrain(_vel_sp(2), -_lim_vel_up, _lim_vel_down);
+	// PX4_INFO("===============_vel_sp constrain ================ \n");
+	// PX4_INFO("_vel_sp 0: %f", (double) (_vel_sp(0)));
+	// PX4_INFO("_vel_sp 1: %f", (double) (_vel_sp(1)));
+	// PX4_INFO("_vel_sp 2: %f", (double) (_vel_sp(2)));
+	// PX4_INFO("=============================== \n");
+
 }
 
 void PositionControl::_velocityControl(const float dt)
@@ -127,7 +157,18 @@ void PositionControl::_velocityControl(const float dt)
 	Vector3f acc_sp_velocity = vel_error.emult(_gain_vel_p) + _vel_int - _vel_dot.emult(_gain_vel_d);
 
 	// No control input from setpoints or corresponding states which are NAN
+	// PX4_INFO("==============_velocityControl================= \n");
+	// PX4_INFO("_acc_sp 0: %f", (double) (_acc_sp(0)));
+	// PX4_INFO("_acc_sp 1: %f", (double) (_acc_sp(1)));
+	// PX4_INFO("_acc_sp 2: %f", (double) (_acc_sp(2)));
+	// PX4_INFO("before acc_sp_velocity 0: %f", (double) (acc_sp_velocity(0)));
+	// PX4_INFO("before acc_sp_velocity 1: %f", (double) (acc_sp_velocity(1)));
+	// PX4_INFO("before acc_sp_velocity 2: %f", (double) (acc_sp_velocity(2)));
 	ControlMath::addIfNotNanVector3f(_acc_sp, acc_sp_velocity);
+	// PX4_INFO("===============addIfNotNanVector3f================ \n");
+	// PX4_INFO("_acc_sp 0: %f", (double) (_acc_sp(0)));
+	// PX4_INFO("_acc_sp 1: %f", (double) (_acc_sp(1)));
+	// PX4_INFO("_acc_sp 2: %f", (double) (_acc_sp(2)));
 
 	_accelerationControl();
 
@@ -177,6 +218,10 @@ void PositionControl::_accelerationControl()
 {
 	// Assume standard acceleration due to gravity in vertical direction for attitude generation
 	Vector3f body_z = Vector3f(-_acc_sp(0), -_acc_sp(1), CONSTANTS_ONE_G).normalized();
+	// PX4_INFO("==============_accelerationControl================= \n");
+	// PX4_INFO("body_z 0: %f", (double) (body_z(0)));
+	// PX4_INFO("body_z 1: %f", (double) (body_z(1)));
+	// PX4_INFO("body_z 2: %f", (double) (body_z(2)));
 	ControlMath::limitTilt(body_z, Vector3f(0, 0, 1), _lim_tilt);
 	// Scale thrust assuming hover thrust produces standard gravity
 	float collective_thrust = _acc_sp(2) * (_hover_thrust / CONSTANTS_ONE_G) - _hover_thrust;

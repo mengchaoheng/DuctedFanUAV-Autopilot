@@ -357,6 +357,7 @@ void FlightTaskManualAltitude::_updateSetpoints()
 	}
 
 	_acceleration_setpoint.xy() = sp * tanf(math::radians(_param_mpc_man_tilt_max.get())) * CONSTANTS_ONE_G;
+	// PX4_INFO("_acceleration_setpoint : %f", (double) (_acceleration_setpoint(0)));
 
 	_updateAltitudeLock();
 	_respectGroundSlowdown();
