@@ -249,7 +249,7 @@ void FlightTaskOrbit::generate_circle_approach_setpoints(const Vector2f &center_
 void FlightTaskOrbit::generate_lissajous_setpoints(const Vector2f &init_to_position, const float dt)
 {
 	// Lissajous
-	float T=12;
+	float T=20;
 	// float T=_length*6.f/_v;
 	_iter++;
 
@@ -272,14 +272,6 @@ void FlightTaskOrbit::generate_lissajous_setpoints(const Vector2f &init_to_posit
 	Vector2f velocity_ref_xy( (_length*(2*3.14f/T))*cos(2*3.14f*t/T),  (_length*(2* 2*3.14f/T))*cos(2* 2*3.14f*t/T) );
 	// velocity_ref_xy = velocity_ref_xy.unit_or_zero();
 	// velocity_ref_xy *= _v;
-
-	// xy velocity adjustment to stay on the curve
-	// float x = _length*sin(2*3.14f*t/T);
-	// float y = _length*sin(2* 2*3.14f*t/T);
-	// float delta_x = x-init_to_position(0);
-	// float delta_y = y-init_to_position(1);
-	// Vector2f delta_xy(delta_x, delta_y);
-	// Vector2f velocity_ref_xy = delta_xy.norm() * delta_xy.unit_or_zero();
 	_velocity_setpoint.xy() = velocity_ref_xy;
 	// _velocity_setpoint(0) = NAN;
 	// _velocity_setpoint(1) = NAN;
