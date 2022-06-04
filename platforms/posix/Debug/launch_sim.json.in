@@ -156,7 +156,8 @@
               "r1_rover",
               "boat",
 	          "ductedfan2",
-              "ductedfan4"
+              "ductedfan4",
+              "ductedfan6"
             ],
             "default": "iris"
           }

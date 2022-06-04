@@ -77,6 +77,7 @@ px4_add_romfs_files(
 	6011_typhoon_h480.post
 	15002_ductedfan2
 	15003_ductedfan4
+	15004_ductedfan6
 	6012_typhoon_ctrlalloc
 	6012_typhoon_ctrlalloc.post
 )

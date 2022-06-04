@@ -135,6 +135,7 @@ set(models
 	uuv_hippocampus
 	ductedfan2
 	ductedfan4
+	ductedfan6
 )
 
 set(worlds

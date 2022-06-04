@@ -1,0 +1,112 @@
+#!/bin/sh
+#
+# @name ductedfan6
+#
+# @type Ducted Fan
+# @class Copter
+#
+# @output MAIN1 Upper rotor (CCW)
+# @output MAIN2 servomotor, roll axis
+# @output MAIN3 servomotor, roll pitch axis
+# @output MAIN4 servomotor, roll pitch axis
+# @output MAIN5 servomotor, roll axis
+# @output MAIN6 servomotor, roll pitch axis
+# @output MAIN7 servomotor, roll pitch axis
+
+#
+# @maintainer meng chaoheng
+#
+
+
+. ${R}etc/init.d/rc.mc_defaults
+
+
+param set-default MC_ROLL_P 6
+param set-default MC_ROLLRATE_P 0.45
+param set-default MC_ROLLRATE_I 0.3
+param set-default MC_ROLLRATE_D 0.0
+param set-default MC_ROLLRATE_FF 0
+
+param set-default MC_PITCH_P 6
+param set-default MC_PITCHRATE_P 0.45
+param set-default MC_PITCHRATE_I 0.3
+param set-default MC_PITCHRATE_D 0.0
+param set-default MC_PITCHRATE_FF 0
+
+param set-default MC_YAW_P 5
+param set-default MC_YAWRATE_P 0.4
+param set-default MC_YAWRATE_I 0.3
+param set-default MC_YAWRATE_D 0
+param set-default MC_YAWRATE_FF 0
+
+param set-default MC_ACRO_EXPO_Y 0
+param set-default MC_ACRO_EXPO 0
+param set-default MC_ACRO_SUPEXPO 0
+param set-default MC_ACRO_SUPEXPOY 0
+param set-default MC_ACRO_R_MAX 90.0
+param set-default MC_ACRO_P_MAX 90.0
+param set-default MC_ACRO_Y_MAX 90.0
+
+param set-default MPC_THR_HOVER 0.7
+param set-default MPC_VEL_MANUAL 4
+param set-default MPC_XY_CRUISE 4
+param set-default MPC_XY_P 1
+param set-default MPC_XY_TRAJ_P 1
+param set-default MPC_XY_VEL_MAX 4
+param set-default MPC_XY_VEL_P_ACC 2
+
+param set-default MPC_Z_P 1.5
+param set-default MPC_Z_VEL_I_ACC 0.4
+param set-default MPC_Z_VEL_MAX_DN 0.5
+param set-default MPC_Z_VEL_MAX_UP 2
+param set-default MPC_Z_VEL_P_ACC 2
+
+param set-default NAV_ACC_RAD 2
+
+param set-default PWM_DISARMED 900
+param set-default PWM_MIN 1000
+param set-default PWM_MAX 2000
+param set-default PWM_MAIN_MIN5 1275
+param set-default PWM_MAIN_MIN6 1277
+param set-default PWM_MAIN_MIN7 1360
+param set-default PWM_MAIN_MIN8 1320
+
+param set-default PWM_MAIN_MAX5 1635
+param set-default PWM_MAIN_MAX6 1637
+param set-default PWM_MAIN_MAX7 1720
+param set-default PWM_MAIN_MAX8 1680
+param set-default PWM_MAIN_RATE 333
+
+param set-default RTL_RETURN_ALT 2.5
+param set-default RTL_DESCEND_ALT 2.5
+
+param set-default CBRK_USB_CHK 197848
+param set-default BAT1_N_CELLS 4
+param set-default BAT1_V_CHARGED 4.2
+
+# TELEM1 ttyS1
+param set-default MAV_0_CONFIG 101
+param set-default MAV_0_MODE 0
+param set-default MAV_0_FORWARD 1
+param set-default SER_TEL1_BAUD 921600
+
+param set-default SDLOG_PROFILE  1
+param set-default CYC_T 5000
+param set-default CS1_CUTOFF  3
+param set-default DOMEGA_CUTOFF  10
+param set-default DOMEGA_D_CUTOFF  10
+param set-default OMEGA_CUTOFF  10
+param set-default IMU_DGYRO_CUTOFF  5
+
+param set-default COM_PREARM_MODE  1
+#param set-default CBRK_IO_SAFETY  22027
+#param set-default IMU_GYRO_RATEMAX 400
+
+param set-default MC_PWM_HOVER 1706
+
+set MAV_TYPE 3
+
+set MIXER ductedfan6
+
+# use PWM parameters for throttle channel
+set PWM_OUT 1
