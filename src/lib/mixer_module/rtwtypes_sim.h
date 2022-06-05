@@ -1,22 +1,12 @@
 /*
  * File: rtwtypes.h
  *
- * MATLAB Coder version            : 5.3
- * C/C++ source code generated on  : 03-Jun-2022 18:26:31
+ * MATLAB Coder version            : 4.0
+ * C/C++ source code generated on  : 25-Apr-2021 15:48:18
  */
 
 #ifndef RTWTYPES_H
 #define RTWTYPES_H
-
-/* Include Files */
-
-#ifndef __cplusplus
-#include <stdbool.h>
-#endif
-
-#ifdef __cplusplus
-extern "C" {
-#endif
 
 /*=======================================================================*
  * Target hardware information
@@ -48,9 +38,9 @@ typedef double real64_T;
  * Generic type definitions: real_T, time_T, boolean_T, int_T, uint_T,       *
  *                           ulong_T, char_T and byte_T.                     *
  *===========================================================================*/
-
 typedef double real_T;
 typedef double time_T;
+typedef unsigned char boolean_T;
 typedef bool boolean_T;
 typedef int int_T;
 typedef unsigned int uint_T;
@@ -62,6 +52,7 @@ typedef char_T byte_T;
  * Complex number type definitions                                           *
  *===========================================================================*/
 #define CREAL_T
+
 typedef struct {
   real32_T re;
   real32_T im;
@@ -112,35 +103,38 @@ typedef struct {
  *   int8_T, int16_T, int32_T     - signed 8, 16, or 32 bit integers     *
  *   uint8_T, uint16_T, uint32_T  - unsigned 8, 16, or 32 bit integers   *
  *=======================================================================*/
-
-#define MAX_int8_T ((int8_T)(127))
-#define MIN_int8_T ((int8_T)(-128))
-#define MAX_uint8_T ((uint8_T)(255))
-#define MIN_uint8_T ((uint8_T)(0))
-#define MAX_int16_T ((int16_T)(32767))
-#define MIN_int16_T ((int16_T)(-32768))
-#define MAX_uint16_T ((uint16_T)(65535))
-#define MIN_uint16_T ((uint16_T)(0))
-#define MAX_int32_T ((int32_T)(2147483647))
-#define MIN_int32_T ((int32_T)(-2147483647 - 1))
-#define MAX_uint32_T ((uint32_T)(0xFFFFFFFFU))
-#define MIN_uint32_T ((uint32_T)(0))
+#define MAX_int8_T                     ((int8_T)(127))
+#define MIN_int8_T                     ((int8_T)(-128))
+#define MAX_uint8_T                    ((uint8_T)(255))
+#define MIN_uint8_T                    ((uint8_T)(0))
+#define MAX_int16_T                    ((int16_T)(32767))
+#define MIN_int16_T                    ((int16_T)(-32768))
+#define MAX_uint16_T                   ((uint16_T)(65535))
+#define MIN_uint16_T                   ((uint16_T)(0))
+#define MAX_int32_T                    ((int32_T)(2147483647))
+#define MIN_int32_T                    ((int32_T)(-2147483647-1))
+#define MAX_uint32_T                   ((uint32_T)(0xFFFFFFFFU))
+#define MIN_uint32_T                   ((uint32_T)(0))
 
 /* Logical type definitions */
-#if (!defined(__cplusplus)) && (!defined(__true_false_are_keywords)) &&        \
-    (!defined(__bool_true_false_are_defined))
-#ifndef false
-#define false 0U
-#endif
-#ifndef true
-#define true 1U
-#endif
+#if !defined(__cplusplus) && !defined(__true_false_are_keywords) && !defined(__bool_true_false_are_defined)
+#  ifndef false
+#   define false                       (0U)
+#  endif
+
+#  ifndef true
+#   define true                        (1U)
+#  endif
 #endif
 
-#ifdef __cplusplus
-}
+/*
+ * Maximum length of a MATLAB identifier (function/variable)
+ * including the null-termination character. Referenced by
+ * rt_logging.c and rt_matrx.c.
+ */
+#define TMW_NAME_LENGTH_MAX            64
 #endif
-#endif
+
 /*
  * File trailer for rtwtypes.h
  *

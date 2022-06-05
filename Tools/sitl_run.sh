@@ -50,11 +50,11 @@ else
 fi
 
 # Disable follow mode
-if [[ "$PX4_NO_FOLLOW_MODE" != "1" ]]; then
-    follow_mode="--gui-client-plugin libgazebo_user_camera_plugin.so"
-else
-    follow_mode=""
-fi
+# if [[ "$PX4_NO_FOLLOW_MODE" != "1" ]]; then
+#     follow_mode="--gui-client-plugin libgazebo_user_camera_plugin.so"
+# else
+#     follow_mode=""
+# fi
 
 if [ "$program" == "jmavsim" ]; then
 	jmavsim_pid=`ps aux | grep java | grep "\-jar jmavsim_run.jar" | awk '{ print $2 }'`

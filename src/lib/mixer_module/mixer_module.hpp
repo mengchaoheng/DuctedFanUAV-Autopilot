@@ -311,13 +311,14 @@ private:
 	OutputModuleInterface &_interface;
 
 	perf_counter_t _control_latency_perf;
-	double _uMin[4] {};
-	double _uMax[4] {};
-	double _u[4] {}; //  [-1, 1]
+	float _uMin[6] {};
+	float _uMax[6] {};
+	float _u[6] {}; //  [-1, 1]
 	//double _u_oldest[4] {};
-	double _last_u[4] {};
+	double _last_u[6] {};
 	matrix::Matrix<double, 4, 3> B_inv;
 	const double _B[3][4] = { {-0.5,0.0,0.5,0.0}, {0.0,-0.5,0.0,0.5},{0.25,0.25,0.25,0.25}};
+	const float B[18] = { 0.25, -0.125, 0.1667, 0.25, 0.125, 0.1667, 0, 0.25, 0.1667, -0.25, 0.125, 0.1667, -0.25, -0.125, 0.1667, 0, -0.25, 0.1667};
 	double _indi_fb[3] = {0.0, 0.0, 0.0};
 	double _error_fb[3] = {0.0, 0.0, 0.0};
 	double _fb[3] = {0.0, 0.0, 0.0};

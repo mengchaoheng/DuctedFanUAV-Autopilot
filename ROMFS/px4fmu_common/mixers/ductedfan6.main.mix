@@ -38,32 +38,34 @@ S: 0 0  -10000  -10000      0 -10000  10000
 S: 0 1  -10000  -10000      0 -10000  10000
 S: 0 2  10000  10000      0 -10000  10000
 
--control surfaces 3, roll and yaw
+-control surfaces 2, roll, pitch and yaw
+-------------
+M: 3
+S: 0 0  10000  10000      0 -10000  10000
+S: 0 1  -10000  -10000      0 -10000  10000
+S: 0 2  10000  10000      0 -10000  10000
+
+-control surfaces 4, roll and yaw
 -------------
 M: 2
 S: 0 0  10000  10000      0 -10000  10000
 S: 0 2  10000  10000      0 -10000  10000
 
--control surfaces 4, roll, pitch and yaw
+-control surfaces 5, roll, pitch and yaw
 -------------
 M: 3
 S: 0 0  10000  10000      0 -10000  10000
 S: 0 1  10000  10000      0 -10000  10000
 S: 0 2  10000  10000      0 -10000  10000
 
--control surfaces 11, roll, pitch and yaw
+-control surfaces 6, roll, pitch and yaw
 -------------
 M: 3
 S: 0 0  -10000  -10000      0 -10000  10000
 S: 0 1  10000  10000      0 -10000  10000
 S: 0 2  10000  10000      0 -10000  10000
 
--control surfaces 22, roll, pitch and yaw
--------------
-M: 3
-S: 0 0  10000  10000      0 -10000  10000
-S: 0 1  -10000  -10000      0 -10000  10000
-S: 0 2  10000  10000      0 -10000  10000
+
 
 
 

@@ -40,6 +40,7 @@
 
 
 #include "dir_alloc_sim.h"
+#include "dir_alloc_six.h"
 
 using namespace time_literals;
 
@@ -118,10 +119,10 @@ _control_latency_perf(perf_alloc(PC_ELAPSED, "control latency"))
 	B_inv(3, 1)=(double) 1.0f;
 	B_inv(3, 2)=(double) 1.0f;
 
-	for (size_t i = 0; i < 4; i++)
+	for (size_t i = 0; i < 6; i++)
 	{
-		_uMin[i] = -1.0;
-		_uMax[i] = 1.0;
+		_uMin[i] = -0.5236;
+		_uMax[i] = 0.5236;
 	}
 }
 
@@ -532,74 +533,87 @@ bool MixingOutput::update()
 
 		if (_use_pca==1)
 		{
+			float fb[3] {}; //  [-1, 1]
+			for (size_t i = 0; i < 3; i++)
+			{
+				fb[i] = (float) _fb[i];
+			}
+			float u_all[6];
+			float z_all;
+			short iters_all;
+			dir_alloc_six(_uMin, _uMax, fb, B, u_all, &z_all, &iters_all);
+			for (size_t i = 0; i < 6; i++)
+			{
+				_u[i] = (double) math::constrain((float) u_all[i], (float) (_uMin[i]), (float) (_uMax[i]));
+			}
 			//dir
-			double u_all[4];
-			double z_all;
-			double iters_all;
-			dir_alloc_sim(_fb, _uMin, _uMax, u_all, &z_all, &iters_all);
-			if (z_all>1 || _use_indi != 1)
-			{
-				for (size_t i = 0; i < 4; i++)
-				{
-					_u[i] = (double) math::constrain((float) u_all[i], (float) (_uMin[i]), (float) (_uMax[i]));
-				}
-				allocation_value.flag=0;
-				// PX4_INFO(" dir 1");
-			}
-			else
-			{
-				double u_e[4] = {0.0, 0.0, 0.0, 0.0};
-				double z_e;
-				double iters_e;
-				dir_alloc_sim(_indi_fb, _uMin, _uMax, u_e, &z_e, &iters_e);
-				for (size_t i = 0; i < 3; i++)
-				{
-					double  temp = (double) 0.0f;
-					for(int k = 0 ; k < 4 ; k++)
-					{
-						temp += _B[i][k] * u_e[k];
-					}
-					allocation_value.ue_error[i] =_indi_fb[i] - temp;
-				}
-				if (z_e>1)
-				{
-					double uMin_new[4];
-					double uMax_new[4];
-					for (size_t i = 0; i < 4; i++)
-					{
-						uMin_new[i] = _uMin[i] - u_e[i];
-						uMax_new[i] = _uMax[i] - u_e[i];
-					}
-					double u_d[4] = {0.0, 0.0, 0.0, 0.0};
-					double z_d;
-					double iters_d;
-					dir_alloc_sim(_error_fb, uMin_new, uMax_new, u_d, &z_d, &iters_d);
-					for (size_t i = 0; i < 3; i++)
-					{
-						double  temp = (double) 0.0f;
-						for(int k = 0 ; k < 4 ; k++)
-						{
-							temp += _B[i][k] * u_d[k];
-						}
-						allocation_value.ud_error[i] =_error_fb[i] - temp;
-					}
-					for (size_t i = 0; i < 4; i++)
-					{
-						_u[i] = (double) math::constrain((float) (u_d[i] + u_e[i]), (float) (_uMin[i]), (float) (_uMax[i]));
-					}
-					// PX4_INFO("dir 3");
-					allocation_value.flag=1;
-				}
-				else
-				{
-					for (size_t i = 0; i < 4; i++)
-					{
-						_u[i] = (double) math::constrain((float) u_e[i], (float) (_uMin[i]), (float) (_uMax[i]));
-					}
-					// PX4_INFO("dir 2");
-					allocation_value.flag=-1;
-				}
-			}
+			// double u_all[4];
+			// double z_all;
+			// double iters_all;
+			// dir_alloc_sim(_fb, _uMin, _uMax, u_all, &z_all, &iters_all);
+			// if (z_all>1 || _use_indi != 1)
+			// {
+			// 	for (size_t i = 0; i < 4; i++)
+			// 	{
+			// 		_u[i] = (double) math::constrain((float) u_all[i], (float) (_uMin[i]), (float) (_uMax[i]));
+			// 	}
+			// 	allocation_value.flag=0;
+			// 	// PX4_INFO(" dir 1");
+			// }
+			// else
+			// {
+			// 	double u_e[4] = {0.0, 0.0, 0.0, 0.0};
+			// 	double z_e;
+			// 	double iters_e;
+			// 	dir_alloc_sim(_indi_fb, _uMin, _uMax, u_e, &z_e, &iters_e);
+			// 	for (size_t i = 0; i < 3; i++)
+			// 	{
+			// 		double  temp = (double) 0.0f;
+			// 		for(int k = 0 ; k < 4 ; k++)
+			// 		{
+			// 			temp += _B[i][k] * u_e[k];
+			// 		}
+			// 		allocation_value.ue_error[i] =_indi_fb[i] - temp;
+			// 	}
+			// 	if (z_e>1)
+			// 	{
+			// 		double uMin_new[4];
+			// 		double uMax_new[4];
+			// 		for (size_t i = 0; i < 4; i++)
+			// 		{
+			// 			uMin_new[i] = _uMin[i] - u_e[i];
+			// 			uMax_new[i] = _uMax[i] - u_e[i];
+			// 		}
+			// 		double u_d[4] = {0.0, 0.0, 0.0, 0.0};
+			// 		double z_d;
+			// 		double iters_d;
+			// 		dir_alloc_sim(_error_fb, uMin_new, uMax_new, u_d, &z_d, &iters_d);
+			// 		for (size_t i = 0; i < 3; i++)
+			// 		{
+			// 			double  temp = (double) 0.0f;
+			// 			for(int k = 0 ; k < 4 ; k++)
+			// 			{
+			// 				temp += _B[i][k] * u_d[k];
+			// 			}
+			// 			allocation_value.ud_error[i] =_error_fb[i] - temp;
+			// 		}
+			// 		for (size_t i = 0; i < 4; i++)
+			// 		{
+			// 			_u[i] = (double) math::constrain((float) (u_d[i] + u_e[i]), (float) (_uMin[i]), (float) (_uMax[i]));
+			// 		}
+			// 		// PX4_INFO("dir 3");
+			// 		allocation_value.flag=1;
+			// 	}
+			// 	else
+			// 	{
+			// 		for (size_t i = 0; i < 4; i++)
+			// 		{
+			// 			_u[i] = (double) math::constrain((float) u_e[i], (float) (_uMin[i]), (float) (_uMax[i]));
+			// 		}
+			// 		// PX4_INFO("dir 2");
+			// 		allocation_value.flag=-1;
+			// 	}
+			// }
 		}
 		else
 		{
@@ -613,28 +627,28 @@ bool MixingOutput::update()
 			}
 			allocation_value.flag=-2;
 		}
-		float u_ultimate[4];
+		float u_ultimate[6];
 
-		for (size_t i = 0; i < 3; i++)
-		{
-			double  temp = (double) 0.0f;
-			for(int k = 0 ; k < 4 ; k++)
-			{
-				temp += _B[i][k] * _u[k];
-			}
-			allocation_value.error[i] =_fb[i] - temp;
-		}
+		// for (size_t i = 0; i < 3; i++)
+		// {
+		// 	double  temp = (double) 0.0f;
+		// 	for(int k = 0 ; k < 4 ; k++)
+		// 	{
+		// 		temp += _B[i][k] * _u[k];
+		// 	}
+		// 	allocation_value.error[i] =_fb[i] - temp;
+		// }
 
-		for (size_t i = 0; i < 4; i++)
+		for (size_t i = 0; i < 6; i++)
 		{
-			u_ultimate[i] =(float) _u[i];
-			allocation_value.u[i] = _u[i];
-			allocation_value.umin[i] = _uMin[i];
-			allocation_value.umax[i] = _uMax[i];
+			u_ultimate[i] = _u[i];
+			allocation_value.u[i] = (double) _u[i];
+			allocation_value.umin[i] = (double) _uMin[i];
+			allocation_value.umax[i] = (double) _uMax[i];
 		}
-		for (size_t i = 0; i < 4; i++)
+		for (size_t i = 0; i < 6; i++)
 		{
-			outputs[i+4] = (u_ultimate[i])/1.0f;
+			outputs[i+4] = (u_ultimate[i])/0.5236f;
 			allocation_value.u_ultimate[i] = u_ultimate[i];
 		}
 	}
@@ -642,7 +656,7 @@ bool MixingOutput::update()
 	{
 		for (size_t i = 0; i < 4; i++)
 		{
-			_u[i] = (double) outputs[i+4];
+			_u[i] =  outputs[i+4];
 		}
 	}
 	allocation_value.timestamp = hrt_absolute_time();
@@ -771,7 +785,7 @@ MixingOutput::setAndPublishActuatorOutputs(unsigned num_outputs, actuator_output
 	//update _last_output_value
 	_last_output_value[0] = _current_output_value[0];
 	for (size_t i = 0; i < 4; ++i) {
-		_last_u[i] = _u[i];
+		_last_u[i] = (double) _u[i];
 	}
 
 }
