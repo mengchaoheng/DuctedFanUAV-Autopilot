@@ -136,6 +136,7 @@ set(models
 	ductedfan2
 	ductedfan4
 	ductedfan6
+	ductedfan_mini
 )
 
 set(worlds

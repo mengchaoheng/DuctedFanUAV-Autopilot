@@ -1,6 +1,6 @@
 #!/bin/sh
 #
-# @name ductedfan4
+# @name ductedfan_mini
 #
 # @type Ducted Fan
 # @class Copter
@@ -71,4 +71,4 @@ param set-default MC_PWM_HOVER 1500
 set MAV_TYPE 3
 set PWM_OUT 1
 
-set MIXER ductedfan4
+set MIXER ductedfan_mini

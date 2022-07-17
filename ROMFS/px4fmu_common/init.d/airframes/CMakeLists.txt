@@ -150,6 +150,7 @@ px4_add_romfs_files(
 	15002_ducted_fan2
 	15003_ducted_fan4
 	15004_ducted_fan6
+	15005_ducted_fan_mini
 
 	16001_helicopter
 
