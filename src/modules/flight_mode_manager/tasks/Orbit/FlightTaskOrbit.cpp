@@ -100,9 +100,6 @@ bool FlightTaskOrbit::applyCommandParameters(const vehicle_command_s &command)
 			ret = false;
 		}
 	}
-	// PX4_INFO("after applyCommandParameters, _center: %f", (double) _center(0));
-	const Vector2f center_to_init_position = Vector2f(_position) - _center;
-	_length = center_to_init_position.norm();
 
 
 	// commanded altitude
@@ -170,8 +167,6 @@ bool FlightTaskOrbit::activate(const vehicle_local_position_setpoint_s &last_set
 	_initial_heading = _yaw;
 	_slew_rate_yaw.setForcedValue(_yaw);
 	_slew_rate_yaw.setSlewRate(math::radians(_param_mpc_yawrauto_max.get()));
-	_time_stamp_last_loop = hrt_absolute_time();
-	_iter = 0.f;
 
 	// need a valid position and velocity
 	ret = ret && PX4_ISFINITE(_position(0))
@@ -271,46 +266,46 @@ bool FlightTaskOrbit::_is_position_on_circle() const
 	       && fabsf(_position(2) - _center(2)) < _param_nav_mc_alt_rad.get();
 
 }
-void FlightTaskOrbit::generate_lissajous_setpoints(const Vector2f &init_to_position, const float dt)
-{
-	// Lissajous
-	float T=20;
-	// float T=_length*6.f/_v;
-	_iter++;
+// void FlightTaskOrbit::generate_lissajous_setpoints(const Vector2f &init_to_position, const float dt)
+// {
+// 	// Lissajous
+// 	float T=20;
+// 	// float T=_length*6.f/_v;
+// 	_iter++;
 
-	if( ((float) _iter) > 2147483647)
-	{
-		_iter = 0;
-	}
-	float t= ((float) _iter) *dt;
-	// PX4_INFO("FlightTaskOrbit Running, t: %f", (double) t);
-	// PX4_INFO("FlightTaskOrbit Running, _iter: %d", _iter);
+// 	if( ((float) _iter) > 2147483647)
+// 	{
+// 		_iter = 0;
+// 	}
+// 	float t= ((float) _iter) *dt;
+// 	// PX4_INFO("FlightTaskOrbit Running, t: %f", (double) t);
+// 	// PX4_INFO("FlightTaskOrbit Running, _iter: %d", _iter);
 
 
-	// x = r*sin((2*pi/T)*t);
-	// y = r*sin(2*(2*pi/T)*t);
-	_position_setpoint(0) = _length*sin(2*3.14f*t/T);
-	_position_setpoint(1) = _length*sin(2* 2*3.14f*t/T);
-	// _position_setpoint(0) = _position_setpoint(1) = NAN;
+// 	// x = r*sin((2*pi/T)*t);
+// 	// y = r*sin(2*(2*pi/T)*t);
+// 	_position_setpoint(0) = _length*sin(2*3.14f*t/T);
+// 	_position_setpoint(1) = _length*sin(2* 2*3.14f*t/T);
+// 	// _position_setpoint(0) = _position_setpoint(1) = NAN;
 
-	// velocity
-	Vector2f velocity_ref_xy( (_length*(2*3.14f/T))*cos(2*3.14f*t/T),  (_length*(2* 2*3.14f/T))*cos(2* 2*3.14f*t/T) );
-	// velocity_ref_xy = velocity_ref_xy.unit_or_zero();
-	// velocity_ref_xy *= _v;
-	_velocity_setpoint.xy() = velocity_ref_xy;
-	// _velocity_setpoint(0) = NAN;
-	// _velocity_setpoint(1) = NAN;
+// 	// velocity
+// 	Vector2f velocity_ref_xy( (_length*(2*3.14f/T))*cos(2*3.14f*t/T),  (_length*(2* 2*3.14f/T))*cos(2* 2*3.14f*t/T) );
+// 	// velocity_ref_xy = velocity_ref_xy.unit_or_zero();
+// 	// velocity_ref_xy *= _v;
+// 	_velocity_setpoint.xy() = velocity_ref_xy;
+// 	// _velocity_setpoint(0) = NAN;
+// 	// _velocity_setpoint(1) = NAN;
 
-	// acc
-	Vector2f acc_ref_xy( -(_length*(2*3.14f/T)*(2*3.14f/T)) * sin(2*3.14f*t/T),  -(_length*(2* 2*3.14f/T))*(2* 2*3.14f/T) * sin(2* 2*3.14f*t/T) );
-	_acceleration_setpoint.xy() = acc_ref_xy;
-	// _acceleration_setpoint(0) = NAN;
-	// _acceleration_setpoint(0) = NAN;
+// 	// acc
+// 	Vector2f acc_ref_xy( -(_length*(2*3.14f/T)*(2*3.14f/T)) * sin(2*3.14f*t/T),  -(_length*(2* 2*3.14f/T))*(2* 2*3.14f/T) * sin(2* 2*3.14f*t/T) );
+// 	_acceleration_setpoint.xy() = acc_ref_xy;
+// 	// _acceleration_setpoint(0) = NAN;
+// 	// _acceleration_setpoint(0) = NAN;
 
-	//yaw
-	_yaw_setpoint = _initial_heading;
-	_yawspeed_setpoint = NAN;
-}
+// 	//yaw
+// 	_yaw_setpoint = _initial_heading;
+// 	_yawspeed_setpoint = NAN;
+// }
 
 void FlightTaskOrbit::_adjustParametersByStick()
 {

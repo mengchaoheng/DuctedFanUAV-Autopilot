@@ -59,7 +59,7 @@
 #include <lib/matrix/matrix/math.hpp>
 #include <mathlib/math/filter/LowPassFilter2p.hpp>
 #include <lib/mathlib/math/filter/NotchFilter.hpp>
-#include <lib/ecl/EKF/RingBuffer.h>
+// #include <lib/ecl/EKF/RingBuffer.h>
 
 using namespace time_literals;
 
@@ -377,7 +377,7 @@ private:
 	bool _use_indi{false};
 	bool _use_alloc{false};
 	bool _use_pca{false};
-	RingBuffer<double> _u_buffer[4];
+	// RingBuffer<double> _u_buffer[4];
 
 	/* SYS_CTRL_ALLOC == 1 */
 	FunctionProviderBase *_function_allocated[MAX_ACTUATORS] {}; ///< unique allocated functions
@@ -407,8 +407,8 @@ private:
 		(ParamInt<px4::params::USE_CA>) _param_use_alloc,
 		(ParamInt<px4::params::USE_INDI>) _param_use_indi,
 		(ParamFloat<px4::params::IMU_GYRO_CUTOFF>) _param_imu_gyro_cutoff,
-		(ParamFloat<px4::params::IMU_GYRO_NF_FREQ>) _param_imu_gyro_nf_freq,
-		(ParamFloat<px4::params::IMU_GYRO_NF_BW>) _param_imu_gyro_nf_bw,
+		(ParamFloat<px4::params::IMU_GYRO_NF0_FRQ>) _param_imu_gyro_nf_freq,
+		(ParamFloat<px4::params::IMU_GYRO_NF0_BW>) _param_imu_gyro_nf_bw,
 		(ParamInt<px4::params::IMU_GYRO_RATEMAX>) _param_imu_gyro_rate_max,
 
 		(ParamFloat<px4::params::IMU_DGYRO_CUTOFF>) _param_imu_dgyro_cutoff,
@@ -419,7 +419,7 @@ private:
 		(ParamFloat<px4::params::DOMEGA_D_CUTOFF>) _param_domega_d_cutoff,
 		(ParamFloat<px4::params::DOMEGA_CUTOFF>) _param_domega_cutoff,
 		(ParamInt<px4::params::CYC_T>) _param_cycle_time,
-		(ParamInt<px4::params::ALLOC_BUFF_L>) _param_alloc_buff_l
+		(ParamInt<px4::params::ALLOC_BUFF_L>) _param_alloc_buff_l,
 		(ParamBool<px4::params::SYS_CTRL_ALLOC>) _param_sys_ctrl_alloc
 
 	)

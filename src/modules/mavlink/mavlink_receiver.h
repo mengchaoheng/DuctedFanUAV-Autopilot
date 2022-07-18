@@ -371,9 +371,6 @@ private:
 	float _global_local_alt0{NAN};
 	MapProjection _global_local_proj_ref{};
 
-	map_projection_reference_s _global_local_proj_ref{};
-	float _global_local_alt0{NAN};
-
 	hrt_abstime			_last_utm_global_pos_com{0};
 
 	// Allocated if needed.
