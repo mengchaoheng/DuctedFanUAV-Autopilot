@@ -1,0 +1,12 @@
+menuconfig MODULES_LOGGER
+	bool "logger"
+	default n
+	---help---
+		Enable support for logger
+
+menuconfig USER_LOGGER
+	bool "logger running as userspace module"
+	default y
+	depends on BOARD_PROTECTED && MODULES_LOGGER
+	---help---
+		Put logger in userspace memory

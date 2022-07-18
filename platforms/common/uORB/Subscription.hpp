@@ -44,7 +44,6 @@
 #include <px4_platform_common/defines.h>
 #include <lib/mathlib/mathlib.h>
 
-#include "uORBDeviceNode.hpp"
 #include "uORBManager.hpp"
 #include "uORBUtils.hpp"
 
@@ -120,14 +119,14 @@ public:
 	bool advertised()
 	{
 		if (valid()) {
-			return _node->is_advertised();
+			return Manager::is_advertised(_node);
 		}
 
 		// try to initialize
 		if (subscribe()) {
 			// check again if valid
 			if (valid()) {
-				return _node->is_advertised();
+				return Manager::is_advertised(_node);
 			}
 		}
 
@@ -137,19 +136,40 @@ public:
 	/**
 	 * Check if there is a new update.
 	 */
-	bool updated() { return advertised() && _node->updates_available(_last_generation); }
+	bool updated()
+	{
+		if (!valid()) {
+			subscribe();
+		}
+
+		return valid() ? Manager::updates_available(_node, _last_generation) : false;
+	}
 
 	/**
 	 * Update the struct
 	 * @param dst The uORB message struct we are updating.
 	 */
-	bool update(void *dst) { return updated() && _node->copy(dst, _last_generation); }
+	bool update(void *dst)
+	{
+		if (!valid()) {
+			subscribe();
+		}
+
+		return valid() ? Manager::orb_data_copy(_node, dst, _last_generation, true) : false;
+	}
 
 	/**
 	 * Copy the struct
 	 * @param dst The uORB message struct we are updating.
 	 */
-	bool copy(void *dst) { return advertised() && _node->copy(dst, _last_generation); }
+	bool copy(void *dst)
+	{
+		if (!valid()) {
+			subscribe();
+		}
+
+		return valid() ? Manager::orb_data_copy(_node, dst, _last_generation, false) : false;
+	}
 
 	/**
 	 * Change subscription instance
@@ -166,9 +186,9 @@ protected:
 	friend class SubscriptionCallback;
 	friend class SubscriptionCallbackWorkItem;
 
-	DeviceNode *get_node() { return _node; }
+	void *get_node() { return _node; }
 
-	DeviceNode *_node{nullptr};
+	void *_node{nullptr};
 
 	unsigned _last_generation{0}; /**< last generation the subscriber has seen */
 

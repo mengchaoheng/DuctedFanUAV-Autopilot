@@ -1,6 +1,6 @@
 /****************************************************************************
  *
- *   Copyright (c) 2021 PX4 Development Team. All rights reserved.
+ *   Copyright (c) 2021-2022 PX4 Development Team. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -36,6 +36,8 @@
 #include <board_pwm_out.h>
 #include <drivers/drv_hrt.h>
 
+#include <px4_platform_common/sem.hpp>
+
 using namespace pwm_out;
 
 LinuxPWMOut::LinuxPWMOut() :
@@ -44,8 +46,10 @@ LinuxPWMOut::LinuxPWMOut() :
 	_cycle_perf(perf_alloc(PC_ELAPSED, MODULE_NAME": cycle")),
 	_interval_perf(perf_alloc(PC_INTERVAL, MODULE_NAME": interval"))
 {
-	_mixing_output.setAllMinValues(PWM_DEFAULT_MIN);
-	_mixing_output.setAllMaxValues(PWM_DEFAULT_MAX);
+	if (!_mixing_output.useDynamicMixing()) {
+		_mixing_output.setAllMinValues(PWM_DEFAULT_MIN);
+		_mixing_output.setAllMaxValues(PWM_DEFAULT_MAX);
+	}
 }
 
 LinuxPWMOut::~LinuxPWMOut()
@@ -130,6 +134,8 @@ void LinuxPWMOut::Run()
 		return;
 	}
 
+	SmartLock lock_guard(_lock);
+
 	perf_begin(_cycle_perf);
 	perf_count(_interval_perf);
 
@@ -154,8 +160,8 @@ void LinuxPWMOut::update_params()
 {
 	updateParams();
 
-	// skip update when armed
-	if (_mixing_output.armed().armed) {
+	// skip update when armed or dynamic mixing enabled
+	if (_mixing_output.armed().armed || _mixing_output.useDynamicMixing()) {
 		return;
 	}
 
@@ -299,21 +305,21 @@ void LinuxPWMOut::update_params()
 
 int LinuxPWMOut::ioctl(device::file_t *filp, int cmd, unsigned long arg)
 {
+	SmartLock lock_guard(_lock);
+
 	int ret = OK;
 
 	PX4_DEBUG("ioctl cmd: %d, arg: %ld", cmd, arg);
 
-	lock();
-
 	switch (cmd) {
 	case MIXERIOCRESET:
-		_mixing_output.resetMixerThreadSafe();
+		_mixing_output.resetMixer();
 		break;
 
 	case MIXERIOCLOADBUF: {
 			const char *buf = (const char *)arg;
 			unsigned buflen = strlen(buf);
-			ret = _mixing_output.loadMixerThreadSafe(buf, buflen);
+			ret = _mixing_output.loadMixer(buf, buflen);
 			update_params();
 			break;
 		}
@@ -322,8 +328,6 @@ int LinuxPWMOut::ioctl(device::file_t *filp, int cmd, unsigned long arg)
 		ret = -ENOTTY;
 		break;
 	}
-
-	unlock();
 
 	if (ret == -ENOTTY) {
 		ret = CDev::ioctl(filp, cmd, arg);

@@ -53,11 +53,9 @@ using namespace InvenSense_ICM20948;
 class ICM20948_I2C_Passthrough : public device::I2C, public I2CSPIDriver<ICM20948_I2C_Passthrough>
 {
 public:
-	ICM20948_I2C_Passthrough(I2CSPIBusOption bus_option, int bus, int bus_frequency, const int address);
+	ICM20948_I2C_Passthrough(const I2CSPIDriverConfig &config);
 	~ICM20948_I2C_Passthrough() override;
 
-	static I2CSPIDriverBase *instantiate(const BusCLIArguments &cli, const BusInstanceIterator &iterator,
-					     int runtime_instance);
 	static void print_usage();
 
 	void RunImpl();
@@ -78,7 +76,7 @@ private:
 
 	bool Configure();
 
-	void SelectRegisterBank(enum REG_BANK_SEL_BIT bank);
+	void SelectRegisterBank(enum REG_BANK_SEL_BIT bank, bool force = false);
 	void SelectRegisterBank(Register::BANK_0 reg) { SelectRegisterBank(REG_BANK_SEL_BIT::USER_BANK_0); }
 
 	template <typename T> bool RegisterCheck(const T &reg_cfg);

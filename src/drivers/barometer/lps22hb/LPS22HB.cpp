@@ -42,9 +42,8 @@
 /* Max measurement rate is 25Hz */
 #define LPS22HB_CONVERSION_INTERVAL	(1000000 / 25)	/* microseconds */
 
-LPS22HB::LPS22HB(I2CSPIBusOption bus_option, int bus, device::Device *interface) :
-	I2CSPIDriver(MODULE_NAME, px4::device_bus_to_wq(interface->get_device_id()), bus_option, bus),
-	_px4_baro(interface->get_device_id()),
+LPS22HB::LPS22HB(const I2CSPIDriverConfig &config, device::Device *interface) :
+	I2CSPIDriver(config),
 	_interface(interface),
 	_sample_perf(perf_alloc(PC_ELAPSED, MODULE_NAME": read")),
 	_comms_errors(perf_alloc(PC_COUNT, MODULE_NAME": comms errors"))
@@ -152,14 +151,23 @@ int LPS22HB::collect()
 
 	uint32_t TEMP_OUT = report.TEMP_OUT_L + (report.TEMP_OUT_H << 8);
 	float temperature = 42.5f + (TEMP_OUT / 480.0f);
-	_px4_baro.set_temperature(temperature);
 
 	// To obtain the pressure in hPa, take the two’s complement of the complete word and then divide by 4096 LSB/hPa.
 	uint32_t P = report.PRESS_OUT_XL + (report.PRESS_OUT_L << 8) + (report.PRESS_OUT_H << 16);
 
 	/* Pressure and MSL in mBar */
 	float pressure = P / 4096.0f;
-	_px4_baro.update(timestamp_sample, pressure);
+	float pressure_pa = pressure * 100.f;
+
+	// publish
+	sensor_baro_s sensor_baro{};
+	sensor_baro.timestamp_sample = timestamp_sample;
+	sensor_baro.device_id = _interface->get_device_id();
+	sensor_baro.pressure = pressure_pa;
+	sensor_baro.temperature = temperature;
+	sensor_baro.error_count = perf_event_count(_comms_errors);
+	sensor_baro.timestamp = hrt_absolute_time();
+	_sensor_baro_pub.publish(sensor_baro);
 
 	perf_end(_sample_perf);
 	return PX4_OK;

@@ -112,18 +112,6 @@
 	(1 << ADC_5V_RAIL_SENSE) | \
 	(1 << ADC_BATTERY2_VOLTAGE_CHANNEL) | (1 << ADC_BATTERY2_CURRENT_CHANNEL)
 
-/* Define Battery 1 Voltage Divider and A per V
- */
-
-#define BOARD_BATTERY1_V_DIV (6.490196078f)
-#define BOARD_BATTERY1_A_PER_V (26.4f)
-
-/* Define Battery 2 Voltage Divider and A per V
- */
-
-#define BOARD_BATTERY2_V_DIV (6.490196078f)
-#define BOARD_BATTERY2_A_PER_V (26.4f)
-
 /* Define LTC4417 UV set by resistors on the board that are different than FMUv2 3.7V */
 
 #define BOARD_VALID_UV (4.01f)
@@ -148,7 +136,6 @@
 /* PWM
  */
 #define DIRECT_PWM_OUTPUT_CHANNELS	6
-#define DIRECT_INPUT_TIMER_CHANNELS  6
 
 /* USB OTG FS
  *
@@ -196,7 +183,6 @@
 #define BOARD_ADC_PERIPH_5V_OC  (!px4_arch_gpioread(GPIO_VDD_5V_PERIPH_OC))
 #define BOARD_ADC_HIPOWER_5V_OC (!px4_arch_gpioread(GPIO_VDD_5V_HIPOWER_OC))
 
-#define BOARD_HAS_PWM	DIRECT_PWM_OUTPUT_CHANNELS
 
 /* This board provides a DMA pool and APIs */
 #define BOARD_DMA_ALLOC_POOL_SIZE 5120

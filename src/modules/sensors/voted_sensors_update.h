@@ -1,6 +1,6 @@
 /****************************************************************************
  *
- *   Copyright (c) 2016-2020 PX4 Development Team. All rights reserved.
+ *   Copyright (c) 2016-2022 PX4 Development Team. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -42,6 +42,7 @@
 #include "data_validator/DataValidator.hpp"
 #include "data_validator/DataValidatorGroup.hpp"
 
+#include <px4_platform_common/events.h>
 #include <px4_platform_common/module_params.h>
 #include <drivers/drv_hrt.h>
 #include <mathlib/mathlib.h>
@@ -76,12 +77,6 @@ public:
 	 * Only when calling init(), they have to be initialized.
 	 */
 	VotedSensorsUpdate(bool hil_enabled, uORB::SubscriptionCallbackWorkItem(&vehicle_imu_sub)[MAX_SENSOR_COUNT]);
-
-	/**
-	 * initialize subscriptions etc.
-	 * @return 0 on success, <0 otherwise
-	 */
-	int init(sensor_combined_s &raw);
 
 	/**
 	 * This tries to find new sensor instances. This is called from init(), then it can be called periodically.
@@ -139,7 +134,7 @@ private:
 	 * Check & handle failover of a sensor
 	 * @return true if a switch occured (could be for a non-critical reason)
 	 */
-	bool checkFailover(SensorData &sensor, const char *sensor_name);
+	bool checkFailover(SensorData &sensor, const char *sensor_name, events::px4::enums::sensor_type_t sensor_type);
 
 	/**
 	 * Calculates the magnitude in m/s/s of the largest difference between each accelerometer vector and the mean of all vectors
@@ -180,6 +175,8 @@ private:
 	uint64_t _last_accel_timestamp[MAX_SENSOR_COUNT] {};	/**< latest full timestamp */
 
 	sensor_selection_s _selection {};		/**< struct containing the sensor selection to be published to the uORB */
+
+	bool _parameter_update{false};
 
 	DEFINE_PARAMETERS(
 		(ParamBool<px4::params::SENS_IMU_MODE>) _param_sens_imu_mode

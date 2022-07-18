@@ -77,11 +77,9 @@
 
 /* CAN Silence: Silent mode control */
 #define GPIO_CAN1_SILENT_S0  /* PF5  */ (GPIO_OUTPUT|GPIO_PUSHPULL|GPIO_SPEED_2MHz|GPIO_OUTPUT_CLEAR|GPIO_PORTF|GPIO_PIN5)
-#define GPIO_CAN2_SILENT_S0  /* PF5  */ (GPIO_OUTPUT|GPIO_PUSHPULL|GPIO_SPEED_2MHz|GPIO_OUTPUT_CLEAR|GPIO_PORTF|GPIO_PIN5)
 
 /* PWM */
 #define DIRECT_PWM_OUTPUT_CHANNELS  8
-#define DIRECT_INPUT_TIMER_CHANNELS  8
 
 /* Power supply control and monitoring GPIOs */
 #define GPIO_nPOWER_IN_A                /* PB5 */ (GPIO_INPUT|GPIO_PULLUP|GPIO_PORTB|GPIO_PIN5)
@@ -156,11 +154,9 @@
 
 #define BOARD_HAS_STATIC_MANIFEST 1
 
-#define BOARD_HAS_PWM  DIRECT_PWM_OUTPUT_CHANNELS
 
 #define BOARD_NUM_IO_TIMERS 3
 
-#define BOARD_DSHOT_MOTOR_ASSIGNMENT {3, 2, 1, 0, 4, 5, 6, 7};
 
 #define BOARD_ENABLE_CONSOLE_BUFFER
 
@@ -171,7 +167,6 @@
 		GPIO_CAN2_TX,                     \
 		GPIO_CAN2_RX,                     \
 		GPIO_CAN1_SILENT_S0,              \
-		GPIO_CAN2_SILENT_S0,              \
 		GPIO_nPOWER_IN_A,                 \
 		GPIO_VDD_3V3_SPEKTRUM_POWER_EN,   \
 		GPIO_TONE_ALARM_IDLE,             \

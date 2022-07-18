@@ -95,7 +95,8 @@ hrt_abstime hrt_absolute_time_offset()
 
 static void hrt_lock()
 {
-	px4_sem_wait(&_hrt_lock);
+	// loop as the wait may be interrupted by a signal
+	do {} while (px4_sem_wait(&_hrt_lock) != 0);
 }
 
 static void hrt_unlock()
@@ -142,33 +143,6 @@ hrt_abstime hrt_absolute_time()
 	px4_clock_gettime(CLOCK_MONOTONIC, &ts);
 	return ts_to_abstime(&ts);
 #endif // defined(ENABLE_LOCKSTEP_SCHEDULER)
-}
-
-/*
- * Convert a timespec to absolute time.
- */
-hrt_abstime ts_to_abstime(const struct timespec *ts)
-{
-	hrt_abstime	result;
-
-	result = (hrt_abstime)(ts->tv_sec) * 1000000;
-	result += ts->tv_nsec / 1000;
-
-	return result;
-}
-
-/*
- * Compute the delta between a timestamp taken in the past
- * and now.
- *
- * This function is safe to use even if the timestamp is updated
- * by an interrupt during execution.
- */
-hrt_abstime hrt_elapsed_time_atomic(const volatile hrt_abstime *then)
-{
-	// This is not atomic as the value on the application layer of POSIX is limited.
-	hrt_abstime delta = hrt_absolute_time() - *then;
-	return delta;
 }
 
 /*
@@ -360,7 +334,7 @@ hrt_call_reschedule()
 	// Remove the existing expiry and update with the new expiry
 	hrt_work_cancel(&_hrt_work);
 
-	hrt_work_queue(&_hrt_work, (worker_t)&hrt_tim_isr, nullptr, delay);
+	hrt_work_queue(&_hrt_work, &hrt_tim_isr, nullptr, delay);
 }
 
 static void
@@ -496,13 +470,6 @@ hrt_call_invoke()
 	}
 
 	hrt_unlock();
-}
-
-void abstime_to_ts(struct timespec *ts, hrt_abstime abstime)
-{
-	ts->tv_sec = abstime / 1000000;
-	abstime -= ts->tv_sec * 1000000;
-	ts->tv_nsec = abstime * 1000;
 }
 
 int px4_clock_gettime(clockid_t clk_id, struct timespec *tp)

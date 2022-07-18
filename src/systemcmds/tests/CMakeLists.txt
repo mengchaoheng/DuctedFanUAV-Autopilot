@@ -32,12 +32,10 @@
 ############################################################################
 
 set(srcs
-	test_adc.cpp
 	test_atomic_bitset.cpp
 	test_bezierQuad.cpp
 	test_bitset.cpp
 	test_bson.cpp
-	test_conv.cpp
 	test_dataman.c
 	test_file.c
 	test_file2.c
@@ -47,26 +45,18 @@ set(srcs
 	test_int.cpp
 	test_i2c_spi_cli.cpp
 	test_IntrusiveQueue.cpp
-	test_jig_voltages.cpp
 	test_led.c
 	test_List.cpp
 	test_IntrusiveSortedList.cpp
 	test_mathlib.cpp
 	test_matrix.cpp
-	test_microbench_atomic.cpp
-	test_microbench_hrt.cpp
-	test_microbench_math.cpp
-	test_microbench_matrix.cpp
-	test_microbench_uorb.cpp
 	test_mixer.cpp
 	test_param.c
 	test_parameters.cpp
 	test_perf.c
 	test_ppm.cpp
-	test_ppm_loopback.c
-	test_rc.c
+	test_rc.cpp
 	test_search_min.cpp
-	test_servo.c
 	test_sleep.c
 	test_uart_baudchange.c
 	test_uart_console.c
@@ -104,9 +94,6 @@ px4_add_module(
 	SRCS
 		${srcs}
 	DEPENDS
-		git_ecl
-		ecl_geo_lookup # TODO: move this
-		output_limit
 		version
 	)
 

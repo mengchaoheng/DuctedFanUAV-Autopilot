@@ -31,6 +31,12 @@
 #
 ############################################################################
 
+if (DEFINED PX4_CRYPTO)
+
+px4_add_git_submodule(TARGET git_monocypher PATH "monocypher")
+px4_add_git_submodule(TARGET git_libtomcrypt PATH "libtomcrypt")
+px4_add_git_submodule(TARGET git_libtommath PATH "libtommath")
+
 px4_add_library(monocypher
 	monocypher/src/monocypher.c
 	monocypher/src/optional/monocypher-ed25519.c
@@ -43,3 +49,64 @@ target_include_directories(monocypher
 
 # There is a one shadow warning in monocypher 3.1.2, ignore it
 target_compile_options(monocypher PRIVATE -Wno-shadow)
+
+
+
+file(GLOB TOMMATH_SRC RELATIVE ${CMAKE_CURRENT_SOURCE_DIR} "libtommath/*.c")
+px4_add_library(libtommath
+  ${TOMMATH_SRC}
+)
+
+
+file(GLOB_RECURSE PK_SRC RELATIVE ${CMAKE_CURRENT_SOURCE_DIR} "libtomcrypt/src/pk/*.c")
+file(GLOB_RECURSE MATH_SRC RELATIVE ${CMAKE_CURRENT_SOURCE_DIR} "libtomcrypt/src/math/*.c")
+
+px4_add_library(libtomcrypt
+libtomcrypt_wrappers.c
+	${PK_SRC}
+	${MATH_SRC}
+	libtomcrypt/src/hashes/sha2/sha256.c
+	libtomcrypt/src/hashes/helper/hash_memory.c
+	libtomcrypt/src/prngs/sprng.c
+	libtomcrypt/src/misc/crypt/crypt_ltc_mp_descriptor.c
+	libtomcrypt/src/misc/crypt/crypt_hash_is_valid.c
+	libtomcrypt/src/misc/crypt/crypt_prng_is_valid.c
+	libtomcrypt/src/misc/zeromem.c
+)
+
+target_include_directories(libtomcrypt
+	PRIVATE
+		${CMAKE_CURRENT_SOURCE_DIR}/libtommath
+        )
+
+target_include_directories(libtomcrypt
+	PUBLIC
+		${CMAKE_CURRENT_SOURCE_DIR}/libtomcrypt/src/headers
+)
+
+# libtomcrypt defines:
+# ARGTYPE=3: No argument checking
+add_definitions(-DARGTYPE=3 -DLTC_EASY -DLTC_NO_TEST -DLTM_DESC -DMP_LOW_MEM)
+
+# link to libtommath and os provided random library
+target_link_libraries(libtomcrypt
+	PRIVATE
+		libtommath
+		px4_random
+)
+
+# Fix for erroneous warning on some compilers:
+# "der_encode_asn1_identifier.c:39:18: error: comparison is always false due to limited range of data type"
+target_compile_options(libtomcrypt PRIVATE -Wno-type-limits)
+
+# Re-define memory allocation macros if we are building for
+# memory protected build in nuttx. All allocations happen in
+# kernel heap there
+
+if (NOT DEFINED CONFIG_BUILD_FLAT AND "${PX4_PLATFORM}" MATCHES "nuttx")
+	target_compile_options(libtomcrypt PUBLIC -DXMALLOC=kmm_malloc -DXFREE=kmm_free -DXREALLOC=kmm_realloc -DXCALLOC=kmm_calloc)
+	target_compile_options(libtommath PUBLIC -DMP_MALLOC=kmm_malloc -DMP_FREE\(p,s\)=kmm_free\(p\) -DMP_REALLOC\(p,o,n\)=kmm_realloc\(p,n\) -DMP_CALLOC=kmm_calloc)
+	target_link_libraries(libtommath PRIVATE nuttx_kmm)
+endif()
+
+endif()

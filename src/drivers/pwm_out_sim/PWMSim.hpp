@@ -43,6 +43,16 @@
 #include <px4_platform_common/tasks.h>
 #include <px4_platform_common/time.h>
 #include <uORB/topics/parameter_update.h>
+#include <uORB/topics/actuator_outputs.h>
+#include <uORB/Publication.hpp>
+#include <uORB/Subscription.hpp>
+
+#if defined(CONFIG_ARCH_BOARD_PX4_SITL)
+#define PARAM_PREFIX "PWM_MAIN"
+#else
+#define PARAM_PREFIX "HIL_ACT"
+#endif
+
 
 using namespace time_literals;
 
@@ -77,7 +87,9 @@ private:
 	static constexpr uint16_t PWM_SIM_PWM_MIN_MAGIC = 1000;
 	static constexpr uint16_t PWM_SIM_PWM_MAX_MAGIC = 2000;
 
-	MixingOutput _mixing_output{MAX_ACTUATORS, *this, MixingOutput::SchedulingPolicy::Auto, false, false};
+	MixingOutput _mixing_output{PARAM_PREFIX, MAX_ACTUATORS, *this, MixingOutput::SchedulingPolicy::Auto, false, false};
 	uORB::SubscriptionInterval _parameter_update_sub{ORB_ID(parameter_update), 1_s};
+
+	uORB::Publication<actuator_outputs_s> _actuator_outputs_sim_pub{ORB_ID(actuator_outputs_sim)};
 };
 

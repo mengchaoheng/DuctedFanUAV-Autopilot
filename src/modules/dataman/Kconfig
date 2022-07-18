@@ -1,0 +1,13 @@
+menuconfig MODULES_DATAMAN
+	bool "dataman"
+	default n
+	---help---
+		Enable support for dataman
+
+
+menuconfig USER_DATAMAN
+	bool "dataman running as userspace module"
+	default y
+	depends on BOARD_PROTECTED && MODULES_DATAMAN
+	---help---
+		Put dataman in userspace memory

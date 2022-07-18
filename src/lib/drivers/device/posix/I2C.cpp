@@ -1,6 +1,6 @@
 /****************************************************************************
  *
- *   Copyright (c) 2016-2020 PX4 Development Team. All rights reserved.
+ *   Copyright (c) 2016-2021 PX4 Development Team. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -42,10 +42,14 @@
 
 #include "I2C.hpp"
 
+#if defined(CONFIG_I2C)
+
 #ifdef __PX4_LINUX
 
 #include <linux/i2c.h>
 #include <linux/i2c-dev.h>
+
+#include <px4_platform_common/i2c_spi_buses.h>
 
 namespace device
 {
@@ -58,6 +62,11 @@ I2C::I2C(uint8_t device_type, const char *name, const int bus, const uint16_t ad
 	_device_id.devid_s.bus_type = DeviceBusType_I2C;
 	_device_id.devid_s.bus = bus;
 	_device_id.devid_s.address = address;
+}
+
+I2C::I2C(const I2CSPIDriverConfig &config)
+	: I2C(config.devid_driver_index, config.module_name, config.bus, config.i2c_address, config.bus_frequency)
+{
 }
 
 I2C::~I2C()
@@ -174,3 +183,5 @@ I2C::transfer(const uint8_t *send, const unsigned send_len, uint8_t *recv, const
 } // namespace device
 
 #endif // __PX4_LINUX
+
+#endif // CONFIG_I2C

@@ -54,6 +54,23 @@ int signNoZero(T val)
 	return (T(0) <= val) - (val < T(0));
 }
 
+/**
+ * Sign function based on a boolean
+ *
+ * @param[in] positive Truth value to take the sign from
+ * @return 1 if positive is true, -1 if positive is false
+ */
+inline int signFromBool(bool positive)
+{
+	return positive ? 1 : -1;
+}
+
+template<typename T>
+T sq(T val)
+{
+	return val * val;
+}
+
 /*
  * So called exponential curve function implementation.
  * It is essentially a linear combination between a linear and a cubic function.
@@ -134,7 +151,7 @@ const T expo_deadzone(const T &value, const T &e, const T &dz)
 template<typename T>
 const T gradual(const T &value, const T &x_low, const T &x_high, const T &y_low, const T &y_high)
 {
-	if (value < x_low) {
+	if (value <= x_low) {
 		return y_low;
 
 	} else if (value > x_high) {
@@ -221,7 +238,32 @@ constexpr T negate(T value)
 template<>
 constexpr int16_t negate<int16_t>(int16_t value)
 {
-	return (value == INT16_MIN) ? INT16_MAX : -value;
+	if (value == INT16_MAX) {
+		return INT16_MIN;
+
+	} else if (value == INT16_MIN) {
+		return INT16_MAX;
+	}
+
+	return -value;
+}
+
+/*
+ * This function calculates the Hamming weight, i.e. counts the number of bits that are set
+ * in a given integer.
+ */
+
+template<typename T>
+int countSetBits(T n)
+{
+	int count = 0;
+
+	while (n) {
+		count += n & 1;
+		n >>= 1;
+	}
+
+	return count;
 }
 
 inline bool isFinite(const float &value)

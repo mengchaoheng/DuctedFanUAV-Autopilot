@@ -52,9 +52,12 @@
 
 #include <drivers/drv_hrt.h>
 #include <lib/parameters/param.h>
-#include <lib/ecl/AlphaFilter/AlphaFilter.hpp>
+#include <lib/mathlib/math/filter/AlphaFilter.hpp>
 #include <uORB/PublicationMulti.hpp>
+#include <uORB/Subscription.hpp>
+#include <uORB/topics/actuator_controls.h>
 #include <uORB/topics/battery_status.h>
+#include <uORB/topics/vehicle_status.h>
 
 /**
  * BatteryBase is a base class for any type of battery.
@@ -65,7 +68,7 @@
 class Battery : public ModuleParams
 {
 public:
-	Battery(int index, ModuleParams *parent, const int sample_interval_us);
+	Battery(int index, ModuleParams *parent, const int sample_interval_us, const uint8_t source);
 	~Battery() = default;
 
 	/**
@@ -83,18 +86,27 @@ public:
 	 */
 	float full_cell_voltage() { return _params.v_charged; }
 
+	void setPriority(const uint8_t priority) { _priority = priority; }
+	void setConnected(const bool connected) { _connected = connected; }
+	void updateVoltage(const float voltage_v);
+	void updateCurrent(const float current_a);
+
 	/**
-	 * Update current battery status message.
+	 * Update state of charge calculations
 	 *
-	 * @param voltage_raw: Battery voltage, in Volts
-	 * @param current_raw: Battery current, in Amps
-	 * @param timestamp: Time at which the ADC was read (use hrt_absolute_time())
-	 * @param source: Source type in relation to BAT%d_SOURCE param.
-	 * @param priority: The brick number -1. The term priority refers to the Vn connection on the LTC4417
-	 * @param throttle_normalized: Throttle of the vehicle, between 0 and 1
+	 * @param timestamp Time at which the battery data sample was measured
 	 */
-	void updateBatteryStatus(const hrt_abstime &timestamp, float voltage_v, float current_a, bool connected,
-				 int source, int priority, float throttle_normalized);
+	void updateBatteryStatus(const hrt_abstime &timestamp);
+
+	battery_status_s getBatteryStatus();
+	void publishBatteryStatus(const battery_status_s &battery_status);
+
+	/**
+	 * Convenience function for combined update and publication
+	 * @see updateBatteryStatus()
+	 * @see publishBatteryStatus()
+	 */
+	void updateAndPublishBatteryStatus(const hrt_abstime &timestamp);
 
 protected:
 	struct {
@@ -108,16 +120,7 @@ protected:
 		param_t crit_thr;
 		param_t emergen_thr;
 		param_t source;
-
-		// TODO: These parameters are depracated. They can be removed entirely once the
-		//  new version of Firmware has been around for long enough.
-		param_t v_empty_old;
-		param_t v_charged_old;
-		param_t n_cells_old;
-		param_t capacity_old;
-		param_t v_load_drop_old;
-		param_t r_internal_old;
-		param_t source_old;
+		param_t bat_avrg_current;
 	} _param_handles{};
 
 	struct {
@@ -131,16 +134,7 @@ protected:
 		float crit_thr;
 		float emergen_thr;
 		int32_t source;
-
-		// TODO: These parameters are depracated. They can be removed entirely once the
-		//  new version of Firmware has been around for long enough.
-		float v_empty_old;
-		float v_charged_old;
-		int32_t  n_cells_old;
-		float capacity_old;
-		float v_load_drop_old;
-		float r_internal_old;
-		int32_t source_old;
+		float bat_avrg_current;
 	} _params{};
 
 	const int _index;
@@ -148,57 +142,33 @@ protected:
 	bool _first_parameter_update{true};
 	void updateParams() override;
 
-	/**
-	 * This function helps migrating and syncing from/to deprecated parameters. BAT_* BAT1_*
-	 * @tparam T Type of the parameter (int or float)
-	 * @param old_param Handle to the old deprecated parameter (for example, param_find("BAT_N_CELLS"))
-	 * @param new_param Handle to the new replacement parameter (for example, param_find("BAT1_N_CELLS"))
-	 * @param old_val Pointer to the value of the old deprecated parameter
-	 * @param new_val Pointer to the value of the new replacement parameter
-	 * @param firstcall If true, this function prefers migrating old to new
-	 */
-	template<typename T>
-	void migrateParam(param_t old_param, param_t new_param, T *old_val, T *new_val, bool firstcall)
-	{
-		T previous_old_val = *old_val;
-		T previous_new_val = *new_val;
-
-		// Update both the old and new parameter values
-		param_get(old_param, old_val);
-		param_get(new_param, new_val);
-
-		// Check if the parameter values are different
-		if (!matrix::isEqualF((float)*old_val, (float)*new_val)) {
-			// If so, copy the new value over to the unchanged parameter
-			// Note: If they differ from the beginning we migrate old to new
-			if (firstcall || !matrix::isEqualF((float)*old_val, (float)previous_old_val)) {
-				param_set_no_notification(new_param, old_val);
-				param_get(new_param, new_val);
-
-			} else if (!matrix::isEqualF((float)*new_val, (float)previous_new_val)) {
-				param_set_no_notification(old_param, new_val);
-				param_get(old_param, old_val);
-			}
-		}
-	}
-
 private:
 	void sumDischarged(const hrt_abstime &timestamp, float current_a);
-	void estimateStateOfCharge(const float voltage_v, const float current_a, const float throttle);
+	void estimateStateOfCharge(const float voltage_v, const float current_a);
 	uint8_t determineWarning(float state_of_charge);
 	void computeScale();
+	float computeRemainingTime(float current_a);
 
+	uORB::Subscription _actuator_controls_0_sub{ORB_ID(actuator_controls_0)};
+	uORB::Subscription _vehicle_status_sub{ORB_ID(vehicle_status)};
 	uORB::PublicationMulti<battery_status_s> _battery_status_pub{ORB_ID(battery_status)};
 
+	bool _connected{false};
+	const uint8_t _source;
+	uint8_t _priority{0};
 	bool _battery_initialized{false};
+	float _voltage_v{0.f};
 	AlphaFilter<float> _voltage_filter_v;
+	float _current_a{-1};
 	AlphaFilter<float> _current_filter_a;
+	AlphaFilter<float> _current_average_filter_a;
 	AlphaFilter<float> _throttle_filter;
 	float _discharged_mah{0.f};
 	float _discharged_mah_loop{0.f};
-	float _state_of_charge_volt_based{-1.f};	// [0,1]
-	float _state_of_charge{-1.f};				// [0,1]
+	float _state_of_charge_volt_based{-1.f}; // [0,1]
+	float _state_of_charge{-1.f}; // [0,1]
 	float _scale{1.f};
 	uint8_t _warning{battery_status_s::BATTERY_WARNING_NONE};
 	hrt_abstime _last_timestamp{0};
+	bool _armed{false};
 };

@@ -99,19 +99,11 @@ int uORB::DeviceMaster::advertise(const struct orb_metadata *meta, bool is_adver
 			*instance = group_tries;
 		}
 
-		/* driver wants a permanent copy of the path, so make one here */
-		const char *devpath = strdup(nodepath);
-
-		if (devpath == nullptr) {
-			return -ENOMEM;
-		}
-
 		/* construct the new node, passing the ownership of path to it */
-		uORB::DeviceNode *node = new uORB::DeviceNode(meta, group_tries, devpath);
+		uORB::DeviceNode *node = new uORB::DeviceNode(meta, group_tries, nodepath);
 
-		/* if we didn't get a device, that's bad, free the path too */
+		/* if we didn't get a device, that's bad */
 		if (node == nullptr) {
-			free((void *)devpath);
 			return -ENOMEM;
 		}
 
@@ -369,7 +361,9 @@ void uORB::DeviceMaster::showTop(char **topic_filter, int num_filters)
 
 		if (!quit) {
 
-			//update the stats
+			// update the stats
+			int total_size = 0;
+			int total_msgs = 0;
 			hrt_abstime current_time = hrt_absolute_time();
 			float dt = (current_time - start_time) / 1.e6f;
 			cur_node = first_node;
@@ -378,6 +372,10 @@ void uORB::DeviceMaster::showTop(char **topic_filter, int num_filters)
 				unsigned int num_msgs = cur_node->node->updates_available(cur_node->last_pub_msg_count);
 				cur_node->pub_msg_delta = roundf(num_msgs / dt);
 				cur_node->last_pub_msg_count += num_msgs;
+
+				total_size += cur_node->pub_msg_delta * cur_node->node->get_meta()->o_size;
+				total_msgs += cur_node->pub_msg_delta;
+
 				cur_node = cur_node->next;
 			}
 
@@ -388,7 +386,8 @@ void uORB::DeviceMaster::showTop(char **topic_filter, int num_filters)
 				PX4_INFO_RAW("\033[H"); // move cursor to top left corner
 			}
 
-			PX4_INFO_RAW(CLEAR_LINE "update: 1s, num topics: %i\n", num_topics);
+			PX4_INFO_RAW(CLEAR_LINE "update: 1s, topics: %i, total publications: %i, %.1f kB/s\n",
+				     num_topics, total_msgs, (double)(total_size / 1000.f));
 			PX4_INFO_RAW(CLEAR_LINE "%-*s INST #SUB RATE #Q SIZE\n", (int)max_topic_name_length - 2, "TOPIC NAME");
 			cur_node = first_node;
 
@@ -403,6 +402,7 @@ void uORB::DeviceMaster::showTop(char **topic_filter, int num_filters)
 
 				cur_node = cur_node->next;
 			}
+
 
 			if (!only_once) {
 				PX4_INFO_RAW("\033[0J"); // clear the rest of the screen
@@ -449,34 +449,6 @@ uORB::DeviceNode *uORB::DeviceMaster::getDeviceNode(const char *nodepath)
 	unlock();
 
 	return nullptr;
-}
-
-bool uORB::DeviceMaster::deviceNodeExists(ORB_ID id, const uint8_t instance)
-{
-	if ((id == ORB_ID::INVALID) || (instance > ORB_MULTI_MAX_INSTANCES - 1)) {
-		return false;
-	}
-
-	return _node_exists[instance][(uint8_t)id];
-}
-
-uORB::DeviceNode *uORB::DeviceMaster::getDeviceNode(const struct orb_metadata *meta, const uint8_t instance)
-{
-	if (meta == nullptr) {
-		return nullptr;
-	}
-
-	if (!deviceNodeExists(static_cast<ORB_ID>(meta->o_id), instance)) {
-		return nullptr;
-	}
-
-	lock();
-	uORB::DeviceNode *node = getDeviceNodeLocked(meta, instance);
-	unlock();
-
-	//We can safely return the node that can be used by any thread, because
-	//a DeviceNode never gets deleted.
-	return node;
 }
 
 uORB::DeviceNode *uORB::DeviceMaster::getDeviceNodeLocked(const struct orb_metadata *meta, const uint8_t instance)

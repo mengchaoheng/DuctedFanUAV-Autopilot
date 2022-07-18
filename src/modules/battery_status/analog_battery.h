@@ -39,7 +39,8 @@
 class AnalogBattery : public Battery
 {
 public:
-	AnalogBattery(int index, ModuleParams *parent, const int sample_interval_us);
+	AnalogBattery(int index, ModuleParams *parent, const int sample_interval_us, const uint8_t source,
+		      const uint8_t priority);
 
 	/**
 	 * Update current battery status message.
@@ -49,10 +50,8 @@ public:
 	 * @param timestamp Time at which the ADC was read (use hrt_absolute_time())
 	 * @param source The source as defined by param BAT%d_SOURCE
 	 * @param priority: The brick number -1. The term priority refers to the Vn connection on the LTC4417
-	 * @param throttle_normalized Throttle of the vehicle, between 0 and 1
 	 */
-	void updateBatteryStatusADC(hrt_abstime timestamp, float voltage_raw, float current_raw,
-				    int source, int priority, float throttle_normalized);
+	void updateBatteryStatusADC(hrt_abstime timestamp, float voltage_raw, float current_raw);
 
 	/**
 	 * Whether the ADC channel for the voltage of this battery is valid.
@@ -78,10 +77,6 @@ protected:
 		param_t a_per_v;
 		param_t v_channel;
 		param_t i_channel;
-
-		param_t v_div_old;
-		param_t a_per_v_old;
-		param_t adc_channel_old;
 	} _analog_param_handles;
 
 	struct {
@@ -90,10 +85,6 @@ protected:
 		float a_per_v;
 		int32_t v_channel;
 		int32_t i_channel;
-
-		float v_div_old;
-		float a_per_v_old;
-		int32_t adc_channel_old;
 	} _analog_params;
 
 	virtual void updateParams() override;

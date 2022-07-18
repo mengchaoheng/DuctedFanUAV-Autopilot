@@ -31,13 +31,15 @@
  *
  ****************************************************************************/
 
-#pragma once
+#ifndef EKF2SELECTOR_HPP
+#define EKF2SELECTOR_HPP
 
 #include <px4_platform_common/px4_config.h>
 #include <px4_platform_common/log.h>
 #include <px4_platform_common/module.h>
 #include <px4_platform_common/module_params.h>
 #include <px4_platform_common/time.h>
+#include <lib/hysteresis/hysteresis.h>
 #include <lib/mathlib/mathlib.h>
 #include <px4_platform_common/px4_work_queue/ScheduledWorkItem.hpp>
 #include <uORB/Subscription.hpp>
@@ -68,7 +70,6 @@ public:
 	EKF2Selector();
 	~EKF2Selector() override;
 
-	bool Start();
 	void Stop();
 
 	void PrintStatus();
@@ -106,7 +107,9 @@ private:
 			estimator_odometry_sub{ORB_ID(estimator_odometry), i},
 			estimator_wind_sub{ORB_ID(estimator_wind), i},
 			instance(i)
-		{}
+		{
+			healthy.set_hysteresis_time_from(false, 1_s);
+		}
 
 		uORB::SubscriptionCallbackWorkItem estimator_attitude_sub;
 		uORB::SubscriptionCallbackWorkItem estimator_status_sub;
@@ -116,7 +119,7 @@ private:
 		uORB::Subscription estimator_odometry_sub;
 		uORB::Subscription estimator_wind_sub;
 
-		uint64_t timestamp_sample_last{0};
+		uint64_t timestamp_last{0};
 
 		uint32_t accel_device_id{0};
 		uint32_t gyro_device_id{0};
@@ -124,11 +127,14 @@ private:
 		uint32_t mag_device_id{0};
 
 		hrt_abstime time_last_selected{0};
+		hrt_abstime time_last_no_warning{0};
 
 		float combined_test_ratio{NAN};
 		float relative_test_ratio{NAN};
 
-		bool healthy{false};
+		systemlib::Hysteresis healthy{false};
+
+		bool warning{false};
 		bool filter_fault{false};
 		bool timeout{false};
 
@@ -204,6 +210,7 @@ private:
 
 	// vehicle_odometry
 	vehicle_odometry_s _odometry_last{};
+	uint8_t _odometry_reset_counter{0};
 
 	// vehicle_global_position: reset counters
 	vehicle_global_position_s _global_position_last{};
@@ -219,6 +226,7 @@ private:
 	uint8_t _attitude_instance_prev{INVALID_INSTANCE};
 	uint8_t _local_position_instance_prev{INVALID_INSTANCE};
 	uint8_t _global_position_instance_prev{INVALID_INSTANCE};
+	uint8_t _odometry_instance_prev{INVALID_INSTANCE};
 
 	uORB::SubscriptionInterval _parameter_update_sub{ORB_ID(parameter_update), 1_s};
 	uORB::Subscription _sensors_status_imu{ORB_ID(sensors_status_imu)};
@@ -240,3 +248,4 @@ private:
 		(ParamFloat<px4::params::EKF2_SEL_IMU_VEL>) _param_ekf2_sel_imu_velocity
 	)
 };
+#endif // !EKF2SELECTOR_HPP

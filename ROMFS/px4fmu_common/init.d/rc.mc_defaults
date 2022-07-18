@@ -7,7 +7,13 @@
 
 set VEHICLE_TYPE mc
 
-param set-default IMU_GYRO_RATEMAX 800
+# MAV_TYPE_QUADROTOR 2
+param set-default MAV_TYPE 2
+
+if param compare IMU_GYRO_RATEMAX 400
+then
+	param set-default IMU_GYRO_RATEMAX 800
+fi
 
 param set-default NAV_ACC_RAD 2
 
@@ -24,5 +30,9 @@ param set-default GPS_UBX_DYNMODEL 6
 # This is the gimbal pass mixer.
 #
 set MIXER_AUX pass
+
+set MIXER quad_x
+
+set PWM_OUT 1234
 
 set PWM_AUX_OUT 1234

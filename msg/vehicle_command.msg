@@ -36,6 +36,7 @@ uint16 VEHICLE_CMD_DO_REPEAT_RELAY = 182		# Cycle a relay on and off for a desir
 uint16 VEHICLE_CMD_DO_SET_SERVO = 183			# Set a servo to a desired PWM value. |Servo number| PWM (microseconds, 1000 to 2000 typical)| Empty| Empty| Empty| Empty| Empty|
 uint16 VEHICLE_CMD_DO_REPEAT_SERVO = 184		# Cycle a between its nominal setting and a desired PWM for a desired number of cycles with a desired period. |Servo number| PWM (microseconds, 1000 to 2000 typical)| Cycle count| Cycle time (seconds)| Empty| Empty| Empty|
 uint16 VEHICLE_CMD_DO_FLIGHTTERMINATION = 185		# Terminate flight immediately |Flight termination activated if > 0.5| Empty| Empty| Empty| Empty| Empty| Empty|
+uint16 VEHICLE_CMD_DO_SET_ACTUATOR = 187		# Sets actuators (e.g. servos) to a desired value. |Actuator 1| Actuator 2| Actuator 3| Actuator 4| Actuator 5| Actuator 6| Index|
 uint16 VEHICLE_CMD_DO_LAND_START = 189			# Mission command to perform a landing. This is used as a marker in a mission to tell the autopilot where a sequence of mission items that represents a landing starts. It may also be sent via a COMMAND_LONG to trigger a landing, in which case the nearest (geographically) landing sequence in the mission will be used. The Latitude/Longitude is optional, and may be set to 0/0 if not needed. If specified then it will be used to help find the closest landing sequence. |Empty| Empty| Empty| Empty| Latitude| Longitude| Empty|  */
 uint16 VEHICLE_CMD_DO_GO_AROUND = 191			# Mission command to safely abort an autonmous landing. |Altitude (meters)| Empty| Empty| Empty| Empty| Empty| Empty|  */
 uint16 VEHICLE_CMD_DO_REPOSITION = 192
@@ -68,7 +69,9 @@ uint16 VEHICLE_CMD_OBLIQUE_SURVEY=260			# Mission command to set a Camera Auto M
 uint16 VEHICLE_CMD_GIMBAL_DEVICE_INFORMATION = 283 # Command to ask information about a low level gimbal
 
 uint16 VEHICLE_CMD_MISSION_START = 300			# start running a mission |first_item: the first mission item to run| last_item:  the last mission item to run (after this item is run, the mission ends)|
-uint16 VEHICLE_CMD_COMPONENT_ARM_DISARM = 400		# Arms / Disarms a component |1 to arm, 0 to disarm|
+uint16 VEHICLE_CMD_ACTUATOR_TEST = 310			# Actuator testing command|value [-1,1]|timeout [s]|Empty|Empty|output function|
+uint16 VEHICLE_CMD_CONFIGURE_ACTUATOR = 311		# Actuator configuration command|configuration|Empty|Empty|Empty|output function|
+uint16 VEHICLE_CMD_COMPONENT_ARM_DISARM = 400		# Arms / Disarms a component |1 to arm, 0 to disarm
 uint16 VEHICLE_CMD_INJECT_FAILURE = 420			# Inject artificial failure for testing purposes
 uint16 VEHICLE_CMD_START_RX_PAIR = 500			# Starts receiver pairing |0:Spektrum| 0:Spektrum DSM2, 1:Spektrum DSMX|
 uint16 VEHICLE_CMD_REQUEST_MESSAGE = 512    # Request to send a single instance of the specified message
@@ -77,7 +80,10 @@ uint16 VEHICLE_CMD_SET_CAMERA_ZOOM = 531                # Set camera zoom
 uint16 VEHICLE_CMD_SET_CAMERA_FOCUS = 532
 uint16 VEHICLE_CMD_DO_GIMBAL_MANAGER_PITCHYAW = 1000 # Setpoint to be sent to a gimbal manager to set a gimbal pitch and yaw
 uint16 VEHICLE_CMD_DO_GIMBAL_MANAGER_CONFIGURE = 1001 # Gimbal configuration to set which sysid/compid is in primary and secondary control
+uint16 VEHICLE_CMD_IMAGE_START_CAPTURE = 2000   # Start image capture sequence.
 uint16 VEHICLE_CMD_DO_TRIGGER_CONTROL = 2003            # Enable or disable on-board camera triggering system
+uint16 VEHICLE_CMD_VIDEO_START_CAPTURE = 2500   # Start a video capture.
+uint16 VEHICLE_CMD_VIDEO_STOP_CAPTURE = 2501    # Stop the current video capture.
 uint16 VEHICLE_CMD_LOGGING_START = 2510		# start streaming ULog data
 uint16 VEHICLE_CMD_LOGGING_STOP = 2511			# stop streaming ULog data
 uint16 VEHICLE_CMD_CONTROL_HIGH_LATENCY = 2600	# control starting/stopping transmitting data over the high latency link
@@ -149,6 +155,16 @@ uint8 FAILURE_TYPE_SLOW = 5
 uint8 FAILURE_TYPE_DELAYED = 6
 uint8 FAILURE_TYPE_INTERMITTENT = 7
 
+# used as param1 in DO_CHANGE_SPEED command
+uint8 SPEED_TYPE_AIRSPEED = 0
+uint8 SPEED_TYPE_GROUNDSPEED = 1
+uint8 SPEED_TYPE_CLIMB_SPEED = 2
+uint8 SPEED_TYPE_DESCEND_SPEED = 3
+
+# used as param1 in ARM_DISARM command
+int8 ARMING_ACTION_DISARM = 0
+int8 ARMING_ACTION_ARM = 1
+
 uint8 ORB_QUEUE_LENGTH = 8
 
 float32 param1			# Parameter 1, as defined by MAVLink uint16 VEHICLE_CMD enum.
@@ -165,3 +181,5 @@ uint8 source_system		# System sending the command
 uint8 source_component		# Component sending the command
 uint8 confirmation		# 0: First transmission of this command. 1-255: Confirmation transmissions (e.g. for kill command)
 bool from_external
+
+# TOPICS vehicle_command gimbal_v1_command

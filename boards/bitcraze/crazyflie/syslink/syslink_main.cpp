@@ -53,7 +53,6 @@
 #include <fcntl.h>
 #include <mqueue.h>
 
-#include <drivers/drv_rc_input.h>
 #include <drivers/drv_board_led.h>
 
 #include <systemlib/err.h>
@@ -96,7 +95,7 @@ Syslink::Syslink() :
 	_fd(0),
 	_queue(2, sizeof(syslink_message_t)),
 	_writebuffer(16, sizeof(crtp_message_t)),
-	_rssi(RC_INPUT_RSSI_MAX),
+	_rssi(input_rc_s::RSSI_MAX),
 	_bstate(BAT_DISCHARGING)
 {
 	px4_sem_init(&memory_sem, 0, 0);
@@ -405,9 +404,9 @@ Syslink::handle_message(syslink_message_t *msg)
 		memcpy(&vbat, &msg->data[1], sizeof(float));
 		//memcpy(&iset, &msg->data[5], sizeof(float));
 
-		_battery.updateBatteryStatus(t, vbat, -1, true,
-					     battery_status_s::BATTERY_SOURCE_POWER_MODULE, 0, 0);
-
+		_battery.setConnected(true);
+		_battery.updateVoltage(vbat);
+		_battery.updateAndPublishBatteryStatus(t);
 
 		// Update battery charge state
 		if (charging) {

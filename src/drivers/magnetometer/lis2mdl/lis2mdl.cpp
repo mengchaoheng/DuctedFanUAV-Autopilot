@@ -42,9 +42,9 @@
 #include <px4_platform_common/time.h>
 #include "lis2mdl.h"
 
-LIS2MDL::LIS2MDL(device::Device *interface, enum Rotation rotation, I2CSPIBusOption bus_option, int bus) :
-	I2CSPIDriver(MODULE_NAME, px4::device_bus_to_wq(interface->get_device_id()), bus_option, bus),
-	_px4_mag(interface->get_device_id(), rotation),
+LIS2MDL::LIS2MDL(device::Device *interface, const I2CSPIDriverConfig &config) :
+	I2CSPIDriver(config),
+	_px4_mag(interface->get_device_id(), config.rotation),
 	_interface(interface),
 	_comms_errors(perf_alloc(PC_COUNT, MODULE_NAME": comms_errors")),
 	_conf_errors(perf_alloc(PC_COUNT, MODULE_NAME": conf_errors")),
@@ -52,7 +52,6 @@ LIS2MDL::LIS2MDL(device::Device *interface, enum Rotation rotation, I2CSPIBusOpt
 	_sample_perf(perf_alloc(PC_ELAPSED, MODULE_NAME": read")),
 	_measure_interval(0)
 {
-	_px4_mag.set_external(_interface->external());
 	_px4_mag.set_scale(0.0015f); /* 49.152f / (2^15) */
 }
 

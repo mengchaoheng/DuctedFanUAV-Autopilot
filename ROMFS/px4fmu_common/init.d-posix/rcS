@@ -1,5 +1,7 @@
 #!/bin/sh
 
+set -e
+
 # PX4 commands need the 'px4-' prefix in bash.
 # (px4-alias.sh is expected to be in the PATH)
 # shellcheck disable=SC1091
@@ -21,10 +23,7 @@ then
 fi
 
 # initialize script variables
-set AUX_MODE                    none
-set AUX_BANK2			none
 set IO_PRESENT                  no
-set MAV_TYPE                    none
 set MIXER                       none
 set MIXER_AUX                   none
 set MIXER_FILE                  none
@@ -48,10 +47,10 @@ else
 	# shellcheck disable=SC2012
 	REQUESTED_AUTOSTART=$(ls "${R}etc/init.d-posix/airframes" | sed -n 's/^\([0-9][0-9]*\)_'${PX4_SIM_MODEL}'$/\1/p')
 	if [ -z "$REQUESTED_AUTOSTART" ]; then
-		echo "Error: Unknown model $PX4_SIM_MODEL (not found by name on ${R}etc/init.d-posix/airframes)"
+		echo "ERROR  [init] Unknown model $PX4_SIM_MODEL (not found by name on ${R}etc/init.d-posix/airframes)"
 		exit 1
 	else
-		echo "Info: found model autostart file as SYS_AUTOSTART=$REQUESTED_AUTOSTART"
+		echo "INFO  [init] found model autostart file as SYS_AUTOSTART=$REQUESTED_AUTOSTART"
 	fi
 fi
 
@@ -122,11 +121,9 @@ then
 
 	param set SENS_BOARD_X_OFF 0.000001
 	param set SENS_DPRES_OFF 0.001
-
-	param set SYS_RESTART_TYPE 2
 fi
 
-param set-default BAT_N_CELLS 4
+param set-default BAT1_N_CELLS 4
 
 param set-default CBRK_AIRSPD_CHK 0
 param set-default CBRK_SUPPLY_CHK 894281
@@ -147,6 +144,8 @@ param set-default EKF2_MULTI_MAG 2
 param set-default SENS_MAG_MODE 0
 
 param set-default IMU_GYRO_FFT_EN 1
+
+param set-default -s MC_AT_EN 1
 
 # By default log from boot until first disarm.
 param set-default SDLOG_MODE 1
@@ -221,20 +220,27 @@ load_mon start
 battery_simulator start
 tone_alarm start
 rc_update start
+manual_control start
 sensors start
 commander start
+
+# Configure vehicle type specific parameters.
+# Note: rc.vehicle_setup is the entry point for rc.interface,
+#       rc.fw_apps, rc.mc_apps, rc.rover_apps, and rc.vtol_apps.
+#
+. ${R}etc/init.d/rc.vehicle_setup
+
 navigator start
 
 # Try to start the micrortps_client with UDP transport if module exists
 if px4-micrortps_client status > /dev/null 2>&1
 then
-	# shellcheck disable=SC2154
-	micrortps_client start -t UDP $((2019+2*px4_instance)) -s $((2020+2*px4_instance))
+	. px4-rc.rtps
 fi
 
 if param greater -s MNT_MODE_IN -1
 then
-	vmount start
+	gimbal start
 fi
 
 if param greater -s TRIG_MODE 0
@@ -252,12 +258,6 @@ if param compare -s IMU_GYRO_CAL_EN 1
 then
 	gyro_calibration start
 fi
-
-# Configure vehicle type specific parameters.
-# Note: rc.vehicle_setup is the entry point for rc.interface,
-#       rc.fw_apps, rc.mc_apps, rc.rover_apps, and rc.vtol_apps.
-#
-. ${R}etc/init.d/rc.vehicle_setup
 
 #user defined mavlink streams for instances can be in PATH
 . px4-rc.mavlink

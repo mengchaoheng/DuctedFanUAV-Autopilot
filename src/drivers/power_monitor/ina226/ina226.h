@@ -45,9 +45,7 @@
 #include <lib/perf/perf_counter.h>
 #include <battery/battery.h>
 #include <drivers/drv_hrt.h>
-#include <uORB/Subscription.hpp>
 #include <uORB/SubscriptionInterval.hpp>
-#include <uORB/topics/actuator_controls.h>
 #include <uORB/topics/parameter_update.h>
 #include <px4_platform_common/i2c_spi_buses.h>
 
@@ -152,11 +150,10 @@ using namespace time_literals;
 class INA226 : public device::I2C, public ModuleParams, public I2CSPIDriver<INA226>
 {
 public:
-	INA226(I2CSPIBusOption bus_option, const int bus, int bus_frequency, int address, int battery_index);
+	INA226(const I2CSPIDriverConfig &config, int battery_index);
 	virtual ~INA226();
 
-	static I2CSPIDriverBase *instantiate(const BusCLIArguments &cli, const BusInstanceIterator &iterator,
-					     int runtime_instance);
+	static I2CSPIDriverBase *instantiate(const I2CSPIDriverConfig &config, int runtime_instance);
 	static void print_usage();
 
 	void	RunImpl();
@@ -203,10 +200,7 @@ private:
 	float             _current_lsb{_max_current / DN_MAX};
 	float             _power_lsb{25.0f * _current_lsb};
 
-	actuator_controls_s  _actuator_controls{};
-
 	Battery 		  _battery;
-	uORB::Subscription  _actuators_sub{ORB_ID(actuator_controls_0)};
 	uORB::SubscriptionInterval _parameter_update_sub{ORB_ID(parameter_update), 1_s};
 
 	int read(uint8_t address, int16_t &data);

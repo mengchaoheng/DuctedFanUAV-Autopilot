@@ -435,3 +435,14 @@ PARAM_DEFINE_FLOAT(SIH_DISTSNSR_OVR, -1.0f);
  * @group Simulation In Hardware
  */
 PARAM_DEFINE_FLOAT(SIH_T_TAU, 0.05f);
+
+/**
+ * Vehicle type
+ *
+ * @value 0 Multicopter
+ * @value 1 Fixed-Wing
+ * @value 2 Tailsitter
+ * @reboot_required true
+ * @group Simulation In Hardware
+ */
+PARAM_DEFINE_INT32(SIH_VEHICLE_TYPE, 0);

@@ -158,6 +158,11 @@ else
 		CMAKE_ARGS += -DCMAKE_BUILD_TYPE=UndefinedBehaviorSanitizer
 	endif
 
+	# Fuzz Testing
+	ifdef PX4_FUZZ
+		CMAKE_ARGS += -DCMAKE_BUILD_TYPE=FuzzTesting
+	endif
+
 endif
 
 # Pick up specific Python path if set
@@ -174,6 +179,7 @@ endif
 # --------------------------------------------------------------------
 # describe how to build a cmake config
 define cmake-build
+	$(eval CMAKE_ARGS += -DCONFIG=$(1))
 	@$(eval BUILD_DIR = "$(SRC_DIR)/build/$(1)")
 	@# check if the desired cmake configuration matches the cache then CMAKE_CACHE_CHECK stays empty
 	@$(call cmake-cache-check)
@@ -212,8 +218,8 @@ define colorecho
 +@echo -e '${COLOR_BLUE}${1} ${NO_COLOR}'
 endef
 
-# Get a list of all config targets boards/*/*.cmake
-ALL_CONFIG_TARGETS := $(shell find boards -maxdepth 3 -mindepth 3 ! -name '*common*' ! -name '*sdflight*' -name '*.cmake' -print | sed -e 's|boards\/||' | sed -e 's|\.cmake||' | sed -e 's|\/|_|g' | sort)
+# Get a list of all config targets boards/*/*.px4board
+ALL_CONFIG_TARGETS := $(shell find boards -maxdepth 3 -mindepth 3 -name '*.px4board' -print | sed -e 's|boards\/||' | sed -e 's|\.px4board||' | sed -e 's|\/|_|g' | sort)
 
 # ADD CONFIGS HERE
 # --------------------------------------------------------------------
@@ -221,19 +227,18 @@ ALL_CONFIG_TARGETS := $(shell find boards -maxdepth 3 -mindepth 3 ! -name '*comm
 
 # All targets.
 $(ALL_CONFIG_TARGETS):
-	@$(eval PX4_CONFIG = $@)
-	@$(eval CMAKE_ARGS += -DCONFIG=$(PX4_CONFIG))
-	@$(call cmake-build,$(PX4_CONFIG)$(BUILD_DIR_SUFFIX))
+	@$(call cmake-build,$@$(BUILD_DIR_SUFFIX))
 
 # Filter for only default targets to allow omiting the "_default" postfix
 CONFIG_TARGETS_DEFAULT := $(patsubst %_default,%,$(filter %_default,$(ALL_CONFIG_TARGETS)))
 $(CONFIG_TARGETS_DEFAULT):
-	@$(eval PX4_CONFIG = $@_default)
-	@$(eval CMAKE_ARGS += -DCONFIG=$(PX4_CONFIG))
-	@$(call cmake-build,$(PX4_CONFIG)$(BUILD_DIR_SUFFIX))
+	@$(call cmake-build,$@_default$(BUILD_DIR_SUFFIX))
 
 all_config_targets: $(ALL_CONFIG_TARGETS)
 all_default_targets: $(CONFIG_TARGETS_DEFAULT)
+
+updateconfig:
+	@./Tools/kconfig/updateconfig.py
 
 # board reorganization deprecation warnings (2018-11-22)
 define deprecation_warning
@@ -242,16 +247,6 @@ endef
 
 # All targets with just dependencies but no recipe must either be marked as phony (or have the special @: as recipe).
 .PHONY: all px4_sitl_default all_config_targets all_default_targets
-
-# Multi- config targets.
-eagle_default: atlflight_eagle_default atlflight_eagle_qurt
-eagle_rtps: atlflight_eagle_rtps atlflight_eagle_qurt-rtps
-
-excelsior_default: atlflight_excelsior_default atlflight_excelsior_qurt
-excelsior_rtps: atlflight_excelsior_rtps atlflight_excelsior_qurt-rtps
-
-.PHONY: eagle_default eagle_rtps
-.PHONY: excelsior_default excelsior_rtps
 
 # Other targets
 # --------------------------------------------------------------------
@@ -279,7 +274,6 @@ misc_qgc_extra_firmware: \
 	check_bitcraze_crazyflie_default \
 	check_bitcraze_crazyflie21_default \
 	check_airmind_mindpx-v2_default \
-	check_px4_fmu-v2_lpe \
 	sizes
 
 # builds with RTPS
@@ -307,12 +301,38 @@ check_%:
 	@$(MAKE) --no-print-directory $(subst check_,,$@)
 	@echo
 
+all_variants_%:
+	@echo 'Building all $(subst all_variants_,,$@) variants:'  $(filter $(subst all_variants_,,$@)_%, $(ALL_CONFIG_TARGETS))
+	@echo
+	$(foreach a,$(filter $(subst all_variants_,,$@)_%, $(ALL_CONFIG_TARGETS)), $(call cmake-build,$(a)$(BUILD_DIR_SUFFIX)))
+
 uorb_graphs:
-	@./Tools/uorb_graph/create.py --src-path src --exclude-path src/examples --exclude-path src/lib --file Tools/uorb_graph/graph_full
+	@./Tools/uorb_graph/create.py --src-path src --exclude-path src/examples --exclude-path src/lib/parameters --merge-depends --file Tools/uorb_graph/graph_full
+	@./Tools/uorb_graph/create.py --src-path src --exclude-path src/examples --exclude-path src/lib/parameters --exclude-path src/modules/mavlink --merge-depends --file Tools/uorb_graph/graph_full_no_mavlink
 	@$(MAKE) --no-print-directory px4_fmu-v2_default uorb_graph
 	@$(MAKE) --no-print-directory px4_fmu-v4_default uorb_graph
+	@$(MAKE) --no-print-directory px4_fmu-v5_default uorb_graph
 	@$(MAKE) --no-print-directory px4_sitl_default uorb_graph
 
+px4io_update: px4_io-v2_default cubepilot_io-v2_default
+	# px4_io-v2_default
+	cp build/px4_io-v2_default/px4_io-v2_default.bin boards/holybro/durandal-v1/extras/px4_io-v2_default.bin
+	cp build/px4_io-v2_default/px4_io-v2_default.bin boards/holybro/pix32v5/extras/px4_io-v2_default.bin
+	cp build/px4_io-v2_default/px4_io-v2_default.bin boards/mro/x21-777/extras/px4_io-v2_default.bin
+	cp build/px4_io-v2_default/px4_io-v2_default.bin boards/px4/fmu-v2/extras/px4_io-v2_default.bin
+	cp build/px4_io-v2_default/px4_io-v2_default.bin boards/px4/fmu-v3/extras/px4_io-v2_default.bin
+	cp build/px4_io-v2_default/px4_io-v2_default.bin boards/px4/fmu-v4pro/extras/px4_io-v2_default.bin
+	cp build/px4_io-v2_default/px4_io-v2_default.bin boards/px4/fmu-v5/extras/px4_io-v2_default.bin
+	cp build/px4_io-v2_default/px4_io-v2_default.bin boards/px4/fmu-v5x/extras/px4_io-v2_default.bin
+	cp build/px4_io-v2_default/px4_io-v2_default.bin boards/px4/fmu-v6x/extras/px4_io-v2_default.bin
+	cp build/px4_io-v2_default/px4_io-v2_default.bin boards/px4/fmu-v6c/extras/px4_io-v2_default.bin
+	# cubepilot_io-v2_default
+	cp build/cubepilot_io-v2_default/cubepilot_io-v2_default.bin boards/cubepilot/cubeorange/extras/cubepilot_io-v2_default.bin
+	cp build/cubepilot_io-v2_default/cubepilot_io-v2_default.bin boards/cubepilot/cubeyellow/extras/cubepilot_io-v2_default.bin
+	git status
+
+bootloaders_update: cuav_nora_bootloader cuav_x7pro_bootloader cubepilot_cubeorange_bootloader holybro_durandal-v1_bootloader holybro_kakuteh7_bootloader matek_h743-slim_bootloader modalai_fc-v2_bootloader mro_ctrl-zero-classic_bootloader mro_ctrl-zero-h7_bootloader mro_ctrl-zero-h7-oem_bootloader mro_pixracerpro_bootloader px4_fmu-v6c_bootloader px4_fmu-v6u_bootloader px4_fmu-v6x_bootloader
+	git status
 
 .PHONY: coverity_scan
 
@@ -320,18 +340,21 @@ coverity_scan: px4_sitl_default
 
 # Documentation
 # --------------------------------------------------------------------
-.PHONY: parameters_metadata airframe_metadata module_documentation px4_metadata doxygen
+.PHONY: parameters_metadata airframe_metadata module_documentation extract_events px4_metadata doxygen
 
 parameters_metadata:
 	@$(MAKE) --no-print-directory px4_sitl_default metadata_parameters ver_gen
 
 airframe_metadata:
-	@$(MAKE) --no-print-directory px4_sitl_default metadata_airframes
+	@$(MAKE) --no-print-directory px4_sitl_default metadata_airframes ver_gen
 
 module_documentation:
 	@$(MAKE) --no-print-directory px4_sitl_default metadata_module_documentation
 
-px4_metadata: parameters_metadata airframe_metadata module_documentation
+extract_events:
+	@$(MAKE) --no-print-directory px4_sitl_default metadata_extract_events ver_gen
+
+px4_metadata: parameters_metadata airframe_metadata module_documentation extract_events
 
 doxygen:
 	@mkdir -p "$(SRC_DIR)"/build/doxygen
@@ -358,7 +381,6 @@ format:
 .PHONY: rostest python_coverage
 
 tests:
-	$(eval CMAKE_ARGS += -DCONFIG=px4_sitl_test)
 	$(eval CMAKE_ARGS += -DTESTFILTER=$(TESTFILTER))
 	$(eval ARGS += test_results)
 	$(eval ASAN_OPTIONS += color=always:check_initialization_order=1:detect_stack_use_after_return=1)
@@ -466,7 +488,9 @@ shellcheck_all:
 	@make px4_fmu-v5_default shellcheck
 
 validate_module_configs:
-	@find "$(SRC_DIR)"/src/modules "$(SRC_DIR)"/src/drivers "$(SRC_DIR)"/src/lib -name *.yaml -type f -print0 | xargs -0 "$(SRC_DIR)"/Tools/validate_yaml.py --schema-file "$(SRC_DIR)"/validation/module_schema.yaml
+	@find "$(SRC_DIR)"/src/modules "$(SRC_DIR)"/src/drivers "$(SRC_DIR)"/src/lib -name *.yaml -type f \
+	-not -path "$(SRC_DIR)/src/lib/mixer_module/*" -not -path "$(SRC_DIR)/src/lib/crypto/libtommath/*" -print0 | \
+	xargs -0 "$(SRC_DIR)"/Tools/validate_yaml.py --schema-file "$(SRC_DIR)"/validation/module_schema.yaml
 
 # Cleanup
 # --------------------------------------------------------------------
@@ -486,6 +510,7 @@ submodulesupdate:
 	@git submodule update --quiet --init --recursive --jobs 4 || true
 	@git submodule sync --recursive
 	@git submodule update --init --recursive --jobs 4
+	@git fetch --all --tags --recurse-submodules=yes --jobs=4
 
 gazeboclean:
 	@rm -rf ~/.gazebo/*
@@ -495,7 +520,7 @@ distclean: gazeboclean
 	@rm -rf "$(SRC_DIR)/build"
 	@git clean --force -X "$(SRC_DIR)/msg/" "$(SRC_DIR)/platforms/" "$(SRC_DIR)/posix-configs/" "$(SRC_DIR)/ROMFS/" "$(SRC_DIR)/src/" "$(SRC_DIR)/test/" "$(SRC_DIR)/Tools/"
 
-# Help / Error
+# Help / Error / Misc
 # --------------------------------------------------------------------
 
 # All other targets are handled by PX4_MAKE. Add a rule here to avoid printing an error.
@@ -509,7 +534,7 @@ help:
 	@echo "Where <target> is one of:"
 	@$(MAKE) -pRrq -f $(lastword $(MAKEFILE_LIST)) : 2>/dev/null | \
 		awk -v RS= -F: '/^# File/,/^# Finished Make data base/ {if ($$1 !~ "^[#.]") {print $$1}}' | sort | \
-		egrep -v -e '^[^[:alnum:]]' -e '^($(subst $(space),|,$(ALL_CONFIG_TARGETS)))$$' -e '_default$$' -e '^(posix|eagle|Makefile)'
+		egrep -v -e '^[^[:alnum:]]' -e '^($(subst $(space),|,$(ALL_CONFIG_TARGETS)))$$' -e '_default$$' -e '^(Makefile)'
 	@echo
 	@echo "Or, $(MAKE) <config_target> [<make_target(s)>]"
 	@echo "Use '$(MAKE) list_config_targets' for a list of configuration targets."
@@ -529,3 +554,18 @@ check_px4: $(call make_list,nuttx,"px4") \
 
 check_nxp: $(call make_list,nuttx,"nxp") \
 	sizes
+
+ifneq ($(ROS2_WS_DIR),)
+  ROS2_WS_DIR := $(basename ${ROS2_WS_DIR})
+else
+  ROS2_WS_DIR := ~/colcon_ws
+endif
+
+update_ros2_bridge:
+	@Tools/update_px4_ros2_bridge.sh --ws_dir ${ROS2_WS_DIR} --all
+
+update_px4_ros_com:
+	@Tools/update_px4_ros2_bridge.sh --ws_dir ${ROS2_WS_DIR} --px4_ros_com
+
+update_px4_msgs:
+	@Tools/update_px4_ros2_bridge.sh --ws_dir ${ROS2_WS_DIR} --px4_msgs

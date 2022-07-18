@@ -53,7 +53,7 @@
 #include <uORB/topics/vehicle_attitude.h>
 #include <uORB/topics/vehicle_trajectory_waypoint.h>
 #include <uORB/topics/home_position.h>
-#include <lib/ecl/geo/geo.h>
+#include <lib/geo/geo.h>
 #include <lib/weather_vane/WeatherVane.hpp>
 
 struct ekf_reset_counters_s {
@@ -107,14 +107,6 @@ public:
 	 * @return true on success, false on error
 	 */
 	virtual bool update();
-
-	/**
-	 * Call after update()
-	 * to constrain the generated setpoints in order to comply
-	 * with the constraints of the current mode
-	 * @return true on success, false on error
-	 */
-	virtual bool updateFinalize() { return true; };
 
 	/**
 	 * Get the output data
@@ -175,6 +167,7 @@ public:
 	 * This method does nothing, each flighttask which wants to use the yaw handler needs to override this method.
 	 */
 	virtual void setYawHandler(WeatherVane *ext_yaw_handler) {}
+	virtual void overrideCruiseSpeed(const float cruise_speed_m_s) {}
 
 	void updateVelocityControllerFeedback(const matrix::Vector3f &vel_sp,
 					      const matrix::Vector3f &acc_sp)
@@ -208,19 +201,18 @@ protected:
 	 * TODO: add the delta values to all the handlers
 	 */
 	void _checkEkfResetCounters();
-	virtual void _ekfResetHandlerPositionXY() {};
-	virtual void _ekfResetHandlerVelocityXY() {};
-	virtual void _ekfResetHandlerPositionZ() {};
-	virtual void _ekfResetHandlerVelocityZ() {};
+	virtual void _ekfResetHandlerPositionXY(const matrix::Vector2f &delta_xy) {};
+	virtual void _ekfResetHandlerVelocityXY(const matrix::Vector2f &delta_vxy) {};
+	virtual void _ekfResetHandlerPositionZ(float delta_z) {};
+	virtual void _ekfResetHandlerVelocityZ(float delta_vz) {};
 	virtual void _ekfResetHandlerHeading(float delta_psi) {};
 
-	map_projection_reference_s _global_local_proj_ref{};
-	float                      _global_local_alt0{NAN};
+	MapProjection _geo_projection{};
+	float _global_local_alt0{NAN};
 
 	/* Time abstraction */
 	static constexpr uint64_t _timeout = 500000; /**< maximal time in us before a loop or data times out */
 
-	float _time{}; /**< passed time in seconds since the task was activated */
 	float _deltatime{}; /**< passed time in seconds since the task was last updated */
 
 	hrt_abstime _time_stamp_activate{}; /**< time stamp when task was activated */
@@ -232,6 +224,7 @@ protected:
 	matrix::Vector3f _velocity; /**< current vehicle velocity */
 
 	float _yaw{}; /**< current vehicle yaw heading */
+	bool _is_yaw_good_for_control{}; /**< true if the yaw estimate can be used for yaw control */
 	float _dist_to_bottom{}; /**< current height above ground level */
 	float _dist_to_ground{}; /**< equals _dist_to_bottom if valid, height above home otherwise */
 

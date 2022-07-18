@@ -57,21 +57,24 @@
 class UavcanEscController
 {
 public:
-	static constexpr int MAX_ACTUATORS = MixingOutput::MAX_ACTUATORS;
-	static constexpr unsigned MAX_RATE_HZ = 200;			///< XXX make this configurable
+	static constexpr int MAX_ACTUATORS = esc_status_s::CONNECTED_ESC_MAX;
+	static constexpr unsigned MAX_RATE_HZ = 400;
 	static constexpr uint16_t DISARMED_OUTPUT_VALUE = UINT16_MAX;
 
+	static_assert(uavcan::equipment::esc::RawCommand::FieldTypes::cmd::MaxSize >= MAX_ACTUATORS, "Too many actuators");
+
+
 	UavcanEscController(uavcan::INode &node);
-	~UavcanEscController();
+	~UavcanEscController() = default;
 
 	int init();
 
 	void update_outputs(bool stop_motors, uint16_t outputs[MAX_ACTUATORS], unsigned num_outputs);
 
 	/**
-	 * Sets the number of rotors
+	 * Sets the number of rotors and enable timer
 	 */
-	void set_rotor_count(uint8_t count) { _rotor_count = count; }
+	void set_rotor_count(uint8_t count);
 
 	static int max_output_value() { return uavcan::equipment::esc::RawCommand::FieldTypes::cmd::RawValueType::max(); }
 
@@ -82,16 +85,10 @@ private:
 	void esc_status_sub_cb(const uavcan::ReceivedDataStructure<uavcan::equipment::esc::Status> &msg);
 
 	/**
-	 * ESC status will be published to ORB from this callback (fixed rate).
-	 */
-	void orb_pub_timer_cb(const uavcan::TimerEvent &event);
-
-	/**
 	 * Checks all the ESCs freshness based on timestamp, if an ESC exceeds the timeout then is flagged offline.
 	 */
 	uint8_t check_escs_status();
 
-	static constexpr unsigned ESC_STATUS_UPDATE_RATE_HZ = 10;
 	static constexpr unsigned UAVCAN_COMMAND_TRANSFER_PRIORITY = 5;	///< 0..31, inclusive, 0 - highest, 31 - lowest
 
 	typedef uavcan::MethodBinder<UavcanEscController *,
@@ -113,7 +110,6 @@ private:
 	uavcan::INode								&_node;
 	uavcan::Publisher<uavcan::equipment::esc::RawCommand>			_uavcan_pub_raw_cmd;
 	uavcan::Subscriber<uavcan::equipment::esc::Status, StatusCbBinder>	_uavcan_sub_status;
-	uavcan::TimerEventForwarder<TimerCbBinder>				_orb_timer;
 
 	/*
 	 * ESC states

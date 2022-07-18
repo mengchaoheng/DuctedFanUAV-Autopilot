@@ -37,15 +37,22 @@ CameraFeedback::CameraFeedback() :
 	ModuleParams(nullptr),
 	WorkItem(MODULE_NAME, px4::wq_configurations::hp_default)
 {
+	_p_cam_cap_fback = param_find("CAM_CAP_FBACK");
+
+	if (_p_cam_cap_fback != PARAM_INVALID) {
+		param_get(_p_cam_cap_fback, (int32_t *)&_cam_cap_fback);
+	}
 }
 
 bool
 CameraFeedback::init()
 {
 	if (!_trigger_sub.registerCallback()) {
-		PX4_ERR("camera_trigger callback registration failed!");
+		PX4_ERR("callback registration failed");
 		return false;
 	}
+
+	_capture_pub.advertise();
 
 	return true;
 }
@@ -61,7 +68,7 @@ CameraFeedback::Run()
 
 	camera_trigger_s trig{};
 
-	if (_trigger_sub.update(&trig)) {
+	while (_trigger_sub.update(&trig)) {
 
 		// update geotagging subscriptions
 		vehicle_global_position_s gpos{};
@@ -75,7 +82,12 @@ CameraFeedback::Run()
 		    att.timestamp == 0) {
 
 			// reject until we have valid data
-			return;
+			continue;
+		}
+
+		if ((_cam_cap_fback >= 1) && !trig.feedback) {
+			// Ignore triggers that are not feedback when camera capture feedback is enabled
+			continue;
 		}
 
 		camera_capture_s capture{};

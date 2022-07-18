@@ -37,12 +37,12 @@ px4_add_module(
 	COMPILE_FLAGS
 		${MAX_CUSTOM_OPT_LEVEL}
 	SRCS
+		aero.hpp
 		sih.cpp
 		sih.hpp
 	DEPENDS
 		mathlib
 		drivers_accelerometer
-		drivers_barometer
 		drivers_gyroscope
 		drivers_magnetometer
 		px4_work_queue

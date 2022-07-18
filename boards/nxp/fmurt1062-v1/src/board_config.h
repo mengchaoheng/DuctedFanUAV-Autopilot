@@ -179,11 +179,6 @@
 	 (1 << ADC_HW_REV_SENSE_CHANNEL)           | \
 	 (1 << ADC1_SPARE_1_CHANNEL))
 
-/* Define Battery 1 Voltage Divider and A per V */
-
-#define BOARD_BATTERY1_V_DIV         (10.1097f)     /* measured with the provided PM board */
-#define BOARD_BATTERY1_A_PER_V       (15.391030303f)
-
 /* HW has to large of R termination on ADC todo:change when HW value is chosen */
 
 #define BOARD_ADC_OPEN_CIRCUIT_V     (5.6f)
@@ -215,6 +210,7 @@
  */
 #define HEATER_IOMUX (IOMUX_CMOS_OUTPUT | IOMUX_PULL_NONE | IOMUX_DRIVE_50OHM | IOMUX_SPEED_MEDIUM | IOMUX_SLEW_FAST)
 #define GPIO_HEATER_OUTPUT   /* GPIO_B1_09 QTIMER2_TIMER3 GPIO2_IO25 */ (GPIO_QTIMER2_TIMER3_1 | HEATER_IOMUX)
+#define HEATER_OUTPUT_EN(on_true)	px4_arch_gpiowrite(GPIO_HEATER_OUTPUT, (on_true))
 
 /* PWM Capture
  *
@@ -232,6 +228,8 @@
 #define GPIO_nARMED          /* GPIO_SD_B1_01 GPIO3_IO1 */ (GPIO_PORT3 | GPIO_PIN1 | GPIO_OUTPUT | GPIO_OUTPUT_ZERO | nARMED_OUTPUT_IOMUX)
 
 #define BOARD_INDICATE_EXTERNAL_LOCKOUT_STATE(enabled)  px4_arch_configgpio((enabled) ? GPIO_nARMED : GPIO_nARMED_INIT)
+#define BOARD_GET_EXTERNAL_LOCKOUT_STATE() px4_arch_gpioread(GPIO_nARMED)
+
 
 /* PWM
  */
@@ -240,7 +238,7 @@
 
 // Input Capture not supported on MVP
 
-#define DIRECT_INPUT_TIMER_CHANNELS  0
+#define BOARD_HAS_NO_CAPTURE
 
 //#define BOARD_HAS_UI_LED_PWM           1  Not ported yet (Still Kinetis driver)
 #define BOARD_HAS_LED_PWM              1
@@ -390,7 +388,6 @@
 #define BOARD_ADC_PERIPH_5V_OC  (!px4_arch_gpioread(GPIO_nVDD_5V_PERIPH_OC))
 #define BOARD_ADC_HIPOWER_5V_OC (!px4_arch_gpioread(GPIO_nVDD_5V_HIPOWER_OC))
 
-#define BOARD_HAS_PWM  DIRECT_PWM_OUTPUT_CHANNELS
 
 /* This board provides a DMA pool and APIs */
 #define BOARD_DMA_ALLOC_POOL_SIZE 5120

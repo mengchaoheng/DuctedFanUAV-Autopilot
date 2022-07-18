@@ -5,17 +5,52 @@ import html
 
 class MarkdownTablesOutput():
     def __init__(self, groups, board, image_path):
-        result = ("# Airframes Reference\n"
-                  "> **Note** **This list is [auto-generated](https://github.com/PX4/PX4-Autopilot/blob/master/Tools/px4airframes/markdownout.py) from the source code**.\n"
-                  "> \n"
-                  "> **AUX** channels may not be present on some flight controllers.\n"
-                  "> If present, PWM AUX channels are commonly labelled **AUX OUT**.\n"
-                  "> \n"
-                  "\n")
+        result = """# Airframes Reference
 
-        result += """This page lists all supported airframes and types including
- the motor assignment and numbering. The motors in **green** rotate clockwise,
- the ones in **blue** counterclockwise.\n\n"""
+:::note
+**This list is [auto-generated](https://github.com/PX4/PX4-Autopilot/blob/master/Tools/px4airframes/markdownout.py) from the source code** using the build command: `make airframe_metadata`.
+:::
+
+This page lists all supported airframes and types including the motor assignment and numbering.
+The motors in **green** rotate clockwise, the ones in **blue** counterclockwise.
+
+**AUX** channels may not be present on some flight controllers.
+If present, PWM AUX channels are commonly labelled **AUX OUT**.
+
+<style>
+div.frame_common table, div.frame_common table {
+   display: table;
+   table-layout: fixed;
+   margin-bottom: 5px;
+}
+
+div.frame_common table {
+   float: right;
+   width: 70%;
+}
+
+div.frame_common img {
+  max-height: 180px;
+  width: 29%;
+  padding-top: 10px;
+}
+
+div.frame_variant table {
+   width: 100%;
+}
+
+div.frame_variant th:nth-child(1) {
+  width: 30%;
+  }
+
+div.frame_variant tr > * {
+    vertical-align : top;
+}
+
+div.frame_variant td, div.frame_variant th {
+  text-align : left;
+}
+</style>\n\n"""
  
         type_set = set()
         
@@ -31,51 +66,39 @@ class MarkdownTablesOutput():
 
             # Display an image of the frame
             image_name = group.GetImageName()
-            result += '<div>\n'
+            result += '<div class="frame_common">\n'
             image_name = image_path + image_name
-            result += '<img src="%s.svg" width="29%%" style="max-height: 180px;"/>\n' % (image_name)
+            result += '<img src="%s.svg"/>\n' % (image_name)
 
             # check if all outputs are equal for the group: if so, show them
             # only once
-            outputs_prev = ['', ''] # split into MAINx and others (AUXx)
-            outputs_match = [True, True]
+            all_outputs = {}
+            num_configs = len(group.GetParams())
             for param in group.GetParams():
                 if not self.IsExcluded(param, board):
-                    outputs_current = ['', '']
                     for output_name in param.GetOutputCodes():
                         value = param.GetOutputValue(output_name)
-                        if output_name.lower().startswith('main'):
-                            idx = 0
-                        else:
-                            idx = 1
-                        outputs_current[idx] += '<li><b>%s</b>: %s</li>' % (output_name, value)
-                    for i in range(2):
-                        if len(outputs_current[i]) != 0:
-                            if outputs_prev[i] == '':
-                                outputs_prev[i] = outputs_current[i]
-                            elif outputs_current[i] != outputs_prev[i]:
-                                outputs_match[i] = False
+                        key_value_pair = (output_name, value)
+                        if key_value_pair not in all_outputs:
+                            all_outputs[key_value_pair] = 0
+                        all_outputs[key_value_pair] += 1
+            has_common_outputs = any(all_outputs[k] == num_configs for k in all_outputs)
 
-            for i in range(2):
-                if len(outputs_prev[i]) == 0:
-                    outputs_match[i] = False
-                if not outputs_match[i]:
-                    outputs_prev[i] = ''
-
-            if outputs_match[0] or outputs_match[1]:
-                result += '<table style="float: right; width: 70%; font-size:1.5rem;">\n'
-                result += ' <colgroup><col></colgroup>\n'
+            if has_common_outputs:
+                outputs_common = ''.join(['<li><b>{:}</b>: {:}</li>'.format(k[0], k[1]) \
+                    for k in all_outputs if all_outputs[k] == num_configs])
+                result += '<table>\n'
                 result += ' <thead>\n'
                 result += '   <tr><th>Common Outputs</th></tr>\n'
                 result += ' </thead>\n'
-                result += '<tbody>\n'
-                result += '<tr>\n <td style="vertical-align: top;"><ul>%s%s</ul></td>\n</tr>\n' % (outputs_prev[0], outputs_prev[1])
+                result += ' <tbody>\n'
+                result += '<tr>\n <td><ul>%s</ul></td>\n</tr>\n' % (outputs_common)
                 result += '</tbody></table>\n'
 
             result += '</div>\n\n'
 
-            result += '<table style="width: 100%; table-layout:fixed; font-size:1.5rem;">\n'
-            result += ' <colgroup><col style="width: 30%"><col style="width: 70%"></colgroup>\n'
+            result += '<div class="frame_variant">\n'
+            result += '<table>\n'
             result += ' <thead>\n'
             result += '   <tr><th>Name</th><th></th></tr>\n'
             result += ' </thead>\n'
@@ -90,10 +113,12 @@ class MarkdownTablesOutput():
                     maintainer = param.GetMaintainer()
                     maintainer_entry = ''
                     if maintainer != '':
-                        maintainer_entry = '<p>Maintainer: %s</p>' % (html.escape(maintainer))
+                        maintainer_entry = 'Maintainer: %s' % (html.escape(maintainer))
                     url = param.GetFieldValue('url')
-                    name_anchor='id="%s_%s_%s"' % (group.GetClass(),group.GetName(),name)
+                    name_anchor='%s_%s_%s' % (group.GetClass(),group.GetName(),name)
                     name_anchor=name_anchor.replace(' ','_').lower()
+                    name_anchor=name_anchor.replace('"','_').lower()
+                    name_anchor='id="%s"' % name_anchor
                     name_entry = name
                     if url != '':
                         name_entry = '<a href="%s">%s</a>' % (url, name)
@@ -102,11 +127,8 @@ class MarkdownTablesOutput():
                     for output_name in param.GetOutputCodes():
                         value = param.GetOutputValue(output_name)
                         valstrs = value.split(";")
-                        if output_name.lower().startswith('main'):
-                            idx = 0
-                        else:
-                            idx = 1
-                        if not outputs_match[idx]:
+                        key_value_pair = (output_name, value)
+                        if all_outputs[key_value_pair] < num_configs:
                             outputs += '<li><b>%s</b>: %s</li>' % (output_name, value)
                             has_outputs = True
 
@@ -120,13 +142,13 @@ class MarkdownTablesOutput():
                     else:
                         outputs_entry = ''
 
-                    result += ('<tr %s>\n <td style="vertical-align: top;">%s</td>\n <td style="vertical-align: top;">%s%s%s</td>\n\n</tr>\n' %
+                    result += ('<tr %s>\n <td>%s</td>\n <td>%s%s%s</td>\n</tr>\n' %
                         (name_anchor, name_entry, maintainer_entry, airframe_id_entry,
                         outputs_entry))
 
 
             #Close the table.
-            result += '</tbody></table>\n\n'
+            result += '</tbody>\n</table>\n</div>\n\n'
 
         self.output = result
 

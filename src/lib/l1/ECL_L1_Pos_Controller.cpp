@@ -1,6 +1,6 @@
 /****************************************************************************
  *
- *   Copyright (c) 2013-2020 PX4 Development Team. All rights reserved.
+ *   Copyright (c) 2013-2021 PX4 Development Team. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -40,7 +40,7 @@
 
 #include "ECL_L1_Pos_Controller.hpp"
 
-#include <lib/ecl/geo/geo.h>
+#include <lib/geo/geo.h>
 
 #include <px4_platform_common/defines.h>
 
@@ -73,15 +73,18 @@ float ECL_L1_Pos_Controller::switch_distance(float wp_radius)
 }
 
 void
-ECL_L1_Pos_Controller::navigate_waypoints(const Vector2d &vector_A, const Vector2d &vector_B,
-		const Vector2d &vector_curr_position, const Vector2f &ground_speed_vector)
+ECL_L1_Pos_Controller::navigate_waypoints(const Vector2f &vector_A, const Vector2f &vector_B,
+		const Vector2f &vector_curr_position, const Vector2f &ground_speed_vector)
 {
+	_has_guidance_updated = true;
+
 	/* this follows the logic presented in [1] */
 	float eta = 0.0f;
 
 	/* get the direction between the last (visited) and next waypoint */
-	_target_bearing = get_bearing_to_next_waypoint(vector_curr_position(0), vector_curr_position(1), vector_B(0),
-			  vector_B(1));
+	Vector2f vector_P_to_B = vector_B - vector_curr_position;
+	Vector2f vector_P_to_B_unit = vector_P_to_B.normalized();
+	_target_bearing = atan2f(vector_P_to_B_unit(1), vector_P_to_B_unit(0));
 
 	/* enforce a minimum ground speed of 0.1 m/s to avoid singularities */
 	float ground_speed = math::max(ground_speed_vector.length(), 0.1f);
@@ -90,20 +93,20 @@ ECL_L1_Pos_Controller::navigate_waypoints(const Vector2d &vector_A, const Vector
 	_L1_distance = _L1_ratio * ground_speed;
 
 	/* calculate vector from A to B */
-	Vector2f vector_AB = get_local_planar_vector(vector_A, vector_B);
+	Vector2f vector_AB = vector_B - vector_A;
 
 	/*
 	 * check if waypoints are on top of each other. If yes,
 	 * skip A and directly continue to B
 	 */
 	if (vector_AB.length() < 1.0e-6f) {
-		vector_AB = get_local_planar_vector(vector_curr_position, vector_B);
+		vector_AB = vector_B - vector_curr_position;
 	}
 
 	vector_AB.normalize();
 
 	/* calculate the vector from waypoint A to the aircraft */
-	Vector2f vector_A_to_airplane = get_local_planar_vector(vector_A, vector_curr_position);
+	Vector2f vector_A_to_airplane = vector_curr_position - vector_A;
 
 	/* calculate crosstrack error (output only) */
 	_crosstrack_error = vector_AB % vector_A_to_airplane;
@@ -117,7 +120,8 @@ ECL_L1_Pos_Controller::navigate_waypoints(const Vector2d &vector_A, const Vector
 	float alongTrackDist = vector_A_to_airplane * vector_AB;
 
 	/* estimate airplane position WRT to B */
-	Vector2f vector_B_to_P_unit = get_local_planar_vector(vector_B, vector_curr_position).normalized();
+	Vector2f vector_B_to_P = vector_curr_position - vector_B;
+	Vector2f vector_B_to_P_unit = vector_B_to_P.normalized();
 
 	/* calculate angle of airplane position vector relative to line) */
 
@@ -208,19 +212,17 @@ ECL_L1_Pos_Controller::navigate_waypoints(const Vector2d &vector_A, const Vector
 }
 
 void
-ECL_L1_Pos_Controller::navigate_loiter(const Vector2d &vector_A, const Vector2d &vector_curr_position, float radius,
+ECL_L1_Pos_Controller::navigate_loiter(const Vector2f &vector_A, const Vector2f &vector_curr_position, float radius,
 				       int8_t loiter_direction, const Vector2f &ground_speed_vector)
 {
+	_has_guidance_updated = true;
+
 	/* the complete guidance logic in this section was proposed by [2] */
 
 	/* calculate the gains for the PD loop (circle tracking) */
 	float omega = (2.0f * M_PI_F / _L1_period);
 	float K_crosstrack = omega * omega;
 	float K_velocity = 2.0f * _L1_damping * omega;
-
-	/* update bearing to next waypoint */
-	_target_bearing = get_bearing_to_next_waypoint(vector_curr_position(0), vector_curr_position(1), vector_A(0),
-			  vector_A(1));
 
 	/* ground speed, enforce minimum of 0.1 m/s to avoid singularities */
 	float ground_speed = math::max(ground_speed_vector.length(), 0.1f);
@@ -229,7 +231,7 @@ ECL_L1_Pos_Controller::navigate_loiter(const Vector2d &vector_A, const Vector2d 
 	_L1_distance = _L1_ratio * ground_speed;
 
 	/* calculate the vector from waypoint A to current position */
-	Vector2f vector_A_to_airplane = get_local_planar_vector(vector_A, vector_curr_position);
+	Vector2f vector_A_to_airplane = vector_curr_position - vector_A;
 
 	Vector2f vector_A_to_airplane_unit;
 
@@ -241,6 +243,9 @@ ECL_L1_Pos_Controller::navigate_loiter(const Vector2d &vector_A, const Vector2d 
 	} else {
 		vector_A_to_airplane_unit = vector_A_to_airplane;
 	}
+
+	/* update bearing to next waypoint */
+	_target_bearing = atan2f(-vector_A_to_airplane_unit(1), -vector_A_to_airplane_unit(0));
 
 	/* calculate eta angle towards the loiter center */
 
@@ -272,7 +277,9 @@ ECL_L1_Pos_Controller::navigate_loiter(const Vector2d &vector_A, const Vector2d 
 	float tangent_vel = xtrack_vel_center * loiter_direction;
 
 	/* prevent PD output from turning the wrong way when in circle mode */
-	if (tangent_vel < 0.0f && _circle_mode) {
+	const float l1_op_tan_vel = 2.f; // hard coded max tangential velocity in the opposite direction
+
+	if (tangent_vel < -l1_op_tan_vel && _circle_mode) {
 		lateral_accel_sp_circle_pd = math::max(lateral_accel_sp_circle_pd, 0.0f);
 	}
 
@@ -312,6 +319,8 @@ ECL_L1_Pos_Controller::navigate_loiter(const Vector2d &vector_A, const Vector2d 
 void ECL_L1_Pos_Controller::navigate_heading(float navigation_heading, float current_heading,
 		const Vector2f &ground_speed_vector)
 {
+	_has_guidance_updated = true;
+
 	/* the complete guidance logic in this section was proposed by [2] */
 
 	/*
@@ -348,6 +357,8 @@ void ECL_L1_Pos_Controller::navigate_heading(float navigation_heading, float cur
 
 void ECL_L1_Pos_Controller::navigate_level_flight(float current_heading)
 {
+	_has_guidance_updated = true;
+
 	/* the logic in this section is trivial, but originally proposed by [2] */
 
 	/* reset all heading / error measures resulting in zero roll */
@@ -361,19 +372,6 @@ void ECL_L1_Pos_Controller::navigate_level_flight(float current_heading)
 	_circle_mode = false;
 
 	update_roll_setpoint();
-}
-
-Vector2f ECL_L1_Pos_Controller::get_local_planar_vector(const Vector2d &origin, const Vector2d &target) const
-{
-	/* this is an approximation for small angles, proposed by [2] */
-	const double x_angle = math::radians(target(0) - origin(0));
-	const double y_angle = math::radians(target(1) - origin(1));
-	const double x_origin_cos = cos(math::radians(origin(0)));
-
-	return Vector2f{
-		static_cast<float>(x_angle * CONSTANTS_RADIUS_OF_EARTH),
-		static_cast<float>(y_angle *x_origin_cos * CONSTANTS_RADIUS_OF_EARTH),
-	};
 }
 
 void ECL_L1_Pos_Controller::set_l1_period(float period)

@@ -35,14 +35,20 @@
 #include "accelerometer_calibration.h"
 #include "airspeed_calibration.h"
 #include "calibration_routines.h"
+#include "baro_calibration.h"
 #include "esc_calibration.h"
 #include "gyro_calibration.h"
 #include "level_calibration.h"
 #include "mag_calibration.h"
 #include "rc_calibration.h"
 
+#include <px4_platform_common/events.h>
 #include <px4_platform_common/log.h>
+#include <px4_platform_common/shutdown.h>
 #include <parameters/param.h>
+
+
+using namespace time_literals;
 
 WorkerThread::~WorkerThread()
 {
@@ -139,11 +145,16 @@ void WorkerThread::threadEntry()
 		_ret_value = do_mag_calibration_quick(&_mavlink_log_pub, _heading_radians, _latitude, _longitude);
 		break;
 
+	case Request::BaroCalibration:
+		_ret_value = do_baro_calibration(&_mavlink_log_pub);
+		break;
+
 	case Request::ParamLoadDefault:
 		_ret_value = param_load_default();
 
 		if (_ret_value != 0) {
-			mavlink_log_critical(&_mavlink_log_pub, "Error loading settings");
+			mavlink_log_critical(&_mavlink_log_pub, "Error loading settings\t");
+			events::send(events::ID("commander_load_param_failed"), events::Log::Critical, "Error loading settings");
 		}
 
 		break;
@@ -152,7 +163,8 @@ void WorkerThread::threadEntry()
 		_ret_value = param_save_default();
 
 		if (_ret_value != 0) {
-			mavlink_log_critical(&_mavlink_log_pub, "Error saving settings");
+			mavlink_log_critical(&_mavlink_log_pub, "Error saving settings\t");
+			events::send(events::ID("commander_save_param_failed"), events::Log::Critical, "Error saving settings");
 		}
 
 		break;
@@ -161,6 +173,27 @@ void WorkerThread::threadEntry()
 		param_reset_all();
 		_ret_value = 0;
 		break;
+
+	case Request::ParamResetSensorFactory: {
+			const char *reset_cal[] = { "CAL_ACC*", "CAL_GYRO*", "CAL_MAG*" };
+			param_reset_specific(reset_cal, sizeof(reset_cal) / sizeof(reset_cal[0]));
+			_ret_value = param_save_default();
+#if defined(CONFIG_BOARDCTL_RESET)
+			px4_reboot_request(false, 400_ms);
+#endif // CONFIG_BOARDCTL_RESET
+			break;
+		}
+
+	case Request::ParamResetAllConfig: {
+			const char *exclude_list[] = {
+				"LND_FLIGHT_T_HI",
+				"LND_FLIGHT_T_LO",
+				"COM_FLIGHT_UUID"
+			};
+			param_reset_excludes(exclude_list, sizeof(exclude_list) / sizeof(exclude_list[0]));
+			_ret_value = 0;
+			break;
+		}
 	}
 
 	_state.store((int)State::Finished); // set this last to signal the main thread we're done

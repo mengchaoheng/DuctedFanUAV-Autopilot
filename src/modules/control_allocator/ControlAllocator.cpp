@@ -51,15 +51,35 @@ using namespace time_literals;
 
 ControlAllocator::ControlAllocator() :
 	ModuleParams(nullptr),
-	WorkItem(MODULE_NAME, px4::wq_configurations::ctrl_alloc),
+	ScheduledWorkItem(MODULE_NAME, px4::wq_configurations::rate_ctrl),
 	_loop_perf(perf_alloc(PC_ELAPSED, MODULE_NAME": cycle"))
 {
+	_control_allocator_status_pub.advertise();
+	_actuator_motors_pub.advertise();
+	_actuator_servos_pub.advertise();
+	_actuator_servos_trim_pub.advertise();
+
+	for (int i = 0; i < MAX_NUM_MOTORS; ++i) {
+		char buffer[17];
+		snprintf(buffer, sizeof(buffer), "CA_R%u_SLEW", i);
+		_param_handles.slew_rate_motors[i] = param_find(buffer);
+	}
+
+	for (int i = 0; i < MAX_NUM_SERVOS; ++i) {
+		char buffer[17];
+		snprintf(buffer, sizeof(buffer), "CA_SV%u_SLEW", i);
+		_param_handles.slew_rate_servos[i] = param_find(buffer);
+	}
+
 	parameters_updated();
 }
 
 ControlAllocator::~ControlAllocator()
 {
-	delete _control_allocation;
+	for (int i = 0; i < ActuatorEffectiveness::MAX_NUM_MATRICES; ++i) {
+		delete _control_allocation[i];
+	}
+
 	delete _actuator_effectiveness;
 
 	perf_free(_loop_perf);
@@ -69,14 +89,16 @@ bool
 ControlAllocator::init()
 {
 	if (!_vehicle_torque_setpoint_sub.registerCallback()) {
-		PX4_ERR("vehicle_torque_setpoint callback registration failed!");
+		PX4_ERR("callback registration failed");
 		return false;
 	}
 
 	if (!_vehicle_thrust_setpoint_sub.registerCallback()) {
-		PX4_ERR("vehicle_thrust_setpoint callback registration failed!");
+		PX4_ERR("callback registration failed");
 		return false;
 	}
+
+	ScheduleDelayed(50_ms);
 
 	return true;
 }
@@ -84,108 +106,103 @@ ControlAllocator::init()
 void
 ControlAllocator::parameters_updated()
 {
+	_has_slew_rate = false;
+
+	for (int i = 0; i < MAX_NUM_MOTORS; ++i) {
+		param_get(_param_handles.slew_rate_motors[i], &_params.slew_rate_motors[i]);
+		_has_slew_rate |= _params.slew_rate_motors[i] > FLT_EPSILON;
+	}
+
+	for (int i = 0; i < MAX_NUM_SERVOS; ++i) {
+		param_get(_param_handles.slew_rate_servos[i], &_params.slew_rate_servos[i]);
+		_has_slew_rate |= _params.slew_rate_servos[i] > FLT_EPSILON;
+	}
+
 	// Allocation method & effectiveness source
 	// Do this first: in case a new method is loaded, it will be configured below
-	update_effectiveness_source();
-	update_allocation_method();
+	bool updated = update_effectiveness_source();
+	update_allocation_method(updated); // must be called after update_effectiveness_source()
 
-	if (_control_allocation == nullptr) {
+	if (_num_control_allocation == 0) {
 		return;
 	}
 
-	// Minimum actuator values
-	matrix::Vector<float, NUM_ACTUATORS> actuator_min;
-	actuator_min(0) = _param_ca_act0_min.get();
-	actuator_min(1) = _param_ca_act1_min.get();
-	actuator_min(2) = _param_ca_act2_min.get();
-	actuator_min(3) = _param_ca_act3_min.get();
-	actuator_min(4) = _param_ca_act4_min.get();
-	actuator_min(5) = _param_ca_act5_min.get();
-	actuator_min(6) = _param_ca_act6_min.get();
-	actuator_min(7) = _param_ca_act7_min.get();
-	actuator_min(8) = _param_ca_act8_min.get();
-	actuator_min(9) = _param_ca_act9_min.get();
-	actuator_min(10) = _param_ca_act10_min.get();
-	actuator_min(11) = _param_ca_act11_min.get();
-	actuator_min(12) = _param_ca_act12_min.get();
-	actuator_min(13) = _param_ca_act13_min.get();
-	actuator_min(14) = _param_ca_act14_min.get();
-	actuator_min(15) = _param_ca_act15_min.get();
-	_control_allocation->setActuatorMin(actuator_min);
+	for (int i = 0; i < _num_control_allocation; ++i) {
+		_control_allocation[i]->updateParameters();
+	}
 
-	// Maximum actuator values
-	matrix::Vector<float, NUM_ACTUATORS> actuator_max;
-	actuator_max(0) = _param_ca_act0_max.get();
-	actuator_max(1) = _param_ca_act1_max.get();
-	actuator_max(2) = _param_ca_act2_max.get();
-	actuator_max(3) = _param_ca_act3_max.get();
-	actuator_max(4) = _param_ca_act4_max.get();
-	actuator_max(5) = _param_ca_act5_max.get();
-	actuator_max(6) = _param_ca_act6_max.get();
-	actuator_max(7) = _param_ca_act7_max.get();
-	actuator_max(8) = _param_ca_act8_max.get();
-	actuator_max(9) = _param_ca_act9_max.get();
-	actuator_max(10) = _param_ca_act10_max.get();
-	actuator_max(11) = _param_ca_act11_max.get();
-	actuator_max(12) = _param_ca_act12_max.get();
-	actuator_max(13) = _param_ca_act13_max.get();
-	actuator_max(14) = _param_ca_act14_max.get();
-	actuator_max(15) = _param_ca_act15_max.get();
-	_control_allocation->setActuatorMax(actuator_max);
+	update_effectiveness_matrix_if_needed(EffectivenessUpdateReason::CONFIGURATION_UPDATE);
 }
 
 void
-ControlAllocator::update_allocation_method()
+ControlAllocator::update_allocation_method(bool force)
 {
-	AllocationMethod method = (AllocationMethod)_param_ca_method.get();
+	AllocationMethod configured_method = (AllocationMethod)_param_ca_method.get();
 
-	if (_allocation_method_id != method) {
+	if (!_actuator_effectiveness) {
+		PX4_ERR("_actuator_effectiveness null");
+		return;
+	}
 
-		// Save current state
-		matrix::Vector<float, NUM_ACTUATORS> actuator_sp;
+	if (_allocation_method_id != configured_method || force) {
 
-		if (_control_allocation != nullptr) {
-			actuator_sp = _control_allocation->getActuatorSetpoint();
+		matrix::Vector<float, NUM_ACTUATORS> actuator_sp[ActuatorEffectiveness::MAX_NUM_MATRICES];
+
+		// Cleanup first
+		for (int i = 0; i < ActuatorEffectiveness::MAX_NUM_MATRICES; ++i) {
+			// Save current state
+			if (_control_allocation[i] != nullptr) {
+				actuator_sp[i] = _control_allocation[i]->getActuatorSetpoint();
+			}
+
+			delete _control_allocation[i];
+			_control_allocation[i] = nullptr;
 		}
 
-		// try to instanciate new allocation method
-		ControlAllocation *tmp = nullptr;
+		_num_control_allocation = _actuator_effectiveness->numMatrices();
 
-		switch (method) {
-		case AllocationMethod::PSEUDO_INVERSE:
-			tmp = new ControlAllocationPseudoInverse();
-			break;
+		AllocationMethod desired_methods[ActuatorEffectiveness::MAX_NUM_MATRICES];
+		_actuator_effectiveness->getDesiredAllocationMethod(desired_methods);
 
-		case AllocationMethod::SEQUENTIAL_DESATURATION:
-			tmp = new ControlAllocationSequentialDesaturation();
-			break;
+		bool normalize_rpy[ActuatorEffectiveness::MAX_NUM_MATRICES];
+		_actuator_effectiveness->getNormalizeRPY(normalize_rpy);
 
-		default:
-			PX4_ERR("Unknown allocation method");
-			break;
+		for (int i = 0; i < _num_control_allocation; ++i) {
+			AllocationMethod method = configured_method;
+
+			if (configured_method == AllocationMethod::AUTO) {
+				method = desired_methods[i];
+			}
+
+			switch (method) {
+			case AllocationMethod::PSEUDO_INVERSE:
+				_control_allocation[i] = new ControlAllocationPseudoInverse();
+				break;
+
+			case AllocationMethod::SEQUENTIAL_DESATURATION:
+				_control_allocation[i] = new ControlAllocationSequentialDesaturation();
+				break;
+
+			default:
+				PX4_ERR("Unknown allocation method");
+				break;
+			}
+
+			if (_control_allocation[i] == nullptr) {
+				PX4_ERR("alloc failed");
+				_num_control_allocation = 0;
+
+			} else {
+				_control_allocation[i]->setNormalizeRPY(normalize_rpy[i]);
+				_control_allocation[i]->setActuatorSetpoint(actuator_sp[i]);
+			}
 		}
 
-		// Replace previous method with new one
-		if (tmp == nullptr) {
-			// It did not work, forget about it
-			PX4_ERR("Control allocation init failed");
-			_param_ca_method.set((int)_allocation_method_id);
-
-		} else {
-			// Swap allocation methods
-			delete _control_allocation;
-			_control_allocation = tmp;
-
-			// Save method id
-			_allocation_method_id = method;
-
-			// Configure new allocation method
-			_control_allocation->setActuatorSetpoint(actuator_sp);
-		}
+		_allocation_method_id = configured_method;
 	}
 }
 
-void
+bool
 ControlAllocator::update_effectiveness_source()
 {
 	EffectivenessSource source = (EffectivenessSource)_param_ca_airframe.get();
@@ -198,15 +215,43 @@ ControlAllocator::update_effectiveness_source()
 		switch (source) {
 		case EffectivenessSource::NONE:
 		case EffectivenessSource::MULTIROTOR:
-			tmp = new ActuatorEffectivenessMultirotor();
+			tmp = new ActuatorEffectivenessMultirotor(this);
 			break;
 
 		case EffectivenessSource::STANDARD_VTOL:
-			tmp = new ActuatorEffectivenessStandardVTOL();
+			tmp = new ActuatorEffectivenessStandardVTOL(this);
 			break;
 
 		case EffectivenessSource::TILTROTOR_VTOL:
-			tmp = new ActuatorEffectivenessTiltrotorVTOL();
+			tmp = new ActuatorEffectivenessTiltrotorVTOL(this);
+			break;
+
+		case EffectivenessSource::TAILSITTER_VTOL:
+			tmp = new ActuatorEffectivenessTailsitterVTOL(this);
+			break;
+
+		case EffectivenessSource::ROVER_ACKERMANN:
+			tmp = new ActuatorEffectivenessRoverAckermann();
+			break;
+
+		case EffectivenessSource::ROVER_DIFFERENTIAL:
+			tmp = new ActuatorEffectivenessRoverDifferential();
+			break;
+
+		case EffectivenessSource::FIXED_WING:
+			tmp = new ActuatorEffectivenessFixedWing(this);
+			break;
+
+		case EffectivenessSource::MOTORS_6DOF: // just a different UI from MULTIROTOR
+			tmp = new ActuatorEffectivenessRotors(this);
+			break;
+
+		case EffectivenessSource::MULTIROTOR_WITH_TILT:
+			tmp = new ActuatorEffectivenessMCTilt(this);
+			break;
+
+		case EffectivenessSource::CUSTOM:
+			tmp = new ActuatorEffectivenessCustom(this);
 			break;
 
 		default:
@@ -228,7 +273,11 @@ ControlAllocator::update_effectiveness_source()
 			// Save source id
 			_effectiveness_source_id = source;
 		}
+
+		return true;
 	}
+
+	return false;
 }
 
 void
@@ -243,50 +292,53 @@ ControlAllocator::Run()
 
 	perf_begin(_loop_perf);
 
+	// Push backup schedule
+	ScheduleDelayed(50_ms);
+
 	// Check if parameters have changed
-	if (_parameter_update_sub.updated()) {
+	if (_parameter_update_sub.updated() && !_armed) {
 		// clear update
 		parameter_update_s param_update;
 		_parameter_update_sub.copy(&param_update);
-
-		if (_control_allocation) {
-			_control_allocation->updateParameters();
-		}
 
 		updateParams();
 		parameters_updated();
 	}
 
-	if (_control_allocation == nullptr || _actuator_effectiveness == nullptr) {
+	if (_num_control_allocation == 0 || _actuator_effectiveness == nullptr) {
 		return;
 	}
 
-	vehicle_status_s vehicle_status;
+	{
+		vehicle_status_s vehicle_status;
 
-	if (_vehicle_status_sub.update(&vehicle_status)) {
+		if (_vehicle_status_sub.update(&vehicle_status)) {
 
-		ActuatorEffectiveness::FlightPhase flight_phase{ActuatorEffectiveness::FlightPhase::HOVER_FLIGHT};
+			_armed = vehicle_status.arming_state == vehicle_status_s::ARMING_STATE_ARMED;
 
-		// Check if the current flight phase is HOVER or FIXED_WING
-		if (vehicle_status.vehicle_type == vehicle_status_s::VEHICLE_TYPE_ROTARY_WING) {
-			flight_phase = ActuatorEffectiveness::FlightPhase::HOVER_FLIGHT;
+			ActuatorEffectiveness::FlightPhase flight_phase{ActuatorEffectiveness::FlightPhase::HOVER_FLIGHT};
 
-		} else {
-			flight_phase = ActuatorEffectiveness::FlightPhase::FORWARD_FLIGHT;
-		}
-
-		// Special cases for VTOL in transition
-		if (vehicle_status.is_vtol && vehicle_status.in_transition_mode) {
-			if (vehicle_status.in_transition_to_fw) {
-				flight_phase = ActuatorEffectiveness::FlightPhase::TRANSITION_HF_TO_FF;
+			// Check if the current flight phase is HOVER or FIXED_WING
+			if (vehicle_status.vehicle_type == vehicle_status_s::VEHICLE_TYPE_ROTARY_WING) {
+				flight_phase = ActuatorEffectiveness::FlightPhase::HOVER_FLIGHT;
 
 			} else {
-				flight_phase = ActuatorEffectiveness::FlightPhase::TRANSITION_FF_TO_HF;
+				flight_phase = ActuatorEffectiveness::FlightPhase::FORWARD_FLIGHT;
 			}
-		}
 
-		// Forward to effectiveness source
-		_actuator_effectiveness->setFlightPhase(flight_phase);
+			// Special cases for VTOL in transition
+			if (vehicle_status.is_vtol && vehicle_status.in_transition_mode) {
+				if (vehicle_status.in_transition_to_fw) {
+					flight_phase = ActuatorEffectiveness::FlightPhase::TRANSITION_HF_TO_FF;
+
+				} else {
+					flight_phase = ActuatorEffectiveness::FlightPhase::TRANSITION_FF_TO_HF;
+				}
+			}
+
+			// Forward to effectiveness source
+			_actuator_effectiveness->setFlightPhase(flight_phase);
+		}
 	}
 
 	// Guard against too small (< 0.2ms) and too large (> 20ms) dt's.
@@ -320,70 +372,167 @@ ControlAllocator::Run()
 	if (do_update) {
 		_last_run = now;
 
-		update_effectiveness_matrix_if_needed();
+		update_effectiveness_matrix_if_needed(EffectivenessUpdateReason::NO_EXTERNAL_UPDATE);
 
-		// Set control setpoint vector
-		matrix::Vector<float, NUM_AXES> c;
-		c(0) = _torque_sp(0);
-		c(1) = _torque_sp(1);
-		c(2) = _torque_sp(2);
-		c(3) = _thrust_sp(0);
-		c(4) = _thrust_sp(1);
-		c(5) = _thrust_sp(2);
-		_control_allocation->setControlSetpoint(c);
+		// Set control setpoint vector(s)
+		matrix::Vector<float, NUM_AXES> c[ActuatorEffectiveness::MAX_NUM_MATRICES];
+		c[0](0) = _torque_sp(0);
+		c[0](1) = _torque_sp(1);
+		c[0](2) = _torque_sp(2);
+		c[0](3) = _thrust_sp(0);
+		c[0](4) = _thrust_sp(1);
+		c[0](5) = _thrust_sp(2);
 
-		// Do allocation
-		_control_allocation->allocate();
+		if (_num_control_allocation > 1) {
+			_vehicle_torque_setpoint1_sub.copy(&vehicle_torque_setpoint);
+			_vehicle_thrust_setpoint1_sub.copy(&vehicle_thrust_setpoint);
+			c[1](0) = vehicle_torque_setpoint.xyz[0];
+			c[1](1) = vehicle_torque_setpoint.xyz[1];
+			c[1](2) = vehicle_torque_setpoint.xyz[2];
+			c[1](3) = vehicle_thrust_setpoint.xyz[0];
+			c[1](4) = vehicle_thrust_setpoint.xyz[1];
+			c[1](5) = vehicle_thrust_setpoint.xyz[2];
+		}
 
-		// Publish actuator setpoint and allocator status
-		publish_actuator_setpoint();
+		for (int i = 0; i < _num_control_allocation; ++i) {
+
+			_control_allocation[i]->setControlSetpoint(c[i]);
+
+			// Do allocation
+			_control_allocation[i]->allocate();
+			_actuator_effectiveness->updateSetpoint(c[i], i, _control_allocation[i]->_actuator_sp);
+
+			if (_has_slew_rate) {
+				_control_allocation[i]->applySlewRateLimit(dt);
+			}
+
+			_control_allocation[i]->clipActuatorSetpoint();
+		}
+	}
+
+	// Publish actuator setpoint and allocator status
+	publish_actuator_controls();
+
+	// Publish status at limited rate, as it's somewhat expensive and we use it for slower dynamics
+	// (i.e. anti-integrator windup)
+	if (now - _last_status_pub >= 5_ms) {
 		publish_control_allocator_status();
-
-		// Publish on legacy topics for compatibility with
-		// the current mixer system and multicopter controller
-		// TODO: remove
-		publish_legacy_actuator_controls();
+		_last_status_pub = now;
 	}
 
 	perf_end(_loop_perf);
 }
 
 void
-ControlAllocator::update_effectiveness_matrix_if_needed()
+ControlAllocator::update_effectiveness_matrix_if_needed(EffectivenessUpdateReason reason)
 {
-	matrix::Matrix<float, NUM_AXES, NUM_ACTUATORS> effectiveness;
+	ActuatorEffectiveness::Configuration config{};
 
-	if (_actuator_effectiveness->getEffectivenessMatrix(effectiveness)) {
-		const matrix::Vector<float, NUM_ACTUATORS> &trim = _actuator_effectiveness->getActuatorTrim();
+	if (reason == EffectivenessUpdateReason::NO_EXTERNAL_UPDATE
+	    && hrt_elapsed_time(&_last_effectiveness_update) < 100_ms) { // rate-limit updates
+		return;
+	}
 
-		// Set 0 effectiveness for actuators that are disabled (act_min >= act_max)
-		matrix::Vector<float, NUM_ACTUATORS> actuator_max = _control_allocation->getActuatorMax();
-		matrix::Vector<float, NUM_ACTUATORS> actuator_min = _control_allocation->getActuatorMin();
+	if (_actuator_effectiveness->getEffectivenessMatrix(config, reason)) {
+		_last_effectiveness_update = hrt_absolute_time();
 
-		for (size_t j = 0; j < NUM_ACTUATORS; j++) {
-			if (actuator_min(j) >= actuator_max(j)) {
-				for (size_t i = 0; i < NUM_AXES; i++) {
-					effectiveness(i, j) = 0.0f;
+		memcpy(_control_allocation_selection_indexes, config.matrix_selection_indexes,
+		       sizeof(_control_allocation_selection_indexes));
+
+		// Get the minimum and maximum depending on type and configuration
+		ActuatorEffectiveness::ActuatorVector minimum[ActuatorEffectiveness::MAX_NUM_MATRICES];
+		ActuatorEffectiveness::ActuatorVector maximum[ActuatorEffectiveness::MAX_NUM_MATRICES];
+		ActuatorEffectiveness::ActuatorVector slew_rate[ActuatorEffectiveness::MAX_NUM_MATRICES];
+		int actuator_idx = 0;
+		int actuator_idx_matrix[ActuatorEffectiveness::MAX_NUM_MATRICES] {};
+
+		actuator_servos_trim_s trims{};
+		static_assert(actuator_servos_trim_s::NUM_CONTROLS == actuator_servos_s::NUM_CONTROLS, "size mismatch");
+
+		for (int actuator_type = 0; actuator_type < (int)ActuatorType::COUNT; ++actuator_type) {
+			_num_actuators[actuator_type] = config.num_actuators[actuator_type];
+
+			for (int actuator_type_idx = 0; actuator_type_idx < config.num_actuators[actuator_type]; ++actuator_type_idx) {
+				if (actuator_idx >= NUM_ACTUATORS) {
+					_num_actuators[actuator_type] = 0;
+					PX4_ERR("Too many actuators");
+					break;
 				}
+
+				int selected_matrix = _control_allocation_selection_indexes[actuator_idx];
+
+				if ((ActuatorType)actuator_type == ActuatorType::MOTORS) {
+					if (actuator_type_idx >= MAX_NUM_MOTORS) {
+						PX4_ERR("Too many motors");
+						_num_actuators[actuator_type] = 0;
+						break;
+					}
+
+					if (_param_r_rev.get() & (1u << actuator_type_idx)) {
+						minimum[selected_matrix](actuator_idx_matrix[selected_matrix]) = -1.f;
+
+					} else {
+						minimum[selected_matrix](actuator_idx_matrix[selected_matrix]) = 0.f;
+					}
+
+					slew_rate[selected_matrix](actuator_idx_matrix[selected_matrix]) = _params.slew_rate_motors[actuator_type_idx];
+
+				} else if ((ActuatorType)actuator_type == ActuatorType::SERVOS) {
+					if (actuator_type_idx >= MAX_NUM_SERVOS) {
+						PX4_ERR("Too many servos");
+						_num_actuators[actuator_type] = 0;
+						break;
+					}
+
+					minimum[selected_matrix](actuator_idx_matrix[selected_matrix]) = -1.f;
+					slew_rate[selected_matrix](actuator_idx_matrix[selected_matrix]) = _params.slew_rate_servos[actuator_type_idx];
+					trims.trim[actuator_type_idx] = config.trim[selected_matrix](actuator_idx_matrix[selected_matrix]);
+
+				} else {
+					minimum[selected_matrix](actuator_idx_matrix[selected_matrix]) = -1.f;
+				}
+
+				maximum[selected_matrix](actuator_idx_matrix[selected_matrix]) = 1.f;
+
+				++actuator_idx_matrix[selected_matrix];
+				++actuator_idx;
 			}
 		}
 
-		// Assign control effectiveness matrix
-		_control_allocation->setEffectivenessMatrix(effectiveness, trim, _actuator_effectiveness->numActuators());
+		for (int i = 0; i < _num_control_allocation; ++i) {
+			_control_allocation[i]->setActuatorMin(minimum[i]);
+			_control_allocation[i]->setActuatorMax(maximum[i]);
+			_control_allocation[i]->setSlewRateLimit(slew_rate[i]);
+
+			// Set all the elements of a row to 0 if that row has weak authority.
+			// That ensures that the algorithm doesn't try to control axes with only marginal control authority,
+			// which in turn would degrade the control of the main axes that actually should and can be controlled.
+
+			ActuatorEffectiveness::EffectivenessMatrix &matrix = config.effectiveness_matrices[i];
+
+			for (int n = 0; n < NUM_AXES; n++) {
+				bool all_entries_small = true;
+
+				for (int m = 0; m < config.num_actuators_matrix[i]; m++) {
+					if (fabsf(matrix(n, m)) > 0.05f) {
+						all_entries_small = false;
+					}
+				}
+
+				if (all_entries_small) {
+					matrix.row(n) = 0.f;
+				}
+			}
+
+			// Assign control effectiveness matrix
+			int total_num_actuators = config.num_actuators_matrix[i];
+			_control_allocation[i]->setEffectivenessMatrix(config.effectiveness_matrices[i], config.trim[i],
+					config.linearization_point[i], total_num_actuators, reason == EffectivenessUpdateReason::CONFIGURATION_UPDATE);
+		}
+
+		trims.timestamp = hrt_absolute_time();
+		_actuator_servos_trim_pub.publish(trims);
 	}
-}
-
-void
-ControlAllocator::publish_actuator_setpoint()
-{
-	matrix::Vector<float, NUM_ACTUATORS> actuator_sp = _control_allocation->getActuatorSetpoint();
-
-	vehicle_actuator_setpoint_s vehicle_actuator_setpoint{};
-	vehicle_actuator_setpoint.timestamp = hrt_absolute_time();
-	vehicle_actuator_setpoint.timestamp_sample = _timestamp_sample;
-	actuator_sp.copyTo(vehicle_actuator_setpoint.actuator);
-
-	_vehicle_actuator_setpoint_pub.publish(vehicle_actuator_setpoint);
 }
 
 void
@@ -392,8 +541,10 @@ ControlAllocator::publish_control_allocator_status()
 	control_allocator_status_s control_allocator_status{};
 	control_allocator_status.timestamp = hrt_absolute_time();
 
+	// TODO: handle multiple matrices & disabled motors (?)
+
 	// Allocated control
-	const matrix::Vector<float, NUM_AXES> &allocated_control = _control_allocation->getAllocatedControl();
+	const matrix::Vector<float, NUM_AXES> &allocated_control = _control_allocation[0]->getAllocatedControl();
 	control_allocator_status.allocated_torque[0] = allocated_control(0);
 	control_allocator_status.allocated_torque[1] = allocated_control(1);
 	control_allocator_status.allocated_torque[2] = allocated_control(2);
@@ -402,7 +553,7 @@ ControlAllocator::publish_control_allocator_status()
 	control_allocator_status.allocated_thrust[2] = allocated_control(5);
 
 	// Unallocated control
-	matrix::Vector<float, NUM_AXES> unallocated_control = _control_allocation->getControlSetpoint() - allocated_control;
+	matrix::Vector<float, NUM_AXES> unallocated_control = _control_allocation[0]->getControlSetpoint() - allocated_control;
 	control_allocator_status.unallocated_torque[0] = unallocated_control(0);
 	control_allocator_status.unallocated_torque[1] = unallocated_control(1);
 	control_allocator_status.unallocated_torque[2] = unallocated_control(2);
@@ -417,11 +568,11 @@ ControlAllocator::publish_control_allocator_status()
 			unallocated_control(5)).norm_squared() < 1e-6f);
 
 	// Actuator saturation
-	const matrix::Vector<float, NUM_ACTUATORS> &actuator_sp = _control_allocation->getActuatorSetpoint();
-	const matrix::Vector<float, NUM_ACTUATORS> &actuator_min = _control_allocation->getActuatorMin();
-	const matrix::Vector<float, NUM_ACTUATORS> &actuator_max = _control_allocation->getActuatorMax();
+	const matrix::Vector<float, NUM_ACTUATORS> &actuator_sp = _control_allocation[0]->getActuatorSetpoint();
+	const matrix::Vector<float, NUM_ACTUATORS> &actuator_min = _control_allocation[0]->getActuatorMin();
+	const matrix::Vector<float, NUM_ACTUATORS> &actuator_max = _control_allocation[0]->getActuatorMax();
 
-	for (size_t i = 0; i < NUM_ACTUATORS; i++) {
+	for (int i = 0; i < NUM_ACTUATORS; i++) {
 		if (actuator_sp(i) > (actuator_max(i) - FLT_EPSILON)) {
 			control_allocator_status.actuator_saturation[i] = control_allocator_status_s::ACTUATOR_SATURATION_UPPER;
 
@@ -434,28 +585,63 @@ ControlAllocator::publish_control_allocator_status()
 }
 
 void
-ControlAllocator::publish_legacy_actuator_controls()
+ControlAllocator::publish_actuator_controls()
 {
-	// For compatibility with the current mixer system,
-	// publish normalized version on actuator_controls_4/5
-	actuator_controls_s actuator_controls_4{};
-	actuator_controls_s actuator_controls_5{};
-	actuator_controls_4.timestamp = hrt_absolute_time();
-	actuator_controls_5.timestamp = hrt_absolute_time();
-	actuator_controls_4.timestamp_sample = _timestamp_sample;
-	actuator_controls_5.timestamp_sample = _timestamp_sample;
+	actuator_motors_s actuator_motors;
+	actuator_motors.timestamp = hrt_absolute_time();
+	actuator_motors.timestamp_sample = _timestamp_sample;
 
-	matrix::Vector<float, NUM_ACTUATORS> actuator_sp = _control_allocation->getActuatorSetpoint();
-	matrix::Vector<float, NUM_ACTUATORS> actuator_sp_normalized = _control_allocation->normalizeActuatorSetpoint(
-				actuator_sp);
+	actuator_servos_s actuator_servos;
+	actuator_servos.timestamp = actuator_motors.timestamp;
+	actuator_servos.timestamp_sample = _timestamp_sample;
 
-	for (size_t i = 0; i < 8; i++) {
-		actuator_controls_4.control[i] = (PX4_ISFINITE(actuator_sp_normalized(i))) ? actuator_sp_normalized(i) : 0.0f;
-		actuator_controls_5.control[i] = (PX4_ISFINITE(actuator_sp_normalized(i + 8))) ? actuator_sp_normalized(i + 8) : 0.0f;
+	actuator_motors.reversible_flags = _param_r_rev.get();
+
+	int actuator_idx = 0;
+	int actuator_idx_matrix[ActuatorEffectiveness::MAX_NUM_MATRICES] {};
+
+	uint32_t stopped_motors = _actuator_effectiveness->getStoppedMotors();
+
+	// motors
+	int motors_idx;
+
+	for (motors_idx = 0; motors_idx < _num_actuators[0] && motors_idx < actuator_motors_s::NUM_CONTROLS; motors_idx++) {
+		int selected_matrix = _control_allocation_selection_indexes[actuator_idx];
+		float actuator_sp = _control_allocation[selected_matrix]->getActuatorSetpoint()(actuator_idx_matrix[selected_matrix]);
+		actuator_motors.control[motors_idx] = PX4_ISFINITE(actuator_sp) ? actuator_sp : NAN;
+
+		if (stopped_motors & (1u << motors_idx)) {
+			actuator_motors.control[motors_idx] = NAN;
+		}
+
+		++actuator_idx_matrix[selected_matrix];
+		++actuator_idx;
 	}
 
-	_actuator_controls_4_pub.publish(actuator_controls_4);
-	_actuator_controls_5_pub.publish(actuator_controls_5);
+	for (int i = motors_idx; i < actuator_motors_s::NUM_CONTROLS; i++) {
+		actuator_motors.control[i] = NAN;
+	}
+
+	_actuator_motors_pub.publish(actuator_motors);
+
+	// servos
+	if (_num_actuators[1] > 0) {
+		int servos_idx;
+
+		for (servos_idx = 0; servos_idx < _num_actuators[1] && servos_idx < actuator_servos_s::NUM_CONTROLS; servos_idx++) {
+			int selected_matrix = _control_allocation_selection_indexes[actuator_idx];
+			float actuator_sp = _control_allocation[selected_matrix]->getActuatorSetpoint()(actuator_idx_matrix[selected_matrix]);
+			actuator_servos.control[servos_idx] = PX4_ISFINITE(actuator_sp) ? actuator_sp : NAN;
+			++actuator_idx_matrix[selected_matrix];
+			++actuator_idx;
+		}
+
+		for (int i = servos_idx; i < actuator_servos_s::NUM_CONTROLS; i++) {
+			actuator_servos.control[i] = NAN;
+		}
+
+		_actuator_servos_pub.publish(actuator_servos);
+	}
 }
 
 int ControlAllocator::task_spawn(int argc, char *argv[])
@@ -498,33 +684,32 @@ int ControlAllocator::print_status()
 	case AllocationMethod::SEQUENTIAL_DESATURATION:
 		PX4_INFO("Method: Sequential desaturation");
 		break;
+
+	case AllocationMethod::AUTO:
+		PX4_INFO("Method: Auto");
+		break;
 	}
 
 	// Print current airframe
-	switch ((EffectivenessSource)_param_ca_airframe.get()) {
-	case EffectivenessSource::NONE:
-		PX4_INFO("EffectivenessSource: None");
-		break;
-
-	case EffectivenessSource::MULTIROTOR:
-		PX4_INFO("EffectivenessSource: MC parameters");
-		break;
-
-	case EffectivenessSource::STANDARD_VTOL:
-		PX4_INFO("EffectivenessSource: Standard VTOL");
-		break;
-
-	case EffectivenessSource::TILTROTOR_VTOL:
-		PX4_INFO("EffectivenessSource: Tiltrotor VTOL");
-		break;
+	if (_actuator_effectiveness != nullptr) {
+		PX4_INFO("Effectiveness Source: %s", _actuator_effectiveness->name());
 	}
 
 	// Print current effectiveness matrix
-	if (_control_allocation != nullptr) {
-		const matrix::Matrix<float, NUM_AXES, NUM_ACTUATORS> &effectiveness = _control_allocation->getEffectivenessMatrix();
-		PX4_INFO("Effectiveness.T =");
+	for (int i = 0; i < _num_control_allocation; ++i) {
+		const ActuatorEffectiveness::EffectivenessMatrix &effectiveness = _control_allocation[i]->getEffectivenessMatrix();
+
+		if (_num_control_allocation > 1) {
+			PX4_INFO("Instance: %i", i);
+		}
+
+		PX4_INFO("  Effectiveness.T =");
 		effectiveness.T().print();
-		PX4_INFO("Configured actuators: %i", _control_allocation->numConfiguredActuators());
+		PX4_INFO("  minimum =");
+		_control_allocation[i]->getActuatorMin().T().print();
+		PX4_INFO("  maximum =");
+		_control_allocation[i]->getActuatorMax().T().print();
+		PX4_INFO("  Configured actuators: %i", _control_allocation[i]->numConfiguredActuators());
 	}
 
 	// Print perf

@@ -1,6 +1,6 @@
 /****************************************************************************
  *
- *   Copyright (C) 2012-2019, 2021 PX4 Development Team. All rights reserved.
+ *   Copyright (C) 2012-2021 PX4 Development Team. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -32,21 +32,17 @@
  ****************************************************************************/
 
 /**
- * @file spi.cpp
+ * @file SPI.cpp
  *
  * Base class for devices connected via SPI.
  *
- * @todo Work out if caching the mode/frequency would save any time.
- *
- * @todo A separate bus/device abstraction would allow for mixed interrupt-mode
- * and non-interrupt-mode clients to arbitrate for the bus.  As things stand,
- * a bus shared between clients of both kinds is vulnerable to races between
- * the two, where an interrupt-mode client will ignore the lock held by the
- * non-interrupt-mode client.
  */
 
 #include "SPI.hpp"
 
+#if defined(CONFIG_SPI)
+
+#include <px4_platform_common/i2c_spi_buses.h>
 #include <px4_platform_common/px4_config.h>
 #include <nuttx/arch.h>
 
@@ -67,13 +63,18 @@ SPI::SPI(uint8_t device_type, const char *name, int bus, uint32_t device, enum s
 	// fill in _device_id fields for a SPI device
 	_device_id.devid_s.bus_type = DeviceBusType_SPI;
 	_device_id.devid_s.bus = bus;
-	// Use the 2. LSB byte as SPI address. This is currently 0, but will allow to extend
-	// for multiple instances of the same device on a bus, should that ever be required.
+	// Use the 2. LSB byte as SPI address, which is non-zero for multiple instances of the same device on a bus
 	_device_id.devid_s.address = (uint8_t)(device >> 8);
 
 	if (!px4_spi_bus_requires_locking(bus)) {
 		_locking_mode = LOCK_NONE;
 	}
+}
+
+SPI::SPI(const I2CSPIDriverConfig &config)
+	: SPI(config.devid_driver_index, config.module_name, config.bus, config.spi_devid, config.spi_mode,
+	      config.bus_frequency)
+{
 }
 
 SPI::~SPI()
@@ -231,3 +232,4 @@ SPI::_transferhword(uint16_t *send, uint16_t *recv, unsigned len)
 }
 
 } // namespace device
+#endif // CONFIG_SPI

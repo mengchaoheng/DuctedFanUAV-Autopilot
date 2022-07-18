@@ -43,7 +43,7 @@
 
 
 #include "RoverPositionControl.hpp"
-#include <lib/ecl/geo/geo.h>
+#include <lib/geo/geo.h>
 
 #define ACTUATOR_PUBLISH_PERIOD_MS 4
 
@@ -73,7 +73,7 @@ bool
 RoverPositionControl::init()
 {
 	if (!_vehicle_angular_velocity_sub.registerCallback()) {
-		PX4_ERR("vehicle angular velocity callback registration failed!");
+		PX4_ERR("callback registration failed");
 		return false;
 	}
 
@@ -281,7 +281,11 @@ RoverPositionControl::control_position(const matrix::Vector2d &current_position,
 					_pos_ctrl_state = STOPPING;  // We are closer than loiter radius to waypoint, stop.
 
 				} else {
-					_gnd_control.navigate_waypoints(prev_wp, curr_wp, current_position, ground_speed_2d);
+					Vector2f curr_pos_local{_local_pos.x, _local_pos.y};
+					Vector2f curr_wp_local = _global_local_proj_ref.project(curr_wp(0), curr_wp(1));
+					Vector2f prev_wp_local = _global_local_proj_ref.project(prev_wp(0),
+								 prev_wp(1));
+					_gnd_control.navigate_waypoints(prev_wp_local, curr_wp_local, curr_pos_local, ground_speed_2d);
 
 					_act_controls.control[actuator_controls_s::INDEX_THROTTLE] = mission_throttle;
 
@@ -417,23 +421,23 @@ RoverPositionControl::Run()
 
 			position_setpoint_triplet_poll();
 
+			if (!_global_local_proj_ref.isInitialized()
+			    || (_global_local_proj_ref.getProjectionReferenceTimestamp() != _local_pos.ref_timestamp)) {
+
+				_global_local_proj_ref.initReference(_local_pos.ref_lat, _local_pos.ref_lon,
+								     _local_pos.ref_timestamp);
+
+				_global_local_alt0 = _local_pos.ref_alt;
+			}
+
 			// Convert Local setpoints to global setpoints
 			if (_control_mode.flag_control_offboard_enabled) {
-				if (!map_projection_initialized(&_global_local_proj_ref)
-				    || (_global_local_proj_ref.timestamp != _local_pos.ref_timestamp)) {
-
-					map_projection_init_timestamped(&_global_local_proj_ref, _local_pos.ref_lat, _local_pos.ref_lon,
-									_local_pos.ref_timestamp);
-
-					_global_local_alt0 = _local_pos.ref_alt;
-				}
-
 				_trajectory_setpoint_sub.update(&_trajectory_setpoint);
 
 				// local -> global
-				map_projection_reproject(&_global_local_proj_ref,
-							 _trajectory_setpoint.x, _trajectory_setpoint.y,
-							 &_pos_sp_triplet.current.lat, &_pos_sp_triplet.current.lon);
+				_global_local_proj_ref.reproject(
+					_trajectory_setpoint.x, _trajectory_setpoint.y,
+					_pos_sp_triplet.current.lat, _pos_sp_triplet.current.lon);
 
 				_pos_sp_triplet.current.alt = _global_local_alt0 - _trajectory_setpoint.z;
 				_pos_sp_triplet.current.valid = true;
@@ -496,6 +500,20 @@ RoverPositionControl::Run()
 			// timestamp and publish controls
 			_act_controls.timestamp = hrt_absolute_time();
 			_actuator_controls_pub.publish(_act_controls);
+
+			vehicle_thrust_setpoint_s v_thrust_sp{};
+			v_thrust_sp.timestamp = hrt_absolute_time();
+			v_thrust_sp.xyz[0] = _act_controls.control[actuator_controls_s::INDEX_THROTTLE];
+			v_thrust_sp.xyz[1] = 0.0f;
+			v_thrust_sp.xyz[2] = 0.0f;
+			_vehicle_thrust_setpoint_pub.publish(v_thrust_sp);
+
+			vehicle_torque_setpoint_s v_torque_sp{};
+			v_torque_sp.timestamp = hrt_absolute_time();
+			v_torque_sp.xyz[0] = _act_controls.control[actuator_controls_s::INDEX_ROLL];
+			v_torque_sp.xyz[1] = _act_controls.control[actuator_controls_s::INDEX_PITCH];
+			v_torque_sp.xyz[2] = _act_controls.control[actuator_controls_s::INDEX_YAW];
+			_vehicle_torque_setpoint_pub.publish(v_torque_sp);
 		}
 	}
 }

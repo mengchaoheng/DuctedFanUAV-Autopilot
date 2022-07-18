@@ -1,6 +1,6 @@
 /****************************************************************************
  *
- *   Copyright (c) 2015-2020 PX4 Development Team. All rights reserved.
+ *   Copyright (c) 2015-2022 PX4 Development Team. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -37,21 +37,24 @@
 #include "boot_alt_app_shared.h"
 
 #include <drivers/drv_watchdog.h>
-#include <lib/ecl/geo/geo.h>
+#include <lib/geo/geo.h>
 #include <lib/version/version.h>
 
 #include "Publishers/BatteryInfo.hpp"
 #include "Publishers/FlowMeasurement.hpp"
 #include "Publishers/GnssFix2.hpp"
 #include "Publishers/MagneticFieldStrength2.hpp"
+#include "Publishers/MovingBaselineData.hpp"
 #include "Publishers/RangeSensorMeasurement.hpp"
 #include "Publishers/RawAirData.hpp"
+#include "Publishers/RelPosHeading.hpp"
 #include "Publishers/SafetyButton.hpp"
 #include "Publishers/StaticPressure.hpp"
 #include "Publishers/StaticTemperature.hpp"
 
 #include "Subscribers/BeepCommand.hpp"
 #include "Subscribers/LightsCommand.hpp"
+#include "Subscribers/MovingBaselineData.hpp"
 
 using namespace time_literals;
 
@@ -302,12 +305,26 @@ int UavcanNode::init(uavcan::NodeID node_id, UAVCAN_DRIVER::BusEvent &bus_events
 	_publisher_list.add(new MagneticFieldStrength2(this, _node));
 	_publisher_list.add(new RangeSensorMeasurement(this, _node));
 	_publisher_list.add(new RawAirData(this, _node));
+	_publisher_list.add(new RelPosHeadingPub(this, _node));
+
+	int32_t enable_movingbaselinedata = 0;
+	param_get(param_find("CANNODE_GPS_RTCM"), &enable_movingbaselinedata);
+
+	if (enable_movingbaselinedata != 0) {
+		_publisher_list.add(new MovingBaselineDataPub(this, _node));
+
+	}
+
 	_publisher_list.add(new SafetyButton(this, _node));
 	_publisher_list.add(new StaticPressure(this, _node));
 	_publisher_list.add(new StaticTemperature(this, _node));
 
 	_subscriber_list.add(new BeepCommand(_node));
 	_subscriber_list.add(new LightsCommand(_node));
+
+	if (enable_movingbaselinedata != 0) {
+		_subscriber_list.add(new MovingBaselineData(_node));
+	}
 
 	for (auto &subscriber : _subscriber_list) {
 		subscriber->init();
@@ -390,6 +407,8 @@ void UavcanNode::Run()
 			_task_should_exit.store(true);
 		}
 
+		_node.getLogger().setLevel(uavcan::protocol::debug::LogLevel::DEBUG);
+
 		_node.setModeOperational();
 
 		_initialized = true;
@@ -411,6 +430,61 @@ void UavcanNode::Run()
 
 	for (auto &publisher : _publisher_list) {
 		publisher->BroadcastAnyUpdates();
+	}
+
+	if (_log_message_sub.updated()) {
+		log_message_s log_message;
+
+		if (_log_message_sub.copy(&log_message)) {
+			char source[31] {};
+			char text[90] {};
+
+			bool text_copied = false;
+
+			if (log_message.text[0] == '[') {
+				// find closing bracket ]
+				for (size_t i = 0; i < strlen(log_message.text); i++) {
+					if (log_message.text[i] == ']') {
+						// copy [MODULE_NAME] to source
+						memcpy(source, &log_message.text[1], i - 1);
+						// copy remaining text (skipping space after [])
+						memcpy(text, &log_message.text[i + 2], math::min(sizeof(log_message.text) - (i + 2), sizeof(text)));
+
+						text_copied = true;
+					}
+				}
+			}
+
+			if (!text_copied) {
+				memcpy(text, log_message.text, sizeof(text));
+			}
+
+			switch (log_message.severity) {
+			case 7: // debug
+				_node.getLogger().logDebug(source, text);
+				break;
+
+			case 6: // info
+				_node.getLogger().logInfo(source, text);
+				break;
+
+			case 4: // warn
+				_node.getLogger().logWarning(source, text);
+				break;
+
+			case 3: // error
+				_node.getLogger().logError(source, text);
+				break;
+
+			case 0: // panic
+				_node.getLogger().logError(source, text);
+				break;
+
+			default:
+				_node.getLogger().logInfo(source, text);
+				break;
+			}
+		}
 	}
 
 	_node.spinOnce();
@@ -510,6 +584,19 @@ extern "C" int uavcannode_start(int argc, char *argv[])
 
 	// Sarted byt the bootloader, we must pet it
 	watchdog_pet();
+
+#if defined(GPIO_CAN_TERM)
+	int32_t can_term = 0;
+	param_get(param_find("CANNODE_TERM"), &can_term);
+
+	if (can_term != 0) {
+		px4_arch_gpiowrite(GPIO_CAN_TERM, true);
+
+	} else {
+		px4_arch_gpiowrite(GPIO_CAN_TERM, false);
+	}
+
+#endif
 
 	// CAN bitrate
 	int32_t bitrate = 0;

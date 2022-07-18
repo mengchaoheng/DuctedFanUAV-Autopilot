@@ -4,19 +4,6 @@
 #
 # NOTE: Script variables are declared/initialized/unset in the rcS script.
 #
-
-if ! ver hwcmp OMNIBUS_F4SD
-then
-	if ! ver hwcmp BITCRAZE_CRAZYFLIE
-	then
-		# Configure all I2C buses to 100 KHz as they
-		# are all external or slow
-		# TODO: move this
-		pwm_out i2c 1 100000
-		pwm_out i2c 2 100000
-	fi
-fi
-
 ###############################################################################
 #                           Begin Optional drivers                            #
 ###############################################################################
@@ -96,16 +83,22 @@ then
 	teraranger start -X
 fi
 
-# Possible external pmw3901 optical flow sensor
-if param greater -s SENS_EN_PMW3901 0
+# paa3905 optical flow sensor (external SPI)
+if param greater -s SENS_EN_PAA3905 0
 then
-	pmw3901 -S start
+	paa3905 -S start
 fi
 
-# Possible external paw3902 optical flow sensor
+# paw3902 optical flow sensor (external SPI)
 if param greater -s SENS_EN_PAW3902 0
 then
 	paw3902 -S start
+fi
+
+# pmw3901 optical flow sensor (external SPI)
+if param greater -s SENS_EN_PMW3901 0
+then
+	pmw3901 -S start
 fi
 
 # vl53l1x i2c distance sensor
@@ -127,6 +120,67 @@ then
 	fi
 fi
 
+# Eagle Tree airspeed sensor external I2C
+if param compare -s SENS_EN_ETSASPD 1
+then
+	ets_airspeed start -X
+fi
+
+# Sensirion SDP3X differential pressure sensor external I2C
+if param compare -s SENS_EN_SDP3X 1
+then
+	if ! sdp3x start -X
+	then
+		# try another common address
+		sdp3x start -X -a 0x22
+	fi
+fi
+
+# TE MS4515 differential pressure sensor external I2C
+if param compare -s SENS_EN_MS4515 1
+then
+	ms4515 start -X
+fi
+
+# TE MS4525DO differential pressure sensor external I2C
+if param compare -s SENS_EN_MS4525DO 1
+then
+	ms4525do start -X
+fi
+
+# TE MS5525DSO differential pressure sensor external I2C
+if param compare -s SENS_EN_MS5525DS 1
+then
+	ms5525dso start -X
+fi
+
+# SHT3x temperature and hygrometer sensor, external I2C
+if param compare -s SENS_EN_SHT3X 1
+then
+	sht3x start -X
+	sht3x start -X -a 0x45
+fi
+
+# IR-LOCK sensor external I2C
+if param compare -s SENS_EN_IRLOCK 1
+then
+	irlock start -X
+fi
+
+# SPL06 sensor external I2C
+if param compare -s SENS_EN_SPL06 1
+then
+	spl06 -X start
+	spl06 -X -a 0x77 start
+fi
+
+# PCF8583 counter (RPM sensor)
+if param compare -s SENS_EN_PCF8583 1
+then
+	pcf8583 start -X
+	pcf8583 start -X -a 0x51
+fi
+
 # probe for optional external I2C devices
 if param compare SENS_EXT_I2C_PRB 1
 then
@@ -143,34 +197,4 @@ then
 
 	# start last (wait for possible icm20948 passthrough mode)
 	ak09916 -X -q start
-
-	# differential pressure sensors
-	if [ ${VEHICLE_TYPE} = fw -o ${VEHICLE_TYPE} = vtol ]
-	then
-		# Always try to start the airspeed sensors
-		# even if their usage might be disabled
-		sdp3x_airspeed start -X -q
-		sdp3x_airspeed start -X -a 0x22 -q
-
-		# Pixhawk 2.1 has a MS5611 on I2C which gets wrongly
-		# detected as MS5525 because the chip manufacturer was so
-		# clever to assign the same I2C address and skip a WHO_AM_I
-		# register.
-		if [ $BOARD_FMUV3 = 21 ]
-		then
-			ms5525_airspeed start -X -b 2 -q
-		else
-			ms5525_airspeed start -X -q
-		fi
-
-		ms4525_airspeed start -X -q
-
-		ets_airspeed start -X -q
-	fi
 fi
-
-###############################################################################
-#                            End Optional drivers                             #
-###############################################################################
-
-sensors start

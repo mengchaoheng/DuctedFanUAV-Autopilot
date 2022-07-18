@@ -88,9 +88,7 @@
 #include <battery/battery.h>
 
 #include <uORB/PublicationMulti.hpp>
-#include <uORB/Subscription.hpp>
 #include <uORB/SubscriptionInterval.hpp>
-#include <uORB/topics/actuator_controls.h>
 #include <uORB/topics/battery_status.h>
 #include <uORB/topics/power_monitor.h>
 #include <uORB/topics/parameter_update.h>
@@ -225,11 +223,10 @@ enum VOXLPM_CH_TYPE {
 class VOXLPM : public device::I2C, public ModuleParams, public I2CSPIDriver<VOXLPM>
 {
 public:
-	VOXLPM(I2CSPIBusOption bus_option, const int bus, int bus_frequency, VOXLPM_CH_TYPE ch_type);
+	VOXLPM(const I2CSPIDriverConfig &config);
 	virtual ~VOXLPM();
 
-	static I2CSPIDriverBase *instantiate(const BusCLIArguments &cli, const BusInstanceIterator &iterator,
-					     int runtime_instance);
+	static I2CSPIDriverBase *instantiate(const I2CSPIDriverConfig &config, int runtime_instance);
 	static void print_usage();
 
 	virtual int		init();
@@ -268,8 +265,6 @@ private:
 	int16_t			_cal{0};
 
 	Battery 		_battery;
-	uORB::Subscription	_actuators_sub{ORB_ID(actuator_controls_0)};
-	actuator_controls_s	_actuator_controls{};
 
 	uint8_t 		read_reg(uint8_t addr);
 	int 			read_reg_buf(uint8_t addr, uint8_t *buf, uint8_t len);

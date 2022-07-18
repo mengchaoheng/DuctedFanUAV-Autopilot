@@ -1,6 +1,6 @@
 /****************************************************************************
  *
- *   Copyright (c) 2020 PX4 Development Team. All rights reserved.
+ *   Copyright (c) 2020-2021 PX4 Development Team. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -40,15 +40,14 @@ static constexpr int16_t combine(uint8_t msb, uint8_t lsb)
 	return (msb << 8u) | lsb;
 }
 
-ICM20649::ICM20649(I2CSPIBusOption bus_option, int bus, uint32_t device, enum Rotation rotation, int bus_frequency,
-		   spi_mode_e spi_mode, spi_drdy_gpio_t drdy_gpio) :
-	SPI(DRV_IMU_DEVTYPE_ICM20649, MODULE_NAME, bus, device, spi_mode, bus_frequency),
-	I2CSPIDriver(MODULE_NAME, px4::device_bus_to_wq(get_device_id()), bus_option, bus),
-	_drdy_gpio(drdy_gpio),
-	_px4_accel(get_device_id(), rotation),
-	_px4_gyro(get_device_id(), rotation)
+ICM20649::ICM20649(const I2CSPIDriverConfig &config) :
+	SPI(config),
+	I2CSPIDriver(config),
+	_drdy_gpio(config.drdy_gpio),
+	_px4_accel(get_device_id(), config.rotation),
+	_px4_gyro(get_device_id(), config.rotation)
 {
-	if (drdy_gpio != 0) {
+	if (_drdy_gpio != 0) {
 		_drdy_missed_perf = perf_alloc(PC_COUNT, MODULE_NAME": DRDY missed");
 	}
 
@@ -108,14 +107,27 @@ void ICM20649::print_status()
 
 int ICM20649::probe()
 {
-	const uint8_t whoami = RegisterRead(Register::BANK_0::WHO_AM_I);
+	for (int i = 0; i < 3; i++) {
+		uint8_t whoami = RegisterRead(Register::BANK_0::WHO_AM_I);
 
-	if (whoami != WHOAMI) {
-		DEVICE_DEBUG("unexpected WHO_AM_I 0x%02x", whoami);
-		return PX4_ERROR;
+		if (whoami == WHOAMI) {
+			return PX4_OK;
+
+		} else {
+			DEVICE_DEBUG("unexpected WHO_AM_I 0x%02x", whoami);
+
+			uint8_t reg_bank_sel = RegisterRead(Register::BANK_0::REG_BANK_SEL);
+			int bank = reg_bank_sel >> 4;
+
+			if (bank >= 1 && bank <= 3) {
+				DEVICE_DEBUG("incorrect register bank for WHO_AM_I REG_BANK_SEL:0x%02x, bank:%d", reg_bank_sel, bank);
+				// force bank selection and retry
+				SelectRegisterBank(REG_BANK_SEL_BIT::USER_BANK_0, true);
+			}
+		}
 	}
 
-	return PX4_OK;
+	return PX4_ERROR;
 }
 
 void ICM20649::RunImpl()
@@ -154,8 +166,8 @@ void ICM20649::RunImpl()
 				ScheduleDelayed(100_ms);
 
 			} else {
-				PX4_DEBUG("Reset not complete, check again in 10 ms");
-				ScheduleDelayed(10_ms);
+				PX4_DEBUG("Reset not complete, check again in 100 ms");
+				ScheduleDelayed(100_ms);
 			}
 		}
 
@@ -195,9 +207,16 @@ void ICM20649::RunImpl()
 		break;
 
 	case STATE::FIFO_READ: {
+			hrt_abstime timestamp_sample = now;
+
 			if (_data_ready_interrupt_enabled) {
-				// scheduled from interrupt if _drdy_fifo_read_samples was set
-				if (_drdy_fifo_read_samples.fetch_and(0) != _fifo_gyro_samples) {
+				// scheduled from interrupt if _drdy_timestamp_sample was set as expected
+				const hrt_abstime drdy_timestamp_sample = _drdy_timestamp_sample.fetch_and(0);
+
+				if ((now - drdy_timestamp_sample) < _fifo_empty_interval_us) {
+					timestamp_sample = drdy_timestamp_sample;
+
+				} else {
 					perf_count(_drdy_missed_perf);
 				}
 
@@ -218,16 +237,30 @@ void ICM20649::RunImpl()
 
 			} else {
 				// FIFO count (size in bytes) should be a multiple of the FIFO::DATA structure
-				const uint8_t samples = (fifo_count / sizeof(FIFO::DATA) / SAMPLES_PER_TRANSFER) *
-							SAMPLES_PER_TRANSFER; // round down to nearest
+				uint8_t samples = fifo_count / sizeof(FIFO::DATA);
 
-				if (samples > FIFO_MAX_SAMPLES) {
-					// not technically an overflow, but more samples than we expected or can publish
-					FIFOReset();
-					perf_count(_fifo_overflow_perf);
+				if (samples > _fifo_gyro_samples) {
+					// grab desired number of samples, but reschedule next cycle sooner
+					int extra_samples = samples - _fifo_gyro_samples;
+					samples = _fifo_gyro_samples;
 
-				} else if (samples >= 1) {
-					if (FIFORead(now, samples)) {
+					if (_fifo_gyro_samples > extra_samples) {
+						// reschedule to run when a total of _fifo_gyro_samples should be available in the FIFO
+						const uint32_t reschedule_delay_us = (_fifo_gyro_samples - extra_samples) * static_cast<int>(FIFO_SAMPLE_DT);
+						ScheduleOnInterval(_fifo_empty_interval_us, reschedule_delay_us);
+
+					} else {
+						// otherwise reschedule to run immediately
+						ScheduleOnInterval(_fifo_empty_interval_us);
+					}
+
+				} else if (samples < _fifo_gyro_samples) {
+					// reschedule next cycle to catch the desired number of samples
+					ScheduleOnInterval(_fifo_empty_interval_us, (_fifo_gyro_samples - samples) * static_cast<int>(FIFO_SAMPLE_DT));
+				}
+
+				if (samples == _fifo_gyro_samples) {
+					if (FIFORead(timestamp_sample, samples)) {
 						success = true;
 
 						if (_failure_count > 0) {
@@ -342,9 +375,9 @@ void ICM20649::ConfigureSampleRate(int sample_rate)
 	_fifo_empty_interval_us = _fifo_gyro_samples * (1e6f / GYRO_RATE);
 }
 
-void ICM20649::SelectRegisterBank(enum REG_BANK_SEL_BIT bank)
+void ICM20649::SelectRegisterBank(enum REG_BANK_SEL_BIT bank, bool force)
 {
-	if (bank != _last_register_bank) {
+	if (bank != _last_register_bank || force) {
 		// select BANK_0
 		uint8_t cmd_bank_sel[2] {};
 		cmd_bank_sel[0] = static_cast<uint8_t>(Register::BANK_0::REG_BANK_SEL);
@@ -396,13 +429,10 @@ int ICM20649::DataReadyInterruptCallback(int irq, void *context, void *arg)
 
 void ICM20649::DataReady()
 {
-	uint32_t expected = 0;
-
 	// at least the required number of samples in the FIFO
-	if (((_drdy_count.fetch_add(1) + 1) >= _fifo_gyro_samples)
-	    && _drdy_fifo_read_samples.compare_exchange(&expected, _fifo_gyro_samples)) {
-
-		_drdy_count.store(0);
+	if (++_drdy_count >= _fifo_gyro_samples) {
+		_drdy_timestamp_sample.store(hrt_absolute_time());
+		_drdy_count -= _fifo_gyro_samples;
 		ScheduleNow();
 	}
 }
@@ -488,10 +518,11 @@ void ICM20649::RegisterSetAndClearBits(T reg, uint8_t setbits, uint8_t clearbits
 
 uint16_t ICM20649::FIFOReadCount()
 {
+	SelectRegisterBank(REG_BANK_SEL_BIT::USER_BANK_0);
+
 	// read FIFO count
 	uint8_t fifo_count_buf[3] {};
 	fifo_count_buf[0] = static_cast<uint8_t>(Register::BANK_0::FIFO_COUNTH) | DIR_READ;
-	SelectRegisterBank(REG_BANK_SEL_BIT::USER_BANK_0);
 
 	if (transfer(fifo_count_buf, fifo_count_buf, sizeof(fifo_count_buf)) != PX4_OK) {
 		perf_count(_bad_transfer_perf);
@@ -503,9 +534,10 @@ uint16_t ICM20649::FIFOReadCount()
 
 bool ICM20649::FIFORead(const hrt_abstime &timestamp_sample, uint8_t samples)
 {
+	SelectRegisterBank(REG_BANK_SEL_BIT::USER_BANK_0);
+
 	FIFOTransferBuffer buffer{};
 	const size_t transfer_size = math::min(samples * sizeof(FIFO::DATA) + 3, FIFO::SIZE);
-	SelectRegisterBank(REG_BANK_SEL_BIT::USER_BANK_0);
 
 	if (transfer((uint8_t *)&buffer, (uint8_t *)&buffer, transfer_size) != PX4_OK) {
 		perf_count(_bad_transfer_perf);
@@ -550,8 +582,8 @@ void ICM20649::FIFOReset()
 	RegisterClearBits(Register::BANK_0::FIFO_RST, FIFO_RST_BIT::FIFO_RESET);
 
 	// reset while FIFO is disabled
-	_drdy_count.store(0);
-	_drdy_fifo_read_samples.store(0);
+	_drdy_count = 0;
+	_drdy_timestamp_sample.store(0);
 }
 
 static bool fifo_accel_equal(const FIFO::DATA &f0, const FIFO::DATA &f1)

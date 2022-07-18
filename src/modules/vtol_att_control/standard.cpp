@@ -45,6 +45,7 @@
 #include "vtol_att_control_main.h"
 
 #include <float.h>
+#include <uORB/topics/landing_gear.h>
 
 using namespace matrix;
 
@@ -141,16 +142,21 @@ void Standard::update_vtol_state()
 			_reverse_output = 0.0f;
 
 		} else if (_vtol_schedule.flight_mode == vtol_mode::TRANSITION_TO_MC) {
-			// transition to MC mode if transition time has passed or forward velocity drops below MPC cruise speed
+			// speed exit condition: use ground if valid, otherwise airspeed
+			bool exit_backtransition_speed_condition = false;
 
-			const Dcmf R_to_body(Quatf(_v_att->q).inversed());
-			const Vector3f vel = R_to_body * Vector3f(_local_pos->vx, _local_pos->vy, _local_pos->vz);
+			if (_local_pos->v_xy_valid) {
+				const Dcmf R_to_body(Quatf(_v_att->q).inversed());
+				const Vector3f vel = R_to_body * Vector3f(_local_pos->vx, _local_pos->vy, _local_pos->vz);
+				exit_backtransition_speed_condition = vel(0) < _params->mpc_xy_cruise;
 
-			float x_vel = vel(0);
+			} else if (PX4_ISFINITE(_airspeed_validated->calibrated_airspeed_m_s)) {
+				exit_backtransition_speed_condition = _airspeed_validated->calibrated_airspeed_m_s < _params->mpc_xy_cruise;
+			}
 
-			if (time_since_trans_start > _params->back_trans_duration ||
-			    (_local_pos->v_xy_valid && x_vel <= _params->mpc_xy_cruise) ||
-			    can_transition_on_ground()) {
+			const bool exit_backtransition_time_condition = time_since_trans_start > _params->back_trans_duration;
+
+			if (can_transition_on_ground() || exit_backtransition_speed_condition || exit_backtransition_time_condition) {
 				_vtol_schedule.flight_mode = vtol_mode::MC_MODE;
 			}
 		}
@@ -174,7 +180,7 @@ void Standard::update_vtol_state()
 
 			const bool airspeed_triggers_transition = PX4_ISFINITE(_airspeed_validated->calibrated_airspeed_m_s)
 					&& !_params->airspeed_disabled;
-			const bool minimum_trans_time_elapsed = time_since_trans_start > _params->front_trans_time_min;
+			const bool minimum_trans_time_elapsed = time_since_trans_start > getMinimumFrontTransitionTime();
 
 			bool transition_to_fw = false;
 
@@ -230,8 +236,16 @@ void Standard::update_transition_state()
 
 	VtolType::update_transition_state();
 
-	// copy virtual attitude setpoint to real attitude setpoint
-	memcpy(_v_att_sp, _mc_virtual_att_sp, sizeof(vehicle_attitude_setpoint_s));
+	// we get attitude setpoint from a multirotor flighttask if altitude is controlled.
+	// in any other case the fixed wing attitude controller publishes attitude setpoint from manual stick input.
+	if (_v_control_mode->flag_control_climb_rate_enabled) {
+		memcpy(_v_att_sp, _mc_virtual_att_sp, sizeof(vehicle_attitude_setpoint_s));
+		_v_att_sp->roll_body = _fw_virtual_att_sp->roll_body;
+
+	} else {
+		memcpy(_v_att_sp, _fw_virtual_att_sp, sizeof(vehicle_attitude_setpoint_s));
+		_v_att_sp->thrust_body[2] = -_fw_virtual_att_sp->thrust_body[0];
+	}
 
 	if (_vtol_schedule.flight_mode == vtol_mode::TRANSITION_TO_FW) {
 		if (_params_standard.pusher_ramp_dt <= 0.0f) {
@@ -248,27 +262,20 @@ void Standard::update_transition_state()
 		    PX4_ISFINITE(_airspeed_validated->calibrated_airspeed_m_s) &&
 		    _airspeed_validated->calibrated_airspeed_m_s > 0.0f &&
 		    _airspeed_validated->calibrated_airspeed_m_s >= _params->airspeed_blend &&
-		    time_since_trans_start > _params->front_trans_time_min) {
+		    time_since_trans_start > getMinimumFrontTransitionTime()) {
 
 			mc_weight = 1.0f - fabsf(_airspeed_validated->calibrated_airspeed_m_s - _params->airspeed_blend) /
 				    _airspeed_trans_blend_margin;
 			// time based blending when no airspeed sensor is set
 
 		} else if (_params->airspeed_disabled || !PX4_ISFINITE(_airspeed_validated->calibrated_airspeed_m_s)) {
-			mc_weight = 1.0f - time_since_trans_start / _params->front_trans_time_min;
+			mc_weight = 1.0f - time_since_trans_start / getMinimumFrontTransitionTime();
 			mc_weight = math::constrain(2.0f * mc_weight, 0.0f, 1.0f);
 
 		}
 
 		// ramp up FW_PSP_OFF
 		_v_att_sp->pitch_body = _params_standard.pitch_setpoint_offset * (1.0f - mc_weight);
-
-		_v_att_sp->roll_body = _fw_virtual_att_sp->roll_body;
-
-		// in stabilized, acro or manual mode, set the MC thrust to the throttle stick position (coming from the FW attitude setpoint)
-		if (!_v_control_mode->flag_control_climb_rate_enabled) {
-			_v_att_sp->thrust_body[2] = -_fw_virtual_att_sp->thrust_body[0];
-		}
 
 		const Quatf q_sp(Eulerf(_v_att_sp->roll_body, _v_att_sp->pitch_body, _v_att_sp->yaw_body));
 		q_sp.copyTo(_v_att_sp->q_d);
@@ -277,22 +284,15 @@ void Standard::update_transition_state()
 		if (_params->front_trans_timeout > FLT_EPSILON) {
 			if (time_since_trans_start > _params->front_trans_timeout) {
 				// transition timeout occured, abort transition
-				_attc->quadchute("Transition timeout");
+				_attc->quadchute(VtolAttitudeControl::QuadchuteReason::TransitionTimeout);
 			}
 		}
 
 	} else if (_vtol_schedule.flight_mode == vtol_mode::TRANSITION_TO_MC) {
 
-		_v_att_sp->roll_body = _fw_virtual_att_sp->roll_body;
-
 		if (_v_control_mode->flag_control_climb_rate_enabled) {
 			// control backtransition deceleration using pitch.
 			_v_att_sp->pitch_body = update_and_get_backtransition_pitch_sp();
-		}
-
-		// in stabilized, acro or manual mode, set the MC thrust to the throttle stick position (coming from the FW attitude setpoint)
-		if (!_v_control_mode->flag_control_climb_rate_enabled) {
-			_v_att_sp->thrust_body[2] = -_fw_virtual_att_sp->thrust_body[0];
 		}
 
 		const Quatf q_sp(Eulerf(_v_att_sp->roll_body, _v_att_sp->pitch_body, _v_att_sp->yaw_body));
@@ -342,7 +342,7 @@ void Standard::update_fw_state()
 }
 
 /**
- * Prepare message to acutators with data from mc and fw attitude controllers. An mc attitude weighting will determine
+ * Prepare message to actuators with data from mc and fw attitude controllers. An mc attitude weighting will determine
  * what proportion of control should be applied to each of the control groups (mc and fw).
  */
 void Standard::fill_actuator_outputs()
@@ -363,7 +363,7 @@ void Standard::fill_actuator_outputs()
 		mc_out[actuator_controls_s::INDEX_PITCH]        = mc_in[actuator_controls_s::INDEX_PITCH];
 		mc_out[actuator_controls_s::INDEX_YAW]          = mc_in[actuator_controls_s::INDEX_YAW];
 		mc_out[actuator_controls_s::INDEX_THROTTLE]     = mc_in[actuator_controls_s::INDEX_THROTTLE];
-		mc_out[actuator_controls_s::INDEX_LANDING_GEAR] = mc_in[actuator_controls_s::INDEX_LANDING_GEAR];
+		mc_out[actuator_controls_s::INDEX_LANDING_GEAR] = landing_gear_s::GEAR_DOWN;
 
 		// FW out = 0, other than roll and pitch depending on elevon lock
 		fw_out[actuator_controls_s::INDEX_ROLL]         = elevon_lock ? 0 : fw_in[actuator_controls_s::INDEX_ROLL];
@@ -384,7 +384,7 @@ void Standard::fill_actuator_outputs()
 		mc_out[actuator_controls_s::INDEX_PITCH]        = mc_in[actuator_controls_s::INDEX_PITCH]    * _mc_pitch_weight;
 		mc_out[actuator_controls_s::INDEX_YAW]          = mc_in[actuator_controls_s::INDEX_YAW]      * _mc_yaw_weight;
 		mc_out[actuator_controls_s::INDEX_THROTTLE]     = mc_in[actuator_controls_s::INDEX_THROTTLE] * _mc_throttle_weight;
-		mc_out[actuator_controls_s::INDEX_LANDING_GEAR] = 0;
+		mc_out[actuator_controls_s::INDEX_LANDING_GEAR] = landing_gear_s::GEAR_UP;
 
 		// FW out = FW in, with VTOL transition controlling throttle and airbrakes
 		fw_out[actuator_controls_s::INDEX_ROLL]         = fw_in[actuator_controls_s::INDEX_ROLL];
@@ -402,7 +402,7 @@ void Standard::fill_actuator_outputs()
 		mc_out[actuator_controls_s::INDEX_PITCH]        = 0;
 		mc_out[actuator_controls_s::INDEX_YAW]          = 0;
 		mc_out[actuator_controls_s::INDEX_THROTTLE]     = 0;
-		mc_out[actuator_controls_s::INDEX_LANDING_GEAR] = 0;
+		mc_out[actuator_controls_s::INDEX_LANDING_GEAR] = landing_gear_s::GEAR_UP;
 
 		// FW out = FW in
 		fw_out[actuator_controls_s::INDEX_ROLL]         = fw_in[actuator_controls_s::INDEX_ROLL];
@@ -413,6 +413,30 @@ void Standard::fill_actuator_outputs()
 		fw_out[actuator_controls_s::INDEX_AIRBRAKES]    = 0;
 		break;
 	}
+
+	_torque_setpoint_0->timestamp = hrt_absolute_time();
+	_torque_setpoint_0->timestamp_sample = _actuators_mc_in->timestamp_sample;
+	_torque_setpoint_0->xyz[0] = mc_out[actuator_controls_s::INDEX_ROLL];
+	_torque_setpoint_0->xyz[1] = mc_out[actuator_controls_s::INDEX_PITCH];
+	_torque_setpoint_0->xyz[2] = mc_out[actuator_controls_s::INDEX_YAW];
+
+	_torque_setpoint_1->timestamp = hrt_absolute_time();
+	_torque_setpoint_1->timestamp_sample = _actuators_fw_in->timestamp_sample;
+	_torque_setpoint_1->xyz[0] = fw_out[actuator_controls_s::INDEX_ROLL];
+	_torque_setpoint_1->xyz[1] = fw_out[actuator_controls_s::INDEX_PITCH];
+	_torque_setpoint_1->xyz[2] = fw_out[actuator_controls_s::INDEX_YAW];
+
+	_thrust_setpoint_0->timestamp = hrt_absolute_time();
+	_thrust_setpoint_0->timestamp_sample = _actuators_mc_in->timestamp_sample;
+	_thrust_setpoint_0->xyz[0] = fw_out[actuator_controls_s::INDEX_THROTTLE];
+	_thrust_setpoint_0->xyz[1] = 0.f;
+	_thrust_setpoint_0->xyz[2] = -mc_out[actuator_controls_s::INDEX_THROTTLE];
+
+	_thrust_setpoint_1->timestamp = hrt_absolute_time();
+	_thrust_setpoint_1->timestamp_sample = _actuators_fw_in->timestamp_sample;
+	_thrust_setpoint_1->xyz[0] = 0.f;
+	_thrust_setpoint_1->xyz[1] = 0.f;
+	_thrust_setpoint_1->xyz[2] = 0.f;
 
 	_actuators_out_0->timestamp_sample = _actuators_mc_in->timestamp_sample;
 	_actuators_out_1->timestamp_sample = _actuators_fw_in->timestamp_sample;
@@ -426,3 +450,9 @@ Standard::waiting_on_tecs()
 	// keep thrust from transition
 	_v_att_sp->thrust_body[0] = _pusher_throttle;
 };
+
+void Standard::blendThrottleAfterFrontTransition(float scale)
+{
+	const float tecs_throttle = _v_att_sp->thrust_body[0];
+	_v_att_sp->thrust_body[0] = scale * tecs_throttle + (1.0f - scale) * _pusher_throttle;
+}

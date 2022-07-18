@@ -84,22 +84,6 @@ PARAM_DEFINE_INT32(SYS_AUTOCONFIG, 0);
 PARAM_DEFINE_INT32(SYS_HITL, 0);
 
 /**
- * Set restart type
- *
- * Set by px4io to indicate type of restart
- *
- * @min 0
- * @max 2
- * @value 0 Data survives resets
- * @value 1 Data survives in-flight resets only
- * @value 2 Data does not survive reset
- * @category system
- * @volatile
- * @group System
- */
-PARAM_DEFINE_INT32(SYS_RESTART_TYPE, 2);
-
-/**
  * Set multicopter estimator group
  *
  * Set the group of estimators used for multicopters and VTOLs
@@ -235,6 +219,21 @@ PARAM_DEFINE_INT32(SYS_HAS_MAG, 1);
 PARAM_DEFINE_INT32(SYS_HAS_BARO, 1);
 
 /**
+ * Control the number of distance sensors on the vehicle
+ *
+ * If set to the number of distance sensors, the preflight check will check
+ * for their presence and valid data publication. Disable with 0 if no distance
+ * sensor present or to disbale the preflight check.
+ *
+ * @reboot_required true
+ *
+ * @group System
+ * @min 0
+ * @max 4
+ */
+PARAM_DEFINE_INT32(SYS_HAS_NUM_DIST, 0);
+
+/**
  * Enable factory calibration mode
  *
  * If enabled, future sensor calibrations will be stored to /fs/mtd_caldata.
@@ -281,3 +280,19 @@ PARAM_DEFINE_INT32(SYS_BL_UPDATE, 0);
  * @group System
  */
 PARAM_DEFINE_INT32(SYS_FAILURE_EN, 0);
+
+
+/**
+ * Enable Dynamic Control Allocation
+ *
+ * If disabled, the existing mixing implementation is used.
+ * If enabled, dynamic control allocation with runtime configuration of the
+ * mixing and output functions is used.
+ *
+ * Note: this is work-in-progress and not all vehicle types are supported yet.
+ *
+ * @boolean
+ * @reboot_required true
+ * @group System
+ */
+PARAM_DEFINE_INT32(SYS_CTRL_ALLOC, 0);

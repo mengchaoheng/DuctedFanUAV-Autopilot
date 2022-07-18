@@ -74,11 +74,6 @@
 #define ADC_BATTERY_CURRENT_CHANNEL  11
 #define ADC_RC_RSSI_CHANNEL          0
 
-/* Define Battery 1 Voltage Divider and A per V
- */
-#define BOARD_BATTERY1_V_DIV         (11.12f)
-#define BOARD_BATTERY1_A_PER_V       (31.f)
-
 /* User GPIOs
  *
  * GPIO0-5 are the PWM servo outputs.
@@ -119,10 +114,6 @@
  * Alternatively CH3/CH4 could be assigned to UART6_TX/RX
  */
 #define DIRECT_PWM_OUTPUT_CHANNELS      4
-#define DIRECT_INPUT_TIMER_CHANNELS  4
-
-// Has pwm outputs
-#define BOARD_HAS_PWM    DIRECT_PWM_OUTPUT_CHANNELS
 
 /* High-resolution timer */
 #define HRT_TIMER                    4 // T4C1
@@ -147,7 +138,6 @@
 //#define SPEKTRUM_RX_AS_UART()         px4_arch_configgpio(GPIO_USART1_RX)
 //#define SPEKTRUM_OUT(_one_true)       px4_arch_gpiowrite(GPIO_PPM_IN_AS_OUT, (_one_true))
 
-#define BOARD_HAS_PWM    DIRECT_PWM_OUTPUT_CHANNELS
 
 /* This board provides a DMA pool and APIs */
 #define BOARD_DMA_ALLOC_POOL_SIZE 5120
@@ -157,7 +147,6 @@
 #define BOARD_ENABLE_CONSOLE_BUFFER
 #define BOARD_CONSOLE_BUFFER_SIZE (1024*3)
 
-#define BOARD_DSHOT_MOTOR_ASSIGNMENT {2, 3, 1, 0};
 
 __BEGIN_DECLS
 

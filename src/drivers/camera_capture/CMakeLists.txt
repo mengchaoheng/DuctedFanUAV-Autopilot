@@ -30,11 +30,20 @@
 # POSSIBILITY OF SUCH DAMAGE.
 #
 ############################################################################
+
+set(PARAM_PREFIX PWM_MAIN)
+
+if(CONFIG_BOARD_IO)
+	set(PARAM_PREFIX PWM_AUX)
+endif()
+
 px4_add_module(
 	MODULE drivers__camera_capture
 	MAIN camera_capture
 	COMPILE_FLAGS
+		-DPARAM_PREFIX="${PARAM_PREFIX}"
 	SRCS
 		camera_capture.cpp
-	)
-# vim: set noet ft=cmake fenc=utf-8 ff=unix :
+	DEPENDS
+		arch_io_pins
+)

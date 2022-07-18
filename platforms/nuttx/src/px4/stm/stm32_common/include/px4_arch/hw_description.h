@@ -91,6 +91,15 @@ enum Timer {
 	Timer12,
 	Timer13,
 	Timer14,
+#ifdef STM32_TIM15_BASE
+	Timer15,
+#endif
+#ifdef STM32_TIM16_BASE
+	Timer16,
+#endif
+#ifdef STM32_TIM17_BASE
+	Timer17
+#endif
 };
 enum Channel {
 	Channel1 = 1,
@@ -151,6 +160,21 @@ static inline constexpr uint32_t timerBaseRegister(Timer::Timer timer)
 #ifdef STM32_TIM14_BASE
 
 	case Timer::Timer14: return STM32_TIM14_BASE;
+#endif
+
+#ifdef STM32_TIM15_BASE
+
+	case Timer::Timer15: return STM32_TIM15_BASE;
+#endif
+
+#ifdef STM32_TIM16_BASE
+
+	case Timer::Timer16: return STM32_TIM16_BASE;
+#endif
+
+#ifdef STM32_TIM17_BASE
+
+	case Timer::Timer17: return STM32_TIM17_BASE;
 #endif
 
 	default: break;

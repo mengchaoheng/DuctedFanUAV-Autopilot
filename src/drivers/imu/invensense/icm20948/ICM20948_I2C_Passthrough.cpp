@@ -40,10 +40,9 @@ static constexpr int16_t combine(uint8_t msb, uint8_t lsb)
 	return (msb << 8u) | lsb;
 }
 
-ICM20948_I2C_Passthrough::ICM20948_I2C_Passthrough(I2CSPIBusOption bus_option, int bus, int bus_frequency,
-		const int address) :
-	I2C(DRV_IMU_DEVTYPE_ICM20948, MODULE_NAME, bus, address, bus_frequency),
-	I2CSPIDriver(MODULE_NAME, px4::device_bus_to_wq(get_device_id()), bus_option, bus, address)
+ICM20948_I2C_Passthrough::ICM20948_I2C_Passthrough(const I2CSPIDriverConfig &config) :
+	I2C(config),
+	I2CSPIDriver(config)
 {
 }
 
@@ -85,14 +84,27 @@ void ICM20948_I2C_Passthrough::print_status()
 
 int ICM20948_I2C_Passthrough::probe()
 {
-	const uint8_t whoami = RegisterRead(Register::BANK_0::WHO_AM_I);
+	for (int i = 0; i < 3; i++) {
+		uint8_t whoami = RegisterRead(Register::BANK_0::WHO_AM_I);
 
-	if (whoami != WHOAMI) {
-		DEVICE_DEBUG("unexpected WHO_AM_I 0x%02x", whoami);
-		return PX4_ERROR;
+		if (whoami == WHOAMI) {
+			return PX4_OK;
+
+		} else {
+			DEVICE_DEBUG("unexpected WHO_AM_I 0x%02x", whoami);
+
+			uint8_t reg_bank_sel = RegisterRead(Register::BANK_0::REG_BANK_SEL);
+			int bank = reg_bank_sel >> 4;
+
+			if (bank >= 1 && bank <= 3) {
+				DEVICE_DEBUG("incorrect register bank for WHO_AM_I REG_BANK_SEL:0x%02x, bank:%d", reg_bank_sel, bank);
+				// force bank selection and retry
+				SelectRegisterBank(REG_BANK_SEL_BIT::USER_BANK_0, true);
+			}
+		}
 	}
 
-	return PX4_OK;
+	return PX4_ERROR;
 }
 
 void ICM20948_I2C_Passthrough::RunImpl()
@@ -181,9 +193,9 @@ void ICM20948_I2C_Passthrough::RunImpl()
 	}
 }
 
-void ICM20948_I2C_Passthrough::SelectRegisterBank(enum REG_BANK_SEL_BIT bank)
+void ICM20948_I2C_Passthrough::SelectRegisterBank(enum REG_BANK_SEL_BIT bank, bool force)
 {
-	if (bank != _last_register_bank) {
+	if (bank != _last_register_bank || force) {
 		// select BANK_0
 		uint8_t cmd_bank_sel[2];
 		cmd_bank_sel[0] = static_cast<uint8_t>(Register::BANK_0::REG_BANK_SEL);

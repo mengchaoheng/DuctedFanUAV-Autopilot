@@ -83,6 +83,7 @@ enum class COMPARE_ERROR_LEVEL {
 
 static int 	do_save(const char *param_file_name);
 static int	do_save_default();
+static int 	do_dump(const char *param_file_name);
 static int 	do_load(const char *param_file_name);
 static int	do_import(const char *param_file_name = nullptr);
 static int	do_show(const char *search_string, bool only_changed);
@@ -93,7 +94,7 @@ static int	do_show_index(const char *index, bool used_index);
 static void	do_show_print(void *arg, param_t param);
 static void	do_show_print_for_airframe(void *arg, param_t param);
 static int	do_set(const char *name, const char *val, bool fail_on_not_found);
-static int	do_set_custom_default(const char *name, const char *val);
+static int	do_set_custom_default(const char *name, const char *val, bool silent_fail = false);
 static int	do_compare(const char *name, char *vals[], unsigned comparisons, enum COMPARE_OPERATOR cmd_op,
 			   enum COMPARE_ERROR_LEVEL err_level);
 static int 	do_reset_all(const char *excludes[], int num_excludes);
@@ -135,9 +136,14 @@ $ reboot
 	PRINT_MODULE_USAGE_ARG("<file>", "File name (use default if not given)", true);
 	PRINT_MODULE_USAGE_COMMAND_DESCR("save", "Save params to a file");
 	PRINT_MODULE_USAGE_ARG("<file>", "File name (use default if not given)", true);
+	PRINT_MODULE_USAGE_COMMAND_DESCR("dump", "Dump params from a file");
+	PRINT_MODULE_USAGE_ARG("<file>", "File name (use default if not given)", true);
 
 	PRINT_MODULE_USAGE_COMMAND_DESCR("select", "Select default file");
-	PRINT_MODULE_USAGE_ARG("<file>", "File name (use <root>/eeprom/parameters if not given)", true);
+	PRINT_MODULE_USAGE_ARG("<file>", "File name", true);
+
+	PRINT_MODULE_USAGE_COMMAND_DESCR("select-backup", "Select default file");
+	PRINT_MODULE_USAGE_ARG("<file>", "File name", true);
 
 	PRINT_MODULE_USAGE_COMMAND_DESCR("show", "Show parameter values");
 	PRINT_MODULE_USAGE_PARAM_FLAG('a', "Show all parameters (not just used)", true);
@@ -154,6 +160,7 @@ $ reboot
 	PRINT_MODULE_USAGE_ARG("fail", "If provided, let the command fail if param is not found", true);
 
 	PRINT_MODULE_USAGE_COMMAND_DESCR("set-default", "Set parameter default to a value");
+	PRINT_MODULE_USAGE_PARAM_FLAG('s', "If provided, silent errors if parameter doesn't exists", true);
 	PRINT_MODULE_USAGE_ARG("<param_name> <value>", "Parameter name and value to set", false);
 	PRINT_MODULE_USAGE_ARG("fail", "If provided, let the command fail if param is not found", true);
 
@@ -205,6 +212,15 @@ param_main(int argc, char *argv[])
 			}
 		}
 
+		if (!strcmp(argv[1], "dump")) {
+			if (argc >= 3) {
+				return do_dump(argv[2]);
+
+			} else {
+				return do_dump(param_get_default_file());
+			}
+		}
+
 		if (!strcmp(argv[1], "load")) {
 			if (argc >= 3) {
 				return do_load(argv[2]);
@@ -235,6 +251,23 @@ param_main(int argc, char *argv[])
 
 			if (default_file) {
 				PX4_INFO("selected parameter default file %s", default_file);
+			}
+
+			return 0;
+		}
+
+		if (!strcmp(argv[1], "select-backup")) {
+			if (argc >= 3) {
+				param_set_backup_file(argv[2]);
+
+			} else {
+				param_set_backup_file(nullptr);
+			}
+
+			const char *backup_file = param_get_backup_file();
+
+			if (backup_file) {
+				PX4_INFO("selected parameter backup file %s", backup_file);
 			}
 
 			return 0;
@@ -295,7 +328,10 @@ param_main(int argc, char *argv[])
 		}
 
 		if (!strcmp(argv[1], "set-default")) {
-			if (argc == 4) {
+			if (argc >= 5 && !strcmp(argv[2], "-s")) {
+				return do_set_custom_default(argv[3], argv[4], true);
+
+			} else if (argc == 4) {
 				return do_set_custom_default(argv[2], argv[3]);
 
 			} else {
@@ -397,22 +433,47 @@ param_main(int argc, char *argv[])
 static int
 do_save(const char *param_file_name)
 {
-	/* create the file */
-	int fd = open(param_file_name, O_WRONLY | O_CREAT, PX4_O_MODE_666);
+	int result = param_export(param_file_name, nullptr);
 
-	if (fd < 0) {
-		PX4_ERR("open '%s' failed (%i)", param_file_name, errno);
+	if (result < 0) {
+		PX4_ERR("exporting to '%s' failed (%i)", param_file_name, result);
 		return 1;
 	}
 
-	int result = param_export(fd, false, nullptr);
-	close(fd);
+	return 0;
+}
+
+static int
+do_dump(const char *param_file_name)
+{
+	int fd = -1;
+
+	if (param_file_name) { // passing NULL means to select the flash storage
+
+		fd = open(param_file_name, O_RDONLY);
+
+		if (fd < 0) {
+			PX4_ERR("open '%s' failed (%i)", param_file_name, errno);
+			return 1;
+		} else {
+			PX4_INFO_RAW("[param] reading from %s\n\n", param_file_name);
+		}
+	}
+
+	int result = param_dump(fd);
+
+	if (fd >= 0) {
+		close(fd);
+	}
 
 	if (result < 0) {
-#ifndef __PX4_QURT
-		(void)unlink(param_file_name);
-#endif
-		PX4_ERR("exporting to '%s' failed (%i)", param_file_name, result);
+		if (param_file_name) {
+			PX4_ERR("reading from '%s' failed (%i)", param_file_name, result);
+
+		} else {
+			PX4_ERR("reading failed (%i)", result);
+		}
+
 		return 1;
 	}
 
@@ -456,11 +517,8 @@ do_load(const char *param_file_name)
 static int
 do_import(const char *param_file_name)
 {
-	bool mark_saved = false;
-
 	if (param_file_name == nullptr) {
 		param_file_name = param_get_default_file();
-		mark_saved = true; // if imported from default storage, mark as saved
 	}
 
 	int fd = -1;
@@ -472,9 +530,11 @@ do_import(const char *param_file_name)
 			PX4_ERR("open '%s' failed (%i)", param_file_name, errno);
 			return 1;
 		}
+
+		PX4_INFO("importing from '%s'", param_file_name);
 	}
 
-	int result = param_import(fd, mark_saved);
+	int result = param_import(fd);
 
 	if (fd >= 0) {
 		close(fd);
@@ -823,12 +883,12 @@ do_set(const char *name, const char *val, bool fail_on_not_found)
 }
 
 static int
-do_set_custom_default(const char *name, const char *val)
+do_set_custom_default(const char *name, const char *val, bool silent_fail)
 {
-	param_t param = param_find_no_notification(name);
+	param_t param = param_find(name);
 
 	/* set nothing if parameter cannot be found */
-	if (param == PARAM_INVALID) {
+	if (param == PARAM_INVALID && !silent_fail) {
 		/* param not found - fail silenty in scripts as it prevents booting */
 		PX4_ERR("Parameter %s not found.", name);
 		return PX4_ERROR;
@@ -869,7 +929,10 @@ do_set_custom_default(const char *name, const char *val)
 		break;
 
 	default:
-		PX4_ERR("<unknown / unsupported type %d>\n", 0 + param_type(param));
+		if (!silent_fail) {
+			PX4_ERR("<unknown / unsupported type %d>\n", 0 + param_type(param));
+		}
+
 		return 1;
 	}
 

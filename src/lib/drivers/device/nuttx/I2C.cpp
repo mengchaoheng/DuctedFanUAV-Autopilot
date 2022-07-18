@@ -42,6 +42,9 @@
 
 #include "I2C.hpp"
 
+#if defined(CONFIG_I2C)
+
+#include <px4_platform_common/i2c_spi_buses.h>
 #include <nuttx/i2c/i2c_master.h>
 
 namespace device
@@ -62,6 +65,11 @@ I2C::I2C(uint8_t device_type, const char *name, const int bus, const uint16_t ad
 	_device_id.devid_s.bus_type = DeviceBusType_I2C;
 	_device_id.devid_s.bus = bus;
 	_device_id.devid_s.address = address;
+}
+
+I2C::I2C(const I2CSPIDriverConfig &config)
+	: I2C(config.devid_driver_index, config.module_name, config.bus, config.i2c_address, config.bus_frequency)
+{
 }
 
 I2C::~I2C()
@@ -219,7 +227,9 @@ I2C::transfer(const uint8_t *send, const unsigned send_len, uint8_t *recv, const
 
 		/* if we have already retried once, or we are going to give up, then reset the bus */
 		if ((retry_count >= 1) || (retry_count >= _retries)) {
+#if defined(CONFIG_I2C_RESET)
 			I2C_RESET(_dev);
+#endif // CONFIG_I2C_RESET
 		}
 
 	} while (retry_count++ < _retries);
@@ -228,3 +238,5 @@ I2C::transfer(const uint8_t *send, const unsigned send_len, uint8_t *recv, const
 }
 
 } // namespace device
+
+#endif // CONFIG_I2C

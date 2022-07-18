@@ -33,9 +33,9 @@
 
 #include "HMC5883.hpp"
 
-HMC5883::HMC5883(device::Device *interface, enum Rotation rotation, I2CSPIBusOption bus_option, int bus) :
-	I2CSPIDriver(MODULE_NAME, px4::device_bus_to_wq(interface->get_device_id()), bus_option, bus),
-	_px4_mag(interface->get_device_id(), rotation),
+HMC5883::HMC5883(device::Device *interface, const I2CSPIDriverConfig &config) :
+	I2CSPIDriver(config),
+	_px4_mag(interface->get_device_id(), config.rotation),
 	_interface(interface),
 	_range_ga(1.9f),
 	_collect_phase(false),
@@ -48,7 +48,6 @@ HMC5883::HMC5883(device::Device *interface, enum Rotation rotation, I2CSPIBusOpt
 	_temperature_counter(0),
 	_temperature_error_count(0)
 {
-	_px4_mag.set_external(_interface->external());
 }
 
 HMC5883::~HMC5883()
@@ -367,7 +366,7 @@ int HMC5883::collect()
 	 * to align the sensor axes with the board, x and y need to be flipped
 	 * and y needs to be negated
 	 */
-	if (!_px4_mag.external()) {
+	if (!_interface->external()) {
 		// convert onboard so it matches offboard for the
 		// scaling below
 		report.y = -report.y;

@@ -33,8 +33,7 @@
 
 #pragma once
 
-#include "i2c.h"
-#include "spi.h"
+#include <board_config.h>
 
 #include <stdint.h>
 
@@ -43,15 +42,64 @@
 #include <px4_platform_common/atomic.h>
 #include <px4_platform_common/px4_work_queue/ScheduledWorkItem.hpp>
 #include <px4_platform_common/sem.h>
-#include <board_config.h>
-#include <drivers/device/spi.h>
+
+#if defined(CONFIG_I2C)
+# include "i2c.h"
+#endif // CONFIG_I2C
+
+#if defined(CONFIG_SPI)
+# include "spi.h"
+#endif // CONFIG_SPI
+
+#if defined(CONFIG_SPI)
+# include <drivers/device/spi.h>
+#endif // CONFIG_SPI
 
 enum class I2CSPIBusOption : uint8_t {
 	All = 0, ///< select all runnning instances
+#if defined(CONFIG_I2C)
 	I2CInternal,
 	I2CExternal,
+#endif // CONFIG_I2C
+#if defined(CONFIG_SPI)
 	SPIInternal,
 	SPIExternal,
+#endif // CONFIG_SPI
+};
+
+class BusCLIArguments;
+class BusInstanceIterator;
+
+struct I2CSPIDriverConfig {
+	I2CSPIDriverConfig(const BusCLIArguments &cli, const BusInstanceIterator &iterator,
+			   const px4::wq_config_t &wq_config_);
+
+	const char *module_name;
+	uint16_t devid_driver_index;
+	I2CSPIBusOption bus_option;
+	board_bus_types bus_type;
+	int bus;
+#if defined(CONFIG_I2C)
+	uint8_t i2c_address;
+#endif // CONFIG_I2C
+	int bus_frequency;
+#if defined(CONFIG_SPI)
+	spi_drdy_gpio_t drdy_gpio;
+	spi_mode_e spi_mode;
+	uint32_t spi_devid;
+#endif // CONFIG_SPI
+	int bus_device_index;
+
+	Rotation rotation;
+
+	bool quiet_start;
+	bool keep_running;
+
+	int custom1;
+	int custom2;
+	void *custom_data;
+
+	const px4::wq_config_t &wq_config;
 };
 
 /**
@@ -62,11 +110,18 @@ class I2CSPIInstance : public ListNode<I2CSPIInstance *>
 {
 public:
 	virtual ~I2CSPIInstance() = default;
+#if defined(CONFIG_I2C)
 	virtual int8_t  get_i2c_address() {return _i2c_address;}
-
+#endif // CONFIG_I2C
 private:
-	I2CSPIInstance(const char *module_name, I2CSPIBusOption bus_option, int bus, uint8_t i2c_address, uint16_t type)
-		: _module_name(module_name), _bus_option(bus_option), _bus(bus), _type(type), _i2c_address(i2c_address) {}
+	I2CSPIInstance(const I2CSPIDriverConfig &config)
+		: _module_name(config.module_name), _bus_option(config.bus_option), _bus(config.bus),
+		  _devid_driver_index(config.devid_driver_index), _bus_device_index(config.bus_device_index)
+#if defined(CONFIG_I2C)
+		, _i2c_address(config.i2c_address)
+#endif // CONFIG_I2C
+	{}
+
 
 
 	friend class BusInstanceIterator;
@@ -75,15 +130,30 @@ private:
 	const char *_module_name;
 	const I2CSPIBusOption _bus_option;
 	const int _bus;
-	const int16_t _type; ///< device type (driver-specific)
+	const uint16_t _devid_driver_index;
+	const int8_t _bus_device_index;
+#if defined(CONFIG_I2C)
 	const int8_t _i2c_address; ///< I2C address (optional)
+#endif // CONFIG_I2C
 };
 
 class BusCLIArguments
 {
 public:
 	BusCLIArguments(bool i2c_support, bool spi_support)
-		: _i2c_support(i2c_support), _spi_support(spi_support) {}
+#if defined(CONFIG_I2C) || defined(CONFIG_SPI)
+		:
+#endif // CONFIG_I2C || CONFIG_SPI
+#if defined(CONFIG_I2C)
+		_i2c_support(i2c_support)
+#endif // CONFIG_I2C
+#if defined(CONFIG_I2C) && defined(CONFIG_SPI)
+		,
+#endif // CONFIG_I2C && CONFIG_SPI
+#if defined(CONFIG_SPI)
+		_spi_support(spi_support)
+#endif // CONFIG_SPI
+	{}
 
 	/**
 	 * Parse CLI arguments (for drivers that don't need any custom arguments, otherwise getopt() should be used)
@@ -104,25 +174,31 @@ public:
 
 
 	I2CSPIBusOption bus_option{I2CSPIBusOption::All};
-	uint16_t type{0}; ///< device type (driver-specific)
 	int requested_bus{-1};
-	int chipselect_index{1};
-	Rotation rotation{ROTATION_NONE};
 	int bus_frequency{0};
+#if defined(CONFIG_SPI)
+	int chipselect {-1};
 	spi_mode_e spi_mode{SPIDEV_MODE3};
-	uint8_t i2c_address{0}; ///< optional I2C address: a driver can set this to allow configuring the I2C address
-	bool quiet_start{false}; ///< do not print a message when startup fails
+#endif // CONFIG_SPI
+#if defined(CONFIG_I2C)
+	uint8_t i2c_address {0}; ///< I2C address (a driver must set the default address)
+#endif // CONFIG_I2C
+	bool quiet_start {false}; ///< do not print a message when startup fails
 	bool keep_running{false}; ///< keep driver running even if no device is detected on startup
 
-	uint8_t orientation{0}; ///< distance_sensor_s::ROTATION_*
+	Rotation rotation{ROTATION_NONE}; ///< sensor rotation (MAV_SENSOR_ROTATION_* or distance_sensor_s::ROTATION_*)
 
 	int custom1{0}; ///< driver-specific custom argument
 	int custom2{0}; ///< driver-specific custom argument
 	void *custom_data{nullptr}; ///< driver-specific custom argument
 
 	// driver defaults, if not specified via CLI
-	int default_spi_frequency{-1}; ///< default spi bus frequency (driver needs to set this) [Hz]
-	int default_i2c_frequency{-1}; ///< default i2c bus frequency (driver needs to set this) [Hz]
+#if defined(CONFIG_SPI)
+	int default_spi_frequency {-1}; ///< default spi bus frequency (driver needs to set this) [Hz]
+#endif // CONFIG_SPI
+#if defined(CONFIG_I2C)
+	int default_i2c_frequency {-1}; ///< default i2c bus frequency (driver needs to set this) [Hz]
+#endif // CONFIG_I2C
 
 	bool support_keep_running{false}; ///< true if keep_running (see above) is supported
 
@@ -132,8 +208,12 @@ private:
 	char _options[32] {};
 	int _optind{1};
 	const char *_optarg{nullptr};
+#if defined(CONFIG_I2C)
 	const bool _i2c_support;
+#endif // CONFIG_I2C
+#if defined(CONFIG_SPI)
 	const bool _spi_support;
+#endif // CONFIG_SPI
 };
 
 /**
@@ -157,21 +237,40 @@ public:
 	board_bus_types busType() const;
 	int bus() const;
 	uint32_t devid() const;
+
+#if defined(CONFIG_SPI)
 	spi_drdy_gpio_t DRDYGPIO() const;
+#endif // CONFIG_SPI
+
 	bool external() const;
 	int externalBusIndex() const;
+	int busDeviceIndex() const;
 
 	void addInstance(I2CSPIInstance *instance);
 
+#if defined(CONFIG_I2C)
 	static I2CBusIterator::FilterType i2cFilter(I2CSPIBusOption bus_option);
+#endif // CONFIG_I2C
+#if defined(CONFIG_SPI)
 	static SPIBusIterator::FilterType spiFilter(I2CSPIBusOption bus_option);
+#endif // CONFIG_SPI
+
+	const char *moduleName() const { return _module_name; }
+	uint16_t devidDriverIndex() const { return _devid_driver_index; }
+
 private:
 	const char *_module_name;
 	const I2CSPIBusOption _bus_option;
-	const uint16_t _type;
+	const uint16_t _devid_driver_index;
+#if defined(CONFIG_I2C)
 	const uint8_t _i2c_address;
+#endif // CONFIG_I2C
+#if defined(CONFIG_SPI)
 	SPIBusIterator _spi_bus_iterator;
+#endif // CONFIG_SPI
+#if defined(CONFIG_I2C)
 	I2CBusIterator _i2c_bus_iterator;
+#endif // CONFIG_I2C
 	List<I2CSPIInstance *>::Iterator _current_instance;
 };
 
@@ -182,18 +281,16 @@ private:
 class I2CSPIDriverBase : public px4::ScheduledWorkItem, public I2CSPIInstance
 {
 public:
-	I2CSPIDriverBase(const char *module_name, const px4::wq_config_t &config, I2CSPIBusOption bus_option, int bus,
-			 uint8_t i2c_address, uint16_t type)
-		: ScheduledWorkItem(module_name, config),
-		  I2CSPIInstance(module_name, bus_option, bus, i2c_address, type) {}
+	I2CSPIDriverBase(const I2CSPIDriverConfig &config)
+		: ScheduledWorkItem(config.module_name, config.wq_config),
+		  I2CSPIInstance(config) {}
 
 	static int module_stop(BusInstanceIterator &iterator);
 	static int module_status(BusInstanceIterator &iterator);
 	static int module_custom_method(const BusCLIArguments &cli, BusInstanceIterator &iterator,
 					bool run_on_work_queue = true);
 
-	using instantiate_method = I2CSPIDriverBase * (*)(const BusCLIArguments &cli, const BusInstanceIterator &iterator,
-				   int runtime_instance);
+	using instantiate_method = I2CSPIDriverBase * (*)(const I2CSPIDriverConfig &config, int runtime_instance);
 protected:
 	virtual ~I2CSPIDriverBase() = default;
 
@@ -232,13 +329,12 @@ class I2CSPIDriver : public I2CSPIDriverBase
 public:
 	static int module_start(const BusCLIArguments &cli, BusInstanceIterator &iterator)
 	{
-		return I2CSPIDriverBase::module_start(cli, iterator, &T::print_usage, &T::instantiate);
+		return I2CSPIDriverBase::module_start(cli, iterator, &T::print_usage, InstantiateHelper<T>::m);
 	}
 
 protected:
-	I2CSPIDriver(const char *module_name, const px4::wq_config_t &config, I2CSPIBusOption bus_option, int bus,
-		     uint8_t i2c_address = 0, uint16_t type = 0)
-		: I2CSPIDriverBase(module_name, config, bus_option, bus, i2c_address, type) {}
+	I2CSPIDriver(const I2CSPIDriverConfig &config)
+		: I2CSPIDriverBase(config) {}
 
 	virtual ~I2CSPIDriver() = default;
 
@@ -253,4 +349,33 @@ protected:
 	}
 	// *INDENT-ON*
 private:
+
+	// SFINAE to use R::instantiate if it exists, and R::instantiate_default otherwise
+	template <typename R>
+	class InstantiateHelper
+	{
+		template <typename C>
+		static constexpr I2CSPIDriverBase::instantiate_method get(decltype(&C::instantiate)) { return &C::instantiate; }
+		template <typename C>
+		static constexpr I2CSPIDriverBase::instantiate_method get(...) { return &C::instantiate_default; }
+	public:
+		static constexpr I2CSPIDriverBase::instantiate_method m = get<R>(0);
+	};
+
+	static I2CSPIDriverBase *instantiate_default(const I2CSPIDriverConfig &config, int runtime_instance)
+	{
+		T *instance = new T(config);
+
+		if (!instance) {
+			PX4_ERR("alloc failed");
+			return nullptr;
+		}
+
+		if (OK != instance->init()) {
+			delete instance;
+			return nullptr;
+		}
+
+		return instance;
+	}
 };

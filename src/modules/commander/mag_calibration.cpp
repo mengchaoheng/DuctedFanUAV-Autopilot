@@ -53,7 +53,7 @@
 #include <lib/sensor_calibration/Magnetometer.hpp>
 #include <lib/sensor_calibration/Utilities.hpp>
 #include <lib/conversion/rotation.h>
-#include <lib/ecl/geo_lookup/geo_mag_declination.h>
+#include <lib/world_magnetic_model/geo_mag_declination.h>
 #include <lib/systemlib/mavlink_log.h>
 #include <lib/parameters/param.h>
 #include <lib/systemlib/err.h>
@@ -387,6 +387,7 @@ static calibrate_return mag_calibration_worker(detect_orientation_return orienta
 						worker_data->x[cur_mag][worker_data->calibration_counter_total[cur_mag]] = new_samples[cur_mag](0);
 						worker_data->y[cur_mag][worker_data->calibration_counter_total[cur_mag]] = new_samples[cur_mag](1);
 						worker_data->z[cur_mag][worker_data->calibration_counter_total[cur_mag]] = new_samples[cur_mag](2);
+
 						worker_data->calibration_counter_total[cur_mag]++;
 					}
 				}
@@ -527,7 +528,7 @@ calibrate_return mag_calibrate_all(orb_advert_t *mavlink_log_pub, int32_t cal_ma
 		uORB::SubscriptionData<sensor_mag_s> mag_sub{ORB_ID(sensor_mag), cur_mag};
 
 		if (mag_sub.advertised() && (mag_sub.get().device_id != 0) && (mag_sub.get().timestamp > 0)) {
-			worker_data.calibration[cur_mag].set_device_id(mag_sub.get().device_id, mag_sub.get().is_external);
+			worker_data.calibration[cur_mag].set_device_id(mag_sub.get().device_id);
 		}
 
 		// reset calibration index to match uORB numbering
@@ -603,8 +604,20 @@ calibrate_return mag_calibrate_all(orb_advert_t *mavlink_log_pub, int32_t cal_ma
 									       worker_data.calibration_counter_total[cur_mag], sphere_data, true);
 
 						if (ellipsoid_ret == PX4_OK) {
-							ellipsoid_fit_success  = true;
+							ellipsoid_fit_success = true;
 						}
+					}
+				}
+
+				if (!sphere_fit_success && !ellipsoid_fit_success) {
+					if (worker_data.calibration[cur_mag].enabled()) {
+						calibration_log_emergency(mavlink_log_pub, "Retry calibration (unable to fit mag %" PRIu8 ")", cur_mag);
+						result = calibrate_return_error;
+						break;
+
+					} else {
+						calibration_log_info(mavlink_log_pub, "Retry calibration (unable to fit mag %" PRIu8 ")", cur_mag);
+						continue;
 					}
 				}
 
@@ -616,12 +629,6 @@ calibrate_return mag_calibrate_all(orb_advert_t *mavlink_log_pub, int32_t cal_ma
 					offdiag[cur_mag](i) = sphere_data.offdiag(i);
 				}
 
-				if (!sphere_fit_success && !ellipsoid_fit_success) {
-					calibration_log_emergency(mavlink_log_pub, "Retry calibration (unable to fit mag %" PRIu8 ")", cur_mag);
-					result = calibrate_return_error;
-					break;
-				}
-
 				result = check_calibration_result(sphere[cur_mag](0), sphere[cur_mag](1), sphere[cur_mag](2),
 								  sphere_radius[cur_mag],
 								  diag[cur_mag](0), diag[cur_mag](1), diag[cur_mag](2),
@@ -629,7 +636,16 @@ calibrate_return mag_calibrate_all(orb_advert_t *mavlink_log_pub, int32_t cal_ma
 								  mavlink_log_pub, cur_mag);
 
 				if (result == calibrate_return_error) {
-					break;
+					// tolerate mag cal failures if this sensor is disabled
+					if (worker_data.calibration[cur_mag].enabled()) {
+						break;
+
+					} else {
+						// reset
+						sphere[cur_mag].zero();
+						diag[cur_mag] = Vector3f{1.f, 1.f, 1.f};
+						offdiag[cur_mag].zero();
+					}
 				}
 			}
 		}
@@ -899,11 +915,9 @@ calibrate_return mag_calibrate_all(orb_advert_t *mavlink_log_pub, int32_t cal_ma
 					current_cal.set_offdiagonal(offdiag[cur_mag]);
 				}
 
-				current_cal.set_calibration_index(cur_mag);
-
 				current_cal.PrintStatus();
 
-				if (current_cal.ParametersSave()) {
+				if (current_cal.ParametersSave(cur_mag, true)) {
 					param_save = true;
 					failed = false;
 
@@ -1001,17 +1015,14 @@ int do_mag_calibration_quick(orb_advert_t *mavlink_log_pub, float heading_radian
 
 			if (mag_sub.advertised() && (mag.timestamp != 0) && (mag.device_id != 0)) {
 
-				calibration::Magnetometer cal{mag.device_id, mag.is_external};
-
-				// force calibration index to uORB index
-				cal.set_calibration_index(cur_mag);
+				calibration::Magnetometer cal{mag.device_id};
 
 				// use any existing scale and store the offset to the expected earth field
 				const Vector3f offset = Vector3f{mag.x, mag.y, mag.z} - (cal.scale().I() * cal.rotation().transpose() * expected_field);
 				cal.set_offset(offset);
 
 				// save new calibration
-				if (cal.ParametersSave()) {
+				if (cal.ParametersSave(cur_mag)) {
 					cal.PrintStatus();
 					param_save = true;
 					failed = false;

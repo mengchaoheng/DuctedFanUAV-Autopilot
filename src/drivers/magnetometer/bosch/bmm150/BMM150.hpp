@@ -1,6 +1,6 @@
 /****************************************************************************
  *
- *   Copyright (c) 2020 PX4 Development Team. All rights reserved.
+ *   Copyright (c) 2020-2022 PX4 Development Team. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -53,11 +53,9 @@ using namespace Bosch_BMM150;
 class BMM150 : public device::I2C, public I2CSPIDriver<BMM150>
 {
 public:
-	BMM150(I2CSPIBusOption bus_option, int bus, int bus_frequency, enum Rotation rotation = ROTATION_NONE);
+	BMM150(const I2CSPIDriverConfig &config);
 	~BMM150() override;
 
-	static I2CSPIDriverBase *instantiate(const BusCLIArguments &cli, const BusInstanceIterator &iterator,
-					     int runtime_instance);
 	static void print_usage();
 
 	void RunImpl();
@@ -130,7 +128,7 @@ private:
 	register_config_t _register_cfg[size_register_cfg] {
 		// Register                | Set bits, Clear bits
 		{ Register::POWER_CONTROL, POWER_CONTROL_BIT::PowerControl, POWER_CONTROL_BIT::SoftReset },
-		{ Register::OP_MODE,       OP_MODE_BIT::ODR_20Hz, OP_MODE_BIT::Opmode_Sleep | OP_MODE_BIT::Self_Test },
+		{ Register::OP_MODE,       OP_MODE_BIT::ODR_20HZ_SET, OP_MODE_BIT::ODR_20HZ_CLEAR | OP_MODE_BIT::Opmode_Sleep | OP_MODE_BIT::Self_Test },
 		{ Register::REPXY,         REPXY_BIT::XY_HA_SET, REPXY_BIT::XY_HA_CLEAR },
 		{ Register::REPZ,          REPZ_BIT::Z_HA_SET, REPZ_BIT::Z_HA_CLEAR },
 	};

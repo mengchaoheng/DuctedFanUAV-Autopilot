@@ -49,6 +49,11 @@
 
 #include <stm32_gpio.h>
 
+#if !defined(CONFIG_BUILD_FLAT)
+#include <sys/boardctl.h>
+#include <px4_platform/board_ctrl.h>
+#endif
+
 /****************************************************************************************************
  * Definitions
  ****************************************************************************************************/
@@ -173,18 +178,10 @@
 	 (1 << ADC1_SPARE_1_CHANNEL))
 #endif
 
-/* Define Battery 1 Voltage Divider and A per V
- */
-
-#define BOARD_BATTERY1_V_DIV         (18.1f)     /* measured with the provided PM board */
-#define BOARD_BATTERY1_A_PER_V       (36.367515152f)
-
 /* HW has to large of R termination on ADC todo:change when HW value is chosen */
-
 #define BOARD_ADC_OPEN_CIRCUIT_V     (5.6f)
 
 /* HW Version and Revision drive signals Default to 1 to detect */
-
 #define BOARD_HAS_HW_VERSIONING
 
 #define GPIO_HW_REV_DRIVE    /* PH14  */ (GPIO_OUTPUT|GPIO_PUSHPULL|GPIO_SPEED_2MHz|GPIO_OUTPUT_SET|GPIO_PORTH|GPIO_PIN14)
@@ -194,6 +191,15 @@
 #define HW_INFO_INIT         {'V','5','x', 'x',0}
 #define HW_INFO_INIT_VER     2
 #define HW_INFO_INIT_REV     3
+#define BOARD_NUM_SPI_CFG_HW_VERSIONS 3
+#define V500   HW_VER_REV(0x0,0x0) // FMUV5,                    Rev 0
+#define V515   HW_VER_REV(0x1,0x5) // CUAV V5,                  Rev 5
+#define V540   HW_VER_REV(0x4,0x0) // HolyBro mini no can 2,3,  Rev 0
+#define V550   HW_VER_REV(0x5,0x0) // CUAV V5+,                 Rev 0
+#define V552   HW_VER_REV(0x5,0x2) // CUAV V5+ ICM42688P,       Rev 2
+#define V560   HW_VER_REV(0x6,0x0) // CUAV V5nano with can 2,   Rev 0
+#define V562   HW_VER_REV(0x6,0x2) // CUAV V5nano ICM42688P,    Rev 2
+
 /* CAN Silence
  *
  * Silent mode control \ ESC Mux select
@@ -209,22 +215,8 @@
  * PWM in future
  */
 #define GPIO_HEATER_OUTPUT   /* PA7  T14CH1 */ (GPIO_OUTPUT|GPIO_PUSHPULL|GPIO_SPEED_2MHz|GPIO_OUTPUT_CLEAR|GPIO_PORTA|GPIO_PIN7)
+#define HEATER_OUTPUT_EN(on_true)              px4_arch_gpiowrite(GPIO_HEATER_OUTPUT, (on_true))
 
-/* PWM Capture
- *
- * 3  PWM Capture inputs are configured.
- *
- * Pins:
- *
- * FMU_CAP1 : PA5  : TIM2_CH1
- * FMU_CAP2 : PB3  : TIM2_CH2
- * FMU_CAP3 : PB11 : TIM2_CH4
- */
-#define GPIO_TIM2_CH1_IN     /* PA5   T22C1  FMU_CAP1 */ GPIO_TIM2_CH1IN_3
-#define GPIO_TIM2_CH2_IN     /* PB3   T22C2  FMU_CAP2 */ GPIO_TIM2_CH2IN_2
-#define GPIO_TIM2_CH4_IN     /* PB11  T22C4  FMU_CAP3 */ GPIO_TIM2_CH4IN_2
-
-#define DIRECT_PWM_CAPTURE_CHANNELS  3
 
 /* PI0 is nARMED
  *  The GPIO will be set as input while not armed HW will have external HW Pull UP.
@@ -233,12 +225,30 @@
 #define GPIO_nARMED_INIT     /* PI0 */  (GPIO_INPUT|GPIO_PULLUP|GPIO_PORTI|GPIO_PIN0)
 #define GPIO_nARMED          /* PI0 */  (GPIO_OUTPUT|GPIO_PUSHPULL|GPIO_SPEED_2MHz|GPIO_OUTPUT_CLEAR|GPIO_PORTI|GPIO_PIN0)
 
+/* For protected build, define the LOCKOUT_STATE macros as function calls */
+#ifdef CONFIG_BUILD_FLAT
 #define BOARD_INDICATE_EXTERNAL_LOCKOUT_STATE(enabled)  px4_arch_configgpio((enabled) ? GPIO_nARMED : GPIO_nARMED_INIT)
+#define BOARD_GET_EXTERNAL_LOCKOUT_STATE() px4_arch_gpioread(GPIO_nARMED)
+#else
+static inline void board_indicate_external_lockout_state(bool enable)
+{
+	platformioclockoutstate_t state = {enable};
+	boardctl(PLATFORMIOCINDICATELOCKOUT, (uintptr_t)&state);
+}
+
+static inline bool board_get_external_lockout_state(void)
+{
+	platformioclockoutstate_t state = {false};
+	boardctl(PLATFORMIOCGETLOCKOUT, (uintptr_t)&state);
+	return state.enabled;
+}
+#define BOARD_INDICATE_EXTERNAL_LOCKOUT_STATE(enabled) board_indicate_external_lockout_state(enabled)
+#define BOARD_GET_EXTERNAL_LOCKOUT_STATE() board_get_external_lockout_state()
+#endif
 
 /* PWM
  */
-#define DIRECT_PWM_OUTPUT_CHANNELS  8
-#define DIRECT_INPUT_TIMER_CHANNELS  8
+#define DIRECT_PWM_OUTPUT_CHANNELS  11
 
 #define BOARD_HAS_LED_PWM              1
 #define BOARD_LED_PWM_DRIVE_ACTIVE_LOW 1
@@ -262,7 +272,7 @@
 #define GPIO_nVDD_5V_PERIPH_EN          /* PG4  */ (GPIO_OUTPUT|GPIO_PUSHPULL|GPIO_SPEED_2MHz|GPIO_OUTPUT_SET|GPIO_PORTG|GPIO_PIN4)
 #define GPIO_nVDD_5V_PERIPH_OC          /* PE15 */ (GPIO_INPUT |GPIO_FLOAT|GPIO_PORTE|GPIO_PIN15)
 #define GPIO_nVDD_5V_HIPOWER_EN         /* PF12 */ (GPIO_OUTPUT|GPIO_PUSHPULL|GPIO_SPEED_2MHz|GPIO_OUTPUT_SET|GPIO_PORTF|GPIO_PIN12)
-#define GPIO_nVDD_5V_HIPOWER_OC         /* PG13 */ (GPIO_INPUT |GPIO_FLOAT|GPIO_PORTF|GPIO_PIN13)
+#define GPIO_nVDD_5V_HIPOWER_OC         /* PF13 */ (GPIO_INPUT |GPIO_FLOAT|GPIO_PORTF|GPIO_PIN13)
 #define GPIO_VDD_3V3_SPEKTRUM_POWER_EN  /* PE4  */ (GPIO_OUTPUT|GPIO_PUSHPULL|GPIO_SPEED_2MHz|GPIO_OUTPUT_CLEAR|GPIO_PORTE|GPIO_PIN4)
 #define GPIO_VDD_3V3_SPEKTRUM_PASSIVE   /* PE4  */ (GPIO_INPUT|GPIO_PULLUP|GPIO_PORTE|GPIO_PIN4)
 #define GPIO_VDD_5V_RC_EN               /* PG5  */ (GPIO_OUTPUT|GPIO_PUSHPULL|GPIO_SPEED_2MHz|GPIO_OUTPUT_CLEAR|GPIO_PORTG|GPIO_PIN5)
@@ -308,19 +318,6 @@
 #define RC_SERIAL_PORT                     "/dev/ttyS4"
 #define RC_SERIAL_SINGLEWIRE
 #define BOARD_SUPPORTS_RC_SERIAL_PORT_OUTPUT
-
-/* Input Capture Channels. */
-#define INPUT_CAP1_TIMER                  2
-#define INPUT_CAP1_CHANNEL     /* T4C1 */ 1
-#define GPIO_INPUT_CAP1        /*  PA5 */ GPIO_TIM2_CH1_IN
-
-#define INPUT_CAP2_TIMER                  2
-#define INPUT_CAP2_CHANNEL     /* T4C2 */ 2
-#define GPIO_INPUT_CAP2        /*  PB3 */ GPIO_TIM2_CH2_IN
-
-#define INPUT_CAP3_TIMER                  2
-#define INPUT_CAP3_CHANNEL     /* T4C4 */ 4
-#define GPIO_INPUT_CAP3        /* PB11 */ GPIO_TIM2_CH4_IN
 
 /* PWM input driver. Use FMU AUX5 pins attached to timer4 channel 2 */
 #define PWMIN_TIMER                       4
@@ -425,7 +422,6 @@
 #define BOARD_ADC_PERIPH_5V_OC  (!px4_arch_gpioread(GPIO_nVDD_5V_PERIPH_OC))
 #define BOARD_ADC_HIPOWER_5V_OC (!px4_arch_gpioread(GPIO_nVDD_5V_HIPOWER_OC))
 
-#define BOARD_HAS_PWM  DIRECT_PWM_OUTPUT_CHANNELS
 
 /* This board provides a DMA pool and APIs */
 #define BOARD_DMA_ALLOC_POOL_SIZE 5120
@@ -470,7 +466,6 @@
 
 #define BOARD_NUM_IO_TIMERS 5
 
-#define BOARD_DSHOT_MOTOR_ASSIGNMENT {3, 2, 1, 0, 4, 5, 6, 7};
 
 __BEGIN_DECLS
 

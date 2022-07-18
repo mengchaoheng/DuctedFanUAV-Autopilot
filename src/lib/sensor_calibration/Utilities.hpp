@@ -33,7 +33,11 @@
 
 #pragma once
 
+#include <px4_platform_common/px4_config.h>
+#include <px4_platform_common/log.h>
 #include <lib/conversion/rotation.h>
+#include <lib/mathlib/mathlib.h>
+#include <lib/parameters/param.h>
 #include <matrix/math.hpp>
 
 namespace calibration
@@ -46,7 +50,17 @@ namespace calibration
  * @param device_id
  * @return int8_t Valid calibration index on success, -1 otherwise
  */
-int8_t FindCalibrationIndex(const char *sensor_type, uint32_t device_id);
+int8_t FindCurrentCalibrationIndex(const char *sensor_type, uint32_t device_id);
+
+/**
+ * @brief Find sensor's calibration index if it exists, otherwise select an available slot.
+ *
+ * @param sensor_type Calibration parameter abbreviated sensor string ("ACC", "GYRO", "MAG")
+ * @param device_id
+ * @param preferred_index preferred index (optional)
+ * @return int8_t Valid calibration index on success, -1 otherwise
+ */
+int8_t FindAvailableCalibrationIndex(const char *sensor_type, uint32_t device_id, int8_t preferred_index = -1);
 
 /**
  * @brief Get sensor calibration parameter value.
@@ -56,7 +70,8 @@ int8_t FindCalibrationIndex(const char *sensor_type, uint32_t device_id);
  * @param instance
  * @return int32_t The calibration value.
  */
-int32_t GetCalibrationParam(const char *sensor_type, const char *cal_type, uint8_t instance);
+int32_t GetCalibrationParamInt32(const char *sensor_type, const char *cal_type, uint8_t instance);
+float GetCalibrationParamFloat(const char *sensor_type, const char *cal_type, uint8_t instance);
 
 /**
  * @brief Set a single calibration paramter.
@@ -67,7 +82,22 @@ int32_t GetCalibrationParam(const char *sensor_type, const char *cal_type, uint8
  * @param value int32_t parameter value
  * @return true if the parameter name was valid and value saved successfully, false otherwise.
  */
-bool SetCalibrationParam(const char *sensor_type, const char *cal_type, uint8_t instance, int32_t value);
+template<typename T>
+bool SetCalibrationParam(const char *sensor_type, const char *cal_type, uint8_t instance, T value)
+{
+	char str[20] {};
+
+	// eg CAL_MAGn_ID/CAL_MAGn_ROT
+	sprintf(str, "CAL_%s%u_%s", sensor_type, instance, cal_type);
+
+	int ret = param_set_no_notification(param_find(str), &value);
+
+	if (ret != PX4_OK) {
+		PX4_ERR("failed to set %s", str);
+	}
+
+	return ret == PX4_OK;
+}
 
 /**
  * @brief Get the Calibration Params Vector 3f object
@@ -111,5 +141,12 @@ Rotation GetBoardRotation();
  * @return matrix::Dcmf
  */
 matrix::Dcmf GetBoardRotationMatrix();
+
+/**
+ * @brief Determine if device is on an external bus
+ *
+ * @return true if device is on an external bus
+ */
+bool DeviceExternal(uint32_t device_id);
 
 } // namespace calibration

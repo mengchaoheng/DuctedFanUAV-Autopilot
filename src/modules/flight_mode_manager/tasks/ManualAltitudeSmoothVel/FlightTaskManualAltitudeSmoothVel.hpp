@@ -40,7 +40,7 @@
 #pragma once
 
 #include "FlightTaskManualAltitude.hpp"
-#include "ManualVelocitySmoothingZ.hpp"
+#include <motion_planning/ManualVelocitySmoothingZ.hpp>
 
 class FlightTaskManualAltitudeSmoothVel : public FlightTaskManualAltitude
 {
@@ -49,24 +49,22 @@ public:
 	virtual ~FlightTaskManualAltitudeSmoothVel() = default;
 
 	bool activate(const vehicle_local_position_setpoint_s &last_setpoint) override;
-	void reActivate() override;
 
 protected:
 	virtual void _updateSetpoints() override;
 
 	/** Reset position or velocity setpoints in case of EKF reset event */
-	void _ekfResetHandlerPositionZ() override;
-	void _ekfResetHandlerVelocityZ() override;
+	void _ekfResetHandlerPositionZ(float delta_z) override;
+	void _ekfResetHandlerVelocityZ(float delta_vz) override;
+
+	void _updateTrajConstraints();
+	void _setOutputState();
+
+	ManualVelocitySmoothingZ _smoothing; ///< Smoothing in z direction
 
 	DEFINE_PARAMETERS_CUSTOM_PARENT(FlightTaskManualAltitude,
 					(ParamFloat<px4::params::MPC_JERK_MAX>) _param_mpc_jerk_max,
 					(ParamFloat<px4::params::MPC_ACC_UP_MAX>) _param_mpc_acc_up_max,
 					(ParamFloat<px4::params::MPC_ACC_DOWN_MAX>) _param_mpc_acc_down_max
 				       )
-
-private:
-	void _updateTrajConstraints();
-	void _setOutputState();
-
-	ManualVelocitySmoothingZ _smoothing; ///< Smoothing in z direction
 };

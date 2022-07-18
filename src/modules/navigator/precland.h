@@ -41,7 +41,7 @@
 #pragma once
 
 #include <matrix/math.hpp>
-#include <lib/ecl/geo/geo.h>
+#include <lib/geo/geo.h>
 #include <px4_platform_common/module_params.h>
 #include <uORB/Subscription.hpp>
 #include <uORB/topics/landing_target_pose.h>
@@ -101,6 +101,8 @@ private:
 	bool switch_to_state_fallback();
 	bool switch_to_state_done();
 
+	void print_state_switch_message(const char *state_name);
+
 	// check if a given state could be changed into. Return true if possible to transition to state, false otherwise
 	bool check_state_conditions(PrecLandState state);
 	void slewrate(float &sp_x, float &sp_y);
@@ -111,7 +113,7 @@ private:
 	bool _target_pose_valid{false}; /**< whether we have received a landing target position message */
 	bool _target_pose_updated{false}; /**< wether the landing target position message is updated */
 
-	struct map_projection_reference_s _map_ref {}; /**< reference for local/global projections */
+	MapProjection _map_ref{}; /**< class for local/global projections */
 
 	uint64_t _state_start_time{0}; /**< time when we entered current state */
 	uint64_t _last_slewrate_time{0}; /**< time when we last limited setpoint changes */

@@ -38,6 +38,9 @@
 #include "tunes.h"
 
 #include <px4_platform_common/log.h>
+
+#include <lib/circuit_breaker/circuit_breaker.h>
+
 #include <math.h>
 #include <ctype.h>
 #include <errno.h>
@@ -56,6 +59,10 @@ Tunes::Tunes(unsigned default_note_length, NoteMode default_note_mode,
 	_default_octave(default_octave),
 	_default_tempo(default_tempo)
 {
+	if (circuit_breaker_enabled("CBRK_BUZZER", CBRK_BUZZER_KEY)) {
+		_tunes_disabled = true;
+	}
+
 	reset(false);
 }
 
@@ -152,6 +159,14 @@ void Tunes::set_string(const char *const string, uint8_t volume)
 
 Tunes::Status Tunes::get_next_note(unsigned &frequency, unsigned &duration, unsigned &silence, uint8_t &volume)
 {
+	if (_tunes_disabled) {
+		frequency = 0;
+		duration = 0;
+		silence = 0;
+		volume = 0;
+		return Tunes::Status::Stop;
+	}
+
 	Tunes::Status ret = get_next_note(frequency, duration, silence);
 
 	// Check if note should not be heard -> adjust volume to 0 to be safe.
@@ -167,6 +182,13 @@ Tunes::Status Tunes::get_next_note(unsigned &frequency, unsigned &duration, unsi
 
 Tunes::Status Tunes::get_next_note(unsigned &frequency, unsigned &duration, unsigned &silence)
 {
+	if (_tunes_disabled) {
+		frequency = 0;
+		duration = 0;
+		silence = 0;
+		return Tunes::Status::Stop;
+	}
+
 	// Return the values for frequency and duration if the custom msg was received.
 	if (_using_custom_msg) {
 		_using_custom_msg = false;
@@ -268,7 +290,8 @@ Tunes::Status Tunes::get_next_note(unsigned &frequency, unsigned &duration, unsi
 		case 'P':	// Pause for a note length.
 			frequency = 0;
 			duration = 0;
-			silence = rest_duration(next_number(), next_dots());
+			note_length = next_number();
+			silence = rest_duration(note_length, next_dots());
 			return Tunes::Status::Continue;
 
 		case 'T': {	// Change tempo.
@@ -350,6 +373,10 @@ Tunes::Status Tunes::get_next_note(unsigned &frequency, unsigned &duration, unsi
 
 Tunes::Status Tunes::tune_end()
 {
+	if (_tunes_disabled) {
+		return Tunes::Status::Stop;
+	}
+
 	// Restore intial parameters.
 	reset(_repeat);
 
@@ -364,7 +391,15 @@ Tunes::Status Tunes::tune_end()
 
 Tunes::Status Tunes::tune_error()
 {
+	if (_tunes_disabled) {
+		return Tunes::Status::Stop;
+	}
+
 	// The tune appears to be bad (unexpected EOF, bad character, etc.).
+	if (_next_tune != nullptr) {
+		PX4_WARN("Tune error at: %s", _next_tune);
+	}
+
 	_repeat = false;	// Don't loop on error.
 	reset(_repeat);
 	return Tunes::Status::Error;

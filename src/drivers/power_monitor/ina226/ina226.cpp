@@ -41,15 +41,15 @@
 #include "ina226.h"
 
 
-INA226::INA226(I2CSPIBusOption bus_option, const int bus, int bus_frequency, int address, int battery_index) :
-	I2C(DRV_POWER_DEVTYPE_INA226, MODULE_NAME, bus, address, bus_frequency),
+INA226::INA226(const I2CSPIDriverConfig &config, int battery_index) :
+	I2C(config),
 	ModuleParams(nullptr),
-	I2CSPIDriver(MODULE_NAME, px4::device_bus_to_wq(get_device_id()), bus_option, bus, address),
+	I2CSPIDriver(config),
 	_sample_perf(perf_alloc(PC_ELAPSED, "ina226_read")),
 	_comms_errors(perf_alloc(PC_COUNT, "ina226_com_err")),
 	_collection_errors(perf_alloc(PC_COUNT, "ina226_collection_err")),
 	_measure_errors(perf_alloc(PC_COUNT, "ina226_measurement_err")),
-	_battery(battery_index, this, INA226_SAMPLE_INTERVAL_US)
+	_battery(battery_index, this, INA226_SAMPLE_INTERVAL_US, battery_status_s::BATTERY_SOURCE_POWER_MODULE)
 {
 	float fvalue = MAX_CURRENT;
 	_max_current = fvalue;
@@ -83,15 +83,10 @@ INA226::INA226(I2CSPIBusOption bus_option, const int bus, int bus_frequency, int
 	_power_lsb = 25 * _current_lsb;
 
 	// We need to publish immediately, to guarantee that the first instance of the driver publishes to uORB instance 0
-	_battery.updateBatteryStatus(
-		hrt_absolute_time(),
-		0.0,
-		0.0,
-		false,
-		battery_status_s::BATTERY_SOURCE_POWER_MODULE,
-		0,
-		0.0
-	);
+	_battery.setConnected(false);
+	_battery.updateVoltage(0.f);
+	_battery.updateCurrent(0.f);
+	_battery.updateAndPublishBatteryStatus(hrt_absolute_time());
 }
 
 INA226::~INA226()
@@ -107,14 +102,19 @@ int INA226::read(uint8_t address, int16_t &data)
 {
 	// read desired little-endian value via I2C
 	uint16_t received_bytes;
-	const int ret = transfer(&address, 1, (uint8_t *)&received_bytes, sizeof(received_bytes));
+	int ret = PX4_ERROR;
 
-	if (ret == PX4_OK) {
-		data = swap16(received_bytes);
+	for (size_t i = 0; i < 3; i++) {
+		ret = transfer(&address, 1, (uint8_t *)&received_bytes, sizeof(received_bytes));
 
-	} else {
-		perf_count(_comms_errors);
-		PX4_DEBUG("i2c::transfer returned %d", ret);
+		if (ret == PX4_OK) {
+			data = swap16(received_bytes);
+			break;
+
+		} else {
+			perf_count(_comms_errors);
+			PX4_DEBUG("i2c::transfer returned %d", ret);
+		}
 	}
 
 	return ret;
@@ -138,7 +138,7 @@ INA226::init()
 
 	write(INA226_REG_CONFIGURATION, INA226_RST);
 
-	_cal = INA226_CONST / (_current_lsb * INA226_SHUNT);
+	_cal = INA226_CONST / (_current_lsb * _rshunt);
 
 	if (write(INA226_REG_CALIBRATION, _cal) < 0) {
 		return -3;
@@ -231,17 +231,10 @@ INA226::collect()
 		_bus_voltage = _power = _current = _shunt = 0;
 	}
 
-	_actuators_sub.copy(&_actuator_controls);
-
-	_battery.updateBatteryStatus(
-		hrt_absolute_time(),
-		(float) _bus_voltage * INA226_VSCALE,
-		(float) _current * _current_lsb,
-		success,
-		battery_status_s::BATTERY_SOURCE_POWER_MODULE,
-		0,
-		_actuator_controls.control[actuator_controls_s::INDEX_THROTTLE]
-	);
+	_battery.setConnected(success);
+	_battery.updateVoltage(static_cast<float>(_bus_voltage * INA226_VSCALE));
+	_battery.updateCurrent(static_cast<float>(_current * _current_lsb));
+	_battery.updateAndPublishBatteryStatus(hrt_absolute_time());
 
 	perf_end(_sample_perf);
 
@@ -304,15 +297,10 @@ INA226::RunImpl()
 		ScheduleDelayed(INA226_CONVERSION_INTERVAL);
 
 	} else {
-		_battery.updateBatteryStatus(
-			hrt_absolute_time(),
-			0.0f,
-			0.0f,
-			false,
-			battery_status_s::BATTERY_SOURCE_POWER_MODULE,
-			0,
-			0.0f
-		);
+		_battery.setConnected(false);
+		_battery.updateVoltage(0.f);
+		_battery.updateCurrent(0.f);
+		_battery.updateAndPublishBatteryStatus(hrt_absolute_time());
 
 		if (init() != PX4_OK) {
 			ScheduleDelayed(INA226_INIT_RETRY_INTERVAL_US);

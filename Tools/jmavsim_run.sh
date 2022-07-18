@@ -10,7 +10,7 @@ extra_args=
 baudrate=921600
 device=
 ip="127.0.0.1"
-while getopts ":b:d:p:qsr:f:i:lo" opt; do
+while getopts ":b:d:p:qsr:f:i:loat" opt; do
 	case $opt in
 		b)
 			baudrate=$OPTARG
@@ -38,6 +38,12 @@ while getopts ":b:d:p:qsr:f:i:lo" opt; do
 			;;
 		o)
 			extra_args="$extra_args -disponly"
+			;;
+		a)
+			extra_args="$extra_args -fw" # aircraft model
+			;;
+		t)
+			extra_args="$extra_args -ts" # tailsitter model
 			;;
 		\?)
 			echo "Invalid option: -$OPTARG" >&2

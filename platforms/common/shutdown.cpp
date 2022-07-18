@@ -56,6 +56,7 @@
 
 #ifdef __PX4_NUTTX
 #include <nuttx/board.h>
+#include <sys/boardctl.h>
 #endif
 
 using namespace time_literals;
@@ -99,7 +100,7 @@ int px4_shutdown_unlock()
 	return ret;
 }
 
-#if defined(CONFIG_SCHED_WORKQUEUE)
+#if defined(CONFIG_SCHED_WORKQUEUE) || (!defined(CONFIG_BUILD_FLAT) && defined(CONFIG_LIB_USRWORK))
 
 static struct work_s shutdown_work = {};
 static uint16_t shutdown_counter = 0; ///< count how many times the shutdown worker was executed
@@ -174,16 +175,20 @@ static void shutdown_worker(void *arg)
 		if (shutdown_args & SHUTDOWN_ARG_REBOOT) {
 #if defined(CONFIG_BOARDCTL_RESET)
 			PX4_INFO_RAW("Reboot NOW.");
-			board_reset((shutdown_args & SHUTDOWN_ARG_TO_BOOTLOADER) ? 1 : 0);
+			boardctl(BOARDIOC_RESET, (shutdown_args & SHUTDOWN_ARG_TO_BOOTLOADER) ? 1 : 0);
 #else
 			PX4_PANIC("board reset not available");
 #endif
 
 		} else {
-#if defined(CONFIG_BOARDCTL_POWEROFF)
+#if defined(BOARD_HAS_POWER_CONTROL)
 			PX4_INFO_RAW("Powering off NOW.");
+#if defined(CONFIG_BOARDCTL_POWEROFF)
+			boardctl(BOARDIOC_POWEROFF, 0);
+#else
 			board_power_off(0);
-#elif !defined(CONFIG_BOARDCTL_POWEROFF) && defined(__PX4_POSIX)
+#endif
+#elif defined(__PX4_POSIX)
 			// simply exit on posix if real shutdown (poweroff) not available
 			PX4_INFO_RAW("Exiting NOW.");
 			system_exit(0);
@@ -228,7 +233,7 @@ int px4_reboot_request(bool to_bootloader, uint32_t delay_us)
 }
 #endif // CONFIG_BOARDCTL_RESET
 
-#if defined(CONFIG_BOARDCTL_POWEROFF) || defined(__PX4_POSIX)
+#if defined(BOARD_HAS_POWER_CONTROL) || defined(__PX4_POSIX)
 int px4_shutdown_request(uint32_t delay_us)
 {
 	pthread_mutex_lock(&shutdown_mutex);
@@ -250,6 +255,6 @@ int px4_shutdown_request(uint32_t delay_us)
 	pthread_mutex_unlock(&shutdown_mutex);
 	return 0;
 }
-#endif // CONFIG_BOARDCTL_POWEROFF
+#endif // BOARD_HAS_POWER_CONTROL
 
 #endif // CONFIG_SCHED_WORKQUEUE)

@@ -1,6 +1,6 @@
 /****************************************************************************
  *
- *   Copyright (c) 2020 PX4 Development Team. All rights reserved.
+ *   Copyright (c) 2020-2022 PX4 Development Team. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -60,7 +60,7 @@ MulticopterHoverThrustEstimator::~MulticopterHoverThrustEstimator()
 bool MulticopterHoverThrustEstimator::init()
 {
 	if (!_vehicle_local_position_sub.registerCallback()) {
-		PX4_ERR("vehicle_local_position_setpoint callback registration failed!");
+		PX4_ERR("callback registration failed");
 		return false;
 	}
 
@@ -86,6 +86,11 @@ void MulticopterHoverThrustEstimator::updateParams()
 	}
 
 	_hover_thrust_ekf.setAccelInnovGate(_param_hte_acc_gate.get());
+
+	_hover_thrust_ekf.setMinHoverThrust(math::constrain(_param_mpc_thr_hover.get() - _param_hte_thr_range.get(), 0.f,
+					    0.8f));
+	_hover_thrust_ekf.setMaxHoverThrust(math::constrain(_param_mpc_thr_hover.get() + _param_hte_thr_range.get(), 0.2f,
+					    0.9f));
 }
 
 void MulticopterHoverThrustEstimator::Run()
@@ -168,9 +173,13 @@ void MulticopterHoverThrustEstimator::Run()
 				// Inform the hover thrust estimator about the measured vertical
 				// acceleration (positive acceleration is up) and the current thrust (positive thrust is up)
 				// Guard against fast up and down motions biasing the estimator due to large drag and prop wash effects
-				if (fabsf(local_pos.vz) < 2.f) {
-					_hover_thrust_ekf.fuseAccZ(-local_pos.az, -local_pos_sp.thrust[2]);
-				}
+				const float meas_noise_coeff_z = fmaxf((fabsf(local_pos.vz) - _param_hte_vz_thr.get()) + 1.f, 1.f);
+				const float meas_noise_coeff_xy = fmaxf((matrix::Vector2f(local_pos.vx,
+									local_pos.vy).norm() - _param_hte_vxy_thr.get()) + 1.f,
+									1.f);
+
+				_hover_thrust_ekf.setMeasurementNoiseScale(fmaxf(meas_noise_coeff_xy, meas_noise_coeff_z));
+				_hover_thrust_ekf.fuseAccZ(-local_pos.az, -local_pos_sp.thrust[2]);
 
 				bool valid = (_hover_thrust_ekf.getHoverThrustEstimateVar() < 0.001f);
 

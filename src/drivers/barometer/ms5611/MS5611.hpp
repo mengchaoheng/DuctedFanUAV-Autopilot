@@ -34,7 +34,8 @@
 #pragma once
 
 #include <drivers/device/device.h>
-#include <lib/drivers/barometer/PX4Barometer.hpp>
+#include <uORB/PublicationMulti.hpp>
+#include <uORB/topics/sensor_baro.h>
 #include <lib/perf/perf_counter.h>
 #include <px4_platform_common/i2c_spi_buses.h>
 #include <px4_platform_common/px4_work_queue/ScheduledWorkItem.hpp>
@@ -87,12 +88,10 @@ enum MS56XX_DEVICE_TYPES {
 class MS5611 : public I2CSPIDriver<MS5611>
 {
 public:
-	MS5611(device::Device *interface, ms5611::prom_u &prom_buf, enum MS56XX_DEVICE_TYPES device_type,
-	       I2CSPIBusOption bus_option, int bus);
+	MS5611(device::Device *interface, ms5611::prom_u &prom_buf, const I2CSPIDriverConfig &config);
 	~MS5611() override;
 
-	static I2CSPIDriverBase *instantiate(const BusCLIArguments &cli, const BusInstanceIterator &iterator,
-					     int runtime_instance);
+	static I2CSPIDriverBase *instantiate(const I2CSPIDriverConfig &config, int runtime_instance);
 	static void print_usage();
 
 	int		init();
@@ -115,7 +114,7 @@ public:
 protected:
 	void print_status() override;
 
-	PX4Barometer		_px4_barometer;
+	uORB::PublicationMulti<sensor_baro_s> _sensor_baro_pub{ORB_ID(sensor_baro)};
 
 	device::Device		*_interface;
 
@@ -128,6 +127,11 @@ protected:
 	/* intermediate temperature values per MS5611/MS5607 datasheet */
 	int64_t			_OFF{0};
 	int64_t			_SENS{0};
+
+	bool _initialized{false};
+
+	float _last_pressure{NAN};
+	float _last_temperature{NAN};
 
 	perf_counter_t		_sample_perf;
 	perf_counter_t		_measure_perf;

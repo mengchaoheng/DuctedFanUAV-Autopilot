@@ -41,7 +41,7 @@
 
 #include "FlightTask.hpp"
 #include "Sticks.hpp"
-#include <lib/ecl/AlphaFilter/AlphaFilter.hpp>
+#include <lib/mathlib/math/filter/AlphaFilter.hpp>
 #include <uORB/Subscription.hpp>
 
 class FlightTaskManualAltitude : public FlightTask
@@ -134,8 +134,6 @@ private:
 
 	float _yawspeed_filter_state{}; /**< state of low-pass filter in rad/s */
 	uint8_t _reset_counter = 0; /**< counter for estimator resets in z-direction */
-	float _max_speed_up = 10.0f;
-	float _max_speed_down = 1.0f;
 	bool _terrain_follow{false}; /**< true when the vehicle is following the terrain height */
 	bool _terrain_hold{false}; /**< true when vehicle is controlling height above a static ground position */
 

@@ -64,6 +64,10 @@ typedef enum io_timer_channel_mode_t {
 	IOTimerChanMode_Capture = 3,
 	IOTimerChanMode_OneShot = 4,
 	IOTimerChanMode_Trigger = 5,
+	IOTimerChanMode_Dshot   = 6,
+	IOTimerChanMode_LED     = 7,
+	IOTimerChanMode_PPS     = 8,
+	IOTimerChanMode_Other   = 9,
 	IOTimerChanModeSize
 } io_timer_channel_mode_t;
 
@@ -87,6 +91,8 @@ typedef struct io_timers_t {
 typedef struct io_timers_channel_mapping_element_t {
 	uint32_t first_channel_index;
 	uint32_t channel_count;
+	uint32_t lowest_timer_channel;
+	uint32_t channel_count_including_gaps;
 } io_timers_channel_mapping_element_t;
 
 /* mapping for each io_timers to timer_io_channels */
@@ -122,21 +128,29 @@ __EXPORT extern io_timer_channel_allocation_t allocations[IOTimerChanModeSize];
 __EXPORT int io_timer_channel_init(unsigned channel, io_timer_channel_mode_t mode,
 				   channel_handler_t channel_handler, void *context);
 
-__EXPORT int io_timer_init_timer(unsigned timer);
+__EXPORT int io_timer_init_timer(unsigned timer, io_timer_channel_mode_t mode);
 
-__EXPORT int io_timer_set_rate(unsigned timer, unsigned rate);
+__EXPORT int io_timer_set_pwm_rate(unsigned timer, unsigned rate);
 __EXPORT int io_timer_set_enable(bool state, io_timer_channel_mode_t mode,
 				 io_timer_channel_allocation_t masks);
-__EXPORT int io_timer_set_rate(unsigned timer, unsigned rate);
 __EXPORT uint16_t io_channel_get_ccr(unsigned channel);
 __EXPORT int io_timer_set_ccr(unsigned channel, uint16_t value);
 __EXPORT uint32_t io_timer_get_group(unsigned timer);
 __EXPORT int io_timer_validate_channel_index(unsigned channel);
-__EXPORT int io_timer_is_channel_free(unsigned channel);
-__EXPORT int io_timer_free_channel(unsigned channel);
+__EXPORT int io_timer_allocate_channel(unsigned channel, io_timer_channel_mode_t mode);
+__EXPORT int io_timer_unallocate_channel(unsigned channel);
 __EXPORT int io_timer_get_channel_mode(unsigned channel);
 __EXPORT int io_timer_get_mode_channels(io_timer_channel_mode_t mode);
-__EXPORT extern void io_timer_trigger(void);
+__EXPORT extern void io_timer_trigger(unsigned channel_mask);
+
+/**
+ * Reserve a timer
+ * @return 0 on success (if not used yet, or already set to the mode)
+ */
+__EXPORT int io_timer_allocate_timer(unsigned timer, io_timer_channel_mode_t mode);
+
+__EXPORT int io_timer_unallocate_timer(unsigned timer);
+
 /**
  * Returns the pin configuration for a specific channel, to be used as GPIO output.
  * 0 is returned if the channel is not valid.
@@ -147,6 +161,5 @@ __EXPORT uint32_t io_timer_channel_get_gpio_output(unsigned channel);
  * 0 is returned if the channel is not valid.
  */
 __EXPORT uint32_t io_timer_channel_get_as_pwm_input(unsigned channel);
-
 
 __END_DECLS

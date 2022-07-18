@@ -134,7 +134,7 @@
 #include <lib/sensor_calibration/Accelerometer.hpp>
 #include <lib/sensor_calibration/Utilities.hpp>
 #include <lib/mathlib/mathlib.h>
-#include <lib/ecl/geo/geo.h>
+#include <lib/geo/geo.h>
 #include <matrix/math.hpp>
 #include <lib/conversion/rotation.h>
 #include <lib/parameters/param.h>
@@ -213,6 +213,7 @@ static calibrate_return read_accelerometer_avg(float (&accel_avg)[MAX_ACCEL_SENS
 					}
 
 					accel_sum[accel_index] += Vector3f{arp.x, arp.y, arp.z} - offset;
+
 					counts[accel_index]++;
 				}
 			}
@@ -337,9 +338,6 @@ int do_accel_calibration(orb_advert_t *mavlink_log_pub)
 		} else {
 			calibrations[cur_accel].Reset();
 		}
-
-		// reset calibration index to match uORB numbering
-		calibrations[cur_accel].set_calibration_index(cur_accel);
 	}
 
 	if (active_sensors == 0) {
@@ -420,7 +418,7 @@ int do_accel_calibration(orb_advert_t *mavlink_log_pub)
 				calibrations[i].PrintStatus();
 
 
-				if (calibrations[i].ParametersSave()) {
+				if (calibrations[i].ParametersSave(i, true)) {
 					param_save = true;
 					failed = false;
 
@@ -537,7 +535,7 @@ int do_accel_calibration_quick(orb_advert_t *mavlink_log_pub)
 				// use vehicle_attitude if available
 				const vehicle_attitude_s &att = attitude_sub.get();
 				const matrix::Quatf q{att.q};
-				const Vector3f accel_ref = q.conjugate_inversed(Vector3f{0.f, 0.f, -CONSTANTS_ONE_G});
+				const Vector3f accel_ref = q.rotateVectorInverse(Vector3f{0.f, 0.f, -CONSTANTS_ONE_G});
 
 				// sanity check angle between acceleration vectors
 				const float angle = AxisAnglef(Quatf(accel_avg, accel_ref)).angle();
@@ -560,9 +558,6 @@ int do_accel_calibration_quick(orb_advert_t *mavlink_log_pub)
 
 			calibration::Accelerometer calibration{arp.device_id};
 
-			// reset cal index to uORB
-			calibration.set_calibration_index(accel_index);
-
 			if (!calibrated || (offset.norm() > CONSTANTS_ONE_G)
 			    || !PX4_ISFINITE(offset(0))
 			    || !PX4_ISFINITE(offset(1))
@@ -573,7 +568,7 @@ int do_accel_calibration_quick(orb_advert_t *mavlink_log_pub)
 			} else {
 				calibration.set_offset(offset);
 
-				if (calibration.ParametersSave()) {
+				if (calibration.ParametersSave(accel_index)) {
 					calibration.PrintStatus();
 					param_save = true;
 					failed = false;

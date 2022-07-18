@@ -115,6 +115,7 @@ static calibrate_return gyro_calibration_worker(gyro_worker_data_t &worker_data)
 						const Vector3f &thermal_offset{worker_data.calibrations[gyro_index].thermal_offset()};
 
 						worker_data.offset[gyro_index] += Vector3f{gyro_report.x, gyro_report.y, gyro_report.z} - thermal_offset;
+
 						calibration_counter[gyro_index]++;
 
 						if (gyro_index == 0) {
@@ -131,8 +132,10 @@ static calibrate_return gyro_calibration_worker(gyro_worker_data_t &worker_data)
 				}
 			}
 
-			if (update_count % (CALIBRATION_COUNT / 20) == 0) {
-				calibration_log_info(worker_data.mavlink_log_pub, CAL_QGC_PROGRESS_MSG, (update_count * 100) / CALIBRATION_COUNT);
+			const unsigned progress = (update_count * 100) / CALIBRATION_COUNT;
+
+			if (progress % 10 == 0) {
+				calibration_log_info(worker_data.mavlink_log_pub, CAL_QGC_PROGRESS_MSG, progress);
 			}
 
 			// Propagate out the slowest sensor's count
@@ -189,9 +192,6 @@ int do_gyro_calibration(orb_advert_t *mavlink_log_pub)
 		if (gyro_sub.advertised() && (gyro_sub.get().device_id != 0) && (gyro_sub.get().timestamp > 0)) {
 			worker_data.calibrations[cur_gyro].set_device_id(gyro_sub.get().device_id);
 		}
-
-		// reset calibration index to match uORB numbering
-		worker_data.calibrations[cur_gyro].set_calibration_index(cur_gyro);
 	}
 
 	unsigned try_count = 0;
@@ -259,12 +259,9 @@ int do_gyro_calibration(orb_advert_t *mavlink_log_pub)
 
 			if (calibration.device_id() != 0) {
 				calibration.set_offset(worker_data.offset[uorb_index]);
-
-				calibration.set_calibration_index(uorb_index);
-
 				calibration.PrintStatus();
 
-				if (calibration.ParametersSave()) {
+				if (calibration.ParametersSave(uorb_index, true)) {
 					param_save = true;
 					failed = false;
 

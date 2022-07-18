@@ -32,14 +32,19 @@
  ****************************************************************************/
 
 /**
- * Dump GPS communication to a file.
+ * Log GPS communication data
  *
  * If this is set to 1, all GPS communication data will be published via uORB,
  * and written to the log file as gps_dump message.
+ *
+ * If this is set to 2, the main GPS is configured to output RTCM data,
+ * which is then logged as gps_dump and can be used for PPK.
+ *
  * @min 0
- * @max 1
+ * @max 2
  * @value 0 Disable
- * @value 1 Enable
+ * @value 1 Full communication
+ * @value 2 RTCM output (PPK)
  * @group GPS
  */
 PARAM_DEFINE_INT32(GPS_DUMP_COMM, 0);
@@ -65,20 +70,37 @@ PARAM_DEFINE_INT32(GPS_DUMP_COMM, 0);
 PARAM_DEFINE_INT32(GPS_UBX_DYNMODEL, 7);
 
 /**
+ * Enable sat info (if available)
+ *
+ * Enable publication of satellite info (ORB_ID(satellite_info)) if possible.
+ * Not available on MTK.
+ *
+ * @boolean
+ * @reboot_required true
+ * @group GPS
+ */
+PARAM_DEFINE_INT32(GPS_SAT_INFO, 0);
+
+/**
  * u-blox GPS Mode
  *
  * Select the u-blox configuration setup. Most setups will use the default, including RTK and
  * dual GPS without heading.
  *
  * The Heading mode requires 2 F9P devices to be attached. The main GPS will act as rover and output
- * heading information, whereas the secondary will act as moving base, sending RTCM on UART2 to
- * the rover GPS.
+ * heading information, whereas the secondary will act as moving base.
+ * Modes 1 and 2 require each F9P UART1 to be connected to the Autopilot. In addition, UART2 on the
+ * F9P units are connected to each other.
+ * Modes 3 and 4 only require UART1 on each F9P connected to the Autopilot or Can Node. UART RX DMA is required.
  * RTK is still possible with this setup.
  *
  * @min 0
  * @max 1
  * @value 0 Default
- * @value 1 Heading
+ * @value 1 Heading (Rover With Moving Base UART1 Connected To Autopilot, UART2 Connected To Moving Base)
+ * @value 2 Moving Base (UART1 Connected To Autopilot, UART2 Connected To Rover)
+ * @value 3 Heading (Rover With Moving Base UART1 Connected to Autopilot Or Can Node At 921600)
+ * @value 4 Moving Base (Moving Base UART1 Connected to Autopilot Or Can Node At 921600)
  *
  * @reboot_required true
  * @group GPS
@@ -90,12 +112,11 @@ PARAM_DEFINE_INT32(GPS_UBX_MODE, 0);
  * Heading/Yaw offset for dual antenna GPS
  *
  * Heading offset angle for dual antenna GPS setups that support heading estimation.
- * (currently only for the Trimble MB-Two).
  *
- * Set this to 0 if the antennas are parallel to the forward-facing direction of the vehicle and the first antenna is in
+ * Set this to 0 if the antennas are parallel to the forward-facing direction of the vehicle and the rover antenna is in
  * front. The offset angle increases clockwise.
  *
- * Set this to 90 if the first antenna is placed on the right side and the second on the left side of the vehicle.
+ * Set this to 90 if the rover antenna is placed on the right side of the vehicle and the moving base antenna is on the left side.
  *
  * @min 0
  * @max 360
@@ -122,6 +143,7 @@ PARAM_DEFINE_FLOAT(GPS_YAW_OFFSET, 0.f);
  * @value 3 Ashtech / Trimble
  * @value 4 Emlid Reach
  * @value 5 Femtomes
+ * @value 6 NMEA (generic)
  *
  * @reboot_required true
  * @group GPS
@@ -143,6 +165,7 @@ PARAM_DEFINE_INT32(GPS_1_PROTOCOL, 1);
  * @value 3 Ashtech / Trimble
  * @value 4 Emlid Reach
  * @value 5 Femtomes
+ * @value 6 NMEA (generic)
  *
  * @reboot_required true
  * @group GPS

@@ -145,7 +145,10 @@
 #  define BOARD_BATT_I_LIST       {ADC_BATTERY_CURRENT_CHANNEL}
 #  define BOARD_BRICK_VALID_LIST  {BOARD_ADC_BRICK_VALID}
 #elif BOARD_NUMBER_BRICKS == 2
-#  if  !defined(BOARD_NUMBER_DIGITAL_BRICKS)
+#  if  defined(BOARD_NUMBER_DIGITAL_BRICKS)
+#    define BOARD_BATT_V_LIST       {-1, -1}
+#    define BOARD_BATT_I_LIST       {-1, -1}
+#  else
 #    define BOARD_BATT_V_LIST       {ADC_BATTERY1_VOLTAGE_CHANNEL, ADC_BATTERY2_VOLTAGE_CHANNEL}
 #    define BOARD_BATT_I_LIST       {ADC_BATTERY1_CURRENT_CHANNEL, ADC_BATTERY2_CURRENT_CHANNEL}
 #  endif
@@ -238,13 +241,6 @@
  */
 #if !defined(BOARD_EEPROM_WP_CTRL)
 #  define BOARD_EEPROM_WP_CTRL(on_true)
-#endif
-
-/*
- * Defined when a board has capture and uses channels.
- */
-#if defined(DIRECT_INPUT_TIMER_CHANNELS) && DIRECT_INPUT_TIMER_CHANNELS > 0
-#define BOARD_HAS_CAPTURE 1
 #endif
 
 /*
@@ -506,7 +502,14 @@ static inline bool board_rc_invert_input(const char *device, bool invert) { retu
  *
  ************************************************************************************/
 
-#if defined(GPIO_OTGFS_VBUS)
+#if defined(__PX4_NUTTX) && !defined(CONFIG_BUILD_FLAT)
+inline static int board_read_VBUS_state(void)
+{
+	platformiocvbusstate_t state = {false};
+	boardctl(PLATFORMIOCVBUSSTATE, (uintptr_t)&state);
+	return state.ret;
+}
+#elif defined(GPIO_OTGFS_VBUS)
 #  define board_read_VBUS_state() (px4_arch_gpioread(GPIO_OTGFS_VBUS) ? 0 : 1)
 #else
 int board_read_VBUS_state(void);
@@ -560,9 +563,9 @@ __EXPORT void board_on_reset(int status);
  *
  ****************************************************************************/
 
-#ifdef CONFIG_BOARDCTL_POWEROFF
+#if defined(BOARD_HAS_POWER_CONTROL)
 int board_power_off(int status);
-#endif
+#endif // BOARD_HAS_POWER_CONTROL
 
 /****************************************************************************
  * Name: board_reset
@@ -1022,8 +1025,12 @@ int board_register_power_state_notification_cb(power_button_state_notification_t
 
 enum board_bus_types {
 	BOARD_INVALID_BUS = 0,
+#if defined(CONFIG_SPI)
 	BOARD_SPI_BUS = 1,
+#endif // CONFIG_SPI
+#if defined(CONFIG_I2C)
 	BOARD_I2C_BUS = 2
+#endif // CONFIG_I2C
 };
 
 #if defined(BOARD_HAS_BUS_MANIFEST)

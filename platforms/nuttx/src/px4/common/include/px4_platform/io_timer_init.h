@@ -38,7 +38,7 @@
 #include <px4_arch/io_timer.h>
 #include <board_config.h>
 
-
+#if defined(DIRECT_PWM_OUTPUT_CHANNELS)
 /**
  * Initialize the IO channel mapping from timer and channel configurations.
  * @param io_timers_conf configured timers
@@ -58,6 +58,8 @@ static inline constexpr io_timers_channel_mapping_t initIOTimerChannelMapping(co
 		}
 
 		uint32_t first_channel = UINT32_MAX;
+		uint32_t min_timer_channel = UINT32_MAX;
+		uint32_t max_timer_channel = 0;
 		uint32_t channel_count = 0;
 
 		for (uint32_t channel = 0; channel < MAX_TIMER_IO_CHANNELS; ++channel) {
@@ -74,11 +76,23 @@ static inline constexpr io_timers_channel_mapping_t initIOTimerChannelMapping(co
 				}
 
 				++channel_count;
+
+				if (timer_io_channels_conf[channel].timer_channel < min_timer_channel) {
+					min_timer_channel = timer_io_channels_conf[channel].timer_channel;
+				}
+
+				if (timer_io_channels_conf[channel].timer_channel > max_timer_channel) {
+					max_timer_channel = timer_io_channels_conf[channel].timer_channel;
+				}
 			}
 		}
 
 		if (first_channel == UINT32_MAX) { //unused timer, channel_count is 0
 			first_channel = 0;
+
+		} else {
+			ret.element[i].lowest_timer_channel = min_timer_channel;
+			ret.element[i].channel_count_including_gaps = max_timer_channel - min_timer_channel + 1;
 		}
 
 		ret.element[i].first_channel_index = first_channel;
@@ -99,3 +113,4 @@ static inline constexpr io_timers_channel_mapping_t initIOTimerChannelMapping(co
 
 	return ret;
 }
+#endif // DIRECT_PWM_OUTPUT_CHANNELS

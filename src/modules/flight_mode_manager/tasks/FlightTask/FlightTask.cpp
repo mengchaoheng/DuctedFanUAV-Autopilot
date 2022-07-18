@@ -1,12 +1,12 @@
 #include "FlightTask.hpp"
 #include <mathlib/mathlib.h>
-#include <lib/ecl/geo/geo.h>
+#include <lib/geo/geo.h>
 
 constexpr uint64_t FlightTask::_timeout;
 // First index of empty_setpoint corresponds to time-stamp and requires a finite number.
 const vehicle_local_position_setpoint_s FlightTask::empty_setpoint = {0, NAN, NAN, NAN, NAN, NAN, NAN, NAN, NAN, {NAN, NAN, NAN}, {NAN, NAN, NAN}, {NAN, NAN, NAN}, {}};
 
-const vehicle_constraints_s FlightTask::empty_constraints = {0, NAN, NAN, NAN, false, {}};
+const vehicle_constraints_s FlightTask::empty_constraints = {0, NAN, NAN, false, {}};
 const landing_gear_s FlightTask::empty_landing_gear_default_keep = {0, landing_gear_s::GEAR_KEEP, {}};
 
 bool FlightTask::activate(const vehicle_local_position_setpoint_s &last_setpoint)
@@ -20,13 +20,15 @@ bool FlightTask::activate(const vehicle_local_position_setpoint_s &last_setpoint
 
 void FlightTask::reActivate()
 {
-	activate(empty_setpoint);
+	// Preserve vertical velocity while on the ground to allow descending by stick for reliable land detection
+	vehicle_local_position_setpoint_s setpoint_preserve_vertical{empty_setpoint};
+	setpoint_preserve_vertical.vz = _velocity_setpoint(2);
+	activate(setpoint_preserve_vertical);
 }
 
 bool FlightTask::updateInitialize()
 {
 	_time_stamp_current = hrt_absolute_time();
-	_time = (_time_stamp_current - _time_stamp_activate) / 1e6f;
 	_deltatime  = math::min((_time_stamp_current - _time_stamp_last), _timeout) / 1e6f;
 	_time_stamp_last = _time_stamp_current;
 
@@ -49,22 +51,22 @@ void FlightTask::_checkEkfResetCounters()
 {
 	// Check if a reset event has happened
 	if (_sub_vehicle_local_position.get().xy_reset_counter != _reset_counters.xy) {
-		_ekfResetHandlerPositionXY();
+		_ekfResetHandlerPositionXY(matrix::Vector2f{_sub_vehicle_local_position.get().delta_xy});
 		_reset_counters.xy = _sub_vehicle_local_position.get().xy_reset_counter;
 	}
 
 	if (_sub_vehicle_local_position.get().vxy_reset_counter != _reset_counters.vxy) {
-		_ekfResetHandlerVelocityXY();
+		_ekfResetHandlerVelocityXY(matrix::Vector2f{_sub_vehicle_local_position.get().delta_vxy});
 		_reset_counters.vxy = _sub_vehicle_local_position.get().vxy_reset_counter;
 	}
 
 	if (_sub_vehicle_local_position.get().z_reset_counter != _reset_counters.z) {
-		_ekfResetHandlerPositionZ();
+		_ekfResetHandlerPositionZ(_sub_vehicle_local_position.get().delta_z);
 		_reset_counters.z = _sub_vehicle_local_position.get().z_reset_counter;
 	}
 
 	if (_sub_vehicle_local_position.get().vz_reset_counter != _reset_counters.vz) {
-		_ekfResetHandlerVelocityZ();
+		_ekfResetHandlerVelocityZ(_sub_vehicle_local_position.get().delta_vz);
 		_reset_counters.vz = _sub_vehicle_local_position.get().vz_reset_counter;
 	}
 
@@ -122,6 +124,7 @@ void FlightTask::_evaluateVehicleLocalPosition()
 
 		// yaw
 		_yaw = _sub_vehicle_local_position.get().heading;
+		_is_yaw_good_for_control = _sub_vehicle_local_position.get().heading_good_for_control;
 
 		// position
 		if (_sub_vehicle_local_position.get().xy_valid) {
@@ -151,12 +154,11 @@ void FlightTask::_evaluateVehicleLocalPosition()
 
 		// global frame reference coordinates to enable conversions
 		if (_sub_vehicle_local_position.get().xy_global && _sub_vehicle_local_position.get().z_global) {
-			if (!map_projection_initialized(&_global_local_proj_ref)
-			    || (_global_local_proj_ref.timestamp != _sub_vehicle_local_position.get().ref_timestamp)) {
+			if (!_geo_projection.isInitialized()
+			    || (_geo_projection.getProjectionReferenceTimestamp() != _sub_vehicle_local_position.get().ref_timestamp)) {
 
-				map_projection_init_timestamped(&_global_local_proj_ref,
-								_sub_vehicle_local_position.get().ref_lat, _sub_vehicle_local_position.get().ref_lon,
-								_sub_vehicle_local_position.get().ref_timestamp);
+				_geo_projection.initReference(_sub_vehicle_local_position.get().ref_lat, _sub_vehicle_local_position.get().ref_lon,
+							      _sub_vehicle_local_position.get().ref_timestamp);
 
 				_global_local_alt0 = _sub_vehicle_local_position.get().ref_alt;
 			}
@@ -186,19 +188,20 @@ void FlightTask::_evaluateVehicleLocalPositionSetpoint()
 void FlightTask::_evaluateDistanceToGround()
 {
 	// Altitude above ground is local z-position or altitude above home or distance sensor altitude depending on what's available
-	_dist_to_ground = -_position(2);
-
 	if (PX4_ISFINITE(_dist_to_bottom)) {
 		_dist_to_ground = _dist_to_bottom;
 
 	} else if (_sub_home_position.get().valid_alt) {
 		_dist_to_ground = -(_position(2) - _sub_home_position.get().z);
+
+	} else {
+		_dist_to_ground = -_position(2);
+
 	}
 }
 
 void FlightTask::_setDefaultConstraints()
 {
-	_constraints.speed_xy = _param_mpc_xy_vel_max.get();
 	_constraints.speed_up = _param_mpc_z_vel_max_up.get();
 	_constraints.speed_down = _param_mpc_z_vel_max_dn.get();
 	_constraints.want_takeoff = false;

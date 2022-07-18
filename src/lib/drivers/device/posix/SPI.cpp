@@ -1,6 +1,6 @@
 /****************************************************************************
  *
- *   Copyright (C) 2019 PX4 Development Team. All rights reserved.
+ *   Copyright (C) 2019-2021 PX4 Development Team. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -40,6 +40,8 @@
 
 #include "SPI.hpp"
 
+#if defined(CONFIG_SPI)
+
 #ifdef __PX4_LINUX
 
 #include <fcntl.h>
@@ -48,6 +50,7 @@
 #include <linux/types.h>
 #include <linux/spi/spidev.h>
 
+#include <px4_platform_common/i2c_spi_buses.h>
 #include <px4_platform_common/px4_config.h>
 
 namespace device
@@ -64,6 +67,12 @@ SPI::SPI(uint8_t device_type, const char *name, int bus, uint32_t device, enum s
 	_device_id.devid_s.bus_type = DeviceBusType_SPI;
 	_device_id.devid_s.bus = bus;
 	_device_id.devid_s.address = (uint8_t)device;
+}
+
+SPI::SPI(const I2CSPIDriverConfig &config)
+	: SPI(config.devid_driver_index, config.module_name, config.bus, config.spi_devid, config.spi_mode,
+	      config.bus_frequency)
+{
 }
 
 SPI::~SPI()
@@ -189,3 +198,4 @@ SPI::transferhword(uint16_t *send, uint16_t *recv, unsigned len)
 } // namespace device
 
 #endif // __PX4_LINUX
+#endif // CONFIG_SPI

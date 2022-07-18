@@ -95,10 +95,6 @@
 	 (1 << ADC_SCALED_V5_CHANNEL)             | \
 	 (1 << ADC_RC_RSSI_CHANNEL))
 
-/* Define Battery 1 Voltage Divider and A per V */
-#define BOARD_BATTERY1_V_DIV         (18.1f)     /* measured with the provided PM board */
-#define BOARD_BATTERY1_A_PER_V       (36.367515152f)
-
 /* HW has to large of R termination on ADC todo:change when HW value is chosen */
 #define BOARD_ADC_OPEN_CIRCUIT_V     (5.6f)
 
@@ -107,7 +103,6 @@
 
 /* PWM */
 #define DIRECT_PWM_OUTPUT_CHANNELS  8
-#define DIRECT_INPUT_TIMER_CHANNELS  8
 
 /* Power supply control and monitoring GPIOs */
 #define GPIO_nPOWER_IN_A                /* PB5 */ (GPIO_INPUT|GPIO_PULLUP|GPIO_PORTB|GPIO_PIN5)
@@ -177,7 +172,6 @@
 #define BOARD_ADC_SERVO_VALID          (1)	/* never powers off the Servo rail */
 #define BOARD_ADC_BRICK_VALID          (px4_arch_gpioread(GPIO_VDD_BRICK1_VALID))
 
-#define BOARD_HAS_PWM  DIRECT_PWM_OUTPUT_CHANNELS
 
 /* This board provides a DMA pool and APIs */
 #define BOARD_DMA_ALLOC_POOL_SIZE 5120

@@ -171,12 +171,6 @@
 
 #define SYSTEM_ADC_BASE STM32_ADC1_BASE
 
-/* Define Battery 1 Voltage Divider and A per V
- */
-
-#define BOARD_BATTERY1_V_DIV         (18.1f)     /* measured with the provided PM board */
-#define BOARD_BATTERY1_A_PER_V       (36.367515152f)
-
 /* HW has to large of R termination on ADC todo:change when HW value is chosen */
 
 #define BOARD_ADC_OPEN_CIRCUIT_V     (5.6f)
@@ -192,11 +186,6 @@
 #define HW_INFO_INIT_VER       3 /* Offset in above string of the VER */
 #define HW_INFO_INIT_REV       4 /* Offset in above string of the REV */
 
-/* PWM Capture - not routed
- */
-#define DIRECT_PWM_CAPTURE_CHANNELS  0
-
-
 /* PE6 is nARMED --> FCv2 this goes to TP13
  *  The GPIO will be set as input while not armed HW will have external HW Pull UP.
  *  While armed it shall be configured at a GPIO OUT set LOW
@@ -209,9 +198,7 @@
 /* PWM
  */
 #define DIRECT_PWM_OUTPUT_CHANNELS   8
-#define DIRECT_INPUT_TIMER_CHANNELS  8
 
-#define BOARD_DSHOT_MOTOR_ASSIGNMENT {3, 2, 1, 0, 4, 5, 6, 7};
 
 /* Power supply control and monitoring GPIOs */
 #define GPIO_nVDD_USB_VALID             /* PF13 */ (GPIO_INPUT |GPIO_FLOAT|GPIO_PORTF|GPIO_PIN13) /* Low for USB power, High for DC power */
@@ -328,7 +315,6 @@
 #  error Unsupported BOARD_HAS_LTC44XX_VALIDS value
 #endif
 
-#define BOARD_HAS_PWM  DIRECT_PWM_OUTPUT_CHANNELS
 
 /* This board provides a DMA pool and APIs */
 #define BOARD_DMA_ALLOC_POOL_SIZE 5120

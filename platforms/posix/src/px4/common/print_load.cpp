@@ -72,7 +72,7 @@ void init_print_load(struct print_load_s *s)
 	s->new_time = hrt_absolute_time();
 	s->interval_start_time = s->new_time;
 
-	for (int i = 0; i < CONFIG_MAX_TASKS; i++) {
+	for (size_t i = 0; i < sizeof(s->last_times) / sizeof(s->last_times[0]); i++) {
 		s->last_times[i] = 0;
 	}
 
@@ -116,7 +116,6 @@ void print_load(int fd, struct print_load_s *print_state)
 	mach_msg_type_number_t thread_info_count;
 
 	thread_basic_info_t basic_info_th;
-	uint32_t stat_thread = 0;
 
 	// get all threads of the PX4 main task
 	kr = task_threads(task_handle, &thread_list, &th_cnt);
@@ -124,10 +123,6 @@ void print_load(int fd, struct print_load_s *print_state)
 	if (kr != KERN_SUCCESS) {
 		PX4_WARN("ERROR getting thread list");
 		return;
-	}
-
-	if (th_cnt > 0) {
-		stat_thread += th_cnt;
 	}
 
 	long tot_sec = 0;

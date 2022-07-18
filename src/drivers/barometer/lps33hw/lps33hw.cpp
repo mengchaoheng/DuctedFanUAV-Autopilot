@@ -47,14 +47,12 @@ static void getTwosComplement(T &raw, uint8_t length)
 	}
 }
 
-LPS33HW::LPS33HW(I2CSPIBusOption bus_option, int bus, device::Device *interface, bool keep_retrying) :
-	I2CSPIDriver(MODULE_NAME, px4::device_bus_to_wq(interface->get_device_id()), bus_option, bus,
-		     interface->get_device_address()),
-	_px4_barometer(interface->get_device_id()),
+LPS33HW::LPS33HW(const I2CSPIDriverConfig &config, device::Device *interface) :
+	I2CSPIDriver(config),
 	_interface(interface),
 	_sample_perf(perf_alloc(PC_ELAPSED, MODULE_NAME": read")),
 	_comms_errors(perf_alloc(PC_COUNT, MODULE_NAME": comm errors")),
-	_keep_retrying(keep_retrying)
+	_keep_retrying(config.keep_running)
 {
 }
 
@@ -178,10 +176,17 @@ LPS33HW::RunImpl()
 		int32_t Praw = (int32_t)data[1] | (data[2] << 8) | (data[3] << 16);
 		getTwosComplement(Praw, 24);
 		float pressure_hPa = Praw / 4096.f;
+		float pressure_pa = pressure_hPa * 100.f;
 
-		_px4_barometer.set_error_count(perf_event_count(_comms_errors));
-		_px4_barometer.set_temperature(temp);
-		_px4_barometer.update(timestamp_sample, pressure_hPa); // hPascals -> Millibar
+		// publish
+		sensor_baro_s sensor_baro{};
+		sensor_baro.timestamp_sample = timestamp_sample;
+		sensor_baro.device_id = _interface->get_device_id();
+		sensor_baro.pressure = pressure_pa;
+		sensor_baro.temperature = temp;
+		sensor_baro.error_count = perf_event_count(_comms_errors);
+		sensor_baro.timestamp = hrt_absolute_time();
+		_sensor_baro_pub.publish(sensor_baro);
 
 		perf_end(_sample_perf);
 		ScheduleDelayed(1000000 / SAMPLE_RATE);

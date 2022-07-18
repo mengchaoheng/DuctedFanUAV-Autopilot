@@ -47,6 +47,15 @@ TEST(FunctionsTest, signNoZero)
 	EXPECT_FLOAT_EQ(signNoZero(123.456f), 1.f);
 }
 
+TEST(FunctionsTest, signFromBool)
+{
+	EXPECT_EQ(signFromBool(true), 1);
+	EXPECT_EQ(signFromBool(false), -1);
+	EXPECT_EQ(signFromBool(100), 1);
+	EXPECT_EQ(signFromBool(-100), 1);
+	EXPECT_EQ(signFromBool(0), -1);
+}
+
 TEST(FunctionsTest, expo)
 {
 	// input value limits
@@ -150,6 +159,12 @@ TEST(FunctionsTest, gradual)
 	EXPECT_FLOAT_EQ(gradual(1.75f, 1.f, 2.f, 4.f, 6.f), 5.5f);
 	EXPECT_FLOAT_EQ(gradual(2.f, 1.f, 2.f, 4.f, 6.f), 6.f);
 	EXPECT_FLOAT_EQ(gradual(12.f, 1.f, 2.f, 4.f, 6.f), 6.f);
+
+	// corner case when x_low == x_high == value
+	EXPECT_FLOAT_EQ(gradual(1.f, 1.f, 1.f, 4.f, 6.f), 4.f);
+
+	// corner case when x_low > x_high
+	EXPECT_FLOAT_EQ(gradual(1.05f, 1.1f, 1.f, 4.f, 6.f), 4.f);
 }
 
 TEST(FunctionsTest, gradual3)
@@ -205,4 +220,13 @@ TEST(FunctionsTest, lerp)
 
 	EXPECT_FLOAT_EQ(lerp(.2f, .3f, -.1f), .19f);
 	EXPECT_FLOAT_EQ(lerp(-.4f, .3f, 1.1f), .37f);
+}
+
+TEST(FunctionsTest, countSetBits)
+{
+	EXPECT_EQ(countSetBits(255), 8);
+	EXPECT_EQ(countSetBits(65535), 16);
+	EXPECT_EQ(countSetBits(0), 0);
+	EXPECT_EQ(countSetBits(0xffffffffu), 32);
+	EXPECT_EQ(countSetBits(754323), 9);
 }

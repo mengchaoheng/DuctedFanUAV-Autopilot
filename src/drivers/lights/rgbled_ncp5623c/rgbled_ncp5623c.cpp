@@ -44,12 +44,9 @@
 
 #include <drivers/device/i2c.h>
 #include <lib/led/led.h>
-#include <lib/parameters/param.h>
 #include <px4_platform_common/getopt.h>
 #include <px4_platform_common/i2c_spi_buses.h>
 #include <px4_platform_common/module.h>
-#include <uORB/SubscriptionInterval.hpp>
-#include <uORB/topics/parameter_update.h>
 
 using namespace time_literals;
 
@@ -68,11 +65,9 @@ using namespace time_literals;
 class RGBLED_NCP5623C : public device::I2C, public I2CSPIDriver<RGBLED_NCP5623C>
 {
 public:
-	RGBLED_NCP5623C(I2CSPIBusOption bus_option, const int bus, int bus_frequency, const int address, const int order);
+	RGBLED_NCP5623C(const I2CSPIDriverConfig &config);
 	virtual ~RGBLED_NCP5623C() = default;
 
-	static I2CSPIDriverBase *instantiate(const BusCLIArguments &cli, const BusInstanceIterator &iterator,
-					     int runtime_instance);
 	static void print_usage();
 
 	int		init() override;
@@ -83,12 +78,10 @@ public:
 
 private:
 	int			send_led_rgb();
-	void			update_params();
 
 	int			write(uint8_t reg, uint8_t data);
 
 	float			_brightness{1.0f};
-	float			_max_brightness{1.0f};
 
 	uint8_t		_r{0};
 	uint8_t		_g{0};
@@ -97,8 +90,6 @@ private:
 	volatile bool		_should_run{true};
 	bool			_leds_enabled{true};
 
-	uORB::SubscriptionInterval _parameter_update_sub{ORB_ID(parameter_update), 1_s};
-
 	LedController		_led_controller;
 
 	uint8_t		_red{NCP5623_LED_PWM0};
@@ -106,12 +97,11 @@ private:
 	uint8_t		_blue{NCP5623_LED_PWM2};
 };
 
-RGBLED_NCP5623C::RGBLED_NCP5623C(I2CSPIBusOption bus_option, const int bus, int bus_frequency, const int address,
-				 const int order) :
-	I2C(DRV_LED_DEVTYPE_RGBLED_NCP5623C, MODULE_NAME, bus, address, bus_frequency),
-	I2CSPIDriver(MODULE_NAME, px4::device_bus_to_wq(get_device_id()), bus_option, bus, address)
+RGBLED_NCP5623C::RGBLED_NCP5623C(const I2CSPIDriverConfig &config) :
+	I2C(config),
+	I2CSPIDriver(config)
 {
-	int ordering = order;
+	int ordering = config.custom1;
 	// ordering is RGB: Hundreds is Red, Tens is green and ones is Blue
 	// 123 would drive the
 	//      R LED from = NCP5623_LED_PWM0
@@ -157,8 +147,6 @@ RGBLED_NCP5623C::init()
 		return ret;
 	}
 
-	update_params();
-
 	_running = true;
 
 	ScheduleNow();
@@ -183,19 +171,6 @@ RGBLED_NCP5623C::probe()
 void
 RGBLED_NCP5623C::RunImpl()
 {
-	// check for parameter updates
-	if (_parameter_update_sub.updated()) {
-		// clear update
-		parameter_update_s pupdate;
-		_parameter_update_sub.copy(&pupdate);
-
-		// update parameters from storage
-		update_params();
-
-		// Immediately update to change brightness
-		send_led_rgb();
-	}
-
 	LedControlData led_control_data;
 
 	if (_led_controller.update(led_control_data) == 1) {
@@ -250,7 +225,7 @@ int
 RGBLED_NCP5623C::send_led_rgb()
 {
 	uint8_t msg[7] = {0x20, 0x70, 0x40, 0x70, 0x60, 0x70, 0x80};
-	uint8_t brightness = 0x1f * _max_brightness;
+	uint8_t brightness = UINT8_MAX;
 
 	msg[0] = NCP5623_LED_CURRENT | (brightness & 0x1f);
 	msg[2] = _red | (uint8_t(_r * _brightness) & 0x1f);
@@ -258,21 +233,6 @@ RGBLED_NCP5623C::send_led_rgb()
 	msg[6] = _blue | (uint8_t(_b * _brightness) & 0x1f);
 
 	return transfer(&msg[0], 7, nullptr, 0);
-}
-
-void
-RGBLED_NCP5623C::update_params()
-{
-	int32_t maxbrt = 31;
-	param_get(param_find("LED_RGB1_MAXBRT"), &maxbrt);
-	maxbrt = maxbrt > 31 ? 31 : maxbrt;
-	maxbrt = maxbrt <  0 ?  0 : maxbrt;
-
-	if (maxbrt == 0) {
-		maxbrt = 1;
-	}
-
-	_max_brightness = maxbrt / 31.0f;
 }
 
 void
@@ -284,25 +244,6 @@ RGBLED_NCP5623C::print_usage()
 	PRINT_MODULE_USAGE_PARAMS_I2C_ADDRESS(0x39);
 	PRINT_MODULE_USAGE_PARAM_INT('o', 123, 123, 321, "RGB PWM Assignment", true);
 	PRINT_MODULE_USAGE_DEFAULT_COMMANDS();
-}
-
-I2CSPIDriverBase *RGBLED_NCP5623C::instantiate(const BusCLIArguments &cli, const BusInstanceIterator &iterator,
-		int runtime_instance)
-{
-	RGBLED_NCP5623C *instance = new RGBLED_NCP5623C(iterator.configuredBusOption(), iterator.bus(), cli.bus_frequency,
-			cli.i2c_address, cli.custom1);
-
-	if (instance == nullptr) {
-		PX4_ERR("alloc failed");
-		return nullptr;
-	}
-
-	if (instance->init() != PX4_OK) {
-		delete instance;
-		return nullptr;
-	}
-
-	return instance;
 }
 
 extern "C" __EXPORT int rgbled_ncp5623c_main(int argc, char *argv[])

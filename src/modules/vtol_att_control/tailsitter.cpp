@@ -42,6 +42,8 @@
 #include "tailsitter.h"
 #include "vtol_att_control_main.h"
 
+#include <uORB/topics/landing_gear.h>
+
 #define PITCH_TRANSITION_FRONT_P1 -1.1f	// pitch angle to switch to TRANSITION_P2
 #define PITCH_TRANSITION_BACK -0.25f	// pitch angle to switch to MC
 
@@ -130,6 +132,8 @@ void Tailsitter::update_vtol_state()
 
 		case vtol_mode::TRANSITION_FRONT_P1: {
 
+				const float time_since_trans_start = (float)(hrt_absolute_time() - _vtol_schedule.transition_start) * 1e-6f;
+
 
 				const bool airspeed_triggers_transition = PX4_ISFINITE(_airspeed_validated->calibrated_airspeed_m_s)
 						&& !_params->airspeed_disabled;
@@ -149,6 +153,14 @@ void Tailsitter::update_vtol_state()
 
 				if (transition_to_fw) {
 					_vtol_schedule.flight_mode = vtol_mode::FW_MODE;
+				}
+
+				// check front transition timeout
+				if (_params->front_trans_timeout > FLT_EPSILON) {
+					if (time_since_trans_start > _params->front_trans_timeout) {
+						// transition timeout occured, abort transition
+						_attc->quadchute(VtolAttitudeControl::QuadchuteReason::TransitionTimeout);
+					}
 				}
 
 				break;
@@ -240,6 +252,14 @@ void Tailsitter::update_transition_state()
 						       time_since_trans_start * trans_pitch_rate)) * _q_trans_start;
 		}
 
+		// check front transition timeout
+		if (_params->front_trans_timeout > FLT_EPSILON) {
+			if (time_since_trans_start > _params->front_trans_timeout) {
+				// transition timeout occured, abort transition
+				_attc->quadchute(VtolAttitudeControl::QuadchuteReason::TransitionTimeout);
+			}
+		}
+
 	} else if (_vtol_schedule.flight_mode == vtol_mode::TRANSITION_BACK) {
 
 		const float trans_pitch_rate = M_PI_2_F / _params->back_trans_duration;
@@ -293,6 +313,31 @@ void Tailsitter::fill_actuator_outputs()
 	auto &mc_out = _actuators_out_0->control;
 	auto &fw_out = _actuators_out_1->control;
 
+	_torque_setpoint_0->timestamp = hrt_absolute_time();
+	_torque_setpoint_0->timestamp_sample = _actuators_mc_in->timestamp_sample;
+	_torque_setpoint_0->xyz[0] = 0.f;
+	_torque_setpoint_0->xyz[1] = 0.f;
+	_torque_setpoint_0->xyz[2] = 0.f;
+
+	_torque_setpoint_1->timestamp = hrt_absolute_time();
+	_torque_setpoint_1->timestamp_sample = _actuators_fw_in->timestamp_sample;
+	_torque_setpoint_1->xyz[0] = 0.f;
+	_torque_setpoint_1->xyz[1] = 0.f;
+	_torque_setpoint_1->xyz[2] = 0.f;
+
+	_thrust_setpoint_0->timestamp = hrt_absolute_time();
+	_thrust_setpoint_0->timestamp_sample = _actuators_mc_in->timestamp_sample;
+	_thrust_setpoint_0->xyz[0] = 0.f;
+	_thrust_setpoint_0->xyz[1] = 0.f;
+	_thrust_setpoint_0->xyz[2] = 0.f;
+
+	_thrust_setpoint_1->timestamp = hrt_absolute_time();
+	_thrust_setpoint_1->timestamp_sample = _actuators_fw_in->timestamp_sample;
+	_thrust_setpoint_1->xyz[0] = 0.f;
+	_thrust_setpoint_1->xyz[1] = 0.f;
+	_thrust_setpoint_1->xyz[2] = 0.f;
+
+
 	mc_out[actuator_controls_s::INDEX_ROLL]  = mc_in[actuator_controls_s::INDEX_ROLL]  * _mc_roll_weight;
 	mc_out[actuator_controls_s::INDEX_PITCH] = mc_in[actuator_controls_s::INDEX_PITCH] * _mc_pitch_weight;
 	mc_out[actuator_controls_s::INDEX_YAW]   = mc_in[actuator_controls_s::INDEX_YAW]   * _mc_yaw_weight;
@@ -300,13 +345,30 @@ void Tailsitter::fill_actuator_outputs()
 	if (_vtol_schedule.flight_mode == vtol_mode::FW_MODE) {
 		mc_out[actuator_controls_s::INDEX_THROTTLE] = fw_in[actuator_controls_s::INDEX_THROTTLE];
 
+		// FW thrust is allocated on mc_thrust_sp[0] for tailsitter with dynamic control allocation
+		_thrust_setpoint_0->xyz[2] = -fw_in[actuator_controls_s::INDEX_THROTTLE];
+
 		/* allow differential thrust if enabled */
 		if (_params->diff_thrust == 1) {
 			mc_out[actuator_controls_s::INDEX_ROLL] = fw_in[actuator_controls_s::INDEX_YAW] * _params->diff_thrust_scale;
+			_torque_setpoint_0->xyz[0] = fw_in[actuator_controls_s::INDEX_YAW] * _params->diff_thrust_scale;
 		}
 
 	} else {
+		_torque_setpoint_0->xyz[0] = mc_in[actuator_controls_s::INDEX_ROLL]  * _mc_roll_weight;
+		_torque_setpoint_0->xyz[1] = mc_in[actuator_controls_s::INDEX_PITCH] * _mc_pitch_weight;
+		_torque_setpoint_0->xyz[2] = mc_in[actuator_controls_s::INDEX_YAW]   * _mc_yaw_weight;
+
 		mc_out[actuator_controls_s::INDEX_THROTTLE] = mc_in[actuator_controls_s::INDEX_THROTTLE];
+		_thrust_setpoint_0->xyz[2] = -mc_in[actuator_controls_s::INDEX_THROTTLE];
+	}
+
+	// Landing Gear
+	if (_vtol_schedule.flight_mode == vtol_mode::MC_MODE) {
+		mc_out[actuator_controls_s::INDEX_LANDING_GEAR] = landing_gear_s::GEAR_DOWN;
+
+	} else {
+		mc_out[actuator_controls_s::INDEX_LANDING_GEAR] = landing_gear_s::GEAR_UP;
 	}
 
 	if (_params->elevons_mc_lock && _vtol_schedule.flight_mode == vtol_mode::MC_MODE) {
@@ -316,6 +378,8 @@ void Tailsitter::fill_actuator_outputs()
 	} else {
 		fw_out[actuator_controls_s::INDEX_ROLL]  = fw_in[actuator_controls_s::INDEX_ROLL];
 		fw_out[actuator_controls_s::INDEX_PITCH] = fw_in[actuator_controls_s::INDEX_PITCH];
+		_torque_setpoint_1->xyz[1] = fw_in[actuator_controls_s::INDEX_PITCH];
+		_torque_setpoint_1->xyz[2] = -fw_in[actuator_controls_s::INDEX_ROLL];
 	}
 
 	_actuators_out_0->timestamp_sample = _actuators_mc_in->timestamp_sample;

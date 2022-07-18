@@ -39,7 +39,7 @@
 #include <px4_platform_common/log.h>
 #include <px4_platform_common/time.h>
 #include <px4_platform_common/tasks.h>
-#include <lib/ecl/geo/geo.h>
+#include <lib/geo/geo.h>
 #include <drivers/device/Device.hpp>
 #include <drivers/drv_pwm_output.h>
 #include <conversion/rotation.h>
@@ -81,6 +81,14 @@ const unsigned mode_flag_custom = 1;
 
 using namespace time_literals;
 
+Simulator::Simulator()
+	: ModuleParams(nullptr)
+{
+	int32_t sys_ctrl_alloc = 0;
+	param_get(param_find("SYS_CTRL_ALLOC"), &sys_ctrl_alloc);
+	_use_dynamic_mixing = sys_ctrl_alloc >= 1;
+}
+
 void Simulator::actuator_controls_from_outputs(mavlink_hil_actuator_controls_t *msg)
 {
 	memset(msg, 0, sizeof(mavlink_hil_actuator_controls_t));
@@ -91,82 +99,96 @@ void Simulator::actuator_controls_from_outputs(mavlink_hil_actuator_controls_t *
 
 	int _system_type = _param_mav_type.get();
 
-	/* 'pos_thrust_motors_count' indicates number of motor channels which are configured with 0..1 range (positive thrust)
-	all other motors are configured for -1..1 range */
-	unsigned pos_thrust_motors_count;
-	bool is_fixed_wing;
-
-	switch (_system_type) {
-	case MAV_TYPE_AIRSHIP:
-	case MAV_TYPE_VTOL_DUOROTOR:
-	case MAV_TYPE_COAXIAL:
-		pos_thrust_motors_count = 2;
-		is_fixed_wing = false;
-		break;
-
-	case MAV_TYPE_TRICOPTER:
-		pos_thrust_motors_count = 3;
-		is_fixed_wing = false;
-		break;
-
-	case MAV_TYPE_QUADROTOR:
-	case MAV_TYPE_VTOL_QUADROTOR:
-	case MAV_TYPE_VTOL_TILTROTOR:
-		pos_thrust_motors_count = 4;
-		is_fixed_wing = false;
-		break;
-
-	case MAV_TYPE_VTOL_RESERVED2:
-		pos_thrust_motors_count = 5;
-		is_fixed_wing = false;
-		break;
-
-	case MAV_TYPE_HEXAROTOR:
-		pos_thrust_motors_count = 6;
-		is_fixed_wing = false;
-		break;
-
-	case MAV_TYPE_OCTOROTOR:
-		pos_thrust_motors_count = 8;
-		is_fixed_wing = false;
-		break;
-
-	case MAV_TYPE_SUBMARINE:
-		pos_thrust_motors_count = 0;
-		is_fixed_wing = false;
-		break;
-
-	case MAV_TYPE_FIXED_WING:
-		pos_thrust_motors_count = 0;
-		is_fixed_wing = true;
-		break;
-
-	default:
-		pos_thrust_motors_count = 0;
-		is_fixed_wing = false;
-		break;
-	}
-
-	for (unsigned i = 0; i < actuator_outputs_s::NUM_ACTUATOR_OUTPUTS; i++) {
-		if (!armed) {
-			/* send 0 when disarmed and for disabled channels */
-			msg->controls[i] = 0.0f;
-
-		} else if ((is_fixed_wing && i == 4) ||
-			   (!is_fixed_wing && i < pos_thrust_motors_count)) {	//multirotor, rotor channel
-			/* scale PWM out PWM_DEFAULT_MIN..PWM_DEFAULT_MAX us to 0..1 for rotors */
-			msg->controls[i] = (_actuator_outputs.output[i] - PWM_DEFAULT_MIN) / (PWM_DEFAULT_MAX - PWM_DEFAULT_MIN);
-			msg->controls[i] = math::constrain(msg->controls[i], 0.f, 1.f);
-
-		} else {
-			const float pwm_center = (PWM_DEFAULT_MAX + PWM_DEFAULT_MIN) / 2;
-			const float pwm_delta = (PWM_DEFAULT_MAX - PWM_DEFAULT_MIN) / 2;
-
-			/* scale PWM out PWM_DEFAULT_MIN..PWM_DEFAULT_MAX us to -1..1 for other channels */
-			msg->controls[i] = (_actuator_outputs.output[i] - pwm_center) / pwm_delta;
-			msg->controls[i] = math::constrain(msg->controls[i], -1.f, 1.f);
+	if (_use_dynamic_mixing) {
+		if (armed) {
+			for (unsigned i = 0; i < actuator_outputs_s::NUM_ACTUATOR_OUTPUTS; i++) {
+				msg->controls[i] = _actuator_outputs.output[i];
+			}
 		}
 
+	} else {
+		/* 'pos_thrust_motors_count' indicates number of motor channels which are configured with 0..1 range (positive thrust)
+		all other motors are configured for -1..1 range */
+		unsigned pos_thrust_motors_count;
+		bool is_fixed_wing;
+
+		switch (_system_type) {
+		case MAV_TYPE_AIRSHIP:
+		case MAV_TYPE_VTOL_TAILSITTER_DUOROTOR:
+		case MAV_TYPE_COAXIAL:
+			pos_thrust_motors_count = 2;
+			is_fixed_wing = false;
+			break;
+
+		case MAV_TYPE_TRICOPTER:
+			pos_thrust_motors_count = 3;
+			is_fixed_wing = false;
+			break;
+
+		case MAV_TYPE_QUADROTOR:
+		case MAV_TYPE_VTOL_TAILSITTER_QUADROTOR:
+		case MAV_TYPE_VTOL_TILTROTOR:
+			pos_thrust_motors_count = 4;
+			is_fixed_wing = false;
+			break;
+
+		case MAV_TYPE_VTOL_FIXEDROTOR:
+			pos_thrust_motors_count = 5;
+			is_fixed_wing = false;
+			break;
+
+		case MAV_TYPE_HEXAROTOR:
+			pos_thrust_motors_count = 6;
+			is_fixed_wing = false;
+			break;
+
+		case MAV_TYPE_VTOL_TAILSITTER:
+			// this is the tricopter VTOL / quad plane with 3 motors and 2 servos
+			pos_thrust_motors_count = 3;
+			is_fixed_wing = false;
+			break;
+
+		case MAV_TYPE_OCTOROTOR:
+			pos_thrust_motors_count = 8;
+			is_fixed_wing = false;
+			break;
+
+		case MAV_TYPE_SUBMARINE:
+			pos_thrust_motors_count = 0;
+			is_fixed_wing = false;
+			break;
+
+		case MAV_TYPE_FIXED_WING:
+			pos_thrust_motors_count = 0;
+			is_fixed_wing = true;
+			break;
+
+		default:
+			pos_thrust_motors_count = 0;
+			is_fixed_wing = false;
+			break;
+		}
+
+		for (unsigned i = 0; i < actuator_outputs_s::NUM_ACTUATOR_OUTPUTS; i++) {
+			if (!armed) {
+				/* send 0 when disarmed and for disabled channels */
+				msg->controls[i] = 0.0f;
+
+			} else if ((is_fixed_wing && i == 4) ||
+				   (!is_fixed_wing && i < pos_thrust_motors_count)) {	//multirotor, rotor channel
+				/* scale PWM out PWM_DEFAULT_MIN..PWM_DEFAULT_MAX us to 0..1 for rotors */
+				msg->controls[i] = (_actuator_outputs.output[i] - PWM_DEFAULT_MIN) / (PWM_DEFAULT_MAX - PWM_DEFAULT_MIN);
+				msg->controls[i] = math::constrain(msg->controls[i], 0.f, 1.f);
+
+			} else {
+				const float pwm_center = (PWM_DEFAULT_MAX + PWM_DEFAULT_MIN) / 2;
+				const float pwm_delta = (PWM_DEFAULT_MAX - PWM_DEFAULT_MIN) / 2;
+
+				/* scale PWM out PWM_DEFAULT_MIN..PWM_DEFAULT_MAX us to -1..1 for other channels */
+				msg->controls[i] = (_actuator_outputs.output[i] - pwm_center) / pwm_delta;
+				msg->controls[i] = math::constrain(msg->controls[i], -1.f, 1.f);
+			}
+		}
 	}
 
 	msg->mode = mode_flag_custom;
@@ -304,28 +326,37 @@ void Simulator::update_sensors(const hrt_abstime &time, const mavlink_hil_sensor
 
 	// baro
 	if ((sensors.fields_updated & SensorSource::BARO) == SensorSource::BARO && !_baro_blocked) {
-		if (_baro_stuck) {
-			_px4_baro_0.update(time, _px4_baro_0.get().pressure);
-			_px4_baro_0.set_temperature(_px4_baro_0.get().temperature);
-			_px4_baro_1.update(time, _px4_baro_1.get().pressure);
-			_px4_baro_1.set_temperature(_px4_baro_1.get().temperature);
 
-		} else {
-			_px4_baro_0.update(time, sensors.abs_pressure);
-			_px4_baro_0.set_temperature(sensors.temperature);
-			_px4_baro_1.update(time, sensors.abs_pressure);
-			_px4_baro_1.set_temperature(sensors.temperature);
+		if (!_baro_stuck) {
+			_last_baro_pressure = sensors.abs_pressure * 100.f; // hPa to Pa
+			_last_baro_temperature = sensors.temperature;
 		}
+
+		// publish
+		sensor_baro_s sensor_baro{};
+		sensor_baro.timestamp_sample = time;
+		sensor_baro.pressure = _last_baro_pressure;
+		sensor_baro.temperature = _last_baro_temperature;
+
+		// publish 1st baro
+		sensor_baro.device_id = 6620172; // 6620172: DRV_BARO_DEVTYPE_BAROSIM, BUS: 1, ADDR: 4, TYPE: SIMULATION
+		sensor_baro.timestamp = hrt_absolute_time();
+		_sensor_baro_pubs[0].publish(sensor_baro);
+
+		// publish 2nd baro
+		sensor_baro.device_id = 6620428; // 6620428: DRV_BARO_DEVTYPE_BAROSIM, BUS: 2, ADDR: 4, TYPE: SIMULATION
+		sensor_baro.timestamp = hrt_absolute_time();
+		_sensor_baro_pubs[1].publish(sensor_baro);
 	}
 
 	// differential pressure
 	if ((sensors.fields_updated & SensorSource::DIFF_PRESS) == SensorSource::DIFF_PRESS && !_airspeed_blocked) {
 		differential_pressure_s report{};
-		report.timestamp = time;
+		report.timestamp_sample = time;
+		report.device_id = 1377548; // 1377548: DRV_DIFF_PRESS_DEVTYPE_SIM, BUS: 1, ADDR: 5, TYPE: SIMULATION
+		report.differential_pressure_pa = sensors.diff_pressure * 100.f; // hPa to Pa;
 		report.temperature = _sensors_temperature;
-		report.differential_pressure_filtered_pa = sensors.diff_pressure * 100.0f; // convert from millibar to bar;
-		report.differential_pressure_raw_pa = sensors.diff_pressure * 100.0f; // convert from millibar to bar;
-
+		report.timestamp = hrt_absolute_time();
 		_differential_pressure_pub.publish(report);
 	}
 }
@@ -542,32 +573,32 @@ void Simulator::handle_message_hil_state_quaternion(const mavlink_message_t *msg
 		double lat = hil_state.lat * 1e-7;
 		double lon = hil_state.lon * 1e-7;
 
-		if (!map_projection_initialized(&_global_local_proj_ref)) {
-			map_projection_init(&_global_local_proj_ref, lat, lon);
+		if (!_global_local_proj_ref.isInitialized()) {
+			_global_local_proj_ref.initReference(lat, lon);
 			_global_local_alt0 = hil_state.alt / 1000.f;
 		}
 
-		float x;
-		float y;
-		map_projection_project(&_global_local_proj_ref, lat, lon, &x, &y);
 		hil_lpos.timestamp = timestamp;
 		hil_lpos.xy_valid = true;
 		hil_lpos.z_valid = true;
 		hil_lpos.v_xy_valid = true;
 		hil_lpos.v_z_valid = true;
-		hil_lpos.x = x;
-		hil_lpos.y = y;
+		_global_local_proj_ref.project(lat, lon, hil_lpos.x, hil_lpos.y);
 		hil_lpos.z = _global_local_alt0 - hil_state.alt / 1000.0f;
 		hil_lpos.vx = hil_state.vx / 100.0f;
 		hil_lpos.vy = hil_state.vy / 100.0f;
 		hil_lpos.vz = hil_state.vz / 100.0f;
 		matrix::Eulerf euler = matrix::Quatf(hil_attitude.q);
+		matrix::Vector3f acc(hil_state.xacc / 1000.f, hil_state.yacc / 1000.f,  hil_state.zacc / 1000.f);
+		hil_lpos.ax = acc(0);
+		hil_lpos.ay = acc(1);
+		hil_lpos.az = acc(2);
 		hil_lpos.heading = euler.psi();
 		hil_lpos.xy_global = true;
 		hil_lpos.z_global = true;
-		hil_lpos.ref_timestamp = _global_local_proj_ref.timestamp;
-		hil_lpos.ref_lat = math::degrees(_global_local_proj_ref.lat_rad);
-		hil_lpos.ref_lon = math::degrees(_global_local_proj_ref.lon_rad);
+		hil_lpos.ref_timestamp = _global_local_proj_ref.getProjectionReferenceTimestamp();
+		hil_lpos.ref_lat = _global_local_proj_ref.getProjectionReferenceLat();
+		hil_lpos.ref_lon = _global_local_proj_ref.getProjectionReferenceLon();
 		hil_lpos.ref_alt = _global_local_alt0;
 		hil_lpos.vxy_max = std::numeric_limits<float>::infinity();
 		hil_lpos.vz_max = std::numeric_limits<float>::infinity();
@@ -688,7 +719,12 @@ void Simulator::send()
 
 	// Subscribe to topics.
 	// Only subscribe to the first actuator_outputs to fill a single HIL_ACTUATOR_CONTROLS.
-	_actuator_outputs_sub = orb_subscribe_multi(ORB_ID(actuator_outputs), 0);
+	if (_use_dynamic_mixing) {
+		_actuator_outputs_sub = orb_subscribe_multi(ORB_ID(actuator_outputs_sim), 0);
+
+	} else {
+		_actuator_outputs_sub = orb_subscribe_multi(ORB_ID(actuator_outputs), 0);
+	}
 
 	// Before starting, we ought to send a heartbeat to initiate the SITL
 	// simulator to start sending sensor data which will set the time and
@@ -1352,6 +1388,8 @@ int Simulator::publish_odometry_topic(const mavlink_message_t *odom_mavlink)
 			odom.velocity_covariance[i] = odom_msg.velocity_covariance[i];
 		}
 
+		odom.reset_counter = odom_msg.reset_counter;
+
 		/* Publish the odometry based on the source */
 		if (odom_msg.estimator_type == MAV_ESTIMATOR_TYPE_VISION || odom_msg.estimator_type == MAV_ESTIMATOR_TYPE_VIO) {
 			_visual_odometry_pub.publish(odom);
@@ -1396,6 +1434,8 @@ int Simulator::publish_odometry_topic(const mavlink_message_t *odom_mavlink)
 
 		/* The velocity covariance URT - unknown */
 		odom.velocity_covariance[0] = NAN;
+
+		odom.reset_counter = ev.reset_counter;
 
 		/* Publish the odometry */
 		_visual_odometry_pub.publish(odom);

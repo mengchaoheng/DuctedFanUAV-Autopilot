@@ -49,11 +49,6 @@
 
 #include "perf_counter.h"
 
-#ifdef __PX4_QURT
-// There is presumably no dprintf on QURT. Therefore use the usual output to mini-dm.
-#define dprintf(_fd, _text, ...) ((_fd) == 1 ? PX4_INFO((_text), ##__VA_ARGS__) : (void)(_fd))
-#endif
-
 /**
  * Header common to all counters.
  */
@@ -615,15 +610,17 @@ perf_print_all(int fd)
 void
 perf_print_latency(int fd)
 {
+	latency_info_t latency;
 	dprintf(fd, "bucket [us] : events\n");
 
-	for (int i = 0; i < latency_bucket_count; i++) {
-		dprintf(fd, "       %4i : %li\n", latency_buckets[i], (long int)latency_counters[i]);
+	for (int i = 0; i < get_latency_bucket_count(); i++) {
+		latency = get_latency(i, i);
+		dprintf(fd, "       %4i : %li\n", latency.bucket, (long int)latency.counter);
 	}
 
 	// print the overflow bucket value
-	dprintf(fd, " >%4" PRIu16 " : %" PRIu32 "\n", latency_buckets[latency_bucket_count - 1],
-		latency_counters[latency_bucket_count]);
+	latency = get_latency(get_latency_bucket_count() - 1, get_latency_bucket_count());
+	dprintf(fd, " >%4" PRIu16 " : %" PRIu32 "\n", latency.bucket, latency.counter);
 }
 
 void
@@ -639,7 +636,5 @@ perf_reset_all(void)
 
 	pthread_mutex_unlock(&perf_counters_mutex);
 
-	for (int i = 0; i <= latency_bucket_count; i++) {
-		latency_counters[i] = 0;
-	}
+	reset_latency_counters();
 }

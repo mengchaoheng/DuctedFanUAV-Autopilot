@@ -85,6 +85,9 @@ static inline constexpr uint32_t getTimerUpdateDMAMap(Timer::Timer timer, const 
 	case Timer::Timer12:
 	case Timer::Timer13:
 	case Timer::Timer14:
+	case Timer::Timer15:
+	case Timer::Timer16:
+	case Timer::Timer17:
 		break;
 	}
 

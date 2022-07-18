@@ -40,18 +40,21 @@
 #include "MS5611.hpp"
 #include "ms5611.h"
 
-I2CSPIDriverBase *MS5611::instantiate(const BusCLIArguments &cli, const BusInstanceIterator &iterator,
-				      int runtime_instance)
+I2CSPIDriverBase *MS5611::instantiate(const I2CSPIDriverConfig &config, int runtime_instance)
 {
 	ms5611::prom_u prom_buf;
 	device::Device *interface = nullptr;
 
-	if (iterator.busType() == BOARD_I2C_BUS) {
-		interface = MS5611_i2c_interface(prom_buf, iterator.devid(), iterator.bus(), cli.bus_frequency);
+#if defined(CONFIG_I2C)
 
-	} else if (iterator.busType() == BOARD_SPI_BUS) {
-		interface = MS5611_spi_interface(prom_buf, iterator.devid(), iterator.bus(), cli.bus_frequency, cli.spi_mode);
-	}
+	if (config.bus_type == BOARD_I2C_BUS) {
+		interface = MS5611_i2c_interface(prom_buf, config.spi_devid, config.bus, config.bus_frequency);
+
+	} else
+#endif // CONFIG_I2C
+		if (config.bus_type == BOARD_SPI_BUS) {
+			interface = MS5611_spi_interface(prom_buf, config.spi_devid, config.bus, config.bus_frequency, config.spi_mode);
+		}
 
 	if (interface == nullptr) {
 		PX4_ERR("alloc failed");
@@ -60,12 +63,11 @@ I2CSPIDriverBase *MS5611::instantiate(const BusCLIArguments &cli, const BusInsta
 
 	if (interface->init() != OK) {
 		delete interface;
-		PX4_DEBUG("no device on bus %i (devid 0x%x)", iterator.bus(), iterator.devid());
+		PX4_DEBUG("no device on bus %i (devid 0x%x)", config.bus, config.spi_devid);
 		return nullptr;
 	}
 
-	MS5611 *dev = new MS5611(interface, prom_buf, (MS56XX_DEVICE_TYPES)cli.type, iterator.configuredBusOption(),
-				 iterator.bus());
+	MS5611 *dev = new MS5611(interface, prom_buf, config);
 
 	if (dev == nullptr) {
 		delete interface;
@@ -85,7 +87,11 @@ void MS5611::print_usage()
 	PRINT_MODULE_USAGE_NAME("ms5611", "driver");
 	PRINT_MODULE_USAGE_SUBCATEGORY("baro");
 	PRINT_MODULE_USAGE_COMMAND("start");
+#if defined(CONFIG_I2C)
 	PRINT_MODULE_USAGE_PARAMS_I2C_SPI_DRIVER(true, true);
+#else
+	PRINT_MODULE_USAGE_PARAMS_I2C_SPI_DRIVER(false, true);
+#endif
 	PRINT_MODULE_USAGE_PARAM_STRING('T', "5611", "5607|5611", "Device type", true);
 	PRINT_MODULE_USAGE_DEFAULT_COMMANDS();
 }
@@ -94,10 +100,14 @@ extern "C" int ms5611_main(int argc, char *argv[])
 {
 	using ThisDriver = MS5611;
 	int ch;
-	BusCLIArguments cli{true, true};
-	cli.type = MS5611_DEVICE;
+#if defined(CONFIG_I2C)
+	BusCLIArguments cli {true, true};
 	cli.default_i2c_frequency = 400000;
-	cli.default_spi_frequency = 20 * 1000 * 1000;
+	cli.i2c_address = MS5611_ADDRESS_1;
+#else
+	BusCLIArguments cli {false, true};
+#endif
+	cli.default_spi_frequency = 16 * 1000 * 1000;
 	uint16_t dev_type_driver = DRV_BARO_DEVTYPE_MS5611;
 
 	while ((ch = cli.getOpt(argc, argv, "T:")) != EOF) {
@@ -106,11 +116,9 @@ extern "C" int ms5611_main(int argc, char *argv[])
 				int val = atoi(cli.optArg());
 
 				if (val == 5611) {
-					cli.type = MS5611_DEVICE;
 					dev_type_driver = DRV_BARO_DEVTYPE_MS5611;
 
 				} else if (val == 5607) {
-					cli.type = MS5607_DEVICE;
 					dev_type_driver = DRV_BARO_DEVTYPE_MS5607;
 				}
 			}

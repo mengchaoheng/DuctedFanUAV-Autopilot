@@ -1,6 +1,6 @@
 /****************************************************************************
  *
- *   Copyright (c) 2012-2019 PX4 Development Team. All rights reserved.
+ *   Copyright (c) 2012-2022 PX4 Development Team. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -48,6 +48,8 @@
 #include <px4_platform_common/getopt.h>
 
 #include "PCA9685.h"
+
+#include <px4_platform_common/sem.hpp>
 
 #define PCA9685_DEFAULT_IICBUS  1
 #define PCA9685_DEFAULT_ADDRESS (0x40)
@@ -115,7 +117,7 @@ protected:
 
 	uORB::SubscriptionInterval _parameter_update_sub{ORB_ID(parameter_update), 1_s};
 
-	MixingOutput _mixing_output{PCA9685_PWM_CHANNEL_COUNT, *this, MixingOutput::SchedulingPolicy::Disabled, true};
+	MixingOutput _mixing_output{"PCA9685", PCA9685_PWM_CHANNEL_COUNT, *this, MixingOutput::SchedulingPolicy::Disabled, true};
 };
 
 PCA9685Wrapper::PCA9685Wrapper(int schd_rate_limit) :
@@ -124,8 +126,10 @@ PCA9685Wrapper::PCA9685Wrapper(int schd_rate_limit) :
 	_cycle_perf(perf_alloc(PC_ELAPSED, MODULE_NAME": cycle")),
 	_schd_rate_limit(schd_rate_limit)
 {
-	_mixing_output.setAllMinValues(PWM_DEFAULT_MIN);
-	_mixing_output.setAllMaxValues(PWM_DEFAULT_MAX);
+	if (!_mixing_output.useDynamicMixing()) {
+		_mixing_output.setAllMinValues(PWM_DEFAULT_MIN);
+		_mixing_output.setAllMaxValues(PWM_DEFAULT_MAX);
+	}
 }
 
 PCA9685Wrapper::~PCA9685Wrapper()
@@ -156,7 +160,7 @@ int PCA9685Wrapper::init()
 
 	_class_instance = register_class_devname(PWM_OUTPUT_BASE_DEVICE_PATH);
 
-	this->ChangeWorkQeue(px4::device_bus_to_wq(pca9685->get_device_id()));
+	this->ChangeWorkQueue(px4::device_bus_to_wq(pca9685->get_device_id()));
 
 	PX4_INFO("running on I2C bus %d address 0x%.2x", pca9685->get_device_bus(), pca9685->get_device_address());
 
@@ -173,6 +177,10 @@ void PCA9685Wrapper::updateParams()
 
 void PCA9685Wrapper::updatePWMParams()
 {
+	if (_mixing_output.useDynamicMixing()) {
+		return;
+	}
+
 	// update pwm params
 	const char *pname_format_pwm_ch_max[2] = {"PWM_MAIN_MAX%d", "PWM_AUX_MAX%d"};
 	const char *pname_format_pwm_ch_min[2] = {"PWM_MAIN_MIN%d", "PWM_AUX_MIN%d"};
@@ -369,7 +377,6 @@ bool PCA9685Wrapper::updateOutputs(bool stop_motors, uint16_t *outputs, unsigned
 void PCA9685Wrapper::Run()
 {
 	if (should_exit()) {
-		PX4_INFO("PCA9685 stopping.");
 		ScheduleClear();
 		_mixing_output.unregister();
 		unregister_class_devname(PWM_OUTPUT_BASE_DEVICE_PATH, _class_instance);
@@ -381,6 +388,8 @@ void PCA9685Wrapper::Run()
 		exit_and_cleanup();
 		return;
 	}
+
+	SmartLock lock_guard(_lock);
 
 	perf_begin(_cycle_perf);
 
@@ -457,24 +466,22 @@ void PCA9685Wrapper::Run()
 	perf_end(_cycle_perf);
 }
 
-// TODO
 int PCA9685Wrapper::ioctl(cdev::file_t *filep, int cmd, unsigned long arg)
 {
-	int ret = OK;
+	SmartLock lock_guard(_lock);
 
-	lock();
+	int ret = OK;
 
 	switch (cmd) {
 	case MIXERIOCRESET:
-		_mixing_output.resetMixerThreadSafe();
+		_mixing_output.resetMixer();
 
 		break;
 
 	case MIXERIOCLOADBUF: {
 			const char *buf = (const char *)arg;
 			unsigned buflen = strlen(buf);
-
-			ret = _mixing_output.loadMixerThreadSafe(buf, buflen);
+			ret = _mixing_output.loadMixer(buf, buflen);
 
 			break;
 		}
@@ -496,8 +503,6 @@ int PCA9685Wrapper::ioctl(cdev::file_t *filep, int cmd, unsigned long arg)
 		ret = -ENOTTY;
 		break;
 	}
-
-	unlock();
 
 	if (ret == -ENOTTY) {
 		ret = CDev::ioctl(filep, cmd, arg);

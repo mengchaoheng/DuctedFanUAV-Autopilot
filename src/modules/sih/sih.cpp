@@ -40,6 +40,7 @@
  * Coriolis g Corporation - January 2019
  */
 
+#include "aero.hpp"
 #include "sih.hpp"
 
 #include <px4_platform_common/getopt.h>
@@ -67,8 +68,15 @@ Sih::Sih() :
 	const hrt_abstime task_start = hrt_absolute_time();
 	_last_run = task_start;
 	_gps_time = task_start;
+	_airspeed_time = task_start;
 	_gt_time = task_start;
 	_dist_snsr_time = task_start;
+	_vehicle = (VehicleType)constrain(_sih_vtype.get(), static_cast<typeof _sih_vtype.get()>(0),
+					  static_cast<typeof _sih_vtype.get()>(2));
+
+	if (_sys_ctrl_alloc.get()) {
+		_actuator_out_sub = uORB::Subscription{ORB_ID(actuator_outputs_sim)};
+	}
 }
 
 Sih::~Sih()
@@ -95,6 +103,11 @@ bool Sih::init()
 
 void Sih::Run()
 {
+	if (should_exit()) {
+		exit_and_cleanup();
+		return;
+	}
+
 	perf_count(_loop_interval_perf);
 
 	// check for parameter updates
@@ -139,14 +152,27 @@ void Sih::Run()
 	if (_now - _baro_time >= 50_ms
 	    && fabs(_baro_offset_m) < 10000) {
 		_baro_time = _now;
-		_px4_baro.set_temperature(_baro_temp_c);
-		_px4_baro.update(_now, _baro_p_mBar);
+
+		// publish
+		sensor_baro_s sensor_baro{};
+		sensor_baro.timestamp_sample = _now;
+		sensor_baro.device_id = 6620172; // 6620172: DRV_BARO_DEVTYPE_BAROSIM, BUS: 1, ADDR: 4, TYPE: SIMULATION
+		sensor_baro.pressure = _baro_p_mBar * 100.f;
+		sensor_baro.temperature = _baro_temp_c;
+		sensor_baro.error_count = 0;
+		sensor_baro.timestamp = hrt_absolute_time();
+		_sensor_baro_pub.publish(sensor_baro);
 	}
 
 	// gps published at 20Hz
 	if (_now - _gps_time >= 50_ms) {
 		_gps_time = _now;
 		send_gps();
+	}
+
+	if (_vehicle == VehicleType::FW && _now - _airspeed_time >= 50_ms) {
+		_airspeed_time = _now;
+		send_airspeed();
 	}
 
 	// distance sensor published at 50 Hz
@@ -190,7 +216,8 @@ void Sih::parameters_updated()
 	_I(0, 2) = _I(2, 0) = _sih_ixz.get();
 	_I(1, 2) = _I(2, 1) = _sih_iyz.get();
 
-	_Im1 = inv(_I);
+	// guards against too small determinants
+	_Im1 = 100.0f * inv(static_cast<typeof _I>(100.0f * _I));
 
 	_mu_I = Vector3f(_sih_mu_x.get(), _sih_mu_y.get(), _sih_mu_z.get());
 
@@ -254,10 +281,32 @@ void Sih::read_motors()
 {
 	actuator_outputs_s actuators_out;
 
+	float pwm_middle = 0.5f * (PWM_DEFAULT_MIN + PWM_DEFAULT_MAX);
+
 	if (_actuator_out_sub.update(&actuators_out)) {
-		for (int i = 0; i < NB_MOTORS; i++) { // saturate the motor signals
-			float u_sp = constrain((actuators_out.output[i] - PWM_DEFAULT_MIN) / (PWM_DEFAULT_MAX - PWM_DEFAULT_MIN), 0.0f, 1.0f);
-			_u[i] = _u[i] + _dt / _T_TAU * (u_sp - _u[i]); // first order transfer function with time constant tau
+
+		if (_sys_ctrl_alloc.get()) {
+			for (int i = 0; i < NB_MOTORS; i++) { // saturate the motor signals
+				if ((_vehicle == VehicleType::FW && i < 3) || (_vehicle == VehicleType::TS && i > 3)) {
+					_u[i] = actuators_out.output[i];
+
+				} else {
+					float u_sp = actuators_out.output[i];
+					_u[i] = _u[i] + _dt / _T_TAU * (u_sp - _u[i]); // first order transfer function with time constant tau
+				}
+			}
+
+		} else {
+			for (int i = 0; i < NB_MOTORS; i++) { // saturate the motor signals
+				if ((_vehicle == VehicleType::FW && i < 3) || (_vehicle == VehicleType::TS
+						&& i > 3)) { // control surfaces in range [-1,1]
+					_u[i] = constrain(2.0f * (actuators_out.output[i] - pwm_middle) / (PWM_DEFAULT_MAX - PWM_DEFAULT_MIN), -1.0f, 1.0f);
+
+				} else { // throttle signals in range [0,1]
+					float u_sp = constrain((actuators_out.output[i] - PWM_DEFAULT_MIN) / (PWM_DEFAULT_MAX - PWM_DEFAULT_MIN), 0.0f, 1.0f);
+					_u[i] = _u[i] + _dt / _T_TAU * (u_sp - _u[i]); // first order transfer function with time constant tau
+				}
+			}
 		}
 	}
 }
@@ -265,13 +314,69 @@ void Sih::read_motors()
 // generate the motors thrust and torque in the body frame
 void Sih::generate_force_and_torques()
 {
-	_T_B = Vector3f(0.0f, 0.0f, -_T_MAX * (+_u[0] + _u[1] + _u[2] + _u[3]));
-	_Mt_B = Vector3f(_L_ROLL * _T_MAX * (-_u[0] + _u[1] + _u[2] - _u[3]),
-			 _L_PITCH * _T_MAX * (+_u[0] - _u[1] + _u[2] - _u[3]),
-			 _Q_MAX * (+_u[0] + _u[1] - _u[2] - _u[3]));
+	if (_vehicle == VehicleType::MC) {
+		_T_B = Vector3f(0.0f, 0.0f, -_T_MAX * (+_u[0] + _u[1] + _u[2] + _u[3]));
+		_Mt_B = Vector3f(_L_ROLL * _T_MAX * (-_u[0] + _u[1] + _u[2] - _u[3]),
+				 _L_PITCH * _T_MAX * (+_u[0] - _u[1] + _u[2] - _u[3]),
+				 _Q_MAX * (+_u[0] + _u[1] - _u[2] - _u[3]));
+		_Fa_I = -_KDV * _v_I;   // first order drag to slow down the aircraft
+		_Ma_B = -_KDW * _w_B;   // first order angular damper
 
-	_Fa_I = -_KDV * _v_I;   // first order drag to slow down the aircraft
-	_Ma_B = -_KDW * _w_B;   // first order angular damper
+	} else if (_vehicle == VehicleType::FW) {
+		_T_B = Vector3f(_T_MAX * _u[3], 0.0f, 0.0f); 	// forward thruster
+		// _Mt_B = Vector3f(_Q_MAX*_u[3], 0.0f,0.0f); 	// thruster torque
+		_Mt_B = Vector3f();
+		generate_fw_aerodynamics();
+
+	} else if (_vehicle == VehicleType::TS) {
+		_T_B = Vector3f(0.0f, 0.0f, -_T_MAX * (_u[0] + _u[1]));
+		_Mt_B = Vector3f(_L_ROLL * _T_MAX * (_u[1] - _u[0]), 0.0f, _Q_MAX * (_u[1] - _u[0]));
+		generate_ts_aerodynamics();
+
+		// _Fa_I = -_KDV * _v_I;   // first order drag to slow down the aircraft
+		// _Ma_B = -_KDW * _w_B;   // first order angular damper
+	}
+}
+
+void Sih::generate_fw_aerodynamics()
+{
+	_v_B = _C_IB.transpose() * _v_I; 	// velocity in body frame [m/s]
+	float altitude = _H0 - _p_I(2);
+	_wing_l.update_aero(_v_B, _w_B, altitude, _u[0]*FLAP_MAX);
+	_wing_r.update_aero(_v_B, _w_B, altitude, -_u[0]*FLAP_MAX);
+	_tailplane.update_aero(_v_B, _w_B, altitude, _u[1]*FLAP_MAX, _T_MAX * _u[3]);
+	_fin.update_aero(_v_B, _w_B, altitude, _u[2]*FLAP_MAX, _T_MAX * _u[3]);
+	_fuselage.update_aero(_v_B, _w_B, altitude);
+	_Fa_I = _C_IB * (_wing_l.get_Fa() + _wing_r.get_Fa() + _tailplane.get_Fa() + _fin.get_Fa() + _fuselage.get_Fa())
+		- _KDV * _v_I; 	// sum of aerodynamic forces
+	_Ma_B = _wing_l.get_Ma() + _wing_r.get_Ma() + _tailplane.get_Ma() + _fin.get_Ma() + _fuselage.get_Ma() - _KDW *
+		_w_B; 	// aerodynamic moments
+}
+
+void Sih::generate_ts_aerodynamics()
+{
+	_v_B = _C_IB.transpose() * _v_I; // velocity in body frame [m/s]
+	Vector3f Fa_ts = Vector3f();
+	Vector3f Ma_ts = Vector3f();
+	Vector3f v_ts = _C_BS.transpose() *
+			_v_B; // the aerodynamic is resolved in a frame like a standard aircraft (nose-right-belly)
+	Vector3f w_ts = _C_BS.transpose() * _w_B;
+	float altitude = _H0 - _p_I(2);
+
+	for (int i = 0; i < NB_TS_SEG; i++) {
+		if (i <= NB_TS_SEG / 2) {
+			_ts[i].update_aero(v_ts, w_ts, altitude, _u[5]*TS_DEF_MAX, _T_MAX * _u[1]);
+
+		} else {
+			_ts[i].update_aero(v_ts, w_ts, altitude, -_u[4]*TS_DEF_MAX, _T_MAX * _u[0]);
+		}
+
+		Fa_ts += _ts[i].get_Fa();
+		Ma_ts += _ts[i].get_Ma();
+	}
+
+	_Fa_I = _C_IB * _C_BS * Fa_ts - _KDV * _v_I; 	// sum of aerodynamic forces
+	_Ma_B = _C_BS * Ma_ts - _KDW * _w_B; 	// aerodynamic moments
 }
 
 // apply the equations of motion of a rigid body and integrate one step
@@ -282,40 +387,79 @@ void Sih::equations_of_motion()
 	// Equations of motion of a rigid body
 	_p_I_dot = _v_I;                        // position differential
 	_v_I_dot = (_W_I + _Fa_I + _C_IB * _T_B) / _MASS;   // conservation of linear momentum
-	_q_dot = _q.derivative1(_w_B);              // attitude differential
+	// _q_dot = _q.derivative1(_w_B);              // attitude differential
+	_dq = Quatf::expq(0.5f * _dt * _w_B);
 	_w_B_dot = _Im1 * (_Mt_B + _Ma_B - _w_B.cross(_I * _w_B)); // conservation of angular momentum
 
 	// fake ground, avoid free fall
 	if (_p_I(2) > 0.0f && (_v_I_dot(2) > 0.0f || _v_I(2) > 0.0f)) {
-		if (!_grounded) {    // if we just hit the floor
-			// for the accelerometer, compute the acceleration that will stop the vehicle in one time step
-			_v_I_dot = -_v_I / _dt;
+		if (_vehicle == VehicleType::MC || _vehicle == VehicleType::TS) {
+			if (!_grounded) {    // if we just hit the floor
+				// for the accelerometer, compute the acceleration that will stop the vehicle in one time step
+				_v_I_dot = -_v_I / _dt;
 
-		} else {
-			_v_I_dot.setZero();
+			} else {
+				_v_I_dot.setZero();
+			}
+
+			_v_I.setZero();
+			_w_B.setZero();
+			_grounded = true;
+
+		} else if (_vehicle == VehicleType::FW) {
+			if (!_grounded) {    // if we just hit the floor
+				// for the accelerometer, compute the acceleration that will stop the vehicle in one time step
+				_v_I_dot(2) = -_v_I(2) / _dt;
+
+			} else {
+				// we only allow negative acceleration in order to takeoff
+				_v_I_dot(2) = fminf(_v_I_dot(2), 0.0f);
+			}
+
+			// integration: Euler forward
+			_p_I = _p_I + _p_I_dot * _dt;
+			_v_I = _v_I + _v_I_dot * _dt;
+			Eulerf RPY = Eulerf(_q);
+			RPY(0) = 0.0f;	// no roll
+			RPY(1) = radians(0.0f); // pitch slightly up if needed to get some lift
+			_q = Quatf(RPY);
+			_w_B.setZero();
+			_grounded = true;
 		}
-
-		_v_I.setZero();
-		_w_B.setZero();
-		_grounded = true;
 
 	} else {
 		// integration: Euler forward
 		_p_I = _p_I + _p_I_dot * _dt;
 		_v_I = _v_I + _v_I_dot * _dt;
-		_q = _q + _q_dot * _dt; // as given in attitude_estimator_q_main.cpp
+		_q = _q * _dq;
 		_q.normalize();
-		_w_B = _w_B + _w_B_dot * _dt;
+		// integration Runge-Kutta 4
+		// rk4_update(_p_I, _v_I, _q, _w_B);
+		_w_B = constrain(_w_B + _w_B_dot * _dt, -6.0f * M_PI_F, 6.0f * M_PI_F);
 		_grounded = false;
 	}
 }
 
+// Sih::States Sih::eom_f(States x) 	// equations of motion f: x'=f(x)
+// {
+// 	States x_dot{}; 	// dx/dt
+
+// 	Dcmf C_IB = matrix::Dcm<float>(x.q); // body to inertial transformation
+// 	// Equations of motion of a rigid body
+// 	x_dot.p_I = x.v_I;                        // position differential
+// 	x_dot.v_I = (_W_I + _Fa_I + C_IB * _T_B) / _MASS;   // conservation of linear momentum
+// 	x_dot.q = x.q.derivative1(x.w_B);              // attitude differential
+// 	x_dot.w_B = _Im1 * (_Mt_B + _Ma_B - x.w_B.cross(_I * x.w_B)); // conservation of angular momentum
+
+// 	return x_dot;
+// }
+
 // reconstruct the noisy sensor signals
 void Sih::reconstruct_sensors_signals()
 {
-	// The sensor signals reconstruction and noise levels are from
-	// Bulka, Eitan, and Meyer Nahon. "Autonomous fixed-wing aerobatics: from theory to flight."
-	// In 2018 IEEE International Conference on Robotics and Automation (ICRA), pp. 6573-6580. IEEE, 2018.
+	// The sensor signals reconstruction and noise levels are from [1]
+	// [1] Bulka, Eitan, and Meyer Nahon. "Autonomous fixed-wing aerobatics: from theory to flight."
+	//     In 2018 IEEE International Conference on Robotics and Automation (ICRA), pp. 6573-6580. IEEE, 2018.
 
 	// IMU
 	_acc = _C_IB.transpose() * (_v_I_dot - Vector3f(0.0f, 0.0f, CONSTANTS_ONE_G)) + noiseGauss3f(0.5f, 1.7f, 1.4f);
@@ -374,6 +518,18 @@ void Sih::send_gps()
 	_sensor_gps.device_id = device_id.devid;
 
 	_sensor_gps_pub.publish(_sensor_gps);
+}
+
+void Sih::send_airspeed()
+{
+	airspeed_s airspeed{};
+	airspeed.timestamp_sample = _now;
+	airspeed.true_airspeed_m_s	= fmaxf(0.1f, _v_B(0) + generate_wgn() * 0.2f);
+	airspeed.indicated_airspeed_m_s = airspeed.true_airspeed_m_s * sqrtf(_wing_l.get_rho() / RHO);
+	airspeed.air_temperature_celsius = _baro_temp_c;
+	airspeed.confidence = 0.7f;
+	airspeed.timestamp = hrt_absolute_time();
+	_airspeed_pub.publish(airspeed);
 }
 
 void Sih::send_dist_snsr()
@@ -465,6 +621,43 @@ Vector3f Sih::noiseGauss3f(float stdx, float stdy, float stdz)
 	return Vector3f(generate_wgn() * stdx, generate_wgn() * stdy, generate_wgn() * stdz);
 }
 
+int Sih::print_status()
+{
+	if (_vehicle == VehicleType::MC) {
+		PX4_INFO("Running MultiCopter");
+
+	} else if (_vehicle == VehicleType::FW) {
+		PX4_INFO("Running Fixed-Wing");
+
+	} else if (_vehicle == VehicleType::TS) {
+		PX4_INFO("Running TailSitter");
+		PX4_INFO("aoa [deg]: %d", (int)(degrees(_ts[4].get_aoa())));
+		PX4_INFO("v segment (m/s)");
+		_ts[4].get_vS().print();
+	}
+
+	PX4_INFO("vehicle landed: %d", _grounded);
+	PX4_INFO("dt [us]: %d", (int)(_dt * 1e6f));
+	PX4_INFO("inertial position NED (m)");
+	_p_I.print();
+	PX4_INFO("inertial velocity NED (m/s)");
+	_v_I.print();
+	PX4_INFO("attitude roll-pitch-yaw (deg)");
+	(Eulerf(_q) * 180.0f / M_PI_F).print();
+	PX4_INFO("angular acceleration roll-pitch-yaw (deg/s)");
+	(_w_B * 180.0f / M_PI_F).print();
+	PX4_INFO("actuator signals");
+	Vector<float, 8> u = Vector<float, 8>(_u);
+	u.transpose().print();
+	PX4_INFO("Aerodynamic forces NED inertial (N)");
+	_Fa_I.print();
+	PX4_INFO("Aerodynamic moments body frame (Nm)");
+	_Ma_B.print();
+	PX4_INFO("Thruster moments in body frame (Nm)");
+	_Mt_B.print();
+	return 0;
+}
+
 int Sih::task_spawn(int argc, char *argv[])
 {
 	Sih *instance = new Sih();
@@ -502,7 +695,7 @@ int Sih::print_usage(const char *reason)
 	PRINT_MODULE_DESCRIPTION(
 		R"DESCR_STR(
 ### Description
-This module provide a simulator for quadrotors running fully
+This module provide a simulator for quadrotors and fixed-wings running fully
 inside the hardware autopilot.
 
 This simulator subscribes to "actuator_outputs" which are the actuator pwm

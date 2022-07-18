@@ -39,17 +39,17 @@
 #include <px4_platform_common/px4_config.h>
 #include <px4_platform_common/i2c_spi_buses.h>
 #include <px4_platform_common/px4_work_queue/ScheduledWorkItem.hpp>
-#include <lib/drivers/barometer/PX4Barometer.hpp>
+#include <uORB/PublicationMulti.hpp>
+#include <uORB/topics/sensor_baro.h>
 #include <lib/perf/perf_counter.h>
 
 class BMP280 : public I2CSPIDriver<BMP280>
 {
 public:
-	BMP280(I2CSPIBusOption bus_option, int bus, bmp280::IBMP280 *interface);
+	BMP280(const I2CSPIDriverConfig &config, bmp280::IBMP280 *interface);
 	virtual ~BMP280();
 
-	static I2CSPIDriverBase *instantiate(const BusCLIArguments &cli, const BusInstanceIterator &iterator,
-					     int runtime_instance);
+	static I2CSPIDriverBase *instantiate(const I2CSPIDriverConfig &config, int runtime_instance);
 	static void print_usage();
 
 	int			init();
@@ -62,7 +62,7 @@ private:
 	int			measure(); //start measure
 	int			collect(); //get results and publish
 
-	PX4Barometer		_px4_baro;
+	uORB::PublicationMulti<sensor_baro_s> _sensor_baro_pub{ORB_ID(sensor_baro)};
 
 	bmp280::IBMP280		*_interface;
 

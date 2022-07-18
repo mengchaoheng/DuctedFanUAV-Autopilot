@@ -88,15 +88,9 @@
 
 #define ADC_CHANNELS (1 << 4) | (1 << 10) | (1 << 11)
 
-/* Define Battery 1 Voltage Divider and A per V
- */
-#define BOARD_BATTERY1_V_DIV         (10.9f)
-#define BOARD_BATTERY1_A_PER_V       (17.f)
-
 /* PWM
  */
 #define DIRECT_PWM_OUTPUT_CHANNELS  8
-#define DIRECT_INPUT_TIMER_CHANNELS 8
 
 /* Tone alarm output */
 #define GPIO_TONE_ALARM_IDLE    /* PE5 */ (GPIO_OUTPUT|GPIO_PUSHPULL|GPIO_SPEED_2MHz|GPIO_OUTPUT_CLEAR|GPIO_PORTE|GPIO_PIN5)
@@ -122,7 +116,6 @@
 #define SDIO_SLOTNO             0  /* Only one slot */
 #define SDIO_MINOR              0
 
-#define BOARD_HAS_PWM  DIRECT_PWM_OUTPUT_CHANNELS
 
 /* This board provides a DMA pool and APIs */
 #define BOARD_DMA_ALLOC_POOL_SIZE 5120
@@ -140,7 +133,6 @@
 
 #define BOARD_NUM_IO_TIMERS 3
 
-#define BOARD_DSHOT_MOTOR_ASSIGNMENT {1, 2, 3, 0, 4, 5, 6, 7};
 
 __BEGIN_DECLS
 

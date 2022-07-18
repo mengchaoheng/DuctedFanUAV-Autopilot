@@ -49,7 +49,7 @@ namespace logger
 bool watchdog_update(watchdog_data_t &watchdog_data)
 {
 
-#ifdef __PX4_NUTTX
+#if defined(__PX4_NUTTX) && defined(CONFIG_BUILD_FLAT)
 
 	if (system_load.initialized && watchdog_data.logger_main_task_index >= 0
 	    && watchdog_data.logger_writer_task_index >= 0) {
@@ -133,14 +133,14 @@ bool watchdog_update(watchdog_data_t &watchdog_data)
 
 void watchdog_initialize(const pid_t pid_logger_main, const pthread_t writer_thread, watchdog_data_t &watchdog_data)
 {
-#ifdef __PX4_NUTTX
+#if defined(__PX4_NUTTX) && defined(CONFIG_BUILD_FLAT)
 
 	// The pthread_t ID is equal to the PID on NuttX
 	const pthread_t pid_logger_writer = writer_thread;
 
 	sched_lock(); // need to lock the tcb access
 
-	for (int i = 0; i < CONFIG_MAX_TASKS; i++) {
+	for (int i = 0; i < CONFIG_FS_PROCFS_MAX_TASKS; i++) {
 		if (system_load.tasks[i].valid) {
 			if (system_load.tasks[i].tcb->pid == pid_logger_writer) {
 				watchdog_data.logger_writer_task_index = i;

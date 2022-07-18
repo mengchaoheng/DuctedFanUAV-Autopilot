@@ -1,6 +1,6 @@
 /****************************************************************************
  *
- *   Copyright (c) 2020 PX4 Development Team. All rights reserved.
+ *   Copyright (c) 2020-2021 PX4 Development Team. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -40,15 +40,14 @@ static constexpr int16_t combine(uint8_t msb, uint8_t lsb)
 	return (msb << 8u) | lsb;
 }
 
-ICM42688P::ICM42688P(I2CSPIBusOption bus_option, int bus, uint32_t device, enum Rotation rotation, int bus_frequency,
-		     spi_mode_e spi_mode, spi_drdy_gpio_t drdy_gpio) :
-	SPI(DRV_IMU_DEVTYPE_ICM42688P, MODULE_NAME, bus, device, spi_mode, bus_frequency),
-	I2CSPIDriver(MODULE_NAME, px4::device_bus_to_wq(get_device_id()), bus_option, bus),
-	_drdy_gpio(drdy_gpio),
-	_px4_accel(get_device_id(), rotation),
-	_px4_gyro(get_device_id(), rotation)
+ICM42688P::ICM42688P(const I2CSPIDriverConfig &config) :
+	SPI(config),
+	I2CSPIDriver(config),
+	_drdy_gpio(config.drdy_gpio),
+	_px4_accel(get_device_id(), config.rotation),
+	_px4_gyro(get_device_id(), config.rotation)
 {
-	if (drdy_gpio != 0) {
+	if (config.drdy_gpio != 0) {
 		_drdy_missed_perf = perf_alloc(PC_COUNT, MODULE_NAME": DRDY missed");
 	}
 
@@ -108,14 +107,27 @@ void ICM42688P::print_status()
 
 int ICM42688P::probe()
 {
-	const uint8_t whoami = RegisterRead(Register::BANK_0::WHO_AM_I);
+	for (int i = 0; i < 3; i++) {
+		uint8_t whoami = RegisterRead(Register::BANK_0::WHO_AM_I);
 
-	if (whoami != WHOAMI) {
-		DEVICE_DEBUG("unexpected WHO_AM_I 0x%02x", whoami);
-		return PX4_ERROR;
+		if (whoami == WHOAMI) {
+			return PX4_OK;
+
+		} else {
+			DEVICE_DEBUG("unexpected WHO_AM_I 0x%02x", whoami);
+
+			uint8_t reg_bank_sel = RegisterRead(Register::BANK_0::REG_BANK_SEL);
+			int bank = reg_bank_sel >> 4;
+
+			if (bank >= 1 && bank <= 3) {
+				DEVICE_DEBUG("incorrect register bank for WHO_AM_I REG_BANK_SEL:0x%02x, bank:%d", reg_bank_sel, bank);
+				// force bank selection and retry
+				SelectRegisterBank(REG_BANK_SEL_BIT::USER_BANK_0, true);
+			}
+		}
 	}
 
-	return PX4_OK;
+	return PX4_ERROR;
 }
 
 void ICM42688P::RunImpl()
@@ -191,15 +203,19 @@ void ICM42688P::RunImpl()
 		break;
 
 	case STATE::FIFO_READ: {
-			uint32_t samples = 0;
+			hrt_abstime timestamp_sample = now;
+			uint8_t samples = 0;
 
 			if (_data_ready_interrupt_enabled) {
-				// scheduled from interrupt if _drdy_fifo_read_samples was set as expected
-				if (_drdy_fifo_read_samples.fetch_and(0) != _fifo_gyro_samples) {
-					perf_count(_drdy_missed_perf);
+				// scheduled from interrupt if _drdy_timestamp_sample was set as expected
+				const hrt_abstime drdy_timestamp_sample = _drdy_timestamp_sample.fetch_and(0);
+
+				if ((now - drdy_timestamp_sample) < _fifo_empty_interval_us) {
+					timestamp_sample = drdy_timestamp_sample;
+					samples = _fifo_gyro_samples;
 
 				} else {
-					samples = _fifo_gyro_samples;
+					perf_count(_drdy_missed_perf);
 				}
 
 				// push backup schedule back
@@ -221,6 +237,12 @@ void ICM42688P::RunImpl()
 					// FIFO count (size in bytes)
 					samples = (fifo_count / sizeof(FIFO::DATA));
 
+					// tolerate minor jitter, leave sample to next iteration if behind by only 1
+					if (samples == _fifo_gyro_samples + 1) {
+						timestamp_sample -= static_cast<int>(FIFO_SAMPLE_DT);
+						samples--;
+					}
+
 					if (samples > FIFO_MAX_SAMPLES) {
 						// not technically an overflow, but more samples than we expected or can publish
 						FIFOReset();
@@ -233,7 +255,7 @@ void ICM42688P::RunImpl()
 			bool success = false;
 
 			if (samples >= 1) {
-				if (FIFORead(now, samples)) {
+				if (FIFORead(timestamp_sample, samples)) {
 					success = true;
 
 					if (_failure_count > 0) {
@@ -252,20 +274,22 @@ void ICM42688P::RunImpl()
 				}
 			}
 
-			// check configuration registers periodically or immediately following any failure
-			if (RegisterCheck(_register_bank0_cfg[_checked_register_bank0])
-			    && RegisterCheck(_register_bank1_cfg[_checked_register_bank1])
-			    && RegisterCheck(_register_bank2_cfg[_checked_register_bank2])
-			   ) {
-				_last_config_check_timestamp = now;
-				_checked_register_bank0 = (_checked_register_bank0 + 1) % size_register_bank0_cfg;
-				_checked_register_bank1 = (_checked_register_bank1 + 1) % size_register_bank1_cfg;
-				_checked_register_bank2 = (_checked_register_bank2 + 1) % size_register_bank2_cfg;
+			if (!success || hrt_elapsed_time(&_last_config_check_timestamp) > 100_ms) {
+				// check configuration registers periodically or immediately following any failure
+				if (RegisterCheck(_register_bank0_cfg[_checked_register_bank0])
+				    && RegisterCheck(_register_bank1_cfg[_checked_register_bank1])
+				    && RegisterCheck(_register_bank2_cfg[_checked_register_bank2])
+				   ) {
+					_last_config_check_timestamp = now;
+					_checked_register_bank0 = (_checked_register_bank0 + 1) % size_register_bank0_cfg;
+					_checked_register_bank1 = (_checked_register_bank1 + 1) % size_register_bank1_cfg;
+					_checked_register_bank2 = (_checked_register_bank2 + 1) % size_register_bank2_cfg;
 
-			} else {
-				// register check failed, force reset
-				perf_count(_bad_register_perf);
-				Reset();
+				} else {
+					// register check failed, force reset
+					perf_count(_bad_register_perf);
+					Reset();
+				}
 			}
 		}
 
@@ -304,9 +328,9 @@ void ICM42688P::ConfigureFIFOWatermark(uint8_t samples)
 	}
 }
 
-void ICM42688P::SelectRegisterBank(enum REG_BANK_SEL_BIT bank)
+void ICM42688P::SelectRegisterBank(enum REG_BANK_SEL_BIT bank, bool force)
 {
-	if (bank != _last_register_bank) {
+	if (bank != _last_register_bank || force) {
 		// select BANK_0
 		uint8_t cmd_bank_sel[2] {};
 		cmd_bank_sel[0] = static_cast<uint8_t>(Register::BANK_0::REG_BANK_SEL);
@@ -369,11 +393,8 @@ int ICM42688P::DataReadyInterruptCallback(int irq, void *context, void *arg)
 
 void ICM42688P::DataReady()
 {
-	uint32_t expected = 0;
-
-	if (_drdy_fifo_read_samples.compare_exchange(&expected, _fifo_gyro_samples)) {
-		ScheduleNow();
-	}
+	_drdy_timestamp_sample.store(hrt_absolute_time());
+	ScheduleNow();
 }
 
 bool ICM42688P::DataReadyInterruptConfigure()
@@ -554,7 +575,7 @@ void ICM42688P::FIFOReset()
 	RegisterSetBits(Register::BANK_0::SIGNAL_PATH_RESET, SIGNAL_PATH_RESET_BIT::FIFO_FLUSH);
 
 	// reset while FIFO is disabled
-	_drdy_fifo_read_samples.store(0);
+	_drdy_timestamp_sample.store(0);
 }
 
 static constexpr int32_t reassemble_20bit(const uint32_t a, const uint32_t b, const uint32_t c)

@@ -40,7 +40,8 @@
 #pragma once
 
 #include <drivers/device/Device.hpp>
-#include <lib/drivers/barometer/PX4Barometer.hpp>
+#include <uORB/PublicationMulti.hpp>
+#include <uORB/topics/sensor_baro.h>
 #include <lib/perf/perf_counter.h>
 #include <px4_platform_common/px4_work_queue/ScheduledWorkItem.hpp>
 #include <px4_platform_common/i2c_spi_buses.h>
@@ -56,11 +57,10 @@ using Infineon_DPS310::Register;
 class DPS310 : public I2CSPIDriver<DPS310>
 {
 public:
-	DPS310(I2CSPIBusOption bus_option, int bus, device::Device *interface);
+	DPS310(const I2CSPIDriverConfig &config, device::Device *interface);
 	virtual ~DPS310();
 
-	static I2CSPIDriverBase *instantiate(const BusCLIArguments &cli, const BusInstanceIterator &iterator,
-					     int runtime_instance);
+	static I2CSPIDriverBase *instantiate(const I2CSPIDriverConfig &config, int runtime_instance);
 	static void print_usage();
 
 	int			init();
@@ -80,7 +80,7 @@ private:
 
 	static constexpr uint32_t SAMPLE_RATE{32};
 
-	PX4Barometer		_px4_barometer;
+	uORB::PublicationMulti<sensor_baro_s> _sensor_baro_pub{ORB_ID(sensor_baro)};
 
 	device::Device		*_interface;
 

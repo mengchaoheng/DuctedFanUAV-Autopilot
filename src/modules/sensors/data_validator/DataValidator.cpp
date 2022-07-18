@@ -51,7 +51,6 @@ void DataValidator::put(uint64_t timestamp, float val, uint32_t error_count_in, 
 
 void DataValidator::put(uint64_t timestamp, const float val[dimensions], uint32_t error_count_in, uint8_t priority_in)
 {
-
 	_event_count++;
 
 	if (error_count_in > _error_count) {
@@ -65,31 +64,33 @@ void DataValidator::put(uint64_t timestamp, const float val[dimensions], uint32_
 	_priority = priority_in;
 
 	for (unsigned i = 0; i < dimensions; i++) {
-		if (_time_last == 0) {
-			_mean[i] = 0;
-			_lp[i] = val[i];
-			_M2[i] = 0;
-
-		} else {
-			float lp_val = val[i] - _lp[i];
-
-			float delta_val = lp_val - _mean[i];
-			_mean[i] += delta_val / _event_count;
-			_M2[i] += delta_val * (lp_val - _mean[i]);
-			_rms[i] = sqrtf(_M2[i] / (_event_count - 1));
-
-			if (fabsf(_value[i] - val[i]) < 0.000001f) {
-				_value_equal_count++;
+		if (PX4_ISFINITE(val[i])) {
+			if (_time_last == 0) {
+				_mean[i] = 0;
+				_lp[i] = val[i];
+				_M2[i] = 0;
 
 			} else {
-				_value_equal_count = 0;
+				float lp_val = val[i] - _lp[i];
+
+				float delta_val = lp_val - _mean[i];
+				_mean[i] += delta_val / _event_count;
+				_M2[i] += delta_val * (lp_val - _mean[i]);
+				_rms[i] = sqrtf(_M2[i] / (_event_count - 1));
+
+				if (fabsf(_value[i] - val[i]) < 0.000001f) {
+					_value_equal_count++;
+
+				} else {
+					_value_equal_count = 0;
+				}
 			}
+
+			// XXX replace with better filter, make it auto-tune to update rate
+			_lp[i] = _lp[i] * 0.99f + 0.01f * val[i];
+
+			_value[i] = val[i];
 		}
-
-		// XXX replace with better filter, make it auto-tune to update rate
-		_lp[i] = _lp[i] * 0.99f + 0.01f * val[i];
-
-		_value[i] = val[i];
 	}
 
 	_time_last = timestamp;
@@ -105,7 +106,7 @@ float DataValidator::confidence(uint64_t timestamp)
 		_error_mask |= ERROR_FLAG_NO_DATA;
 		ret = 0.0f;
 
-	} else if (timestamp - _time_last > _timeout_interval) {
+	} else if (timestamp > _time_last + _timeout_interval) {
 		/* timed out - that's it */
 		_error_mask |= ERROR_FLAG_TIMEOUT;
 		ret = 0.0f;
@@ -142,12 +143,12 @@ float DataValidator::confidence(uint64_t timestamp)
 void DataValidator::print()
 {
 	if (_time_last == 0) {
-		PX4_INFO("\tno data");
+		PX4_INFO_RAW("\tno data\n");
 		return;
 	}
 
 	for (unsigned i = 0; i < dimensions; i++) {
-		PX4_INFO("\tval: %8.4f, lp: %8.4f mean dev: %8.4f RMS: %8.4f conf: %8.4f", (double)_value[i],
-			 (double)_lp[i], (double)_mean[i], (double)_rms[i], (double)confidence(hrt_absolute_time()));
+		PX4_INFO_RAW("\tval: %8.4f, lp: %8.4f mean dev: %8.4f RMS: %8.4f conf: %8.4f\n", (double)_value[i],
+			     (double)_lp[i], (double)_mean[i], (double)_rms[i], (double)confidence(hrt_absolute_time()));
 	}
 }

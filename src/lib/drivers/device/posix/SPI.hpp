@@ -1,6 +1,6 @@
 /****************************************************************************
  *
- *   Copyright (C) 2019 PX4 Development Team. All rights reserved.
+ *   Copyright (C) 2019-2021 PX4 Development Team. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -31,17 +31,18 @@
  *
  ****************************************************************************/
 
+#pragma once
+
 /**
  * @file SPI.hpp
  *
  * Base class for devices connected via SPI.
  */
 
-#ifndef _DEVICE_SPI_H
-#define _DEVICE_SPI_H
-
 #include "../CDev.hpp"
 #include <px4_platform_common/spi.h>
+
+#if defined(CONFIG_SPI)
 
 #ifdef __PX4_LINUX
 
@@ -57,6 +58,8 @@ enum spi_mode_e {
 	SPIDEV_MODE2 = SPI_MODE_2, /* CPOL=1 CHPHA=0 */
 	SPIDEV_MODE3 = SPI_MODE_3  /* CPOL=1 CHPHA=1 */
 };
+
+struct I2CSPIDriverConfig;
 
 namespace device __EXPORT
 {
@@ -85,6 +88,9 @@ protected:
 	 * @param frequency	SPI clock frequency
 	 */
 	SPI(uint8_t device_type, const char *name, int bus, uint32_t device, enum spi_mode_e mode, uint32_t frequency);
+
+	SPI(const I2CSPIDriverConfig &config);
+
 	virtual ~SPI();
 
 	/**
@@ -196,4 +202,4 @@ enum spi_mode_e {
 };
 #endif // __PX4_LINUX
 
-#endif /* _DEVICE_SPI_H */
+#endif // CONFIG_SPI

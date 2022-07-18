@@ -31,5 +31,33 @@
 #
 ############################################################################
 
-px4_add_library(mixer_module mixer_module.cpp  dir_alloc_six.c dir_alloc_six.h dir_alloc_six_types.h rtwtypes.h)
+# px4_add_library(mixer_module mixer_module.cpp  dir_alloc_six.c dir_alloc_six.h dir_alloc_six_types.h rtwtypes.h)
 # dir_alloc_sim.cpp dir_alloc_sim.h dir_alloc_sim_types.h
+set(functions_header ${CMAKE_CURRENT_BINARY_DIR}/output_functions.hpp)
+add_custom_command(OUTPUT ${functions_header}
+	COMMAND ${PYTHON_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/generate_function_header.py
+		${CMAKE_CURRENT_SOURCE_DIR}/output_functions.yaml
+		${functions_header}
+	DEPENDS
+		output_functions.yaml
+		generate_function_header.py
+	COMMENT "Generating output_functions.hpp"
+)
+add_custom_target(output_functions_header DEPENDS ${functions_header})
+
+px4_add_library(mixer_module
+	actuator_test.cpp
+	mixer_module.cpp
+	functions.cpp
+	dir_alloc_six.c
+	dir_alloc_six.h
+	dir_alloc_six_types.h
+	rtwtypes.h
+	)
+
+add_dependencies(mixer_module output_functions_header)
+target_compile_options(mixer_module PRIVATE ${MAX_CUSTOM_OPT_LEVEL})
+
+
+px4_add_functional_gtest(SRC mixer_module_tests.cpp LINKLIBS mixer_module mixer)
+

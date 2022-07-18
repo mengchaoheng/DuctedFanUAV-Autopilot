@@ -125,9 +125,10 @@ PARAM_DEFINE_INT32(SDLOG_MISSION, 0);
  * 7 : Topics for computer vision and collision avoidance
  * 8 : Raw FIFO high-rate IMU (Gyro)
  * 9 : Raw FIFO high-rate IMU (Accel)
+ * 10: Logging of mavlink tunnel message (useful for payload communication debugging)
  *
  * @min 0
- * @max 1023
+ * @max 2047
  * @bit 0 Default set (general log analysis)
  * @bit 1 Estimator replay (EKF2)
  * @bit 2 Thermal calibration
@@ -138,6 +139,7 @@ PARAM_DEFINE_INT32(SDLOG_MISSION, 0);
  * @bit 7 Computer Vision and Avoidance
  * @bit 8 Raw FIFO high-rate IMU (Gyro)
  * @bit 9 Raw FIFO high-rate IMU (Accel)
+ * @bit 10 Mavlink tunnel message logging
  * @reboot_required true
  * @group SD Logging
  */
@@ -173,3 +175,47 @@ PARAM_DEFINE_INT32(SDLOG_DIRS_MAX, 0);
  * @group SD Logging
  */
 PARAM_DEFINE_INT32(SDLOG_UUID, 1);
+
+/**
+ * Logfile Encryption algorithm
+ *
+ * Selects the algorithm used for logfile encryption
+ *
+ * @value 0 Disabled
+ * @value 2 XChaCha20
+ * @value 3 AES
+ *
+ * @group SD Logging
+ */
+PARAM_DEFINE_INT32(SDLOG_ALGORITHM, 2);
+
+/**
+ * Logfile Encryption key index
+ *
+ * Selects the key in keystore, used for encrypting the log. When using
+ * a symmetric encryption algorithm, the key is generated at logging start
+ * and kept stored in this index. For symmetric algorithms, the key is
+ * volatile and valid only for the duration of logging. The key is stored
+ * in encrypted format on the sdcard alongside the logfile, using an RSA2048
+ * key defined by the SDLOG_EXCHANGE_KEY
+ *
+ * @min 0
+ * @max 255
+ *
+ * @group SD Logging
+ */
+PARAM_DEFINE_INT32(SDLOG_KEY, 2);
+
+/**
+ * Logfile Encryption key exchange key
+ *
+ * If the logfile is encrypted using a symmetric key algorithm,
+ * the used encryption key is generated at logging start and stored
+ * on the sdcard RSA2048 encrypted using this key.
+ *
+ * @min 0
+ * @max 255
+ *
+ * @group SD Logging
+ */
+PARAM_DEFINE_INT32(SDLOG_EXCH_KEY, 1);
