@@ -181,6 +181,7 @@ set(models
 	ductedfan4
 	ductedfan6
 	ductedfan_mini
+	flyant
 )
 
 set(worlds

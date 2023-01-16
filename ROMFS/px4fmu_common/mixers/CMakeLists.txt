@@ -96,4 +96,5 @@ px4_add_romfs_files(
 	ductedfan6.main.mix
 	ductedfan4_hitl.main.mix
 	ductedfan_mini.main.mix
+	flyant.main.mix
 )

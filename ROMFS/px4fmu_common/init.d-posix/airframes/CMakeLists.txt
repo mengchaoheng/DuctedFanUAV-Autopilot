@@ -81,6 +81,7 @@ px4_add_romfs_files(
 	15003_ductedfan4
 	15004_ductedfan6
 	15005_ductedfan_mini
+	15006_flyant
 	6012_typhoon_h480_ctrlalloc
 	6012_typhoon_h480_ctrlalloc.post
 )
