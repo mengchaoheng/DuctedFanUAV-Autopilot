@@ -82,4 +82,5 @@ px4_add_romfs_files(
 
 	6011_typhoon_h480
 	6011_typhoon_h480.post
+	15006_flyant
 )
