@@ -44,22 +44,31 @@ param set-default MPC_XY_P 0.45
 
 param set-default CA_AIRFRAME 8
 # FlyAnt
-param set-default CA_ROTOR0_PX 0.2500
-param set-default CA_ROTOR0_PY 0.4330
-param set-default CA_ROTOR0_PZ 0.4330
-param set-default CA_ROTOR1_PX 0.2500
-param set-default CA_ROTOR1_PY -0.4300
-param set-default CA_ROTOR1_PZ 0.4330
-
 param set-default CA_ROTOR_COUNT 2
+param set-default CA_ROTOR0_PX 0
+param set-default CA_ROTOR0_PY -0.2
+param set-default CA_ROTOR0_PZ -0.11
+param set-default CA_ROTOR0_KM 0.05
+param set-default CA_ROTOR1_PX 0
+param set-default CA_ROTOR1_PY 0.2
+param set-default CA_ROTOR1_PZ -0.11
+param set-default CA_ROTOR1_KM -0.05
+
 param set-default CA_SV_TL_COUNT 2
 param set-default CA_ROTOR0_TILT 1
 param set-default CA_ROTOR1_TILT 2
 
+param set-default CA_SV_TL0_CT 3
+param set-default CA_SV_TL1_CT 3
 
 param set-default CA_SV_TL0_MAXA 45.0000
 param set-default CA_SV_TL0_MINA -45.0000
 param set-default CA_SV_TL0_TD 0
-param set-default CA_SV_TL0_MAXA 45.0000
-param set-default CA_SV_TL0_MINA -45.0000
-param set-default CA_SV_TL0_TD 0
+param set-default CA_SV_TL1_MAXA 45.0000
+param set-default CA_SV_TL1_MINA -45.0000
+param set-default CA_SV_TL1_TD 0
+
+param set-default PWM_MAIN_FUNC1 101
+param set-default PWM_MAIN_FUNC2 102
+param set-default PWM_MAIN_FUNC3 201
+param set-default PWM_MAIN_FUNC4 202
