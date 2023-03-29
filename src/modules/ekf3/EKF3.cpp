@@ -285,74 +285,12 @@ void EKF3::Run()
 		}
 	}
 
-	if (_vehicle_command_sub.updated()) {
-		vehicle_command_s vehicle_command;
-
-		if (_vehicle_command_sub.update(&vehicle_command)) {
-			if (vehicle_command.command == vehicle_command_s::VEHICLE_CMD_SET_GPS_GLOBAL_ORIGIN) {
-				if (!_ekf.control_status_flags().in_air) {
-
-					uint64_t origin_time {};
-					double latitude = vehicle_command.param5;
-					double longitude = vehicle_command.param6;
-					float altitude = vehicle_command.param7;
-
-					_ekf.setEkfGlobalOrigin(latitude, longitude, altitude);
-
-					// Validate the ekf origin status.
-					_ekf.getEkfGlobalOrigin(origin_time, latitude, longitude, altitude);
-					PX4_INFO("New NED origin (LLA): %3.10f, %3.10f, %4.3f\n", latitude, longitude, static_cast<double>(altitude));
-				}
-			}
-		}
-	}
-
 	bool imu_updated = false;
 	imuSample imu_sample_new {};
 
 	hrt_abstime imu_dt = 0; // for tracking time slip later
 
-	if (_multi_mode) {
-		const unsigned last_generation = _vehicle_imu_sub.get_last_generation();
-		vehicle_imu_s imu;
-		imu_updated = _vehicle_imu_sub.update(&imu);
 
-		if (imu_updated && (_vehicle_imu_sub.get_last_generation() != last_generation + 1)) {
-			perf_count(_msg_missed_imu_perf);
-		}
-
-		imu_sample_new.time_us = imu.timestamp_sample;
-		imu_sample_new.delta_ang_dt = imu.delta_angle_dt * 1.e-6f;
-		imu_sample_new.delta_ang = Vector3f{imu.delta_angle};
-		imu_sample_new.delta_vel_dt = imu.delta_velocity_dt * 1.e-6f;
-		imu_sample_new.delta_vel = Vector3f{imu.delta_velocity};
-
-		if (imu.delta_velocity_clipping > 0) {
-			imu_sample_new.delta_vel_clipping[0] = imu.delta_velocity_clipping & vehicle_imu_s::CLIPPING_X;
-			imu_sample_new.delta_vel_clipping[1] = imu.delta_velocity_clipping & vehicle_imu_s::CLIPPING_Y;
-			imu_sample_new.delta_vel_clipping[2] = imu.delta_velocity_clipping & vehicle_imu_s::CLIPPING_Z;
-		}
-
-		imu_dt = imu.delta_angle_dt;
-
-		if ((_device_id_accel == 0) || (_device_id_gyro == 0)) {
-			_device_id_accel = imu.accel_device_id;
-			_device_id_gyro = imu.gyro_device_id;
-			_imu_calibration_count = imu.calibration_count;
-
-		} else if ((imu.calibration_count > _imu_calibration_count)
-			   || (imu.accel_device_id != _device_id_accel)
-			   || (imu.gyro_device_id != _device_id_gyro)) {
-
-			PX4_INFO("%d - resetting IMU bias", _instance);
-			_device_id_accel = imu.accel_device_id;
-			_device_id_gyro = imu.gyro_device_id;
-
-			_ekf.resetImuBias();
-			_imu_calibration_count = imu.calibration_count;
-		}
-
-	} else {
 		const unsigned last_generation = _sensor_combined_sub.get_last_generation();
 		sensor_combined_s sensor_combined;
 		imu_updated = _sensor_combined_sub.update(&sensor_combined);
@@ -390,7 +328,7 @@ void EKF3::Run()
 				}
 			}
 		}
-	}
+
 
 	if (imu_updated) {
 		const hrt_abstime now = imu_sample_new.time_us;
@@ -1340,6 +1278,7 @@ void EKF3::UpdateBaroSample(ekf3_timestamps_s &ekf3_timestamps)
 	const unsigned last_generation = _airdata_sub.get_last_generation();
 	vehicle_air_data_s airdata;
 
+
 	if (_airdata_sub.update(&airdata)) {
 		if (_msg_missed_air_data_perf == nullptr) {
 			_msg_missed_air_data_perf = perf_alloc(PC_COUNT, MODULE_NAME": vehicle_air_data messages missed");
@@ -1352,11 +1291,24 @@ void EKF3::UpdateBaroSample(ekf3_timestamps_s &ekf3_timestamps)
 
 		_ekf.setBaroData(baroSample{airdata.timestamp_sample, airdata.baro_alt_meter});
 
+		// PX4_INFO("New airdata.baro_alt_meter: %f\n", static_cast<double>(airdata.baro_alt_meter));
+		last_airdata.rho=airdata.rho;
+		last_airdata.baro_alt_meter=airdata.baro_alt_meter;
+
 		_device_id_baro = airdata.baro_device_id;
 
 		ekf3_timestamps.vehicle_air_data_timestamp_rel = (int16_t)((int64_t)airdata.timestamp / 100 -
 				(int64_t)ekf3_timestamps.timestamp / 100);
+				// PX4_INFO("ekf3_timestamps.vehicle_air_data_timestamp_rel: %d\n", ekf3_timestamps.vehicle_air_data_timestamp_rel);
 	}
+	// else{
+	// 	_ekf.set_air_density(last_airdata.rho);
+
+	// 	_ekf.setBaroData(baroSample{ekf3_timestamps.timestamp, last_airdata.baro_alt_meter});
+	// 	ekf3_timestamps.vehicle_air_data_timestamp_rel = (int16_t)((int64_t)ekf3_timestamps.timestamp / 100 -
+	// 			(int64_t)ekf3_timestamps.timestamp / 100);
+	// }
+	// PX4_INFO("every data: %f\n", static_cast<double>(airdata.baro_alt_meter));
 }
 
 bool EKF3::UpdateExtVisionSample(ekf3_timestamps_s &ekf3_timestamps, vehicle_odometry_s &ev_odom)
@@ -1541,7 +1493,56 @@ void EKF3::UpdateGpsSample(ekf3_timestamps_s &ekf3_timestamps)
 
 		_gps_time_usec = gps_msg.time_usec;
 		_gps_alttitude_ellipsoid = vehicle_gps_position.alt_ellipsoid;
+
+		// save to last
+		last_vehicle_gps_position.timestamp = vehicle_gps_position.timestamp;
+		last_vehicle_gps_position.lat = vehicle_gps_position.lat;
+		last_vehicle_gps_position.lon = vehicle_gps_position.lon;
+		last_vehicle_gps_position.alt = vehicle_gps_position.alt;
+		last_vehicle_gps_position.heading = vehicle_gps_position.heading;
+		last_vehicle_gps_position.heading_offset = vehicle_gps_position.heading_offset;
+		last_vehicle_gps_position.fix_type = vehicle_gps_position.fix_type;
+		last_vehicle_gps_position.eph = vehicle_gps_position.eph;
+		last_vehicle_gps_position.epv = vehicle_gps_position.epv;
+		last_vehicle_gps_position.s_variance_m_s = vehicle_gps_position.s_variance_m_s;
+		last_vehicle_gps_position.vel_m_s = vehicle_gps_position.vel_m_s;
+		last_vehicle_gps_position.vel_n_m_s = vehicle_gps_position.vel_n_m_s;
+		last_vehicle_gps_position.vel_e_m_s = vehicle_gps_position.vel_e_m_s;
+		last_vehicle_gps_position.vel_d_m_s = vehicle_gps_position.vel_d_m_s;
+		last_vehicle_gps_position.vel_ned_valid = vehicle_gps_position.vel_ned_valid;
+		last_vehicle_gps_position.satellites_used = vehicle_gps_position.satellites_used;
+		last_vehicle_gps_position.hdop = vehicle_gps_position.hdop;
+		last_vehicle_gps_position.vdop = vehicle_gps_position.vdop;
 	}
+	// else{
+	// 	gps_message gps_msg{
+	// 		.time_usec = ekf3_timestamps.timestamp,
+	// 		.lat = last_vehicle_gps_position.lat,
+	// 		.lon = last_vehicle_gps_position.lon,
+	// 		.alt = last_vehicle_gps_position.alt,
+	// 		.yaw = last_vehicle_gps_position.heading,
+	// 		.yaw_offset = last_vehicle_gps_position.heading_offset,
+	// 		.fix_type = last_vehicle_gps_position.fix_type,
+	// 		.eph = last_vehicle_gps_position.eph,
+	// 		.epv = last_vehicle_gps_position.epv,
+	// 		.sacc = last_vehicle_gps_position.s_variance_m_s,
+	// 		.vel_m_s = last_vehicle_gps_position.vel_m_s,
+	// 		.vel_ned = Vector3f{
+	// 			last_vehicle_gps_position.vel_n_m_s,
+	// 			last_vehicle_gps_position.vel_e_m_s,
+	// 			last_vehicle_gps_position.vel_d_m_s
+	// 		},
+	// 		.vel_ned_valid = last_vehicle_gps_position.vel_ned_valid,
+	// 		.nsats = last_vehicle_gps_position.satellites_used,
+	// 		.pdop = sqrtf(last_vehicle_gps_position.hdop *last_vehicle_gps_position.hdop
+	// 			      + last_vehicle_gps_position.vdop * last_vehicle_gps_position.vdop),
+	// 	};
+	// 	_ekf.setGpsData(gps_msg);
+
+	// 	_gps_time_usec = gps_msg.time_usec;
+	// 	_gps_alttitude_ellipsoid = last_vehicle_gps_position.alt_ellipsoid;
+
+	// }
 }
 
 void EKF3::UpdateMagSample(ekf3_timestamps_s &ekf3_timestamps)
@@ -1586,9 +1587,19 @@ void EKF3::UpdateMagSample(ekf3_timestamps_s &ekf3_timestamps)
 
 		_ekf.setMagData(magSample{magnetometer.timestamp_sample, Vector3f{magnetometer.magnetometer_ga}});
 
+		last_magnetometer.magnetometer_ga[0]=magnetometer.magnetometer_ga[0];
+		last_magnetometer.magnetometer_ga[1]=magnetometer.magnetometer_ga[1];
+		last_magnetometer.magnetometer_ga[2]=magnetometer.magnetometer_ga[2];
+
 		ekf3_timestamps.vehicle_magnetometer_timestamp_rel = (int16_t)((int64_t)magnetometer.timestamp / 100 -
 				(int64_t)ekf3_timestamps.timestamp / 100);
 	}
+	// else{
+	// 	_ekf.setMagData(magSample{ekf3_timestamps.timestamp, Vector3f{last_magnetometer.magnetometer_ga}});
+
+	// 	ekf3_timestamps.vehicle_magnetometer_timestamp_rel = (int16_t)((int64_t)ekf3_timestamps.timestamp / 100 -
+	// 			(int64_t)ekf3_timestamps.timestamp / 100);
+	// }
 }
 
 void EKF3::UpdateRangeSample(ekf3_timestamps_s &ekf3_timestamps)
@@ -1716,144 +1727,7 @@ int EKF3::task_spawn(int argc, char *argv[])
 		replay_mode = true;
 	}
 
-#if !defined(CONSTRAINED_FLASH)
-	bool multi_mode = false;
-	int32_t imu_instances = 0;
-	int32_t mag_instances = 0;
 
-	int32_t sens_imu_mode = 1;
-	param_get(param_find("SENS_IMU_MODE"), &sens_imu_mode);
-
-	if (sens_imu_mode == 0) {
-		// ekf selector requires SENS_IMU_MODE = 0
-		multi_mode = true;
-
-		// IMUs (1 - 4 supported)
-		param_get(param_find("EKF3_MULTI_IMU"), &imu_instances);
-
-		if (imu_instances < 1 || imu_instances > 4) {
-			const int32_t imu_instances_limited = math::constrain(imu_instances, static_cast<int32_t>(1), static_cast<int32_t>(4));
-			PX4_WARN("EKF3_MULTI_IMU limited %" PRId32 " -> %" PRId32, imu_instances, imu_instances_limited);
-			param_set_no_notification(param_find("EKF3_MULTI_IMU"), &imu_instances_limited);
-			imu_instances = imu_instances_limited;
-		}
-
-		int32_t sens_mag_mode = 1;
-		param_get(param_find("SENS_MAG_MODE"), &sens_mag_mode);
-
-		if (sens_mag_mode == 0) {
-			param_get(param_find("EKF3_MULTI_MAG"), &mag_instances);
-
-			// Mags (1 - 4 supported)
-			if (mag_instances < 1 || mag_instances > 4) {
-				const int32_t mag_instances_limited = math::constrain(mag_instances, static_cast<int32_t>(1), static_cast<int32_t>(4));
-				PX4_WARN("EKF3_MULTI_MAG limited %" PRId32 " -> %" PRId32, mag_instances, mag_instances_limited);
-				param_set_no_notification(param_find("EKF3_MULTI_MAG"), &mag_instances_limited);
-				mag_instances = mag_instances_limited;
-			}
-
-		} else {
-			mag_instances = 1;
-		}
-	}
-
-	if (multi_mode) {
-		// Start EKF3Selector if it's not already running
-		if (_ekf3_selector.load() == nullptr) {
-			EKF3Selector *inst = new EKF3Selector();
-
-			if (inst) {
-				_ekf3_selector.store(inst);
-
-			} else {
-				PX4_ERR("Failed to create EKF3 selector");
-				return PX4_ERROR;
-			}
-		}
-
-		const hrt_abstime time_started = hrt_absolute_time();
-		const int multi_instances = math::min(imu_instances * mag_instances, static_cast<int32_t>(EKF3_MAX_INSTANCES));
-		int multi_instances_allocated = 0;
-
-		// allocate EKF3 instances until all found or arming
-		uORB::SubscriptionData<vehicle_status_s> vehicle_status_sub{ORB_ID(vehicle_status)};
-
-		bool ekf3_instance_created[4][4] {}; // IMUs * mags
-
-		while ((multi_instances_allocated < multi_instances)
-		       && (vehicle_status_sub.get().arming_state != vehicle_status_s::ARMING_STATE_ARMED)
-		       && ((hrt_elapsed_time(&time_started) < 30_s)
-			   || (vehicle_status_sub.get().hil_state == vehicle_status_s::HIL_STATE_ON))) {
-
-			vehicle_status_sub.update();
-
-			for (uint8_t mag = 0; mag < mag_instances; mag++) {
-				uORB::SubscriptionData<vehicle_magnetometer_s> vehicle_mag_sub{ORB_ID(vehicle_magnetometer), mag};
-
-				for (uint8_t imu = 0; imu < imu_instances; imu++) {
-
-					uORB::SubscriptionData<vehicle_imu_s> vehicle_imu_sub{ORB_ID(vehicle_imu), imu};
-					vehicle_mag_sub.update();
-
-					// Mag & IMU data must be valid, first mag can be ignored initially
-					if ((vehicle_mag_sub.get().device_id != 0 || mag == 0)
-					    && (vehicle_imu_sub.get().accel_device_id != 0)
-					    && (vehicle_imu_sub.get().gyro_device_id != 0)) {
-
-						if (!ekf3_instance_created[imu][mag]) {
-							EKF3 *ekf3_inst = new EKF3(true, px4::ins_instance_to_wq(imu), false);
-
-							if (ekf3_inst && ekf3_inst->multi_init(imu, mag)) {
-								int actual_instance = ekf3_inst->instance(); // match uORB instance numbering
-
-								if ((actual_instance >= 0) && (_objects[actual_instance].load() == nullptr)) {
-									_objects[actual_instance].store(ekf3_inst);
-									success = true;
-									multi_instances_allocated++;
-									ekf3_instance_created[imu][mag] = true;
-
-									if (actual_instance == 0) {
-										// force selector to run immediately if first instance started
-										_ekf3_selector.load()->ScheduleNow();
-									}
-
-									PX4_INFO("starting instance %d, IMU:%" PRIu8 " (%" PRIu32 "), MAG:%" PRIu8 " (%" PRIu32 ")", actual_instance,
-										 imu, vehicle_imu_sub.get().accel_device_id,
-										 mag, vehicle_mag_sub.get().device_id);
-
-									// sleep briefly before starting more instances
-									px4_usleep(10000);
-
-								} else {
-									PX4_ERR("instance numbering problem instance: %d", actual_instance);
-									delete ekf3_inst;
-									break;
-								}
-
-							} else {
-								PX4_ERR("alloc and init failed imu: %" PRIu8 " mag:%" PRIu8, imu, mag);
-								px4_usleep(1000000);
-								break;
-							}
-						}
-
-					} else {
-						px4_usleep(50000); // give the sensors extra time to start
-						continue;
-					}
-				}
-			}
-
-			if (multi_instances_allocated < multi_instances) {
-				px4_usleep(100000);
-			}
-		}
-
-	}
-
-#endif // !CONSTRAINED_FLASH
-
-	else {
 		// otherwise launch regular
 		EKF3 *ekf3_inst = new EKF3(false, px4::wq_configurations::INS0, replay_mode);
 PX4_INFO("new EKF3 mmmmmmmmmmmmmmmm");
@@ -1862,7 +1736,7 @@ PX4_INFO("new EKF3 mmmmmmmmmmmmmmmm");
 			ekf3_inst->ScheduleNow();
 			success = true;
 		}
-	}
+
 
 	return success ? PX4_OK : PX4_ERROR;
 }
