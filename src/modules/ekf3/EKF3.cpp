@@ -1301,13 +1301,13 @@ void EKF3::UpdateBaroSample(ekf3_timestamps_s &ekf3_timestamps)
 				(int64_t)ekf3_timestamps.timestamp / 100);
 				// PX4_INFO("ekf3_timestamps.vehicle_air_data_timestamp_rel: %d\n", ekf3_timestamps.vehicle_air_data_timestamp_rel);
 	}
-	// else{
-	// 	_ekf.set_air_density(last_airdata.rho);
+	else{
+		_ekf.set_air_density(last_airdata.rho);
 
-	// 	_ekf.setBaroData(baroSample{ekf3_timestamps.timestamp, last_airdata.baro_alt_meter});
-	// 	ekf3_timestamps.vehicle_air_data_timestamp_rel = (int16_t)((int64_t)ekf3_timestamps.timestamp / 100 -
-	// 			(int64_t)ekf3_timestamps.timestamp / 100);
-	// }
+		_ekf.setBaroData(baroSample{ekf3_timestamps.timestamp, last_airdata.baro_alt_meter});
+		ekf3_timestamps.vehicle_air_data_timestamp_rel = (int16_t)((int64_t)ekf3_timestamps.timestamp / 100 -
+				(int64_t)ekf3_timestamps.timestamp / 100);
+	}
 	// PX4_INFO("every data: %f\n", static_cast<double>(airdata.baro_alt_meter));
 }
 
@@ -1514,35 +1514,35 @@ void EKF3::UpdateGpsSample(ekf3_timestamps_s &ekf3_timestamps)
 		last_vehicle_gps_position.hdop = vehicle_gps_position.hdop;
 		last_vehicle_gps_position.vdop = vehicle_gps_position.vdop;
 	}
-	// else{
-	// 	gps_message gps_msg{
-	// 		.time_usec = ekf3_timestamps.timestamp,
-	// 		.lat = last_vehicle_gps_position.lat,
-	// 		.lon = last_vehicle_gps_position.lon,
-	// 		.alt = last_vehicle_gps_position.alt,
-	// 		.yaw = last_vehicle_gps_position.heading,
-	// 		.yaw_offset = last_vehicle_gps_position.heading_offset,
-	// 		.fix_type = last_vehicle_gps_position.fix_type,
-	// 		.eph = last_vehicle_gps_position.eph,
-	// 		.epv = last_vehicle_gps_position.epv,
-	// 		.sacc = last_vehicle_gps_position.s_variance_m_s,
-	// 		.vel_m_s = last_vehicle_gps_position.vel_m_s,
-	// 		.vel_ned = Vector3f{
-	// 			last_vehicle_gps_position.vel_n_m_s,
-	// 			last_vehicle_gps_position.vel_e_m_s,
-	// 			last_vehicle_gps_position.vel_d_m_s
-	// 		},
-	// 		.vel_ned_valid = last_vehicle_gps_position.vel_ned_valid,
-	// 		.nsats = last_vehicle_gps_position.satellites_used,
-	// 		.pdop = sqrtf(last_vehicle_gps_position.hdop *last_vehicle_gps_position.hdop
-	// 			      + last_vehicle_gps_position.vdop * last_vehicle_gps_position.vdop),
-	// 	};
-	// 	_ekf.setGpsData(gps_msg);
+	else{
+		gps_message gps_msg{
+			.time_usec = ekf3_timestamps.timestamp,
+			.lat = last_vehicle_gps_position.lat,
+			.lon = last_vehicle_gps_position.lon,
+			.alt = last_vehicle_gps_position.alt,
+			.yaw = last_vehicle_gps_position.heading,
+			.yaw_offset = last_vehicle_gps_position.heading_offset,
+			.fix_type = last_vehicle_gps_position.fix_type,
+			.eph = last_vehicle_gps_position.eph,
+			.epv = last_vehicle_gps_position.epv,
+			.sacc = last_vehicle_gps_position.s_variance_m_s,
+			.vel_m_s = last_vehicle_gps_position.vel_m_s,
+			.vel_ned = Vector3f{
+				last_vehicle_gps_position.vel_n_m_s,
+				last_vehicle_gps_position.vel_e_m_s,
+				last_vehicle_gps_position.vel_d_m_s
+			},
+			.vel_ned_valid = last_vehicle_gps_position.vel_ned_valid,
+			.nsats = last_vehicle_gps_position.satellites_used,
+			.pdop = sqrtf(last_vehicle_gps_position.hdop *last_vehicle_gps_position.hdop
+				      + last_vehicle_gps_position.vdop * last_vehicle_gps_position.vdop),
+		};
+		_ekf.setGpsData(gps_msg);
 
-	// 	_gps_time_usec = gps_msg.time_usec;
-	// 	_gps_alttitude_ellipsoid = last_vehicle_gps_position.alt_ellipsoid;
+		_gps_time_usec = gps_msg.time_usec;
+		_gps_alttitude_ellipsoid = last_vehicle_gps_position.alt_ellipsoid;
 
-	// }
+	}
 }
 
 void EKF3::UpdateMagSample(ekf3_timestamps_s &ekf3_timestamps)
@@ -1585,21 +1585,24 @@ void EKF3::UpdateMagSample(ekf3_timestamps_s &ekf3_timestamps)
 			_mag_cal_available = false;
 		}
 
-		_ekf.setMagData(magSample{magnetometer.timestamp_sample, Vector3f{magnetometer.magnetometer_ga}});
+		_ekf.setMagData(magSample{magnetometer.timestamp, Vector3f{magnetometer.magnetometer_ga}});
 
 		last_magnetometer.magnetometer_ga[0]=magnetometer.magnetometer_ga[0];
 		last_magnetometer.magnetometer_ga[1]=magnetometer.magnetometer_ga[1];
 		last_magnetometer.magnetometer_ga[2]=magnetometer.magnetometer_ga[2];
+		last_magnetometer.device_id = magnetometer.device_id;
+		last_magnetometer.calibration_count = magnetometer.calibration_count;
 
 		ekf3_timestamps.vehicle_magnetometer_timestamp_rel = (int16_t)((int64_t)magnetometer.timestamp / 100 -
 				(int64_t)ekf3_timestamps.timestamp / 100);
 	}
-	// else{
-	// 	_ekf.setMagData(magSample{ekf3_timestamps.timestamp, Vector3f{last_magnetometer.magnetometer_ga}});
+	else{
 
-	// 	ekf3_timestamps.vehicle_magnetometer_timestamp_rel = (int16_t)((int64_t)ekf3_timestamps.timestamp / 100 -
-	// 			(int64_t)ekf3_timestamps.timestamp / 100);
-	// }
+		_ekf.setMagData(magSample{ekf3_timestamps.timestamp, Vector3f{last_magnetometer.magnetometer_ga}});
+
+		ekf3_timestamps.vehicle_magnetometer_timestamp_rel = (int16_t)((int64_t)ekf3_timestamps.timestamp / 100 -
+				(int64_t)ekf3_timestamps.timestamp / 100);
+	}
 }
 
 void EKF3::UpdateRangeSample(ekf3_timestamps_s &ekf3_timestamps)

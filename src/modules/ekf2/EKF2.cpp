@@ -1584,7 +1584,7 @@ void EKF2::UpdateMagSample(ekf2_timestamps_s &ekf2_timestamps)
 			_mag_cal_available = false;
 		}
 
-		_ekf.setMagData(magSample{magnetometer.timestamp_sample, Vector3f{magnetometer.magnetometer_ga}});
+		_ekf.setMagData(magSample{magnetometer.timestamp, Vector3f{magnetometer.magnetometer_ga}});
 
 		ekf2_timestamps.vehicle_magnetometer_timestamp_rel = (int16_t)((int64_t)magnetometer.timestamp / 100 -
 				(int64_t)ekf2_timestamps.timestamp / 100);
