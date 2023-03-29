@@ -20,3 +20,4 @@ float32[4] accumulated_gyro_error
 float32[4] accumulated_accel_error
 bool gyro_fault_detected
 bool accel_fault_detected
+# TOPICS estimator3_selector_status estimator_selector_status

@@ -89,6 +89,7 @@ function(px4_add_common_flags)
 		-Wno-missing-field-initializers
 		-Wno-missing-include-dirs # TODO: fix and enable
 		-Wno-unused-parameter
+		-Wno-unused-but-set-variable
 
 		)
 

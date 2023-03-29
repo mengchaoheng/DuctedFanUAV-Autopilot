@@ -8,3 +8,4 @@ float32[5] yaw		# yaw estimate for each model in the filter bank (rad)
 float32[5] innov_vn	# North velocity innovation for each model in the filter bank (m/s)
 float32[5] innov_ve	# East velocity innovation for each model in the filter bank (m/s)
 float32[5] weight	# weighting for each model in the filter bank
+# TOPICS yaw_estimator3_status yaw_estimator_status

@@ -25,3 +25,4 @@ float32[3] mag_bias             # magnetometer in-run bias in body frame (Gauss)
 float32 mag_bias_limit          # magnitude of maximum magnetometer in-run bias in body frame (Gauss)
 float32[3] mag_bias_variance
 bool mag_bias_valid
+# TOPICS estimator3_sensor_bias estimator_sensor_bias

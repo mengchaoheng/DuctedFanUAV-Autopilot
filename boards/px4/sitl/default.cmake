@@ -31,6 +31,7 @@ px4_add_board(
 		commander
 		dataman
 		ekf2
+		ekf3
 		events
 		flight_mode_manager
 		fw_att_control

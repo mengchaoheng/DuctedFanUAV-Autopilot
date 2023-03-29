@@ -6,3 +6,4 @@ float32[2] vel_ne			# same as vel_body but in local frame (m/s)
 float32[2] flow_uncompensated_integral	# integrated optical flow measurement (rad)
 float32[2] flow_compensated_integral	# integrated optical flow measurement compensated for angular motion (rad)
 float32[3] gyro_rate_integral		# gyro measurement integrated to flow rate and synchronized with flow measurements (rad)
+# TOPICS estimator3_optical_flow_vel estimator_optical_flow_vel

@@ -70,3 +70,4 @@ bool reject_sideslip                      #  9 - true if the synthetic sideslip 
 bool reject_hagl                          # 10 - true if the height above ground observation has been rejected
 bool reject_optflow_x                     # 11 - true if the X optical flow observation has been rejected
 bool reject_optflow_y                     # 12 - true if the Y optical flow observation has been rejected
+# TOPICS estimator3_status_flags estimator_status_flags

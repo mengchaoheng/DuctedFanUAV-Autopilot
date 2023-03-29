@@ -99,14 +99,17 @@ void LoggedTopics::add_default_topics()
 	add_topic("vehicle_air_data", 200);
 	add_topic("vehicle_angular_velocity", 20);
 	add_topic("vehicle_attitude", 50);
+	add_topic("vehicle3_attitude", 50);
 	add_topic("vehicle_attitude_setpoint", 50);
 	add_topic("vehicle_command");
 	add_topic("vehicle_constraints", 1000);
 	add_topic("vehicle_control_mode");
 	add_topic("vehicle_global_position", 200);
+	add_topic("vehicle3_global_position", 200);
 	add_topic("vehicle_gps_position", 500);
 	add_topic("vehicle_land_detected");
 	add_topic("vehicle_local_position", 100);
+	add_topic("vehicle3_local_position", 100);
 	add_topic("vehicle_local_position_setpoint", 100);
 	add_topic("vehicle_magnetometer", 200);
 	add_topic("vehicle_rates_setpoint", 20);
@@ -115,6 +118,8 @@ void LoggedTopics::add_default_topics()
 	add_topic("vehicle_status_flags");
 	add_topic("vtol_vehicle_status", 200);
 	add_topic("wind", 1000);
+	add_topic("wind3", 1000);
+	add_topic("ekf3_timestamps");
 
 	// Control allocation topics
 	add_topic("vehicle_actuator_setpoint", 20);
@@ -144,17 +149,29 @@ void LoggedTopics::add_default_topics()
 #endif
 
 	add_topic_multi("ekf_gps_drift", 1000, MAX_ESTIMATOR_INSTANCES);
+	add_topic_multi("ekf3_gps_drift", 1000, MAX_ESTIMATOR_INSTANCES);
 	add_topic_multi("estimator_event_flags", 0, MAX_ESTIMATOR_INSTANCES);
+	add_topic_multi("estimator3_event_flags", 0, MAX_ESTIMATOR_INSTANCES);
 	add_topic_multi("estimator_innovation_test_ratios", 500, MAX_ESTIMATOR_INSTANCES);
+	add_topic_multi("estimator3_innovation_test_ratios", 500, MAX_ESTIMATOR_INSTANCES);
 	add_topic_multi("estimator_innovation_variances", 500, MAX_ESTIMATOR_INSTANCES);
+	add_topic_multi("estimator3_innovation_variances", 500, MAX_ESTIMATOR_INSTANCES);
 	add_topic_multi("estimator_innovations", 500, MAX_ESTIMATOR_INSTANCES);
+	add_topic_multi("estimator3_innovations", 500, MAX_ESTIMATOR_INSTANCES);
 	add_topic_multi("estimator_optical_flow_vel", 200, MAX_ESTIMATOR_INSTANCES);
+	add_topic_multi("estimator3_optical_flow_vel", 200, MAX_ESTIMATOR_INSTANCES);
 	add_topic_multi("estimator_sensor_bias", 0, MAX_ESTIMATOR_INSTANCES);
+	add_topic_multi("estimator3_sensor_bias", 0, MAX_ESTIMATOR_INSTANCES);
 	add_topic_multi("estimator_states", 1000, MAX_ESTIMATOR_INSTANCES);
+	add_topic_multi("estimator3_states", 1000, MAX_ESTIMATOR_INSTANCES);
 	add_topic_multi("estimator_status", 200, MAX_ESTIMATOR_INSTANCES);
+	add_topic_multi("estimator3_status", 200, MAX_ESTIMATOR_INSTANCES);
 	add_topic_multi("estimator_status_flags", 0, MAX_ESTIMATOR_INSTANCES);
+	add_topic_multi("estimator3_status_flags", 0, MAX_ESTIMATOR_INSTANCES);
 	add_topic_multi("estimator_visual_odometry_aligned", 200, MAX_ESTIMATOR_INSTANCES);
+	add_topic_multi("estimator3_visual_odometry_aligned", 200, MAX_ESTIMATOR_INSTANCES);
 	add_topic_multi("yaw_estimator_status", 1000, MAX_ESTIMATOR_INSTANCES);
+	add_topic_multi("yaw_estimator3_status", 1000, MAX_ESTIMATOR_INSTANCES);
 
 	// log all raw sensors at minimal rate (at least 1 Hz)
 	add_topic_multi("battery_status", 200, 2);
@@ -202,6 +219,7 @@ void LoggedTopics::add_high_rate_topics()
 	add_topic("vehicle_angular_acceleration");
 	add_topic("vehicle_angular_velocity");
 	add_topic("vehicle_attitude");
+	add_topic("vehicle3_attitude");
 	add_topic("vehicle_attitude_setpoint");
 	add_topic("vehicle_rates_setpoint");
 }
@@ -340,6 +358,7 @@ void LoggedTopics::initialize_mission_topics(MissionLogType mission_log_type)
 		add_mission_topic("camera_capture");
 		add_mission_topic("mission_result");
 		add_mission_topic("vehicle_global_position", 1000);
+		// add_mission_topic("vehicle3_global_position", 1000);
 		add_mission_topic("vehicle_status", 1000);
 
 	} else if (mission_log_type == MissionLogType::Geotagging) {
