@@ -189,7 +189,7 @@ bool EKF3::multi_init(int imu, int mag)
 	_odometry_pub.advertise();
 	_wind_pub.advertise();
 
-	_ekf3_timestamps_pub.advertise();
+	// _ekf3_timestamps_pub.advertise();
 	_ekf_gps_drift_pub.advertise();
 	_estimator_innovation_test_ratios_pub.advertise();
 	_estimator_innovation_variances_pub.advertise();
@@ -285,6 +285,7 @@ void EKF3::Run()
 		}
 	}
 
+// begin IMU
 	bool imu_updated = false;
 	imuSample imu_sample_new {};
 
@@ -396,6 +397,7 @@ void EKF3::Run()
 		}
 
 		// ekf3_timestamps (using 0.1 ms relative timestamps)
+		// don't need this
 		ekf3_timestamps_s ekf3_timestamps {
 			.timestamp = now,
 			.airspeed_timestamp_rel = ekf3_timestamps_s::RELATIVE_TIMESTAMP_INVALID,
@@ -405,24 +407,25 @@ void EKF3::Run()
 			.vehicle_magnetometer_timestamp_rel = ekf3_timestamps_s::RELATIVE_TIMESTAMP_INVALID,
 			.visual_odometry_timestamp_rel = ekf3_timestamps_s::RELATIVE_TIMESTAMP_INVALID,
 		};
-
-		UpdateAirspeedSample(ekf3_timestamps);
+// end IMU
+		UpdateAirspeedSample(ekf3_timestamps); // Airspeed
 		UpdateAuxVelSample(ekf3_timestamps);
-		UpdateBaroSample(ekf3_timestamps);
-		UpdateGpsSample(ekf3_timestamps);
-		UpdateMagSample(ekf3_timestamps);
-		UpdateRangeSample(ekf3_timestamps);
+		UpdateBaroSample(ekf3_timestamps); // Baro
+		UpdateGpsSample(ekf3_timestamps); // Gps
+		UpdateMagSample(ekf3_timestamps); // Mag
+		UpdateRangeSample(ekf3_timestamps); // Range
 
 		vehicle_odometry_s ev_odom;
-		const bool new_ev_odom = UpdateExtVisionSample(ekf3_timestamps, ev_odom);
+		const bool new_ev_odom = UpdateExtVisionSample(ekf3_timestamps, ev_odom); // Vision
 
 		optical_flow_s optical_flow;
-		const bool new_optical_flow = UpdateFlowSample(ekf3_timestamps, optical_flow);
+		const bool new_optical_flow = UpdateFlowSample(ekf3_timestamps, optical_flow); // Flow
 
 
 		// run the EKF update and output
 		const hrt_abstime ekf_update_start = hrt_absolute_time();
 
+		// run _ekf.update() in the loop, and don't need Publish*.
 		if (_ekf.update()) {
 			perf_set_elapsed(_ecl_ekf_update_full_perf, hrt_elapsed_time(&ekf_update_start));
 
@@ -460,7 +463,7 @@ void EKF3::Run()
 		}
 
 		// publish ekf3_timestamps
-		_ekf3_timestamps_pub.publish(ekf3_timestamps);
+		// _ekf3_timestamps_pub.publish(ekf3_timestamps);
 	}
 }
 
@@ -1239,8 +1242,8 @@ void EKF3::UpdateAirspeedSample(ekf3_timestamps_s &ekf3_timestamps)
 			_ekf.setAirspeedData(airspeed_sample);
 		}
 
-		ekf3_timestamps.airspeed_timestamp_rel = (int16_t)((int64_t)airspeed.timestamp / 100 -
-				(int64_t)ekf3_timestamps.timestamp / 100);
+		// ekf3_timestamps.airspeed_timestamp_rel = (int16_t)((int64_t)airspeed.timestamp / 100 -
+		// 		(int64_t)ekf3_timestamps.timestamp / 100);
 	}
 }
 
@@ -1297,16 +1300,16 @@ void EKF3::UpdateBaroSample(ekf3_timestamps_s &ekf3_timestamps)
 
 		_device_id_baro = airdata.baro_device_id;
 
-		ekf3_timestamps.vehicle_air_data_timestamp_rel = (int16_t)((int64_t)airdata.timestamp / 100 -
-				(int64_t)ekf3_timestamps.timestamp / 100);
+		// ekf3_timestamps.vehicle_air_data_timestamp_rel = (int16_t)((int64_t)airdata.timestamp / 100 -
+		// 		(int64_t)ekf3_timestamps.timestamp / 100);
 				// PX4_INFO("ekf3_timestamps.vehicle_air_data_timestamp_rel: %d\n", ekf3_timestamps.vehicle_air_data_timestamp_rel);
 	}
 	else{
 		_ekf.set_air_density(last_airdata.rho);
 
 		_ekf.setBaroData(baroSample{ekf3_timestamps.timestamp, last_airdata.baro_alt_meter});
-		ekf3_timestamps.vehicle_air_data_timestamp_rel = (int16_t)((int64_t)ekf3_timestamps.timestamp / 100 -
-				(int64_t)ekf3_timestamps.timestamp / 100);
+		// ekf3_timestamps.vehicle_air_data_timestamp_rel = (int16_t)((int64_t)ekf3_timestamps.timestamp / 100 -
+		// 		(int64_t)ekf3_timestamps.timestamp / 100);
 	}
 	// PX4_INFO("every data: %f\n", static_cast<double>(airdata.baro_alt_meter));
 }
@@ -1402,8 +1405,8 @@ bool EKF3::UpdateExtVisionSample(ekf3_timestamps_s &ekf3_timestamps, vehicle_odo
 
 		new_ev_odom = true;
 
-		ekf3_timestamps.visual_odometry_timestamp_rel = (int16_t)((int64_t)ev_odom.timestamp / 100 -
-				(int64_t)ekf3_timestamps.timestamp / 100);
+		// ekf3_timestamps.visual_odometry_timestamp_rel = (int16_t)((int64_t)ev_odom.timestamp / 100 -
+		// 		(int64_t)ekf3_timestamps.timestamp / 100);
 	}
 
 	return new_ev_odom;
@@ -1446,8 +1449,8 @@ bool EKF3::UpdateFlowSample(ekf3_timestamps_s &ekf3_timestamps, optical_flow_s &
 			new_optical_flow = true;
 		}
 
-		ekf3_timestamps.optical_flow_timestamp_rel = (int16_t)((int64_t)optical_flow.timestamp / 100 -
-				(int64_t)ekf3_timestamps.timestamp / 100);
+		// ekf3_timestamps.optical_flow_timestamp_rel = (int16_t)((int64_t)optical_flow.timestamp / 100 -
+		// 		(int64_t)ekf3_timestamps.timestamp / 100);
 	}
 
 	return new_optical_flow;
@@ -1593,15 +1596,15 @@ void EKF3::UpdateMagSample(ekf3_timestamps_s &ekf3_timestamps)
 		last_magnetometer.device_id = magnetometer.device_id;
 		last_magnetometer.calibration_count = magnetometer.calibration_count;
 
-		ekf3_timestamps.vehicle_magnetometer_timestamp_rel = (int16_t)((int64_t)magnetometer.timestamp / 100 -
-				(int64_t)ekf3_timestamps.timestamp / 100);
+		// ekf3_timestamps.vehicle_magnetometer_timestamp_rel = (int16_t)((int64_t)magnetometer.timestamp / 100 -
+		// 		(int64_t)ekf3_timestamps.timestamp / 100);
 	}
 	else{
 
 		_ekf.setMagData(magSample{ekf3_timestamps.timestamp, Vector3f{last_magnetometer.magnetometer_ga}});
 
-		ekf3_timestamps.vehicle_magnetometer_timestamp_rel = (int16_t)((int64_t)ekf3_timestamps.timestamp / 100 -
-				(int64_t)ekf3_timestamps.timestamp / 100);
+		// ekf3_timestamps.vehicle_magnetometer_timestamp_rel = (int16_t)((int64_t)ekf3_timestamps.timestamp / 100 -
+		// 		(int64_t)ekf3_timestamps.timestamp / 100);
 	}
 }
 
@@ -1658,8 +1661,8 @@ void EKF3::UpdateRangeSample(ekf3_timestamps_s &ekf3_timestamps)
 			return;
 		}
 
-		ekf3_timestamps.distance_sensor_timestamp_rel = (int16_t)((int64_t)distance_sensor.timestamp / 100 -
-				(int64_t)ekf3_timestamps.timestamp / 100);
+		// ekf3_timestamps.distance_sensor_timestamp_rel = (int16_t)((int64_t)distance_sensor.timestamp / 100 -
+		// 		(int64_t)ekf3_timestamps.timestamp / 100);
 	}
 
 	if (hrt_elapsed_time(&_last_range_sensor_update) > 1_s) {

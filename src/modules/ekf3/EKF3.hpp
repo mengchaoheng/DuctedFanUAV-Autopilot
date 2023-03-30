@@ -259,7 +259,7 @@ private:
 	uint32_t _filter_warning_event_changes{0};
 	uint32_t _filter_information_event_changes{0};
 
-	uORB::PublicationMulti<ekf3_timestamps_s>            _ekf3_timestamps_pub{ORB_ID(ekf3_timestamps)};
+	// uORB::PublicationMulti<ekf3_timestamps_s>            _ekf3_timestamps_pub{ORB_ID(ekf3_timestamps)};
 	uORB::PublicationMulti<ekf_gps_drift_s>              _ekf_gps_drift_pub{ORB_ID(ekf3_gps_drift)};
 	uORB::PublicationMulti<estimator_innovations_s>      _estimator_innovation_test_ratios_pub{ORB_ID(estimator3_innovation_test_ratios)};
 	uORB::PublicationMulti<estimator_innovations_s>      _estimator_innovation_variances_pub{ORB_ID(estimator3_innovation_variances)};

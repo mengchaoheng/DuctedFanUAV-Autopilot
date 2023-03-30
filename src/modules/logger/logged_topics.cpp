@@ -119,7 +119,7 @@ void LoggedTopics::add_default_topics()
 	add_topic("vtol_vehicle_status", 200);
 	add_topic("wind", 1000);
 	add_topic("wind3", 1000);
-	add_topic("ekf3_timestamps");
+	// add_topic("ekf3_timestamps");
 
 	// Control allocation topics
 	add_topic("vehicle_actuator_setpoint", 20);
