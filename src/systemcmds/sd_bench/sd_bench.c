@@ -70,7 +70,7 @@ static int run_duration; ///< duration of a single run [ms]
 static bool synchronized; ///< call fsync after each block?
 
 static void
-usage()
+usage(void)
 {
 	PRINT_MODULE_DESCRIPTION("Test the speed of an SD Card");
 

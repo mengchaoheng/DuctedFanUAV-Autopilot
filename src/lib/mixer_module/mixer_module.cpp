@@ -106,22 +106,22 @@ _control_latency_perf(perf_alloc(PC_ELAPSED, "control latency"))
 		_lp_filter_actuator_d[i+2].set_cutoff_frequency(_param_sample_freq.get(), _param_cs2_cutoff.get());
 	}
 	B_inv.setZero();
-	B_inv(0, 0)=-1.0f;
-	B_inv(0, 2)=1.0f;
+	B_inv(0, 0)=(double) -1.0f;
+	B_inv(0, 2)=(double) 1.0f;
 
-	B_inv(1, 1)=-1.0f;
-	B_inv(1, 2)=1.0f;
+	B_inv(1, 1)=(double) -1.0f;
+	B_inv(1, 2)=(double) 1.0f;
 
-	B_inv(2, 0)=1.0f;
-	B_inv(2, 2)=1.0f;
+	B_inv(2, 0)=(double) 1.0f;
+	B_inv(2, 2)=(double) 1.0f;
 
-	B_inv(3, 1)=1.0f;
-	B_inv(3, 2)=1.0f;
+	B_inv(3, 1)=(double) 1.0f;
+	B_inv(3, 2)=(double) 1.0f;
 
 	for (size_t i = 0; i < 4; i++)
 	{
-		_uMin[i] = -0.3491;
-		_uMax[i] = 0.3491;
+		_uMin[i] =(double) -0.3491;
+		_uMax[i] =(double) 0.3491;
 	}
 }
 
@@ -663,7 +663,7 @@ bool MixingOutput::update()
 				dir_alloc_sim(ye, _uMin, _uMax, u_e, &z_e, &iters_e);
 				for (size_t i = 0; i < 3; i++)
 				{
-					double  temp = 0.0f;
+					double  temp = (double) 0.0f;
 					for(int k = 0 ; k < 4 ; k++)
 					{
 						temp += _B[i][k] * u_e[k];
@@ -685,7 +685,7 @@ bool MixingOutput::update()
 					dir_alloc_sim(yd, uMin_new, uMax_new, u_d, &z_d, &iters_d);
 					for (size_t i = 0; i < 3; i++)
 					{
-						double  temp = 0.0f;
+						double  temp = (double) 0.0f;
 						for(int k = 0 ; k < 4 ; k++)
 						{
 							temp += _B[i][k] * u_d[k];
@@ -728,7 +728,7 @@ bool MixingOutput::update()
 
 		for (size_t i = 0; i < 3; i++)
 		{
-			double  temp = 0.0f;
+			double  temp = (double) 0.0f;
 			for(int k = 0 ; k < 4 ; k++)
 			{
 				temp += _B[i][k] * _u[k];
