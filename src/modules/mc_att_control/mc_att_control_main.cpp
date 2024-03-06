@@ -169,6 +169,7 @@ MulticopterAttitudeControl::generate_attitude_setpoint(const Quatf &q, float dt,
 	//   yaw = atan(-2 * sin(b) * cos(b) * sin^2(a/2) / (1 - 2 * cos^2(b) * sin^2(a/2))).
 	attitude_setpoint.yaw_body = _man_yaw_sp + euler_sp(2);
 
+	//for step ref in manual mode.
 	// if (_use_step_ref || _param_mc_use_step_ref.get() == 1)
 	// {
 	// 	if (!_use_step_ref_prev)
@@ -266,7 +267,7 @@ MulticopterAttitudeControl::Run()
 
 		updateParams();
 		parameters_updated();
-
+		//for step ref in manual mode.
 		// _cycle_time = _param_step_ref_time.get();
 		// _step_roll_amp = _param_step_roll_amp.get();
 		// _step_pitch_amp = _param_step_pitch_amp.get();
@@ -274,7 +275,7 @@ MulticopterAttitudeControl::Run()
 
 	// run controller on attitude updates
 	vehicle_attitude_s v_att;
-
+	//for step ref in manual mode.
 	// if (_rc_channels_sub.update(&_rc_channels))
 	// {
 	// 	if (_rc_channels.channels[9] < 0.f)
