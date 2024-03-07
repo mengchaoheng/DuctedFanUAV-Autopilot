@@ -118,10 +118,25 @@ _control_latency_perf(perf_alloc(PC_ELAPSED, "control latency"))
 	B_inv(3, 1)=1.0f;
 	B_inv(3, 2)=1.0f;
 
+	B_inv_new.setZero();
+	B_inv_new(0, 0)=-1.0f;
+	B_inv_new(0, 2)=1.0f;
+
+	B_inv_new(1, 1)=-1.0f;
+	B_inv_new(1, 2)=1.0f;
+
+	B_inv_new(2, 0)=1.0f;
+	B_inv_new(2, 2)=1.0f;
+
+	B_inv_new(3, 1)=1.0f;
+	B_inv_new(3, 2)=1.0f;
+
 	for (size_t i = 0; i < 4; i++)
 	{
 		_uMin[i] = -0.3491;
 		_uMax[i] = 0.3491;
+		_uMin_new[i] = -0.3491f;
+		_uMax_new[i] = 0.3491f;
 	}
 }
 
@@ -567,37 +582,37 @@ bool MixingOutput::update()
 	// PX4_INFO("(pwm_max3 - pwm_min3)/2.f: %f", (double) ((pwm_max3 - pwm_min3)/2.f) );
 	// PX4_INFO("((abs(_param_servo2_disturb.get()) / 0.3491f): %f", (double) ((int16_t) ( ( (_param_servo1_disturb.get()>0 ? _param_servo1_disturb.get() : -_param_servo1_disturb.get()) / 0.3491f ) * ((pwm_max3 - pwm_min3)/2.f))) );
 	// printf("printf: %f \n", abs(_param_servo1_disturb.get()));
-	if ((_disturb_flag && !_disturb_flag_prev) || (_param_use_servo_dis.get()==1 && !_use_servo_dis_prev))
-	{
+	// if ((_disturb_flag && !_disturb_flag_prev) || (_param_use_servo_dis.get()==1 && !_use_servo_dis_prev))
+	// {
 
-		for (size_t i = 0; i < 4; i++)
-		{
-			// if(_servo_disturb[i]>0.f)
-			// 	_uMax[i] = 0.3491-(double) _servo_disturb_abs[i];
-			// else
-			// 	_uMin[i] = -(0.3491-(double) _servo_disturb_abs[i]);
-			// _uMin[i] = -(0.3491-(double) _servo_disturb_abs[i]);
-			// _uMax[i] = 0.3491-(double) _servo_disturb_abs[i];
-			// PX4_INFO("_uMin[%ld]: %f", i, _uMin[i]);
-			// PX4_INFO("_uMax[%ld]: %f", i, _uMax[i]);
-		}
-		// PX4_INFO("single, use_roll_disturb, change _min_value and _min_value !");
+	// 	for (size_t i = 0; i < 4; i++)
+	// 	{
+	// 		// if(_servo_disturb[i]>0.f)
+	// 		// 	_uMax[i] = 0.3491-(double) _servo_disturb_abs[i];
+	// 		// else
+	// 		// 	_uMin[i] = -(0.3491-(double) _servo_disturb_abs[i]);
+	// 		// _uMin[i] = -(0.3491-(double) _servo_disturb_abs[i]);
+	// 		// _uMax[i] = 0.3491-(double) _servo_disturb_abs[i];
+	// 		// PX4_INFO("_uMin[%ld]: %f", i, _uMin[i]);
+	// 		// PX4_INFO("_uMax[%ld]: %f", i, _uMax[i]);
+	// 	}
+	// 	// PX4_INFO("single, use_roll_disturb, change _min_value and _min_value !");
 
-		// PX4_INFO("_param_servo1_disturb: %f", (double) (abs(10000 * _param_servo1_disturb.get()) / 10000.f) );
-		// PX4_INFO("_param_servo1_disturb: %f", (double) ((float) (pwm_max3 - pwm_min3)/2.f));
-		// PX4_INFO("_param_servo1_disturb: %f", (double) ((abs(_param_servo1_disturb.get()) / 0.3491f) * ((float) (pwm_max3 - pwm_min3)/2.f));
-	}
-	if ((!_disturb_flag && _disturb_flag_prev) || (_param_use_servo_dis.get()==0 && _use_servo_dis_prev))
-	{
-		for (size_t i = 0; i < 4; i++)
-		{
-			_uMin[i] = -0.3491;
-			_uMax[i] = 0.3491;
-			// PX4_INFO("_uMin[%ld]: %f", i, _uMin[i]);
-			// PX4_INFO("_uMax[%ld]: %f", i, _uMax[i]);
-		}
-		// PX4_INFO("single, not use_roll_disturb, restore _min_value and _min_value !");
-	}
+	// 	// PX4_INFO("_param_servo1_disturb: %f", (double) (abs(10000 * _param_servo1_disturb.get()) / 10000.f) );
+	// 	// PX4_INFO("_param_servo1_disturb: %f", (double) ((float) (pwm_max3 - pwm_min3)/2.f));
+	// 	// PX4_INFO("_param_servo1_disturb: %f", (double) ((abs(_param_servo1_disturb.get()) / 0.3491f) * ((float) (pwm_max3 - pwm_min3)/2.f));
+	// }
+	// if ((!_disturb_flag && _disturb_flag_prev) || (_param_use_servo_dis.get()==0 && _use_servo_dis_prev))
+	// {
+	// 	for (size_t i = 0; i < 4; i++)
+	// 	{
+	// 		_uMin[i] = -0.3491;
+	// 		_uMax[i] = 0.3491;
+	// 		// PX4_INFO("_uMin[%ld]: %f", i, _uMin[i]);
+	// 		// PX4_INFO("_uMax[%ld]: %f", i, _uMax[i]);
+	// 	}
+	// 	// PX4_INFO("single, not use_roll_disturb, restore _min_value and _min_value !");
+	// }
 	_use_servo_dis_prev = _param_use_servo_dis.get();
 	_disturb_flag_prev = _disturb_flag;
 	// // "outputs" is the value alfter mix, range from [-1, 1]. _current_output_value is pwm value alfter output_limit_calc.
@@ -717,45 +732,48 @@ bool MixingOutput::update()
 		{
 			//inv
 			// PX4_INFO("inv");
-			matrix::Matrix<double, 3, 1> y_desire (y_all);
-			matrix::Matrix<double, 4, 1> u_inv = B_inv * y_desire;
+
+			float y_all_new[3]={roll, pitch, yaw};
+			matrix::Matrix<float, 3, 1> y_desire (y_all_new);
+			matrix::Matrix<float, 4, 1> u_inv = B_inv_new * y_desire;
 			for (size_t i = 0; i < 4; i++)
 			{
-				_u[i] =(double) math::constrain((float) u_inv(i,0), (float) (_uMin[i]), (float) (_uMax[i]));
+				// _u_new[i] =  math::constrain( u_inv(i,0), (_uMin_new[i]), (_uMax_new[i]));
+				_u_new[i] =  math::constrain( u_inv(i,0), -1.0f*0.3491f, 1.0f*0.3491f);
 			}
 			allocation_value.flag=-2;
 		}
-		float u_ultimate[4];
+		// float u_ultimate[4];
 
-		for (size_t i = 0; i < 3; i++)
-		{
-			double  temp = 0.0f;
-			for(int k = 0 ; k < 4 ; k++)
-			{
-				temp += _B[i][k] * _u[k];
-			}
-			allocation_value.error[i] =y_all[i] - temp;
-		}
+		// for (size_t i = 0; i < 3; i++)
+		// {
+		// 	double  temp = 0.0f;
+		// 	for(int k = 0 ; k < 4 ; k++)
+		// 	{
+		// 		temp += _B[i][k] * _u[k];
+		// 	}
+		// 	allocation_value.error[i] =y_all[i] - temp;
+		// }
 
-		for (size_t i = 0; i < 4; i++)
-		{
-			u_ultimate[i] =(float) _u[i];
-			allocation_value.u[i] = _u[i];
-			allocation_value.umin[i] = _uMin[i];
-			allocation_value.umax[i] = _uMax[i];
-		}
-		if (_disturb_flag || (_param_use_servo_dis.get()==1))
-		{
-			for (size_t i = 0; i < 4; i++)
-			{
-				u_ultimate[i] = (float) _u[i] + _servo_disturb[i]; //warmming: SE_SERVO_DIS %% dir_alloc will vibration
-			}
-		}
+		// for (size_t i = 0; i < 4; i++)
+		// {
+		// 	u_ultimate[i] =(float) _u[i];
+		// 	allocation_value.u[i] = _u[i];
+		// 	allocation_value.umin[i] = _uMin[i];
+		// 	allocation_value.umax[i] = _uMax[i];
+		// }
+		// if (_disturb_flag || (_param_use_servo_dis.get()==1))
+		// {
+		// 	for (size_t i = 0; i < 4; i++)
+		// 	{
+		// 		u_ultimate[i] = (float) _u[i] + _servo_disturb[i]; //warmming: SE_SERVO_DIS %% dir_alloc will vibration
+		// 	}
+		// }
 		// PX4_INFO("iters: %f, z: %f, u1: %f, u2: %f, u3: %f, u4: %f. \n", iters, z, u[0]*r2d, u[1]*r2d, u[2]*r2d, u[3]*r2d);
 		for (size_t i = 0; i < 4; i++)
 		{
-			outputs[i+2] = (u_ultimate[i])/0.3491f;
-			allocation_value.u_ultimate[i] = u_ultimate[i];
+			outputs[i+2] = (_u_new[i])/0.3491f;
+			// allocation_value.u_ultimate[i] = u_ultimate[i];
 		}
 		// timestamp_ca_end = hrt_absolute_time();
 		// PX4_INFO("dir_alloc_sim time: %lld \n", (timestamp_ca_end - timestamp_ca_start) ); //nuttx

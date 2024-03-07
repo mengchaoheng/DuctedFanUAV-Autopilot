@@ -130,6 +130,7 @@ private:
 	bool _use_square_ref_prev{false};
 	hrt_abstime _add_square_time;
 	hrt_abstime _add_sin_time;
+	bool _use_lp_alloc{false};
 
 	float int_time;
 	float _cycle_time;
@@ -211,7 +212,9 @@ private:
 		(ParamFloat<px4::params::SPEED_SIN_AMP>) _param_speed_sin_amp,
 		(ParamFloat<px4::params::SPEED_SIN_BIA>) _param_speed_sin_bia,
 		(ParamInt<px4::params::CYC_T>) _param_cycle_time,
-		(ParamInt<px4::params::USE_TAUI>) _param_use_tau_i
+		(ParamInt<px4::params::USE_TAUI>) _param_use_tau_i,
+		(ParamInt<px4::params::USE_CA>) _param_use_alloc,
+		(ParamInt<px4::params::USE_LPCA>) _param_use_lp_alloc
 
 	)
 

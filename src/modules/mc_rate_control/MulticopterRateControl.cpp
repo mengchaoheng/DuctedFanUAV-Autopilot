@@ -82,6 +82,30 @@ MulticopterRateControl::parameters_updated()
 	// rate control parameters
 	// The controller gain K is used to convert the parallel (P + I/s + sD) form
 	// to the ideal (K * [1 + 1/sTi + sTd]) form
+	if (_param_use_alloc.get() == 1)
+	{
+		// if ( (_use_lp_alloc || _param_use_lp_alloc.get()==1))
+		// {
+
+
+		// }
+		// else
+		// {
+			//inv
+			PX4_INFO("inv set rate_k");
+			_param_mc_rollrate_k.set(0.3491f);
+			_param_mc_pitchrate_k.set(0.3491f);
+			_param_mc_yawrate_k.set(0.3491f);
+
+		// }
+	}
+	else
+	{
+		PX4_INFO("inv reset rate_k");
+		_param_mc_rollrate_k.reset();
+		_param_mc_pitchrate_k.reset();
+		_param_mc_yawrate_k.reset();
+	}
 	const Vector3f rate_k = Vector3f(_param_mc_rollrate_k.get(), _param_mc_pitchrate_k.get(), _param_mc_yawrate_k.get());
 
 	_indi_control.setParams(rate_k.emult(Vector3f(_param_mc_indiroll_p.get(), _param_mc_indipitch_p.get(), _param_mc_indiyaw_p.get())),
@@ -186,7 +210,18 @@ MulticopterRateControl::Run()
 			_indi_flag = false;
 			// PX4_INFO("PID !");
 		}
+
+		if(_rc_channels.channels[9] < 0.5f)
+		{
+			_use_lp_alloc = false;
+		}
+		else
+		{
+			_use_lp_alloc = true;
+			// PX4_INFO("step !");
+		}
 	}
+
 
 
 

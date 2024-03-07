@@ -347,6 +347,10 @@ private:
 	double _u[4] {}; //  [-1, 1]
 	double _last_u[4] {};
 	matrix::Matrix<double, 4, 3> B_inv;
+	matrix::Matrix<float, 4, 3> B_inv_new;
+	float _u_new[4] {}; //  [-1, 1]
+	float _uMin_new[4] {};
+	float _uMax_new[4] {};
 
 	rc_channels_s		_rc_channels {};
 	const double _B[3][4] = { {-0.5,0.0,0.5,0.0}, {0.0,-0.5,0.0,0.5},{0.25,0.25,0.25,0.25}};
