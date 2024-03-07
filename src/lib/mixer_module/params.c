@@ -65,7 +65,7 @@ PARAM_DEFINE_INT32(DUCTEDFAN_MID2, 1500);
  * @value 1 use CA
  * @group Mixer Output
  */
-PARAM_DEFINE_INT32(USE_CA, 1);
+PARAM_DEFINE_INT32(USE_CA, 0);
 
 /**
  * USE_LPCA

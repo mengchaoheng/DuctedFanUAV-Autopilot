@@ -576,8 +576,8 @@ bool MixingOutput::update()
 			// 	_uMax[i] = 0.3491-(double) _servo_disturb_abs[i];
 			// else
 			// 	_uMin[i] = -(0.3491-(double) _servo_disturb_abs[i]);
-			_uMin[i] = -(0.3491-(double) _servo_disturb_abs[i]);
-			_uMax[i] = 0.3491-(double) _servo_disturb_abs[i];
+			// _uMin[i] = -(0.3491-(double) _servo_disturb_abs[i]);
+			// _uMax[i] = 0.3491-(double) _servo_disturb_abs[i];
 			// PX4_INFO("_uMin[%ld]: %f", i, _uMin[i]);
 			// PX4_INFO("_uMax[%ld]: %f", i, _uMax[i]);
 		}
@@ -646,7 +646,8 @@ bool MixingOutput::update()
 			double z_all;
 			double iters_all;
 			dir_alloc_sim(y_all, _uMin, _uMax, u_all, &z_all, &iters_all);
-			if (z_all>1)
+			// if (z_all>1)
+			if (1)
 			{
 				for (size_t i = 0; i < 4; i++)
 				{
@@ -747,7 +748,7 @@ bool MixingOutput::update()
 		{
 			for (size_t i = 0; i < 4; i++)
 			{
-				u_ultimate[i] = (float) _u[i] + _servo_disturb[i];
+				u_ultimate[i] = (float) _u[i] + _servo_disturb[i]; //warmming: SE_SERVO_DIS %% dir_alloc will vibration
 			}
 		}
 		// PX4_INFO("iters: %f, z: %f, u1: %f, u2: %f, u3: %f, u4: %f. \n", iters, z, u[0]*r2d, u[1]*r2d, u[2]*r2d, u[3]*r2d);

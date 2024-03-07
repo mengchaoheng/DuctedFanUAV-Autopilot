@@ -63,7 +63,7 @@ then
 	param set DOMEGA_D_CUTOFF  10
 	param set OMEGA_CUTOFF  10
 	param set IMU_DGYRO_CUTOFF  10
-	param set USE_CA 1
+	# param set USE_CA 1
 	param set SAMPLE_FREQ 250
 	param set CYC_T 4000
 
