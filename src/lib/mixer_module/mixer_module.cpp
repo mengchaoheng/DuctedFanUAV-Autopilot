@@ -634,7 +634,7 @@ bool MixingOutput::update()
 			ye[0]= _indi_feedback_input.indi_fb[indi_feedback_input_s::INDEX_ROLL];
 			ye[1]= _indi_feedback_input.indi_fb[indi_feedback_input_s::INDEX_PITCH];
 			ye[2]= _indi_feedback_input.indi_fb[indi_feedback_input_s::INDEX_YAW];
-			// PX4_INFO("roll: %f, pitch: %f, yaw: %f \n", ye[0], ye[1], ye[2]);
+			// PX4_INFO("roll: %f, pitch: %f, yaw: %f \n", (double) ye[0], (double) ye[1], (double) ye[2]);
 		}
 		// uint64_t timestamp_ca_start;
 		// uint64_t timestamp_ca_end;
@@ -669,8 +669,8 @@ bool MixingOutput::update()
 			// dir_alloc_sim(y_all, _uMin, _uMax, u_all, &z_all, &iters_all);
 			// dir_alloc_sim(y_all, _uMin, _uMax, B, u_all, &z_all, &iters_all);
 			allocator_dir_simplex_4(y_all,_uMin,_uMax,u_all, &z_all, &iters_all);
-			// if (z_all>1)
-			if (1)
+			if (z_all>1)
+			// if (1)
 			{
 				for (size_t i = 0; i < 4; i++)
 				{
