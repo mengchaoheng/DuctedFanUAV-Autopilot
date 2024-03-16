@@ -118,25 +118,31 @@ _control_latency_perf(perf_alloc(PC_ELAPSED, "control latency"))
 	B_inv(3, 1)=1.0f;
 	B_inv(3, 2)=1.0f;
 
-	B_inv_new.setZero();
-	B_inv_new(0, 0)=-1.0f;
-	B_inv_new(0, 2)=1.0f;
+	// B_inv_new.setZero();
+	// B_inv_new(0, 0)=-1.0f;
+	// B_inv_new(0, 2)=1.0f;
 
-	B_inv_new(1, 1)=-1.0f;
-	B_inv_new(1, 2)=1.0f;
+	// B_inv_new(1, 1)=-1.0f;
+	// B_inv_new(1, 2)=1.0f;
 
-	B_inv_new(2, 0)=1.0f;
-	B_inv_new(2, 2)=1.0f;
+	// B_inv_new(2, 0)=1.0f;
+	// B_inv_new(2, 2)=1.0f;
 
-	B_inv_new(3, 1)=1.0f;
-	B_inv_new(3, 2)=1.0f;
+	// B_inv_new(3, 1)=1.0f;
+	// B_inv_new(3, 2)=1.0f;
+
+	for (int i = 0; i < 3; i++) {
+		for (int j = 0; j < 4; j++) {
+			B[i+j*3] = _B[i][j];
+		}
+	}
 
 	for (size_t i = 0; i < 4; i++)
 	{
 		_uMin[i] = -0.3491;
 		_uMax[i] = 0.3491;
-		_uMin_new[i] = -0.3491f;
-		_uMax_new[i] = 0.3491f;
+		// _uMin_new[i] = -0.3491f;
+		// _uMax_new[i] = 0.3491f;
 	}
 }
 
@@ -622,12 +628,12 @@ bool MixingOutput::update()
 	if (_param_use_alloc.get() == 1)
 	{
 		// ye
-		double ye[3]={0.0, 0.0, 0.0};
+		float ye[3]={0.0, 0.0, 0.0};
 		if (_indi_fb_sub.update(&_indi_feedback_input)) {
 
-			ye[0]=(double) _indi_feedback_input.indi_fb[indi_feedback_input_s::INDEX_ROLL];
-			ye[1]=(double) _indi_feedback_input.indi_fb[indi_feedback_input_s::INDEX_PITCH];
-			ye[2]=(double) _indi_feedback_input.indi_fb[indi_feedback_input_s::INDEX_YAW];
+			ye[0]= _indi_feedback_input.indi_fb[indi_feedback_input_s::INDEX_ROLL];
+			ye[1]= _indi_feedback_input.indi_fb[indi_feedback_input_s::INDEX_PITCH];
+			ye[2]= _indi_feedback_input.indi_fb[indi_feedback_input_s::INDEX_YAW];
 			// PX4_INFO("roll: %f, pitch: %f, yaw: %f \n", ye[0], ye[1], ye[2]);
 		}
 		// uint64_t timestamp_ca_start;
@@ -645,8 +651,8 @@ bool MixingOutput::update()
 		// yaw = _controls[0].control[actuator_controls_s::INDEX_YAW];
 		// PX4_INFO("rpy:\n");
 		// PX4_INFO("roll: %f, pitch: %f, yaw: %f \n", (double) roll, (double) pitch, (double) yaw);
-		double y_all[3]={(double) roll, (double) pitch, (double)  yaw};
-		double yd[3] = { y_all[0]-ye[0], y_all[1]-ye[1], y_all[2]-ye[2] };
+		float y_all[3]={roll, pitch, yaw};
+		float yd[3] = { y_all[0]-ye[0], y_all[1]-ye[1], y_all[2]-ye[2] };
 		// double d2r=3.141592653/180;
 		// double r2d=180/3.141592653;
 
@@ -657,29 +663,31 @@ bool MixingOutput::update()
 		{
 			// PX4_INFO("dir");
 
-			double u_all[4];
-			double z_all;
-			double iters_all;
-			dir_alloc_sim(y_all, _uMin, _uMax, u_all, &z_all, &iters_all);
+			float u_all[4];
+			float z_all;
+			float iters_all;
+			// dir_alloc_sim(y_all, _uMin, _uMax, u_all, &z_all, &iters_all);
+			dir_alloc_sim(y_all, _uMin, _uMax, B, u_all, &z_all, &iters_all);
 			// if (z_all>1)
 			if (1)
 			{
 				for (size_t i = 0; i < 4; i++)
 				{
-					_u[i] = (double) math::constrain((float) u_all[i], (float) (_uMin[i]), (float) (_uMax[i]));
+					_u[i] =  math::constrain( u_all[i], _uMin[i], _uMax[i]);
 				}
 				allocation_value.flag=0;
 				// PX4_INFO(" dir 1");
 			}
 			else
 			{
-				double u_e[4] = {0.0, 0.0, 0.0, 0.0};
-				double z_e;
-				double iters_e;
-				dir_alloc_sim(ye, _uMin, _uMax, u_e, &z_e, &iters_e);
+				float u_e[4] = {0.0, 0.0, 0.0, 0.0};
+				float z_e;
+				float iters_e;
+				// dir_alloc_sim(ye, _uMin, _uMax, u_e, &z_e, &iters_e);
+				dir_alloc_sim(ye, _uMin, _uMax, B, u_e, &z_e, &iters_e);
 				for (size_t i = 0; i < 3; i++)
 				{
-					double  temp = 0.0f;
+					float  temp = 0.0f;
 					for(int k = 0 ; k < 4 ; k++)
 					{
 						temp += _B[i][k] * u_e[k];
@@ -688,20 +696,21 @@ bool MixingOutput::update()
 				}
 				if (z_e>1)
 				{
-					double uMin_new[4];
-					double uMax_new[4];
+					float uMin_new[4];
+					float uMax_new[4];
 					for (size_t i = 0; i < 4; i++)
 					{
 						uMin_new[i] = _uMin[i] - u_e[i];
 						uMax_new[i] = _uMax[i] - u_e[i];
 					}
-					double u_d[4] = {0.0, 0.0, 0.0, 0.0};
-					double z_d;
-					double iters_d;
-					dir_alloc_sim(yd, uMin_new, uMax_new, u_d, &z_d, &iters_d);
+					float u_d[4] = {0.0, 0.0, 0.0, 0.0};
+					float z_d;
+					float iters_d;
+					// dir_alloc_sim(yd, uMin_new, uMax_new, u_d, &z_d, &iters_d);
+					dir_alloc_sim(yd, uMin_new, uMax_new, B, u_d, &z_d, &iters_d);
 					for (size_t i = 0; i < 3; i++)
 					{
-						double  temp = 0.0f;
+						float  temp = 0.0f;
 						for(int k = 0 ; k < 4 ; k++)
 						{
 							temp += _B[i][k] * u_d[k];
@@ -710,7 +719,7 @@ bool MixingOutput::update()
 					}
 					for (size_t i = 0; i < 4; i++)
 					{
-						_u[i] = (double) math::constrain((float) (u_d[i] + u_e[i]), (float) (_uMin[i]), (float) (_uMax[i]));
+						_u[i] = math::constrain((float) (u_d[i] + u_e[i]), (float) (_uMin[i]), (float) (_uMax[i]));
 					}
 					// PX4_INFO("dir 3");
 					allocation_value.flag=1;
@@ -719,7 +728,7 @@ bool MixingOutput::update()
 				{
 					for (size_t i = 0; i < 4; i++)
 					{
-						_u[i] = (double) math::constrain((float) u_e[i], (float) (_uMin[i]), (float) (_uMax[i]));
+						_u[i] = math::constrain((float) u_e[i], (float) (_uMin[i]), (float) (_uMax[i]));
 					}
 					// PX4_INFO("dir 2");
 					allocation_value.flag=-1;
@@ -733,13 +742,13 @@ bool MixingOutput::update()
 			//inv
 			// PX4_INFO("inv");
 
-			float y_all_new[3]={roll, pitch, yaw};
-			matrix::Matrix<float, 3, 1> y_desire (y_all_new);
-			matrix::Matrix<float, 4, 1> u_inv = B_inv_new * y_desire;
+			// float y_all_new[3]={roll, pitch, yaw};
+			matrix::Matrix<float, 3, 1> y_desire (y_all);
+			matrix::Matrix<float, 4, 1> u_inv = B_inv * y_desire;
 			for (size_t i = 0; i < 4; i++)
 			{
 				// _u_new[i] =  math::constrain( u_inv(i,0), (_uMin_new[i]), (_uMax_new[i]));
-				_u_new[i] =  math::constrain( u_inv(i,0), -1.0f*0.3491f, 1.0f*0.3491f);
+				_u[i] =  math::constrain( u_inv(i,0), _uMin[i], _uMax[i]);
 			}
 			allocation_value.flag=-2;
 		}
@@ -755,13 +764,13 @@ bool MixingOutput::update()
 		// 	allocation_value.error[i] =y_all[i] - temp;
 		// }
 
-		// for (size_t i = 0; i < 4; i++)
-		// {
-		// 	u_ultimate[i] =(float) _u[i];
-		// 	allocation_value.u[i] = _u[i];
-		// 	allocation_value.umin[i] = _uMin[i];
-		// 	allocation_value.umax[i] = _uMax[i];
-		// }
+		for (size_t i = 0; i < 4; i++)
+		{
+			// u_ultimate[i] =(float) _u[i];
+			allocation_value.u[i] = _u[i];
+			allocation_value.umin[i] = _uMin[i];
+			allocation_value.umax[i] = _uMax[i];
+		}
 		// if (_disturb_flag || (_param_use_servo_dis.get()==1))
 		// {
 		// 	for (size_t i = 0; i < 4; i++)
@@ -772,7 +781,7 @@ bool MixingOutput::update()
 		// PX4_INFO("iters: %f, z: %f, u1: %f, u2: %f, u3: %f, u4: %f. \n", iters, z, u[0]*r2d, u[1]*r2d, u[2]*r2d, u[3]*r2d);
 		for (size_t i = 0; i < 4; i++)
 		{
-			outputs[i+2] = (_u_new[i])/0.3491f;
+			outputs[i+2] = (_u[i])/0.3491f;
 			// allocation_value.u_ultimate[i] = u_ultimate[i];
 		}
 		// timestamp_ca_end = hrt_absolute_time();
@@ -783,7 +792,7 @@ bool MixingOutput::update()
 	{
 		for (size_t i = 0; i < 4; i++)
 		{
-			_u[i] = (double) outputs[i+2];
+			_u[i] = outputs[i+2];
 		}
 	}
 	allocation_value.timestamp = hrt_absolute_time();

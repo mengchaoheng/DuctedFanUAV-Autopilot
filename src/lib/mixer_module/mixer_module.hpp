@@ -342,19 +342,19 @@ private:
 
 	float _servo_disturb[4] {};
 	float _servo_disturb_abs[4] {};
-	double _uMin[4] {};
-	double _uMax[4] {};
-	double _u[4] {}; //  [-1, 1]
-	double _last_u[4] {};
-	matrix::Matrix<double, 4, 3> B_inv;
-	matrix::Matrix<float, 4, 3> B_inv_new;
-	float _u_new[4] {}; //  [-1, 1]
-	float _uMin_new[4] {};
-	float _uMax_new[4] {};
+	float _uMin[4] {};
+	float _uMax[4] {};
+	float _u[4] {}; //  [-1, 1]
+	float _last_u[4] {};
+	matrix::Matrix<float, 4, 3> B_inv;
+	// matrix::Matrix<float, 4, 3> B_inv_new;
+	// float _u_new[4] {}; //  [-1, 1]
+	// float _uMin_new[4] {};
+	// float _uMax_new[4] {};
 
 	rc_channels_s		_rc_channels {};
-	const double _B[3][4] = { {-0.5,0.0,0.5,0.0}, {0.0,-0.5,0.0,0.5},{0.25,0.25,0.25,0.25}};
-
+	const float _B[3][4] = { {-0.5,0.0,0.5,0.0}, {0.0,-0.5,0.0,0.5},{0.25,0.25,0.25,0.25}};
+	float B[12] {};
 	DEFINE_PARAMETERS(
 		(ParamInt<px4::params::MC_AIRMODE>) _param_mc_airmode,   ///< multicopter air-mode
 		(ParamFloat<px4::params::MOT_SLEW_MAX>) _param_mot_slew_max,

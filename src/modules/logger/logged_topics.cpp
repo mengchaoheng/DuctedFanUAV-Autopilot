@@ -46,10 +46,10 @@ using namespace px4::logger;
 void LoggedTopics::add_default_topics()
 {
 	add_topic("actuator_armed");
-	add_topic("actuator_controls_0", 50);
+	add_topic("actuator_controls_0", 10);
 	add_topic("indi_feedback_input", 50);
 	add_topic("actuator_outputs_value", 50);
-	add_topic("allocation_value", 20);
+	add_topic("allocation_value", 10);
 	add_topic("actuator_controls_1", 100);
 	add_topic("airspeed", 1000);
 	add_topic("airspeed_validated", 200);
