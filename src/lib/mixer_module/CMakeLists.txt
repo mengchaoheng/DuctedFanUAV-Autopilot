@@ -31,4 +31,4 @@
 #
 ############################################################################
 
-px4_add_library(mixer_module mixer_module.cpp dir_alloc_sim.cpp dir_alloc_sim.h dir_alloc_sim_types.h rtwtypes.h)
+px4_add_library(mixer_module mixer_module.cpp allocator_dir_simplex_4.cpp allocator_dir_simplex_4.h rtwtypes.h)

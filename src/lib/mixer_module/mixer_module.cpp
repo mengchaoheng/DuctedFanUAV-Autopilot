@@ -39,7 +39,7 @@
 #include <px4_platform_common/log.h>
 
 
-#include "dir_alloc_sim.h"
+#include "allocator_dir_simplex_4.h"
 
 using namespace time_literals;
 
@@ -665,9 +665,10 @@ bool MixingOutput::update()
 
 			float u_all[4];
 			float z_all;
-			float iters_all;
+			unsigned long iters_all;
 			// dir_alloc_sim(y_all, _uMin, _uMax, u_all, &z_all, &iters_all);
-			dir_alloc_sim(y_all, _uMin, _uMax, B, u_all, &z_all, &iters_all);
+			// dir_alloc_sim(y_all, _uMin, _uMax, B, u_all, &z_all, &iters_all);
+			allocator_dir_simplex_4(y_all,_uMin,_uMax,u_all, &z_all, &iters_all);
 			// if (z_all>1)
 			if (1)
 			{
@@ -682,9 +683,10 @@ bool MixingOutput::update()
 			{
 				float u_e[4] = {0.0, 0.0, 0.0, 0.0};
 				float z_e;
-				float iters_e;
+				unsigned long iters_e;
 				// dir_alloc_sim(ye, _uMin, _uMax, u_e, &z_e, &iters_e);
-				dir_alloc_sim(ye, _uMin, _uMax, B, u_e, &z_e, &iters_e);
+				// dir_alloc_sim(ye, _uMin, _uMax, B, u_e, &z_e, &iters_e);
+				allocator_dir_simplex_4(ye,_uMin,_uMax,u_e, &z_e, &iters_e);
 				for (size_t i = 0; i < 3; i++)
 				{
 					float  temp = 0.0f;
@@ -705,9 +707,10 @@ bool MixingOutput::update()
 					}
 					float u_d[4] = {0.0, 0.0, 0.0, 0.0};
 					float z_d;
-					float iters_d;
+					unsigned long iters_d;
 					// dir_alloc_sim(yd, uMin_new, uMax_new, u_d, &z_d, &iters_d);
-					dir_alloc_sim(yd, uMin_new, uMax_new, B, u_d, &z_d, &iters_d);
+					// dir_alloc_sim(yd, uMin_new, uMax_new, B, u_d, &z_d, &iters_d);
+					allocator_dir_simplex_4(yd,uMin_new,uMax_new,u_d, &z_d, &iters_d);
 					for (size_t i = 0; i < 3; i++)
 					{
 						float  temp = 0.0f;
