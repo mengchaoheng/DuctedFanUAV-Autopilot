@@ -353,7 +353,7 @@ private:
 	// float _uMax_new[4] {};
 
 	rc_channels_s		_rc_channels {};
-	const float _B[3][4] = { {-0.5,0.0,0.5,0.0}, {0.0,-0.5,0.0,0.5},{0.25,0.25,0.25,0.25}};
+	const float _B[3][4] = { {-0.444,0.0,0.444,0.0}, {0.0,-0.444,0.0,0.444},{0.207,0.207,0.207,0.207}};
 	float B[12] {};
 	DEFINE_PARAMETERS(
 		(ParamInt<px4::params::MC_AIRMODE>) _param_mc_airmode,   ///< multicopter air-mode

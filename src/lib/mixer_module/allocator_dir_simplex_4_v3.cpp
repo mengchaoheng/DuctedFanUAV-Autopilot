@@ -1,14 +1,15 @@
 /*
  * Prerelease License - for engineering feedback and testing purposes
  * only. Not for sale.
- * File: allocator_dir_simplex_4.c
+ * File: allocator_dir_simplex_4_v3.c
  *
  * MATLAB Coder version            : 24.1
- * C/C++ source code generated on  : 2024-03-16 15:46:10
+ * C/C++ source code generated on  : 2024-03-21 09:21:52
  */
 
 /* Include Files */
-#include "allocator_dir_simplex_4.h"
+#include "allocator_dir_simplex_4_v3.h"
+#include "rt_nonfinite.h"
 
 /* Function Definitions */
 /*
@@ -46,19 +47,17 @@
  *    min z=[c -c]*X   subj. to  [Aeq -Aeq;G -G]*X (=、<=) [beq;h]
  *     X
  *  其中 X=[x^+; x^-]
- *
- *  B=[-0.5   0       0.5   0;
- *       0  -0.5    0       0.5;
- *      0.25   0.25   0.25   0.25];
- *  B=[-0.5   0       0.5   0;
- *       0  -0.5    0       0.5;
- *      0.25   0.25   0.25   0.25];
+ *  come from dir_alloc_simplex and using sigle data, define matrix for df4.
+ * 改变B只需要重新计算P_inv和将5，10列置0的常矩阵A l1=0.148;l2=0.069;k=3;
+ *  B=k*[-l1     0       l1     0;
+ *       0      -l1     0       l1;
+ *       l2    l2    l2    l2];
  *  Aeq=[B -v];
- *  beq=zeros(3,1);
  *  G=[eye(5);-eye(5)];
- *  h=[umax; 20; -umin; 0];
- *  求解线性规划
- *  b=[beq;h];
+ *  Ad=[Aeq -Aeq; G -G]; % Ad=[B -v -B v; eye(5) -eye(5);-eye(5) eye(5)];
+ *  Ad只有第5，第10列根据v不同而不同，其他固定不变。打印出将变化列置零的Ad：
+ *
+ *  beq=zeros(3,1);h=[umax; 20; -umin; 0];b=[beq;h];
  *
  * Arguments    : const float v[3]
  *                const float umin[4]
@@ -68,12 +67,38 @@
  *                unsigned long *iters
  * Return Type  : void
  */
-void allocator_dir_simplex_4(const float v[3], const float umin[4],
-                             const float umax[4], float u[4], float *z,
-                             unsigned long *iters)
+void allocator_dir_simplex_4_v3(const float v[3], const float umin[4],
+                                const float umax[4], float u[4], float *z,
+                                unsigned long *iters)
 {
+  static const float P_inv[169] = {
+      -1.1261F, -0.0F,    1.1261F,  1.1261F,  0.0F,     -1.1261F, 0.0F,
+      -0.0F,    -1.1261F, -0.0F,    1.1261F,  0.0F,     0.0F,     1.1261F,
+      -2.2523F, 1.1261F,  -1.1261F, 2.2523F,  -1.1261F, -0.0F,    -0.0F,
+      1.1261F,  -2.2523F, 1.1261F,  0.0F,     0.0F,     2.4155F,  0.0F,
+      2.4155F,  -2.4155F, 0.0F,     -2.4155F, 0.0F,     -0.0F,    2.4155F,
+      -0.0F,    2.4155F,  0.0F,     0.0F,     0.0F,     -0.0F,    0.0F,
+      1.0F,     0.0F,     -0.0F,    0.0F,     -0.0F,    0.0F,     -0.0F,
+      0.0F,     0.0F,     0.0F,     0.0F,     0.0F,     0.0F,     -0.0F,
+      1.0F,     -0.0F,    -0.0F,    0.0F,     0.0F,     0.0F,     0.0F,
+      0.0F,     0.0F,     -0.0F,    -0.0F,    -0.0F,    0.0F,     -0.0F,
+      1.0F,     0.0F,     0.0F,     -0.0F,    -0.0F,    -0.0F,    0.0F,
+      0.0F,     0.0F,     -0.0F,    0.0F,     0.0F,     -0.0F,    -0.0F,
+      1.0F,     0.0F,     0.0F,     -0.0F,    -0.0F,    0.0F,     0.0F,
+      0.0F,     0.0F,     0.0F,     0.0F,     -0.0F,    0.0F,     -0.0F,
+      1.0F,     0.0F,     -0.0F,    0.0F,     0.0F,     0.0F,     0.0F,
+      -0.0F,    0.0F,     -0.0F,    0.0F,     -0.0F,    0.0F,     -0.0F,
+      1.0F,     -0.0F,    0.0F,     0.0F,     0.0F,     -0.0F,    -0.0F,
+      -0.0F,    0.0F,     0.0F,     0.0F,     -0.0F,    0.0F,     -0.0F,
+      1.0F,     -0.0F,    0.0F,     0.0F,     0.0F,     0.0F,     0.0F,
+      -0.0F,    -0.0F,    -0.0F,    0.0F,     0.0F,     0.0F,     0.0F,
+      1.0F,     0.0F,     0.0F,     0.0F,     0.0F,     0.0F,     0.0F,
+      0.0F,     0.0F,     0.0F,     0.0F,     0.0F,     0.0F,     0.0F,
+      1.0F,     0.0F,     0.0F,     0.0F,     0.0F,     0.0F,     0.0F,
+      0.0F,     0.0F,     0.0F,     0.0F,     0.0F,     0.0F,     0.0F,
+      1.0F};
   static float A[260];
-  static const signed char iv2[260] = {
+  static const signed char iv[260] = {
       1,  0, 0,  0, 0,  0,  0,  0, 0,  0, 0,  0, 0,  0,  1,  0, 0, 0, 0, 0,
       0,  0, 0,  0, 0,  0,  0,  0, 1,  0, 0,  0, 0,  0,  0,  0, 0, 0, 0, 1,
       -1, 1, -1, 1, -1, 1,  0,  1, -1, 1, -1, 0, 0,  0,  0,  0, 0, 0, 0, 0,
@@ -87,35 +112,26 @@ void allocator_dir_simplex_4(const float v[3], const float umin[4],
       0,  0, 0,  1, 0,  0,  0,  0, 0,  0, 0,  0, 0,  0,  0,  0, 0, 1, 0, 0,
       0,  0, 0,  0, 0,  0,  0,  0, 0,  0, 0,  1, 0,  0,  0,  0, 0, 0, 0, 0,
       0,  0, 0,  0, 0,  1,  0,  0, 0,  0, 0,  0, 0,  0,  0,  0, 0, 0, 0, 1};
-  static const signed char P_inv[169] = {
-      -1, 0, 1, 1, 0, -1, 0, 0,  -1, 0,  1, 0, 0, 1, -2, 1, -1, 2, -1, 0, 0, 1,
-      -2, 1, 0, 0, 2, 0,  2, -2, 0,  -2, 0, 0, 2, 0, 2,  0, 0,  0, 0,  0, 1, 0,
-      0,  0, 0, 0, 0, 0,  0, 0,  0,  0,  0, 0, 1, 0, 0,  0, 0,  0, 0,  0, 0, 0,
-      0,  0, 0, 0, 1, 0,  0, 0,  0,  0,  0, 0, 0, 0, 0,  0, 0,  0, 1,  0, 0, 0,
-      0,  0, 0, 0, 0, 0,  0, 0,  0,  0,  1, 0, 0, 0, 0,  0, 0,  0, 0,  0, 0, 0,
-      0,  0, 1, 0, 0, 0,  0, 0,  0,  0,  0, 0, 0, 0, 0,  0, 1,  0, 0,  0, 0, 0,
-      0,  0, 0, 0, 0, 0,  0, 0,  1,  0,  0, 0, 0, 0, 0,  0, 0,  0, 0,  0, 0, 0,
-      1,  0, 0, 0, 0, 0,  0, 0,  0,  0,  0, 0, 0, 0, 1};
   static const signed char iv3[20] = {0, 0, 0, 0, -1, 0, 0, 0, 0, 1,
                                       0, 0, 0, 0, 0,  0, 0, 0, 0, 0};
-  static const signed char iv[13] = {0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, -1};
-  static const signed char iv1[13] = {0, 0, 0, 0, 0, 0, 0, -1, 0, 0, 0, 0, 1};
+  static const signed char iv1[13] = {0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, -1};
+  static const signed char iv2[13] = {0, 0, 0, 0, 0, 0, 0, -1, 0, 0, 0, 0, 1};
   static const unsigned char uv[13] = {1U,  2U,  3U,  11U, 12U, 13U, 14U,
                                        15U, 16U, 17U, 18U, 19U, 20U};
-  float c[20];
+  float C[20];
   float x[20];
   float Ad10[13];
   float Ad5[13];
   float b[13];
+  float f;
   float temp1;
-  float temp2;
   int i;
   int k;
   unsigned char B[13];
   b[0] = 0.0F;
   b[1] = 0.0F;
   b[2] = 0.0F;
-  b[7] = 10000.0F;
+  b[7] = rtInfF;
   b[3] = umax[0];
   b[8] = -umin[0];
   b[4] = umax[1];
@@ -125,57 +141,18 @@ void allocator_dir_simplex_4(const float v[3], const float umin[4],
   b[6] = umax[3];
   b[11] = -umin[3];
   b[12] = 0.0F;
-  /*  构造线性规划标准型 */
-  /*  Convert free variables to positively constrained variables */
-  /*  Ad=[Aeq -Aeq; G -G]; */
-  /*  Ad=[B -v -B v; eye(5) -eye(5);-eye(5) eye(5)]; */
-  /*  Ad=[-0.5000         0    0.5000         0         0    0.5000         0
-   * -0.5000         0         0; */
-  /*            0   -0.5000         0    0.5000         0         0    0.5000 0
-   * -0.5000         0; */
-  /*       0.2500    0.2500    0.2500    0.2500         0   -0.2500   -0.2500
-   * -0.2500   -0.2500   	    0; */
-  /*       1.0000         0         0         0         0   -1.0000         0 0
-   * 0         0; */
-  /*            0    1.0000         0         0         0         0   -1.0000 0
-   * 0         0; */
-  /*            0         0    1.0000         0         0         0         0
-   * -1.0000         0         0; */
-  /*            0         0         0    1.0000         0         0         0 0
-   * -1.0000         0; */
-  /*            0         0         0         0    1.0000         0         0 0
-   * 0   -1.0000; */
-  /*      -1.0000         0         0         0         0    1.0000         0 0
-   * 0         0; */
-  /*            0   -1.0000         0         0         0         0    1.0000 0
-   * 0         0; */
-  /*            0         0   -1.0000         0         0         0 0    1.0000
-   * 0         0; */
-  /*            0         0         0   -1.0000         0         0         0 0
-   * 1.0000         0; */
-  /*            0         0         0         0   -1.0000         0         0 0
-   * 0    1.0000]; */
-  /*  Ad只有第5，第10列根据v不同而不同，其他固定不变 */
-  for (i = 0; i < 13; i++) {
-    Ad5[i] = iv[i];
-    Ad10[i] = iv1[i];
-  }
-  Ad5[0] = -v[0];
-  Ad10[0] = v[0];
-  Ad5[1] = -v[1];
-  Ad10[1] = v[1];
-  Ad5[2] = -v[2];
-  Ad10[2] = v[2];
-  /*  [mad,~]= size(Ad); */
+  /*  */
+  /*  [mad,nad]= size(Ad); */
+  /*   */
   /*  先把前三个等式的基找到，并化简 */
-  /*  B_inv=[Ad(1:3,1:3) zeros(3,mad-3);Ad(4:mad,1:3) eye(mad-3)]; */
-  /*  B_inv=[Ad(1:3,1:3) zeros(3,10);Ad(4:mad,1:3) eye(10)]; */
-  /*  P=[Ad(1:3,1:3) zeros(3,10);Ad(4:13,1:3) eye(10)]; */
+  /*  P=[Ad(1:3,1:3) zeros(3,mad-3);Ad(4:mad,1:3) eye(mad-3)]; %
+   * 无关列的P阵是和B有的矩阵 */
   /*  求逆 */
-  /*  Ad_eye=P\Ad;% 化简 */
-  /*  无关列的逆阵P_inv是常矩阵 */
-  /*  P_inv=inv_mch(P); */
-  /*  Ad_eye=P_inv*Ad; */
+  /*  无关列的逆阵P_inv是和B有关的矩阵 */
+  /*  P_inv=pinv(P); % 运行后得到 */
+  /*  根据以上分析，Ad_eye=P_inv*Ad只有第5，第10列依v不同而变化。下面预设Ad_eye
+   */
+  /*  Ad_eye=P\Ad;  %  运行后将Ad_eye的5，10列置0,得到的常矩阵： */
   /*  Ad_eye=[1     0     0     1     0    -1     0     0    -1     0; */
   /*          0     1     0    -1     0     0    -1     0     1     0; */
   /*          0     0     1     1     0     0     0    -1    -1     0; */
@@ -189,7 +166,7 @@ void allocator_dir_simplex_4(const float v[3], const float umin[4],
   /*          0     0     0     1     0     0     0     0    -1     0; */
   /*          0     0     0    -1     0     0     0     0     1     0; */
   /*          0     0     0     0     0     0     0     0     0     0]; */
-  /*  根据以上分析，P_inv*Ad只有第5，第10列依v不同而变化。 */
+  /*  下面可计算Ad_eye的5，10列 */
   /*  for i=1:13 */
   /*      temp1=0; */
   /*      temp2=0; */
@@ -201,22 +178,34 @@ void allocator_dir_simplex_4(const float v[3], const float umin[4],
   /*      Ad_eye(i,10)=temp2; */
   /*  end */
   /*  加上松弛变量对应的基 */
-  /*  A=[Ad_eye(1:3,1:10) zeros(3,10); Ad_eye(4:13,1:10) eye(10)]; */
-  /*  A是Ad_eye的扩充，第5，第10列与P_inv*Ad变化的部分列有关，其他是常数 */
+  /*  A=[Ad_eye(1:3,1:10) zeros(3,10); Ad_eye(4:13,1:10) eye(10)] */
+  /*  A是Ad_eye的扩充，第5，第10列与Ad_eye变化的部分列有关，其他是常数。将5，10列置0的常矩阵：
+   */
   for (i = 0; i < 260; i++) {
-    A[i] = iv2[i];
+    A[i] = iv[i];
   }
+  /*  下面计算A的第5，第10列 */
+  for (i = 0; i < 13; i++) {
+    Ad5[i] = iv1[i];
+    Ad10[i] = iv2[i];
+  }
+  Ad5[0] = -v[0];
+  Ad10[0] = v[0];
+  Ad5[1] = -v[1];
+  Ad10[1] = v[1];
+  Ad5[2] = -v[2];
+  Ad10[2] = v[2];
   /*  转C需要特别注意下标的区别 */
   /*  Simplex algorithm */
   /*  Iterate through simplex algorithm main loop */
   for (i = 0; i < 13; i++) {
+    float temp2;
     temp1 = 0.0F;
     temp2 = 0.0F;
     for (k = 0; k < 13; k++) {
-      signed char b_i;
-      b_i = P_inv[i + 13 * k];
-      temp1 += (float)b_i * Ad5[k];
-      temp2 += (float)b_i * Ad10[k];
+      f = P_inv[i + 13 * k];
+      temp1 += f * Ad5[k];
+      temp2 += f * Ad10[k];
     }
     A[i + 52] = temp1;
     A[i + 117] = temp2;
@@ -225,20 +214,22 @@ void allocator_dir_simplex_4(const float v[3], const float umin[4],
   /*  (c) mengchaoheng */
   /*  不考虑无解的情形 */
   /*  Last edited 2019-11 */
-  /*    min z=c*x   subj. to  A*x (=、 >=、 <=) b */
+  /*    min z=C*x   subj. to  A*x (=、 >=、 <=) b */
   /*    x  */
   /*     %% Initialization */
   /*  Iterate through simplex algorithm main loop */
+  /*  调参1e6 1e8
+   * 抖动原因。使用预设值版本allocator_dir_simplex_4及其衍生版后不再抖动 */
   for (i = 0; i < 20; i++) {
-    c[i] = iv3[i];
+    C[i] = iv3[i];
     x[i] = 0.0F;
   }
   *iters = 0UL;
   *z = 0.0F;
   /*      [m,n] = size(A); */
-  /*      while ~all(c>=0)                      % 3.~isempty(c(c(N)<0)) */
-  /*      e = find(c < 0, 1, 'first'); % 进基变量索引    % 4. e =
-   * N(find(c(N)<0,1)) */
+  /*      while ~all(C>=0)                      % 3.~isempty(C(C(N)<0)) */
+  /*      e = find(C < 0, 1, 'first'); % 进基变量索引    % 4. e =
+   * N(find(C(N)<0,1)) */
   long exitg1;
   unsigned char L;
   unsigned char e;
@@ -252,7 +243,7 @@ void allocator_dir_simplex_4(const float v[3], const float umin[4],
     i = 0;
     exitg2 = false;
     while ((!exitg2) && (i < 20)) {
-      if (c[i] < -1.0E-6F) {
+      if (C[i] < -1.0E-8F) {
         /*  <0 */
         flag = true;
         e = (unsigned char)(i + 1);
@@ -268,23 +259,23 @@ void allocator_dir_simplex_4(const float v[3], const float umin[4],
       /*              if ~isempty(ip) */
       /*                  delta(ip)=b(ip)./a_ie(ip); */
       /*              end */
-      temp1 = 1.0E+6F;
+      temp1 = 1.0E+8F;
       for (i = 0; i < 13; i++) {
-        temp2 = A[i + 13 * (e - 1)];
-        if (temp2 > 1.0E-6F) {
-          temp2 = b[i] / temp2;
+        f = A[i + 13 * (e - 1)];
+        if (f > 1.0E-8F) {
+          f = b[i] / f;
         } else {
-          temp2 = 1.0E+6F;
+          f = 1.0E+8F;
         }
-        if (temp2 < temp1) {
+        if (f < temp1) {
           L = (unsigned char)(i + 1);
-          temp1 = temp2;
+          temp1 = f;
         }
       }
       /*              [~,L]=min(delta);%选择离基 (离基在B数组中的行索引) */
       /*          li = B(L);    % 离基变量索引                */
       /*              if delta(L) >= tol     */
-      if (temp1 >= 1.0E+6F) {
+      if (temp1 >= 1.0E+8F) {
         exitg1 = 1L;
       } else {
         float b_A[20];
@@ -316,11 +307,11 @@ void allocator_dir_simplex_4(const float v[3], const float umin[4],
         /*          b(i) = b(i) - A(i,e)*b(L); */
         /*          A(i,1:n) = A(i,1:n) - A(i,e)*A(L,1:n);	 */
         /*      end */
-        temp2 = b[L - 1];
+        f = b[L - 1];
         for (i = 0; i < 13; i++) {
           if (i + 1 != L) {
             temp1 = A[i + b_tmp_tmp];
-            b[i] -= temp1 * temp2;
+            b[i] -= temp1 * f;
             for (k = 0; k < 20; k++) {
               int A_tmp;
               A_tmp = i + 13 * k;
@@ -329,10 +320,10 @@ void allocator_dir_simplex_4(const float v[3], const float umin[4],
           }
         }
         /*     %% Compute the objective function */
-        temp1 = c[e - 1];
+        temp1 = C[e - 1];
         *z -= temp1 * b[L - 1];
         for (k = 0; k < 20; k++) {
-          c[k] -= temp1 * A[(L + 13 * k) - 1];
+          C[k] -= temp1 * A[(L + 13 * k) - 1];
         }
         /*      c(1:n) = c(1:n) - c_e * A(L,1:n);       */
         /*     %% Compute new sets of basic and nonbasic variabLes. */
@@ -371,7 +362,7 @@ void allocator_dir_simplex_4(const float v[3], const float umin[4],
  * Arguments    : void
  * Return Type  : void
  */
-void allocator_dir_simplex_4_initialize(void)
+void allocator_dir_simplex_4_v3_initialize(void)
 {
 }
 
@@ -379,12 +370,12 @@ void allocator_dir_simplex_4_initialize(void)
  * Arguments    : void
  * Return Type  : void
  */
-void allocator_dir_simplex_4_terminate(void)
+void allocator_dir_simplex_4_v3_terminate(void)
 {
 }
 
 /*
- * File trailer for allocator_dir_simplex_4.c
+ * File trailer for allocator_dir_simplex_4_v3.c
  *
  * [EOF]
  */

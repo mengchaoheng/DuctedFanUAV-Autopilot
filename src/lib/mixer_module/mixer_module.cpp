@@ -39,7 +39,7 @@
 #include <px4_platform_common/log.h>
 
 
-#include "allocator_dir_simplex_4.h"
+#include "allocator_dir_simplex_4_v3.h"
 
 using namespace time_literals;
 
@@ -106,17 +106,17 @@ _control_latency_perf(perf_alloc(PC_ELAPSED, "control latency"))
 		_lp_filter_actuator_d[i+2].set_cutoff_frequency(_param_sample_freq.get(), _param_cs2_cutoff.get());
 	}
 	B_inv.setZero();
-	B_inv(0, 0)=-1.0f;
-	B_inv(0, 2)=1.0f;
+	B_inv(0, 0)=-1.1261f;
+	B_inv(0, 2)=1.2077f;
 
-	B_inv(1, 1)=-1.0f;
-	B_inv(1, 2)=1.0f;
+	B_inv(1, 1)=-1.1261f;
+	B_inv(1, 2)=1.2077f;
 
-	B_inv(2, 0)=1.0f;
-	B_inv(2, 2)=1.0f;
+	B_inv(2, 0)=1.1261f;
+	B_inv(2, 2)=1.2077f;
 
-	B_inv(3, 1)=1.0f;
-	B_inv(3, 2)=1.0f;
+	B_inv(3, 1)=1.1261f;
+	B_inv(3, 2)=1.2077f;
 
 	// B_inv_new.setZero();
 	// B_inv_new(0, 0)=-1.0f;
@@ -668,9 +668,9 @@ bool MixingOutput::update()
 			unsigned long iters_all;
 			// dir_alloc_sim(y_all, _uMin, _uMax, u_all, &z_all, &iters_all);
 			// dir_alloc_sim(y_all, _uMin, _uMax, B, u_all, &z_all, &iters_all);
-			allocator_dir_simplex_4(y_all,_uMin,_uMax,u_all, &z_all, &iters_all);
-			if (z_all>1)
-			// if (1)
+			allocator_dir_simplex_4_v3(y_all,_uMin,_uMax,u_all, &z_all, &iters_all);
+			// if (z_all>1)
+			if (1)
 			{
 				for (size_t i = 0; i < 4; i++)
 				{
@@ -686,7 +686,7 @@ bool MixingOutput::update()
 				unsigned long iters_e;
 				// dir_alloc_sim(ye, _uMin, _uMax, u_e, &z_e, &iters_e);
 				// dir_alloc_sim(ye, _uMin, _uMax, B, u_e, &z_e, &iters_e);
-				allocator_dir_simplex_4(ye,_uMin,_uMax,u_e, &z_e, &iters_e);
+				allocator_dir_simplex_4_v3(ye,_uMin,_uMax,u_e, &z_e, &iters_e);
 				for (size_t i = 0; i < 3; i++)
 				{
 					float  temp = 0.0f;
@@ -710,7 +710,7 @@ bool MixingOutput::update()
 					unsigned long iters_d;
 					// dir_alloc_sim(yd, uMin_new, uMax_new, u_d, &z_d, &iters_d);
 					// dir_alloc_sim(yd, uMin_new, uMax_new, B, u_d, &z_d, &iters_d);
-					allocator_dir_simplex_4(yd,uMin_new,uMax_new,u_d, &z_d, &iters_d);
+					allocator_dir_simplex_4_v3(yd,uMin_new,uMax_new,u_d, &z_d, &iters_d);
 					for (size_t i = 0; i < 3; i++)
 					{
 						float  temp = 0.0f;

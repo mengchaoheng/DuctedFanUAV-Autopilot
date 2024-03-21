@@ -31,4 +31,4 @@
 #
 ############################################################################
 
-px4_add_library(mixer_module mixer_module.cpp allocator_dir_simplex_4.cpp allocator_dir_simplex_4.h rtwtypes.h)
+px4_add_library(mixer_module mixer_module.cpp allocator_dir_simplex_4_v3.cpp allocator_dir_simplex_4_v3.h rtwtypes.h rt_nonfinite.h rt_nonfinite.c)
