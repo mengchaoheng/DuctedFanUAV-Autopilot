@@ -39,7 +39,13 @@
 #include <px4_platform_common/log.h>
 
 
-#include "allocator_dir_simplex_4_v3.h"
+#include "allocator_dir_LPwrap_4.h"
+#include "rt_nonfinite.h"
+extern "C" {
+    void allocator_dir_LPwrap_4(const float B[12], const float v[3],
+                            const float umin[4], const float umax[4],
+                            float u[4], float *z, unsigned int *iters);
+}
 
 using namespace time_literals;
 
@@ -624,6 +630,8 @@ bool MixingOutput::update()
 	// // "outputs" is the value alfter mix, range from [-1, 1]. _current_output_value is pwm value alfter output_limit_calc.
 	// // just using in ductedfan
 	// // PX4_INFO("dir_alloc_sim:\n");
+	uint64_t timestamp_ca_start=hrt_absolute_time();
+	uint64_t timestamp_ca_end=hrt_absolute_time();
 	allocation_value_s allocation_value{};
 	if (_param_use_alloc.get() == 1)
 	{
@@ -636,9 +644,8 @@ bool MixingOutput::update()
 			ye[2]= _indi_feedback_input.indi_fb[indi_feedback_input_s::INDEX_YAW];
 			// PX4_INFO("roll: %f, pitch: %f, yaw: %f \n", (double) ye[0], (double) ye[1], (double) ye[2]);
 		}
-		// uint64_t timestamp_ca_start;
-		// uint64_t timestamp_ca_end;
-		// timestamp_ca_start = hrt_absolute_time();
+
+
 		float roll=0.0f;
 		float pitch=0.0f;
 		float yaw=0.0f;
@@ -658,17 +665,18 @@ bool MixingOutput::update()
 
 		//dir
 
-
+		timestamp_ca_start = hrt_absolute_time();
 		if ( (_use_lp_alloc || _param_use_lp_alloc.get()==1))
 		{
 			// PX4_INFO("dir");
 
 			float u_all[4];
 			float z_all;
-			unsigned long iters_all;
+			unsigned int iters_all;
 			// dir_alloc_sim(y_all, _uMin, _uMax, u_all, &z_all, &iters_all);
 			// dir_alloc_sim(y_all, _uMin, _uMax, B, u_all, &z_all, &iters_all);
-			allocator_dir_simplex_4_v3(y_all,_uMin,_uMax,u_all, &z_all, &iters_all);
+			// allocator_dir_simplex_4_v3(y_all,_uMin,_uMax,u_all, &z_all, &iters_all);
+			allocator_dir_LPwrap_4(B, y_all, _uMin, _uMax, u_all, &z_all, &iters_all);
 			// if (z_all>1)
 			if (1)
 			{
@@ -683,10 +691,11 @@ bool MixingOutput::update()
 			{
 				float u_e[4] = {0.0, 0.0, 0.0, 0.0};
 				float z_e;
-				unsigned long iters_e;
+				unsigned int iters_e;
 				// dir_alloc_sim(ye, _uMin, _uMax, u_e, &z_e, &iters_e);
 				// dir_alloc_sim(ye, _uMin, _uMax, B, u_e, &z_e, &iters_e);
-				allocator_dir_simplex_4_v3(ye,_uMin,_uMax,u_e, &z_e, &iters_e);
+				// allocator_dir_simplex_4_v3(ye,_uMin,_uMax,u_e, &z_e, &iters_e);
+				allocator_dir_LPwrap_4(B, ye, _uMin, _uMax, u_e, &z_e, &iters_e);
 				for (size_t i = 0; i < 3; i++)
 				{
 					float  temp = 0.0f;
@@ -707,10 +716,11 @@ bool MixingOutput::update()
 					}
 					float u_d[4] = {0.0, 0.0, 0.0, 0.0};
 					float z_d;
-					unsigned long iters_d;
+					unsigned int iters_d;
 					// dir_alloc_sim(yd, uMin_new, uMax_new, u_d, &z_d, &iters_d);
 					// dir_alloc_sim(yd, uMin_new, uMax_new, B, u_d, &z_d, &iters_d);
-					allocator_dir_simplex_4_v3(yd,uMin_new,uMax_new,u_d, &z_d, &iters_d);
+					// allocator_dir_simplex_4_v3(yd,uMin_new,uMax_new,u_d, &z_d, &iters_d);
+					allocator_dir_LPwrap_4(B, yd, uMin_new, uMax_new, u_d, &z_d, &iters_d);
 					for (size_t i = 0; i < 3; i++)
 					{
 						float  temp = 0.0f;
@@ -755,6 +765,9 @@ bool MixingOutput::update()
 			}
 			allocation_value.flag=-2;
 		}
+		timestamp_ca_end = hrt_absolute_time();
+		PX4_INFO("dir_alloc_sim time: %lld \n", (timestamp_ca_end - timestamp_ca_start) ); //nuttx
+		// PX4_INFO("dir_alloc_sim time: %ld \n", (timestamp_ca_end - timestamp_ca_start) ); //sitl
 		// float u_ultimate[4];
 
 		// for (size_t i = 0; i < 3; i++)
@@ -787,9 +800,7 @@ bool MixingOutput::update()
 			outputs[i+2] = (_u[i])/0.3491f;
 			// allocation_value.u_ultimate[i] = u_ultimate[i];
 		}
-		// timestamp_ca_end = hrt_absolute_time();
-		// PX4_INFO("dir_alloc_sim time: %lld \n", (timestamp_ca_end - timestamp_ca_start) ); //nuttx
-		// PX4_INFO("dir_alloc_sim time: %ld \n", (timestamp_ca_end - timestamp_ca_start) ); //sitl
+
 	}
 	else
 	{
@@ -798,7 +809,7 @@ bool MixingOutput::update()
 			_u[i] = outputs[i+2];
 		}
 	}
-	allocation_value.timestamp = hrt_absolute_time();
+	allocation_value.timestamp = (timestamp_ca_end - timestamp_ca_start);//hrt_absolute_time();
 	_allocation_value_pub.publish(allocation_value);
 
 	/* the output limit call takes care of out of band errors, NaN and constrains */ // [-1, 1] -> [min_rad, max_rad] == [min_pwm, max_pwm]
