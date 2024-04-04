@@ -39,6 +39,7 @@
 #include <px4_platform_common/log.h>
 
 
+
 #include "allocator_dir_LPwrap_4.h"
 #include "rt_nonfinite.h"
 extern "C" {
@@ -64,7 +65,9 @@ _scheduling_policy(scheduling_policy),
 _support_esc_calibration(support_esc_calibration),
 _max_num_outputs(max_num_outputs < MAX_ACTUATORS ? max_num_outputs : MAX_ACTUATORS),
 _interface(interface),
-_control_latency_perf(perf_alloc(PC_ELAPSED, "control latency"))
+_control_latency_perf(perf_alloc(PC_ELAPSED, "control latency")),
+df_4(_B, -0.3491f, 0.3491f),
+Allocator(df_4)
 {
 	output_limit_init(&_output_limit);
 	_output_limit.ramp_up = ramp_up;
@@ -670,19 +673,23 @@ bool MixingOutput::update()
 		{
 			// PX4_INFO("dir");
 
-			float u_all[4];
-			float z_all;
-			unsigned int iters_all;
+			// float u_all[4];
+			// float z_all;
+			// unsigned int iters_all;
 			// dir_alloc_sim(y_all, _uMin, _uMax, u_all, &z_all, &iters_all);
 			// dir_alloc_sim(y_all, _uMin, _uMax, B, u_all, &z_all, &iters_all);
 			// allocator_dir_simplex_4_v3(y_all,_uMin,_uMax,u_all, &z_all, &iters_all);
-			allocator_dir_LPwrap_4(B, y_all, _uMin, _uMax, u_all, &z_all, &iters_all);
+			// allocator_dir_LPwrap_4(B, y_all, _uMin, _uMax, u_all, &z_all, &iters_all);
+
+			float* u_DPscaled_LPCA = Allocator.DPscaled_LPCA(y_all);
+
 			// if (z_all>1)
 			if (1)
 			{
 				for (size_t i = 0; i < 4; i++)
 				{
-					_u[i] =  math::constrain( u_all[i], _uMin[i], _uMax[i]);
+					_u[i] =  math::constrain( u_DPscaled_LPCA[i], _uMin[i], _uMax[i]);
+					delete[] u_DPscaled_LPCA;
 				}
 				allocation_value.flag=0;
 				// PX4_INFO(" dir 1");
@@ -748,7 +755,6 @@ bool MixingOutput::update()
 				}
 			}
 
-
 		}
 		else
 		{
@@ -766,7 +772,7 @@ bool MixingOutput::update()
 			allocation_value.flag=-2;
 		}
 		timestamp_ca_end = hrt_absolute_time();
-		PX4_INFO("dir_alloc_sim time: %lld \n", (timestamp_ca_end - timestamp_ca_start) ); //nuttx
+		// PX4_INFO("dir_alloc_sim time: %lld \n", (timestamp_ca_end - timestamp_ca_start) ); //nuttx
 		// PX4_INFO("dir_alloc_sim time: %ld \n", (timestamp_ca_end - timestamp_ca_start) ); //sitl
 		// float u_ultimate[4];
 

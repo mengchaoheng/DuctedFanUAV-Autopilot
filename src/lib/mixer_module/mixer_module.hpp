@@ -59,7 +59,7 @@
 #include <lib/matrix/matrix/math.hpp>
 #include <mathlib/math/filter/LowPassFilter2p.hpp>
 #include <lib/mathlib/math/filter/NotchFilter.hpp>
-
+#include "ControlAllocation.h"
 /**
  * @class OutputModuleInterface
  * Base class for an output module.
@@ -355,6 +355,10 @@ private:
 	rc_channels_s		_rc_channels {};
 	const float _B[3][4] = { {-0.444,0.0,0.444,0.0}, {0.0,-0.444,0.0,0.444},{0.207,0.207,0.207,0.207}};
 	float B[12] {};
+	Aircraft<3, 4> df_4; // 创建一个具有 4 个操纵向量和 3 个广义力矩的飞行器对象
+	// 分配器数据：
+	DP_LP_ControlAllocator<3, 4> Allocator; // 创建一个控制分配器对象，用于具有 4 个操纵向量和 3 个广义力矩的飞行器(转化为线性规划问题，其维数和参数 <3, 4> 有关。)
+	// 然后可以使用飞行器对象和控制分配器对象进行操作
 	DEFINE_PARAMETERS(
 		(ParamInt<px4::params::MC_AIRMODE>) _param_mc_airmode,   ///< multicopter air-mode
 		(ParamFloat<px4::params::MOT_SLEW_MAX>) _param_mot_slew_max,
