@@ -773,7 +773,7 @@ bool MixingOutput::update()
 			allocation_value.flag=-2;
 		}
 		timestamp_ca_end = hrt_absolute_time();
-		// PX4_INFO("dir_alloc_sim time: %lld \n", (timestamp_ca_end - timestamp_ca_start) ); //nuttx
+		PX4_INFO("dir_alloc_sim time: %lld \n", (timestamp_ca_end - timestamp_ca_start) ); //nuttx
 		// PX4_INFO("dir_alloc_sim time: %ld \n", (timestamp_ca_end - timestamp_ca_start) ); //sitl
 		// float u_ultimate[4];
 

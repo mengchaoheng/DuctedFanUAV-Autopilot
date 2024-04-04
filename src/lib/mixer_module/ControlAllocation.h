@@ -1,6 +1,6 @@
 
 #include <matrix/math.hpp>
-#include <iostream>
+// #include <iostream>
 
 using namespace matrix;
 // Add the min_user function definition here
@@ -567,7 +567,7 @@ public:
             if(!flag)
             {
                 unbounded = true; // Check this condition
-                std::cout << "simplex loop Solution is unbounded"<< std::endl;
+                // std::cout << "simplex loop Solution is unbounded"<< std::endl;
                 break;
             }
             // Compute ratio how much each current basic variable will have to move for the entering variable.
@@ -641,7 +641,7 @@ public:
                 if(!flag1)
                 {
                     unbounded = true; // Check this condition
-                    std::cout << "simplex loop Solution is unbounded"<< std::endl;
+                    // std::cout << "simplex loop Solution is unbounded"<< std::endl;
                     break;
                 }
                 // Recompute rations and determine variable to leave
@@ -1162,7 +1162,7 @@ LinearProgrammingResult<M, N> BoundedRevisedSimplex(LinearProgrammingProblem<M, 
         if(!flag)
         {
             unbounded = true; // Check this condition
-            std::cout << "simplex loop Solution is unbounded"<< std::endl;
+            // std::cout << "simplex loop Solution is unbounded"<< std::endl;
             break;
         }
         // Compute ratio how much each current basic variable will have to move for the entering variable.
@@ -1236,7 +1236,7 @@ LinearProgrammingResult<M, N> BoundedRevisedSimplex(LinearProgrammingProblem<M, 
             if(!flag1)
             {
                 unbounded = true; // Check this condition
-                std::cout << "simplex loop Solution is unbounded"<< std::endl;
+                // std::cout << "simplex loop Solution is unbounded"<< std::endl;
                 break;
             }
             // Recompute rations and determine variable to leave
@@ -1688,7 +1688,7 @@ public:
             Pre_DP_LPCA_problem.h[i+DP_LPCA_problem.n] = 2*std::abs(DP_LPCA_problem.b[i]);
         }
         //================================== DPscaled_LPCA_problem ================================
-        std::cout << "DPscaled_LPCA_problem"<< std::endl;
+        // std::cout << "DPscaled_LPCA_problem"<< std::endl;
         DPscaled_LPCA_problem.tol=1e-7;
         DPscaled_LPCA_problem.itlim = 10;
         float yd[3]={0.1,0.2,-0.1}; // random value for inital.
@@ -1701,8 +1701,8 @@ public:
                 iy = i;
             }
         }
-        std::cout << "DPscaled_LPCA_problem iy: "<< iy <<std::endl;
-        std::cout << "DPscaled_LPCA_problem my: "<< my <<std::endl;
+        // std::cout << "DPscaled_LPCA_problem iy: "<< iy <<std::endl;
+        // std::cout << "DPscaled_LPCA_problem my: "<< my <<std::endl;
         // copy firstly!!!
         float Bt[ControlSize][EffectorSize];
         float ydt[ControlSize];
@@ -1737,20 +1737,20 @@ public:
             Bt[2][i]=Bt2;
         }
 
-        std::cout << "aircraft.controlEffectMatrix:" << std::endl;
-        for (size_t i = 0; i < ControlSize; ++i) {
-            for (size_t j = 0; j < EffectorSize; ++j) {
-                std::cout << this->aircraft.controlEffectMatrix[i][j] << " ";
-            }
-            std::cout << std::endl;
-        }
-        std::cout << "Bt:" << std::endl;
-        for (size_t i = 0; i < ControlSize; ++i) {
-            for (size_t j = 0; j < EffectorSize; ++j) {
-                std::cout << Bt[i][j] << " ";
-            }
-            std::cout << std::endl;
-        }
+        // std::cout << "aircraft.controlEffectMatrix:" << std::endl;
+        // for (size_t i = 0; i < ControlSize; ++i) {
+        //     for (size_t j = 0; j < EffectorSize; ++j) {
+        //         std::cout << this->aircraft.controlEffectMatrix[i][j] << " ";
+        //     }
+        //     std::cout << std::endl;
+        // }
+        // std::cout << "Bt:" << std::endl;
+        // for (size_t i = 0; i < ControlSize; ++i) {
+        //     for (size_t j = 0; j < EffectorSize; ++j) {
+        //         std::cout << Bt[i][j] << " ";
+        //     }
+        //     std::cout << std::endl;
+        // }
 
         // M = [ydt(2:ControlSize) -ydt(1)*eye(ControlSize-1)];
         float M[ControlSize-1][ControlSize];
@@ -1761,13 +1761,13 @@ public:
         M[0][2]=0;
         M[1][2]=-ydt[0];
 
-        std::cout << "M:" << std::endl;
-        for (size_t i = 0; i < ControlSize-1; ++i) {
-            for (size_t j = 0; j < ControlSize; ++j) {
-                std::cout << M[i][j] << " ";
-            }
-            std::cout << std::endl;
-        }
+        // std::cout << "M:" << std::endl;
+        // for (size_t i = 0; i < ControlSize-1; ++i) {
+        //     for (size_t j = 0; j < ControlSize; ++j) {
+        //         std::cout << M[i][j] << " ";
+        //     }
+        //     std::cout << std::endl;
+        // }
         for (int i = 0; i < ControlSize-1; ++i) {
             for (int j = 0; j < EffectorSize; ++j) {
                 DPscaled_LPCA_problem.A[i][j] = 0;
@@ -1776,13 +1776,13 @@ public:
                 }
             }
         }
-        std::cout << "DPscaled_LPCA_problem.A:" << std::endl;
-        for (size_t i = 0; i < ControlSize-1; ++i) {
-            for (size_t j = 0; j < EffectorSize; ++j) {
-                std::cout << DPscaled_LPCA_problem.A[i][j] << " ";
-            }
-            std::cout << std::endl;
-        }
+        // std::cout << "DPscaled_LPCA_problem.A:" << std::endl;
+        // for (size_t i = 0; i < ControlSize-1; ++i) {
+        //     for (size_t j = 0; j < EffectorSize; ++j) {
+        //         std::cout << DPscaled_LPCA_problem.A[i][j] << " ";
+        //     }
+        //     std::cout << std::endl;
+        // }
         for(int i=0; i<ControlSize-1; ++i)
         {
             float temp=0;
@@ -1801,35 +1801,35 @@ public:
         for (int i = 0; i < EffectorSize; ++i) {
             DPscaled_LPCA_problem.h[i] = this->aircraft.upperLimits[i]-this->aircraft.lowerLimits[i];
         }
-        std::cout << "DPscaled_LPCA_problem b: [";
-        for (size_t i = 0; i < ControlSize-1; ++i) {
-            std::cout << DPscaled_LPCA_problem.b[i];
-            if (i < ControlSize-1 - 1) {
-                std::cout << ", ";
-            }
-        }
-        std::cout << "]" << std::endl;
+        // std::cout << "DPscaled_LPCA_problem b: [";
+        // for (size_t i = 0; i < ControlSize-1; ++i) {
+        //     std::cout << DPscaled_LPCA_problem.b[i];
+        //     if (i < ControlSize-1 - 1) {
+        //         std::cout << ", ";
+        //     }
+        // }
+        // std::cout << "]" << std::endl;
 
 
-        std::cout << "DPscaled_LPCA_problem c: [";
-        for (size_t i = 0; i <EffectorSize; ++i) {
-            std::cout << DPscaled_LPCA_problem.c[i];
-            if (i <EffectorSize - 1) {
-                std::cout << ", ";
-            }
-        }
-        std::cout << "]" << std::endl;
-        std::cout << "DPscaled_LPCA_problem h: [";
-        for (size_t i = 0; i < EffectorSize; ++i) {
-            std::cout << DPscaled_LPCA_problem.h[i];
-            if (i < EffectorSize- 1) {
-                std::cout << ", ";
-            }
-        }
-        std::cout << "]" << std::endl;
+        // std::cout << "DPscaled_LPCA_problem c: [";
+        // for (size_t i = 0; i <EffectorSize; ++i) {
+        //     std::cout << DPscaled_LPCA_problem.c[i];
+        //     if (i <EffectorSize - 1) {
+        //         std::cout << ", ";
+        //     }
+        // }
+        // std::cout << "]" << std::endl;
+        // std::cout << "DPscaled_LPCA_problem h: [";
+        // for (size_t i = 0; i < EffectorSize; ++i) {
+        //     std::cout << DPscaled_LPCA_problem.h[i];
+        //     if (i < EffectorSize- 1) {
+        //         std::cout << ", ";
+        //     }
+        // }
+        // std::cout << "]" << std::endl;
 
         //==================================Pre_DPscaled_LPCA_problem================================
-        std::cout << "Pre_DPscaled_LPCA_problem"<< std::endl;
+        // std::cout << "Pre_DPscaled_LPCA_problem"<< std::endl;
         Pre_DPscaled_LPCA_problem.tol=1e-7;
         Pre_DPscaled_LPCA_problem.itlim = 10;
         for(int i=0; i<DPscaled_LPCA_problem.m; ++i)
@@ -1870,39 +1870,39 @@ public:
             Pre_DPscaled_LPCA_problem.h[i+DPscaled_LPCA_problem.n] = 2*std::abs(DPscaled_LPCA_problem.b[i]);
         }
 
-        std::cout << "Pre_DPscaled_LPCA_problem A:" << std::endl;
-        for (int i = 0; i < Pre_DPscaled_LPCA_problem.m; ++i) {
-            for (int j = 0; j < Pre_DPscaled_LPCA_problem.n; ++j) {
-                std::cout << Pre_DPscaled_LPCA_problem.A[i][j] << " ";
-            }
-            std::cout << std::endl;
-        }
-        std::cout << "Pre_DPscaled_LPCA_problem b: [";
-        for (int i = 0; i < Pre_DPscaled_LPCA_problem.m; ++i) {
-            std::cout << Pre_DPscaled_LPCA_problem.b[i];
-            if (i < Pre_DPscaled_LPCA_problem.m - 1) {
-                std::cout << ", ";
-            }
-        }
-        std::cout << "]" << std::endl;
+        // std::cout << "Pre_DPscaled_LPCA_problem A:" << std::endl;
+        // for (int i = 0; i < Pre_DPscaled_LPCA_problem.m; ++i) {
+        //     for (int j = 0; j < Pre_DPscaled_LPCA_problem.n; ++j) {
+        //         std::cout << Pre_DPscaled_LPCA_problem.A[i][j] << " ";
+        //     }
+        //     std::cout << std::endl;
+        // }
+        // std::cout << "Pre_DPscaled_LPCA_problem b: [";
+        // for (int i = 0; i < Pre_DPscaled_LPCA_problem.m; ++i) {
+        //     std::cout << Pre_DPscaled_LPCA_problem.b[i];
+        //     if (i < Pre_DPscaled_LPCA_problem.m - 1) {
+        //         std::cout << ", ";
+        //     }
+        // }
+        // std::cout << "]" << std::endl;
 
-        std::cout << "Pre_DPscaled_LPCA_problem c: [";
-        for (int i = 0; i < Pre_DPscaled_LPCA_problem.n; ++i) {
-            std::cout << Pre_DPscaled_LPCA_problem.c[i];
-            if (i < Pre_DPscaled_LPCA_problem.n - 1) {
-                std::cout << ", ";
-            }
-        }
-        std::cout << "]" << std::endl;
+        // std::cout << "Pre_DPscaled_LPCA_problem c: [";
+        // for (int i = 0; i < Pre_DPscaled_LPCA_problem.n; ++i) {
+        //     std::cout << Pre_DPscaled_LPCA_problem.c[i];
+        //     if (i < Pre_DPscaled_LPCA_problem.n - 1) {
+        //         std::cout << ", ";
+        //     }
+        // }
+        // std::cout << "]" << std::endl;
 
-        std::cout << "Pre_DPscaled_LPCA_problem h: [";
-        for (int i = 0; i < Pre_DPscaled_LPCA_problem.n; ++i) {
-            std::cout << Pre_DPscaled_LPCA_problem.h[i];
-            if (i < Pre_DPscaled_LPCA_problem.n- 1) {
-                std::cout << ", ";
-            }
-        }
-        std::cout << "]" << std::endl;
+        // std::cout << "Pre_DPscaled_LPCA_problem h: [";
+        // for (int i = 0; i < Pre_DPscaled_LPCA_problem.n; ++i) {
+        //     std::cout << Pre_DPscaled_LPCA_problem.h[i];
+        //     if (i < Pre_DPscaled_LPCA_problem.n- 1) {
+        //         std::cout << ", ";
+        //     }
+        // }
+        // std::cout << "]" << std::endl;
     }
 
     // 设置算法参数函数
@@ -1972,18 +1972,18 @@ public:
         }
         if(result.iters>=DP_LPCA_problem.itlim){
             // err = 3;
-            std::cout << "Too Many Iterations Finding Final Solution"<< std::endl;
-            for (int i = 0; i < ControlSize; ++i) {
-                std::cout << this->generalizedMoment[i] << std::endl;
-            }
+            // std::cout << "Too Many Iterations Finding Final Solution"<< std::endl;
+            // for (int i = 0; i < ControlSize; ++i) {
+            //     std::cout << this->generalizedMoment[i] << std::endl;
+            // }
         }
         if(result.errout)
         {
             // err = 1;
-            std::cout << "Solver error"<< std::endl;
-            for (int i = 0; i < ControlSize; ++i) {
-                std::cout << this->generalizedMoment[i] << std::endl;
-            }
+            // std::cout << "Solver error"<< std::endl;
+            // for (int i = 0; i < ControlSize; ++i) {
+            //     std::cout << this->generalizedMoment[i] << std::endl;
+            // }
         }
         for(int i=0;i<EffectorSize;++i){
             EffectorCommand[i]=xout[i]+this->aircraft.lowerLimits[i];
@@ -2052,12 +2052,12 @@ public:
         }
         if(result.iters>=LPsolverForAC.LPproblem.itlim){
             // err = 3;
-            std::cout << "Too Many Iterations Finding Final Solution"<< std::endl;
+            // std::cout << "Too Many Iterations Finding Final Solution"<< std::endl;
         }
         if(result.errout)
         {
             // err = 1;
-            std::cout << "Solver error"<< std::endl;
+            // std::cout << "Solver error"<< std::endl;
         }
         for(int i=0;i<EffectorSize;++i){
             EffectorCommand[i]=xout[i]+this->aircraft.lowerLimits[i];
@@ -2183,29 +2183,29 @@ public:
         // Check that Feasible Solution was found
         if(result_init.iters>=Pre_DP_LPCA_problem.itlim){
             err = 3;
-            std::cout << "Pre Too Many Iterations Finding Final Solution"<< std::endl;
-            for (int i = 0; i < ControlSize; ++i) {
-                std::cout << this->generalizedMoment[i] << std::endl;
-            }
+            // std::cout << "Pre Too Many Iterations Finding Final Solution"<< std::endl;
+            // for (int i = 0; i < ControlSize; ++i) {
+                // std::cout << this->generalizedMoment[i] << std::endl;
+            // }
         }
         for(int i=0;i<ControlSize;++i){
             if(result_init.inB[i]> EffectorSize) // DP_LPCA_problem is origin problem, k=DP_LPCA_problem.n-1 = EffectorSize
             {
                 // which mean inital basic index is out of the origin problem.
                 err = -2;
-                std::cout << "Pre No Initial Feasible Solution found"<< std::endl;
-                for (int k = 0; k < ControlSize; ++k) {
-                    std::cout << this->generalizedMoment[k] << std::endl;
-                }
+                // std::cout << "Pre No Initial Feasible Solution found"<< std::endl;
+                // for (int k = 0; k < ControlSize; ++k) {
+                //     std::cout << this->generalizedMoment[k] << std::endl;
+                // }
                 break;
             }
         }
         if(result_init.errout){
             err = -1;
-            std::cout << "Pre Solver error"<< std::endl;
-            for (int i = 0; i < ControlSize; ++i) {
-                std::cout << this->generalizedMoment[i] << std::endl;
-            }
+            // std::cout << "Pre Solver error"<< std::endl;
+            // for (int i = 0; i < ControlSize; ++i) {
+            //     std::cout << this->generalizedMoment[i] << std::endl;
+            // }
         }
         // solve Pre_DP_LPCA_problem but proccess DP_LPCA_problem
         float xout[DP_LPCA_problem.n];
@@ -2256,18 +2256,18 @@ public:
 
             if(result.iters>=DP_LPCA_problem.itlim){
                 err = 3;
-                std::cout << "Too Many Iterations Finding Final Solution"<< std::endl;
-                for (int i = 0; i < ControlSize; ++i) {
-                    std::cout << this->generalizedMoment[i] << std::endl;
-                }
+                // std::cout << "Too Many Iterations Finding Final Solution"<< std::endl;
+                // for (int i = 0; i < ControlSize; ++i) {
+                //     std::cout << this->generalizedMoment[i] << std::endl;
+                // }
             }
             if(result.errout)
             {
                 err = 1;
-                std::cout << "Solver error"<< std::endl;
-                for (int i = 0; i < ControlSize; ++i) {
-                    std::cout << this->generalizedMoment[i] << std::endl;
-                }
+                // std::cout << "Solver error"<< std::endl;
+                // for (int i = 0; i < ControlSize; ++i) {
+                //     std::cout << this->generalizedMoment[i] << std::endl;
+                // }
             }
         }
         // Transform back to control variables
@@ -2530,29 +2530,29 @@ public:
         // Check that Feasible Solution was found
         if(result_init.iters>=Pre_DPscaled_LPCA_problem.itlim){
             err = 3;
-            std::cout << "Pre Too Many Iterations Finding Final Solution"<< std::endl;
-            for (int i = 0; i < ControlSize; ++i) {
-                std::cout << this->generalizedMoment[i] << std::endl;
-            }
+            // std::cout << "Pre Too Many Iterations Finding Final Solution"<< std::endl;
+            // for (int i = 0; i < ControlSize; ++i) {
+            //     std::cout << this->generalizedMoment[i] << std::endl;
+            // }
         }
         for(int i=0;i<ControlSize-1;++i){
             if(result_init.inB[i]> EffectorSize-1) // DPscaled_LPCA_problem is origin problem, k=DPscaled_LPCA_problem.n-1 = EffectorSize
             {
                 // which mean inital basic index is out of the origin problem.
                 err = -2;
-                std::cout << "Pre No Initial Feasible Solution found"<< std::endl;
-                for (int k = 0; k < ControlSize; ++k) {
-                    std::cout << this->generalizedMoment[k] << std::endl;
-                }
+                // std::cout << "Pre No Initial Feasible Solution found"<< std::endl;
+                // for (int k = 0; k < ControlSize; ++k) {
+                //     std::cout << this->generalizedMoment[k] << std::endl;
+                // }
                 break;
             }
         }
         if(result_init.errout){
             err = -1;
-            std::cout << "Pre Solver error"<< std::endl;
-            for (int i = 0; i < ControlSize; ++i) {
-                std::cout << this->generalizedMoment[i] << std::endl;
-            }
+            // std::cout << "Pre Solver error"<< std::endl;
+            // for (int i = 0; i < ControlSize; ++i) {
+            //     std::cout << this->generalizedMoment[i] << std::endl;
+            // }
         }
         // solve Pre_DPscaled_LPCA_problem but proccess DPscaled_LPCA_problem
         float xout[EffectorSize];
@@ -2618,18 +2618,18 @@ public:
 
             if(result.iters>=DPscaled_LPCA_problem.itlim){
                 err = 3;
-                std::cout << "Too Many Iterations Finding Final Solution"<< std::endl;
-                for (int i = 0; i < ControlSize; ++i) {
-                    std::cout << this->generalizedMoment[i] << std::endl;
-                }
+                // std::cout << "Too Many Iterations Finding Final Solution"<< std::endl;
+                // for (int i = 0; i < ControlSize; ++i) {
+                //     std::cout << this->generalizedMoment[i] << std::endl;
+                // }
             }
             if(result.errout)
             {
                 err = 1;
-                std::cout << "Solver error"<< std::endl;
-                for (int i = 0; i < ControlSize; ++i) {
-                    std::cout << this->generalizedMoment[i] << std::endl;
-                }
+                // std::cout << "Solver error"<< std::endl;
+                // for (int i = 0; i < ControlSize; ++i) {
+                //     std::cout << this->generalizedMoment[i] << std::endl;
+                // }
             }
         }
         // Transform back to control variables
