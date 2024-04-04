@@ -689,7 +689,7 @@ bool MixingOutput::update()
 				for (size_t i = 0; i < 4; i++)
 				{
 					_u[i] =  math::constrain( u_DPscaled_LPCA[i], _uMin[i], _uMax[i]);
-					delete[] u_DPscaled_LPCA;
+
 				}
 				allocation_value.flag=0;
 				// PX4_INFO(" dir 1");
@@ -754,6 +754,7 @@ bool MixingOutput::update()
 					allocation_value.flag=-1;
 				}
 			}
+			delete[] u_DPscaled_LPCA;
 
 		}
 		else
