@@ -666,29 +666,57 @@ bool MixingOutput::update()
 		// double d2r=3.141592653/180;
 		// double r2d=180/3.141592653;
 
+		// run test for allocation running time
+		float input[3]={0.1,  0.2,   -0.1};
+		//==========================allocateControl===========================
+		float u1[4]; int err1=0;
+		timestamp_ca_start = hrt_absolute_time();
+		Allocator.allocateControl(input, u1, err1);
+		timestamp_ca_end = hrt_absolute_time();
+		PX4_INFO("allocateControl time: %lld \n", (timestamp_ca_end - timestamp_ca_start) ); //nuttx
+		//=========================DPscaled_LPCA============================INFO  [mixer_module] dir_alloc_sim time: 16
+		float u2[4];int err2=0;float rho=0;
+		timestamp_ca_start = hrt_absolute_time();
+		Allocator.DPscaled_LPCA(input, u2, err2, rho);
+		timestamp_ca_end = hrt_absolute_time();
+		PX4_INFO("DPscaled_LPCA time: %lld \n", (timestamp_ca_end - timestamp_ca_start) ); //nuttx
+		//========================DP_LPCA=============================
+		float u3[4];int err3=0;
+		timestamp_ca_start = hrt_absolute_time();
+		Allocator.DP_LPCA(input, u3, err3);
+		timestamp_ca_end = hrt_absolute_time();
+		PX4_INFO("DP_LPCA time: %lld \n", (timestamp_ca_end - timestamp_ca_start) ); //nuttx
+		//========================allocator_dir_LPwrap_4 (generate by matlab) =============================
+		float u4[4]={ 0.0,  0.0,   0.0,   0.0};
+		float z_allocator_dir_LPwrap_4= 0.0;
+		unsigned int iters_allocator_dir_LPwrap_4= 0;
+		timestamp_ca_start = hrt_absolute_time();
+		allocator_dir_LPwrap_4(B, input, _uMin, _uMax, u4, &z_allocator_dir_LPwrap_4, &iters_allocator_dir_LPwrap_4);
+		timestamp_ca_end = hrt_absolute_time();
+		PX4_INFO("allocator_dir_LPwrap_4 time: %lld \n", (timestamp_ca_end - timestamp_ca_start) ); //nuttx
 		//dir
-
 		timestamp_ca_start = hrt_absolute_time();
 		if ( (_use_lp_alloc || _param_use_lp_alloc.get()==1))
 		{
 			// PX4_INFO("dir");
 
-			// float u_all[4];
-			// float z_all;
+			float u_all[4];
+			float z_all;
+			int err = 0;
 			// unsigned int iters_all;
 			// dir_alloc_sim(y_all, _uMin, _uMax, u_all, &z_all, &iters_all);
 			// dir_alloc_sim(y_all, _uMin, _uMax, B, u_all, &z_all, &iters_all);
 			// allocator_dir_simplex_4_v3(y_all,_uMin,_uMax,u_all, &z_all, &iters_all);
 			// allocator_dir_LPwrap_4(B, y_all, _uMin, _uMax, u_all, &z_all, &iters_all);
 
-			float* u_DPscaled_LPCA = Allocator.DPscaled_LPCA(y_all);
+			Allocator.DPscaled_LPCA(y_all, u_all, err, z_all);
 
 			// if (z_all>1)
 			if (1)
 			{
 				for (size_t i = 0; i < 4; i++)
 				{
-					_u[i] =  math::constrain( u_DPscaled_LPCA[i], _uMin[i], _uMax[i]);
+					_u[i] =  math::constrain( u_all[i], _uMin[i], _uMax[i]);
 
 				}
 				allocation_value.flag=0;
@@ -754,7 +782,6 @@ bool MixingOutput::update()
 					allocation_value.flag=-1;
 				}
 			}
-			delete[] u_DPscaled_LPCA;
 
 		}
 		else
@@ -773,7 +800,7 @@ bool MixingOutput::update()
 			allocation_value.flag=-2;
 		}
 		timestamp_ca_end = hrt_absolute_time();
-		PX4_INFO("dir_alloc_sim time: %lld \n", (timestamp_ca_end - timestamp_ca_start) ); //nuttx
+		// PX4_INFO("dir_alloc_sim time: %lld \n", (timestamp_ca_end - timestamp_ca_start) ); //nuttx
 		// PX4_INFO("dir_alloc_sim time: %ld \n", (timestamp_ca_end - timestamp_ca_start) ); //sitl
 		// float u_ultimate[4];
 
