@@ -31,4 +31,4 @@
 #
 ############################################################################
 
-px4_add_library(mixer_module mixer_module.cpp allocator_dir_LPwrap_4.c rt_nonfinite.c)
+px4_add_library(mixer_module mixer_module.cpp dir_alloc_sim.cpp allocator_dir_LPwrap_4.c rt_nonfinite.c)
