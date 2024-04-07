@@ -666,31 +666,30 @@ bool MixingOutput::update()
 		// double d2r=3.141592653/180;
 		// double r2d=180/3.141592653;
 
-		// run test for allocation running time
+		// =====================run test for allocation running time===========================================
 		// float input[3]={0.14,  0.02,   -0.11};
-		//==========================allocateControl===========================
+		// //==========================allocateControl===========================
 		// float u1[4]; int err1=0;
 		// timestamp_ca_start = hrt_absolute_time();
 		// Allocator.allocateControl(input, u1, err1);
 		// timestamp_ca_end = hrt_absolute_time();
-		// PX4_INFO("allocateControl: err1: %d.\n", err1);
 		// PX4_INFO("allocateControl: u1: %f, u2: %f, u3: %f, u4: %f. \n",(double) u1[0],(double) u1[1],(double) u1[2],(double) u1[3]);
 		// PX4_INFO("allocateControl time: %lld \n", (timestamp_ca_end - timestamp_ca_start) ); //nuttx
-		//=========================DPscaled_LPCA============================INFO  [mixer_module] dir_alloc_sim time: 16
+		// //=========================DPscaled_LPCA============================INFO  [mixer_module] dir_alloc_sim time: 16
 		// float u2[4];int err2=0;float rho=0;
 		// timestamp_ca_start = hrt_absolute_time();
 		// Allocator.DPscaled_LPCA(input, u2, err2, rho);
 		// timestamp_ca_end = hrt_absolute_time();
 		// PX4_INFO("DPscaled_LPCA: u1: %f, u2: %f, u3: %f, u4: %f. \n",(double) u2[0],(double) u2[1],(double) u2[2],(double) u2[3]);
 		// PX4_INFO("DPscaled_LPCA time: %lld \n", (timestamp_ca_end - timestamp_ca_start) ); //nuttx
-		//========================DP_LPCA=============================
+		// //========================DP_LPCA=============================
 		// float u3[4];int err3=0;
 		// timestamp_ca_start = hrt_absolute_time();
 		// Allocator.DP_LPCA(input, u3, err3);
 		// timestamp_ca_end = hrt_absolute_time();
 		// PX4_INFO("DP_LPCA: u1: %f, u2: %f, u3: %f, u4: %f. \n",(double) u3[0],(double) u3[1],(double) u3[2],(double) u3[3]);
 		// PX4_INFO("DP_LPCA time: %lld \n", (timestamp_ca_end - timestamp_ca_start) ); //nuttx
-		//========================allocator_dir_LPwrap_4 (generate by matlab) =============================
+		// //========================allocator_dir_LPwrap_4 (generate by matlab) =============================
 		// float u4[4]={ 0.0,  0.0,   0.0,   0.0};
 		// float z_allocator_dir_LPwrap_4= 0.0;
 		// unsigned int iters_allocator_dir_LPwrap_4= 0;
@@ -699,6 +698,7 @@ bool MixingOutput::update()
 		// timestamp_ca_end = hrt_absolute_time();
 		// PX4_INFO("allocator_dir_LPwrap_4: u1: %f, u2: %f, u3: %f, u4: %f. \n",(double) u4[0],(double) u4[1],(double) u4[2],(double) u4[3]);
 		// PX4_INFO("allocator_dir_LPwrap_4 time: %lld \n", (timestamp_ca_end - timestamp_ca_start) ); //nuttx
+		// //========================dir_alloc_sim (generate by matlab) =============================
 		// float u5[4];
 		// float z_dir_alloc_sim;
 		// float iters_dir_alloc_sim;
@@ -717,18 +717,20 @@ bool MixingOutput::update()
 			// PX4_INFO("dir");
 
 			float u_all[4];
-			float z_all;
+			// float z_all;
 			int err = 0;
-			unsigned int iters_all;
-			// float rho;
+			// unsigned int iters_all;
+			// float iters_all;
+			float rho;
 			// dir_alloc_sim(y_all, _uMin, _uMax, u_all, &z_all, &iters_all);
 			// dir_alloc_sim(y_all, _uMin, _uMax, B, u_all, &z_all, &iters_all);
 			// allocator_dir_simplex_4_v3(y_all,_uMin,_uMax,u_all, &z_all, &iters_all);
 			// allocator_dir_LPwrap_4(B, y_all, _uMin, _uMax, u_all, &z_all, &iters_all);
 			// float input[3]={0.14,  0.02,   -0.11};
-			Allocator.allocateControl(y_all,u_all,err);
+			// Allocator.allocateControl(y_all,u_all,err);
 			// PX4_INFO("allocateControl: u1: %f, u2: %f, u3: %f, u4: %f. \n",(double) u_all[0],(double) u_all[1],(double) u_all[2],(double) u_all[3]);
-			// Allocator.DPscaled_LPCA(y_all, u_all, err, rho);
+			// Allocator.DP_LPCA(y_all,u_all,err);
+			Allocator.DPscaled_LPCA(y_all, u_all, err, rho);
 
 			// if (z_all>1)
 			if (1)
@@ -819,8 +821,8 @@ bool MixingOutput::update()
 			allocation_value.flag=-2;
 		}
 		timestamp_ca_end = hrt_absolute_time();
-		PX4_INFO("_u: u1: %f, u2: %f, u3: %f, u4: %f. \n",(double) _u[0],(double) _u[1],(double) _u[2],(double) _u[3]);
-		PX4_INFO("inv time: %lld \n", (timestamp_ca_end - timestamp_ca_start) ); //nuttx
+		// PX4_INFO("_u: u1: %f, u2: %f, u3: %f, u4: %f. \n",(double) _u[0],(double) _u[1],(double) _u[2],(double) _u[3]);
+		// PX4_INFO("alloc time: %lld \n", (timestamp_ca_end - timestamp_ca_start) ); //nuttx
 		// PX4_INFO("dir_alloc_sim time: %ld \n", (timestamp_ca_end - timestamp_ca_start) ); //sitl
 		// float u_ultimate[4];
 
