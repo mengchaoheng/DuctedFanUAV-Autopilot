@@ -360,7 +360,7 @@ SimpleMixer::scale(const mixer_scaler_s &scaler, float input)
 		output = (input * scaler.positive_scale) + scaler.offset;
 	}
 
-	return math::constrain(output, scaler.min_output, scaler.max_output);
+	return math::constrain(output, scaler.min_output, scaler.max_output); // constrain controller output
 }
 
 int

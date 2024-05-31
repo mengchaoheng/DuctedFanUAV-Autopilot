@@ -47,8 +47,8 @@ void LoggedTopics::add_default_topics()
 {
 	add_topic("actuator_armed");
 	add_topic("actuator_controls_0", 10);
-	add_topic("indi_feedback_input", 50);
-	add_topic("actuator_outputs_value", 50);
+	add_topic("indi_feedback_input", 10);
+	add_topic("actuator_outputs_value", 10);
 	add_topic("allocation_value", 10);
 	add_topic("actuator_controls_1", 100);
 	add_topic("airspeed", 1000);
@@ -89,11 +89,11 @@ void LoggedTopics::add_default_topics()
 	add_topic("test_motor", 500);
 	add_topic("trajectory_setpoint", 200);
 	add_topic("transponder_report");
-	add_topic("vehicle_acceleration", 50);
+	add_topic("vehicle_acceleration", 10);
 	add_topic("vehicle_air_data", 200);
-	add_topic("vehicle_angular_velocity", 20);
-	add_topic("vehicle_attitude", 50);
-	add_topic("vehicle_attitude_setpoint", 50);
+	add_topic("vehicle_angular_velocity", 10);
+	add_topic("vehicle_attitude", 10);
+	add_topic("vehicle_attitude_setpoint", 10);
 	add_topic("vehicle_command");
 	add_topic("vehicle_constraints", 1000);
 	add_topic("vehicle_control_mode");
@@ -103,12 +103,12 @@ void LoggedTopics::add_default_topics()
 	add_topic("vehicle_local_position", 100);
 	add_topic("vehicle_local_position_setpoint", 100);
 	add_topic("vehicle_magnetometer", 200);
-	add_topic("vehicle_rates_setpoint", 20);
+	add_topic("vehicle_rates_setpoint", 10);
 	add_topic("vehicle_roi", 1000);
 	add_topic("vehicle_status");
 	add_topic("vehicle_status_flags");
 	add_topic("vtol_vehicle_status", 200);
-	add_topic("vehicle_angular_acceleration",20);
+	add_topic("vehicle_angular_acceleration",10);
 
 	// multi topics
 	add_topic_multi("actuator_outputs", 50, 2);

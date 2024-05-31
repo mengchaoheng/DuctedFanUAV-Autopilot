@@ -442,9 +442,12 @@ MulticopterRateControl::Run()
 				// PX4_INFO("PID");
 			}
 			indi_feedback_input_s indi_feedback_input{};
-			indi_feedback_input.indi_fb[indi_feedback_input_s::INDEX_ROLL] = math::constrain(PX4_ISFINITE(Nu_i(0)) ? Nu_i(0) : 0.0f, -0.3491f, 0.3491f);
-			indi_feedback_input.indi_fb[indi_feedback_input_s::INDEX_PITCH] = math::constrain(PX4_ISFINITE(Nu_i(1)) ? Nu_i(1) : 0.0f, -0.3491f, 0.3491f);
-			indi_feedback_input.indi_fb[indi_feedback_input_s::INDEX_YAW] = math::constrain(PX4_ISFINITE(Nu_i(2)) ? Nu_i(2) : 0.0f, -0.3491f, 0.3491f);
+			// indi_feedback_input.indi_fb[indi_feedback_input_s::INDEX_ROLL] = math::constrain(PX4_ISFINITE(Nu_i(0)) ? Nu_i(0) : 0.0f, -0.3491f, 0.3491f);
+			// indi_feedback_input.indi_fb[indi_feedback_input_s::INDEX_PITCH] = math::constrain(PX4_ISFINITE(Nu_i(1)) ? Nu_i(1) : 0.0f, -0.3491f, 0.3491f);
+			// indi_feedback_input.indi_fb[indi_feedback_input_s::INDEX_YAW] = math::constrain(PX4_ISFINITE(Nu_i(2)) ? Nu_i(2) : 0.0f, -0.3491f, 0.3491f);
+			indi_feedback_input.indi_fb[indi_feedback_input_s::INDEX_ROLL] = PX4_ISFINITE(Nu_i(0)) ? Nu_i(0) : 0.0f;
+			indi_feedback_input.indi_fb[indi_feedback_input_s::INDEX_PITCH] = PX4_ISFINITE(Nu_i(1)) ? Nu_i(1) : 0.0f;
+			indi_feedback_input.indi_fb[indi_feedback_input_s::INDEX_YAW] = PX4_ISFINITE(Nu_i(2)) ? Nu_i(2) : 0.0f;
 			indi_feedback_input.timestamp_sample = angular_velocity.timestamp_sample;
 			indi_feedback_input.timestamp = hrt_absolute_time();
 			_indi_fb_pub.publish(indi_feedback_input);
@@ -457,10 +460,14 @@ MulticopterRateControl::Run()
 
 			// publish actuator controls
 			actuator_controls_s actuators{};
-			actuators.control[actuator_controls_s::INDEX_ROLL] = math::constrain(PX4_ISFINITE(att_control(0)) ? att_control(0) : 0.0f, -0.3491f, 0.3491f);
-			actuators.control[actuator_controls_s::INDEX_PITCH] = math::constrain(PX4_ISFINITE(att_control(1)) ? att_control(1) : 0.0f, -0.3491f, 0.3491f);
-			actuators.control[actuator_controls_s::INDEX_YAW] = math::constrain(PX4_ISFINITE(att_control(2)) ? att_control(2) : 0.0f, -0.3491f, 0.3491f);
-			actuators.control[actuator_controls_s::INDEX_THROTTLE] = math::constrain(PX4_ISFINITE(_thrust_sp) ? _thrust_sp : 0.0f, 0.f, 1.f);
+			// actuators.control[actuator_controls_s::INDEX_ROLL] = math::constrain(PX4_ISFINITE(att_control(0)) ? att_control(0) : 0.0f, -0.3491f, 0.3491f);
+			// actuators.control[actuator_controls_s::INDEX_PITCH] = math::constrain(PX4_ISFINITE(att_control(1)) ? att_control(1) : 0.0f, -0.3491f, 0.3491f);
+			// actuators.control[actuator_controls_s::INDEX_YAW] = math::constrain(PX4_ISFINITE(att_control(2)) ? att_control(2) : 0.0f, -0.3491f, 0.3491f);
+			// actuators.control[actuator_controls_s::INDEX_THROTTLE] = math::constrain(PX4_ISFINITE(_thrust_sp) ? _thrust_sp : 0.0f, 0.f, 1.f);
+			actuators.control[actuator_controls_s::INDEX_ROLL] = PX4_ISFINITE(att_control(0)) ? att_control(0) : 0.0f;
+			actuators.control[actuator_controls_s::INDEX_PITCH] = PX4_ISFINITE(att_control(1)) ? att_control(1) : 0.0f;
+			actuators.control[actuator_controls_s::INDEX_YAW] = PX4_ISFINITE(att_control(2)) ? att_control(2) : 0.0f;
+			actuators.control[actuator_controls_s::INDEX_THROTTLE] = PX4_ISFINITE(_thrust_sp) ? _thrust_sp : 0.0f;
 			actuators.control[actuator_controls_s::INDEX_LANDING_GEAR] = _landing_gear;
 			actuators.timestamp_sample = angular_velocity.timestamp_sample;
 
