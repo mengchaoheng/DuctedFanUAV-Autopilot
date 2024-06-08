@@ -734,8 +734,8 @@ bool MixingOutput::update()
 			Allocator.DP_LPCA(y_all,u_all,err, rho);
 			// Allocator.DPscaled_LPCA(y_all, u_all, err, rho);
 
-			if(rho<1)
-			// if(0)
+			// if(rho<1)
+			if(0)
 			{
 				float u_e[4] = {0.0, 0.0, 0.0, 0.0};
 				float z_e;
