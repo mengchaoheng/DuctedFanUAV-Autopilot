@@ -362,7 +362,7 @@ void MixingOutput::setAllMinValues(uint16_t value)
 {
 	for (unsigned i = 0; i < MAX_ACTUATORS; i++) {
 		_min_value[i] = value;
-		PX4_INFO("value %d", value);
+		// PX4_INFO("value %d", value);
 	}
 }
 
