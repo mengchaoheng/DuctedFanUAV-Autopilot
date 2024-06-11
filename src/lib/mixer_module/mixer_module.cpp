@@ -66,7 +66,7 @@ _support_esc_calibration(support_esc_calibration),
 _max_num_outputs(max_num_outputs < MAX_ACTUATORS ? max_num_outputs : MAX_ACTUATORS),
 _interface(interface),
 _control_latency_perf(perf_alloc(PC_ELAPSED, "control latency")),
-df_4(_B, -0.3491f, 0.3491f),
+df_4(_B, lower, upper),
 Allocator(df_4)
 {
 	output_limit_init(&_output_limit);
@@ -115,30 +115,17 @@ Allocator(df_4)
 		_lp_filter_actuator_d[i+2].set_cutoff_frequency(_param_sample_freq.get(), _param_cs2_cutoff.get());
 	}
 	B_inv.setZero();
-	B_inv(0, 0)=-1.1261f;
-	B_inv(0, 2)=1.2077f;
+	B_inv(0, 0)=-0.0108f;
+	B_inv(0, 2)=0.0053f;
 
-	B_inv(1, 1)=-1.1261f;
-	B_inv(1, 2)=1.2077f;
+	B_inv(1, 1)=-0.0109f;
+	B_inv(1, 2)=0.0053f;
 
-	B_inv(2, 0)=1.1261f;
-	B_inv(2, 2)=1.2077f;
+	B_inv(2, 0)=0.0108f;
+	B_inv(2, 2)=0.0053f;
 
-	B_inv(3, 1)=1.1261f;
-	B_inv(3, 2)=1.2077f;
-
-	// B_inv_new.setZero();
-	// B_inv_new(0, 0)=-1.0f;
-	// B_inv_new(0, 2)=1.0f;
-
-	// B_inv_new(1, 1)=-1.0f;
-	// B_inv_new(1, 2)=1.0f;
-
-	// B_inv_new(2, 0)=1.0f;
-	// B_inv_new(2, 2)=1.0f;
-
-	// B_inv_new(3, 1)=1.0f;
-	// B_inv_new(3, 2)=1.0f;
+	B_inv(3, 1)=0.0109f;
+	B_inv(3, 2)=0.0053f;
 
 	for (int i = 0; i < 3; i++) {
 		for (int j = 0; j < 4; j++) {
@@ -148,8 +135,8 @@ Allocator(df_4)
 
 	for (size_t i = 0; i < 4; i++)
 	{
-		_uMin[i] = -0.3491;
-		_uMax[i] = 0.3491;
+		_uMin[i] = lower;
+		_uMax[i] = upper;
 		// _uMin_new[i] = -0.3491f;
 		// _uMax_new[i] = 0.3491f;
 	}

@@ -93,9 +93,12 @@ MulticopterRateControl::parameters_updated()
 		// {
 			//inv
 			PX4_INFO("inv set rate_k");
-			_param_mc_rollrate_k.set(0.3491f);
-			_param_mc_pitchrate_k.set(0.3491f);
-			_param_mc_yawrate_k.set(0.3491f);
+			// _param_mc_rollrate_k.set(0.3491f);
+			// _param_mc_pitchrate_k.set(0.3491f);
+			// _param_mc_yawrate_k.set(0.3491f);
+			_param_mc_rollrate_k.set(0.3491f*92.4509); // 0.3491 for scale the limits to +-1
+			_param_mc_pitchrate_k.set(0.3491f*92.1649);
+			_param_mc_yawrate_k.set(0.3491f*186.9643);
 
 		// }
 	}

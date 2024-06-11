@@ -402,12 +402,12 @@ PARAM_DEFINE_INT32(MC_BAT_SCALE_EN, 0);
  * a Constant coefficient integrated with all the aerodynamic features of the duct.
  *
  * @min 0.0
- * @max 0.1
+ * @max 10.1
  * @decimal 2
  * @increment 0.005
  * @group Multicopter Rate Control
  */
-PARAM_DEFINE_FLOAT(MC_OMEGA_2_WIND, 0.0169f);// //0.0117f
+PARAM_DEFINE_FLOAT(MC_OMEGA_2_WIND, 3.0f);// //0.0117f
 
 /**
  * k_cv

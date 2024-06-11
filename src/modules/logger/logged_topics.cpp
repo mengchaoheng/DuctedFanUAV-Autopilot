@@ -111,7 +111,7 @@ void LoggedTopics::add_default_topics()
 	add_topic("vehicle_angular_acceleration",10);
 
 	// multi topics
-	add_topic_multi("actuator_outputs", 50, 2);
+	add_topic_multi("actuator_outputs", 10, 2);
 	add_topic_multi("logger_status", 0, 2);
 	add_topic_multi("multirotor_motor_limits", 1000, 2);
 	add_topic_multi("rate_ctrl_status", 200, 2);
