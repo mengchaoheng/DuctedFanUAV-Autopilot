@@ -177,9 +177,7 @@ private:
 		(ParamInt<px4::params::USE_INDI>) _param_use_indi,
 		(ParamInt<px4::params::USE_CA>) _param_use_control_alloc,
 		(ParamInt<px4::params::CYC_T>) _param_cycle_time,
-		(ParamInt<px4::params::USE_TAUI>) _param_use_tau_i,
-		(ParamInt<px4::params::USE_CA>) _param_use_alloc,
-		(ParamInt<px4::params::USE_LPCA>) _param_use_lp_alloc
+		(ParamInt<px4::params::USE_TAUI>) _param_use_tau_i
 
 	)
 

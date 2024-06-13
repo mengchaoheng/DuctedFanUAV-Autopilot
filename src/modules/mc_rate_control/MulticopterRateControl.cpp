@@ -82,7 +82,7 @@ MulticopterRateControl::parameters_updated()
 	// rate control parameters
 	// The controller gain K is used to convert the parallel (P + I/s + sD) form
 	// to the ideal (K * [1 + 1/sTi + sTd]) form
-	if (_param_use_alloc.get() == 1)
+	if (_param_use_control_alloc.get() == 1)
 	{
 		// if ( (_use_lp_alloc || _param_use_lp_alloc.get()==1))
 		// {

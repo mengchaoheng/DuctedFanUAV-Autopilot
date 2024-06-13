@@ -129,6 +129,13 @@ private:
 		.maybe_landed = true,
 		.landed = true,
 	};
+	bool _use_step_ref{false};
+	bool _use_step_ref_prev{false};
+	hrt_abstime _add_step_time;
+	float _cycle_time;
+	float _step_roll_amp;
+	float _step_pitch_amp;
+
 
 	DEFINE_PARAMETERS(
 		// Position Control
@@ -173,7 +180,11 @@ private:
 		(ParamFloat<px4::params::MPC_MAN_Y_TAU>) _param_mpc_man_y_tau,
 
 		(ParamFloat<px4::params::MPC_XY_VEL_ALL>) _param_mpc_xy_vel_all,
-		(ParamFloat<px4::params::MPC_Z_VEL_ALL>) _param_mpc_z_vel_all
+		(ParamFloat<px4::params::MPC_Z_VEL_ALL>) _param_mpc_z_vel_all,
+		(ParamInt<px4::params::USE_STEP_REF>) _param_mc_use_step_ref,
+		(ParamFloat<px4::params::STEP_ROLL_AMP>) _param_step_roll_amp,
+		(ParamFloat<px4::params::STEP_PITCH_AMP>) _param_step_pitch_amp,
+		(ParamFloat<px4::params::STEP_REF_TIME>) _param_step_ref_time
 	);
 
 	control::BlockDerivative _vel_x_deriv; /**< velocity derivative in x */
