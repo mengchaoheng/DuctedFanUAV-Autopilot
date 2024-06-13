@@ -58,7 +58,7 @@
 #include <lib/matrix/matrix/math.hpp>
 #include <mathlib/math/filter/LowPassFilter2p.hpp>
 #include <lib/mathlib/math/filter/NotchFilter.hpp>
-#include <lib/ecl/EKF/RingBuffer.h>
+// #include <lib/ecl/EKF/RingBuffer.h>
 
 #include "ControlAllocation.h"
 /**
@@ -313,44 +313,18 @@ private:
 
 	perf_counter_t _control_latency_perf;
 
-	uORB::Subscription _rc_channels_sub{ORB_ID(rc_channels)};
-
-	bool _disturb_flag{false};
-	bool _use_lp_alloc{false};
-	bool _disturb_flag_prev{false};
-	bool _use_square_ref_prev{false};
-	// bool _use_sin_ref_prev{false};
-	bool _use_servo_dis_prev{false};
-	// bool _use_step_ref_prev{false};
-	// uint16_t pwm_min3{PWM_DEFAULT_MIN};
-	// uint16_t pwm_min4{PWM_DEFAULT_MIN};
-	// uint16_t pwm_min5{PWM_DEFAULT_MIN};
-	// uint16_t pwm_min6{PWM_DEFAULT_MIN};
-	// uint16_t pwm_max3{PWM_DEFAULT_MAX};
-	// uint16_t pwm_max4{PWM_DEFAULT_MAX};
-	// uint16_t pwm_max5{PWM_DEFAULT_MAX};
-	// uint16_t pwm_max6{PWM_DEFAULT_MAX};
-
-	// int16_t _servo1_disturb{0};
-	// int16_t _servo2_disturb{0};
-	// int16_t _servo3_disturb{0};
-	// int16_t _servo4_disturb{0};
-	// int16_t _servo1_disturb_abs{0};
-	// int16_t _servo2_disturb_abs{0};
-	// int16_t _servo3_disturb_abs{0};
-	// int16_t _servo4_disturb_abs{0};
-
-	float _servo_disturb[4] {};
-	float _servo_disturb_abs[4] {};
+	float _indi_fb[3] = {0.0, 0.0, 0.0};
+	float _error_fb[3] = {0.0, 0.0, 0.0};
+	float _fb[3] = {0.0, 0.0, 0.0};
+	int _sample_freq;
+	bool _use_indi{false};
+	bool _use_alloc{false};
+	bool _use_pca{false};
 	float _uMin[4] {};
 	float _uMax[4] {};
 	float _u[4] {}; //  [-1, 1]
 	float _last_u[4] {};
 	matrix::Matrix<float, 4, 3> B_inv;
-	// matrix::Matrix<float, 4, 3> B_inv_new;
-	// float _u_new[4] {}; //  [-1, 1]
-	// float _uMin_new[4] {};
-	// float _uMax_new[4] {};
 
 	rc_channels_s		_rc_channels {};
 	const float _B[3][4] = { {-46.2254,0.0,46.2254,0.0}, {0.0,-46.0825,0.0,46.0825},{46.7411,46.7411,46.7411,46.7411}};
