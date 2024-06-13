@@ -1,8 +1,10 @@
 /*
+ * Prerelease License - for engineering feedback and testing purposes
+ * only. Not for sale.
  * File: dir_alloc_sim_types.h
  *
- * MATLAB Coder version            : 4.0
- * C/C++ source code generated on  : 25-Apr-2021 15:48:18
+ * MATLAB Coder version            : 24.1
+ * C/C++ source code generated on  : 2024-03-11 20:38:05
  */
 
 #ifndef DIR_ALLOC_SIM_TYPES_H
@@ -10,8 +12,8 @@
 
 /* Include Files */
 #include "rtwtypes.h"
-#endif
 
+#endif
 /*
  * File trailer for dir_alloc_sim_types.h
  *

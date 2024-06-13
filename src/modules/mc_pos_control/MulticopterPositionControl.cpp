@@ -134,6 +134,9 @@ int MulticopterPositionControl::parameters_update(bool force)
 		if (num_changed > 0) {
 			param_notify_changes();
 		}
+		_cycle_time = _param_step_ref_time.get();
+		_step_roll_amp = _param_step_roll_amp.get();
+		_step_pitch_amp = _param_step_pitch_amp.get();
 
 		if (_param_mpc_tiltmax_air.get() > MAX_SAFE_TILT_DEG) {
 			_param_mpc_tiltmax_air.set(MAX_SAFE_TILT_DEG);
@@ -453,6 +456,51 @@ void MulticopterPositionControl::Run()
 			vehicle_attitude_setpoint_s attitude_setpoint{};
 			_control.getAttitudeSetpoint(attitude_setpoint);
 			attitude_setpoint.timestamp = hrt_absolute_time();
+
+			// for sitl roll/pitch step
+			if ((_use_step_ref || _param_mc_use_step_ref.get() == 1) && (_control_mode.flag_control_altitude_enabled &&
+			    !_control_mode.flag_control_velocity_enabled &&
+			    !_control_mode.flag_control_position_enabled))
+			{
+				if (!_use_step_ref_prev)
+					_add_step_time = hrt_absolute_time(); // only play the first time.
+
+				hrt_abstime interval = hrt_elapsed_time(&_add_step_time);
+				// PX4_INFO("interval %ld", interval);
+				if (interval / 1e6f < 0.5f * _cycle_time)
+				{
+					PX4_INFO("+");
+					attitude_setpoint.roll_body = _step_roll_amp;
+					attitude_setpoint.pitch_body = _step_pitch_amp;
+					Quatf q_sp = Eulerf(attitude_setpoint.roll_body, attitude_setpoint.pitch_body, attitude_setpoint.yaw_body);
+					q_sp.copyTo(attitude_setpoint.q_d);
+				}
+				else if (interval / 1e6f > 0.5f * _cycle_time && interval / 1e6f < _cycle_time)
+				{
+					PX4_INFO("-");
+					attitude_setpoint.roll_body = -_step_roll_amp;
+					attitude_setpoint.pitch_body = -_step_pitch_amp;
+					Quatf q_sp = Eulerf(attitude_setpoint.roll_body, attitude_setpoint.pitch_body, attitude_setpoint.yaw_body);
+					q_sp.copyTo(attitude_setpoint.q_d);
+				}
+				else if (interval / 1e6f > _cycle_time && interval / 1e6f < 1.5f * _cycle_time)
+				{
+					PX4_INFO("0");
+					attitude_setpoint.roll_body = 0.0f;
+					attitude_setpoint.pitch_body = 0.0f;
+					Quatf q_sp = Eulerf(attitude_setpoint.roll_body, attitude_setpoint.pitch_body, attitude_setpoint.yaw_body);
+					q_sp.copyTo(attitude_setpoint.q_d);
+				}// when interval / 1e6f > 1.5f * _cycle_time,  nothing to do.
+				// else if (interval / 1e6f > 1.5f * _cycle_time && interval / 1e6f < 2.0f * _cycle_time)
+				// {
+				// 	PX4_INFO("-");
+				// 	attitude_setpoint.roll_body = -_step_roll_amp;
+				// 	attitude_setpoint.pitch_body = -_step_pitch_amp;
+				// }
+
+			}
+			_use_step_ref_prev = _use_step_ref || _param_mc_use_step_ref.get() == 1;
+
 			_vehicle_attitude_setpoint_pub.publish(attitude_setpoint);
 			// PX4_INFO("position _vehicle_attitude_setpoint_pub");
 

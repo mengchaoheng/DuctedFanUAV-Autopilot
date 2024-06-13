@@ -60,6 +60,7 @@
 #include <lib/mathlib/math/filter/NotchFilter.hpp>
 #include <lib/ecl/EKF/RingBuffer.h>
 
+#include "ControlAllocation.h"
 /**
  * @class OutputModuleInterface
  * Base class for an output module.
@@ -311,23 +312,54 @@ private:
 	OutputModuleInterface &_interface;
 
 	perf_counter_t _control_latency_perf;
-	float _uMin[6] {};
-	float _uMax[6] {};
-	float _u[6] {}; //  [-1, 1]
-	//double _u_oldest[4] {};
-	double _last_u[6] {};
-	matrix::Matrix<double, 4, 3> B_inv;
-	const double _B[3][4] = { {-0.5,0.0,0.5,0.0}, {0.0,-0.5,0.0,0.5},{0.25,0.25,0.25,0.25}};
-	const float B[18] = { 0.25, -0.125, 0.1667, 0.25, 0.125, 0.1667, 0, 0.25, 0.1667, -0.25, 0.125, 0.1667, -0.25, -0.125, 0.1667, 0, -0.25, 0.1667};
-	double _indi_fb[3] = {0.0, 0.0, 0.0};
-	double _error_fb[3] = {0.0, 0.0, 0.0};
-	double _fb[3] = {0.0, 0.0, 0.0};
-	int _sample_freq;
-	bool _use_indi{false};
-	bool _use_alloc{false};
-	bool _use_pca{false};
-	RingBuffer<double> _u_buffer[4];
 
+	uORB::Subscription _rc_channels_sub{ORB_ID(rc_channels)};
+
+	bool _disturb_flag{false};
+	bool _use_lp_alloc{false};
+	bool _disturb_flag_prev{false};
+	bool _use_square_ref_prev{false};
+	// bool _use_sin_ref_prev{false};
+	bool _use_servo_dis_prev{false};
+	// bool _use_step_ref_prev{false};
+	// uint16_t pwm_min3{PWM_DEFAULT_MIN};
+	// uint16_t pwm_min4{PWM_DEFAULT_MIN};
+	// uint16_t pwm_min5{PWM_DEFAULT_MIN};
+	// uint16_t pwm_min6{PWM_DEFAULT_MIN};
+	// uint16_t pwm_max3{PWM_DEFAULT_MAX};
+	// uint16_t pwm_max4{PWM_DEFAULT_MAX};
+	// uint16_t pwm_max5{PWM_DEFAULT_MAX};
+	// uint16_t pwm_max6{PWM_DEFAULT_MAX};
+
+	// int16_t _servo1_disturb{0};
+	// int16_t _servo2_disturb{0};
+	// int16_t _servo3_disturb{0};
+	// int16_t _servo4_disturb{0};
+	// int16_t _servo1_disturb_abs{0};
+	// int16_t _servo2_disturb_abs{0};
+	// int16_t _servo3_disturb_abs{0};
+	// int16_t _servo4_disturb_abs{0};
+
+	float _servo_disturb[4] {};
+	float _servo_disturb_abs[4] {};
+	float _uMin[4] {};
+	float _uMax[4] {};
+	float _u[4] {}; //  [-1, 1]
+	float _last_u[4] {};
+	matrix::Matrix<float, 4, 3> B_inv;
+	// matrix::Matrix<float, 4, 3> B_inv_new;
+	// float _u_new[4] {}; //  [-1, 1]
+	// float _uMin_new[4] {};
+	// float _uMax_new[4] {};
+
+	rc_channels_s		_rc_channels {};
+	const float _B[3][4] = { {-46.2254,0.0,46.2254,0.0}, {0.0,-46.0825,0.0,46.0825},{46.7411,46.7411,46.7411,46.7411}};
+	float B[12] {};
+	float lower{-0.3491f};
+    	float upper{0.3491f};
+	Aircraft<3, 4> df_4; // 创建一个具有 4 个操纵向量和 3 个广义力矩的飞行器对象
+	DP_LP_ControlAllocator<3, 4> Allocator; // 创建一个控制分配器对象，用于具有 4 个操纵向量和 3 个广义力矩的飞行器(转化为线性规划问题，其维数和参数 <3, 4> 有关。)
+	// 然后可以使用飞行器对象和控制分配器对象进行操作
 	DEFINE_PARAMETERS(
 		(ParamInt<px4::params::MC_AIRMODE>) _param_mc_airmode,   ///< multicopter air-mode
 		(ParamFloat<px4::params::MOT_SLEW_MAX>) _param_mot_slew_max,

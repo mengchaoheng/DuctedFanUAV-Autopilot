@@ -1,8 +1,12 @@
 /*
+ * Prerelease License - for engineering feedback and testing purposes
+ * only. Not for sale.
  * File: rtwtypes.h
  *
  * MATLAB Coder version            : 5.3
  * C/C++ source code generated on  : 03-Jun-2022 18:26:31
+ * MATLAB Coder version            : 24.1
+ * C/C++ source code generated on  : 2024-03-11 20:38:05
  */
 
 #ifndef RTWTYPES_H
@@ -20,10 +24,10 @@ extern "C" {
 
 /*=======================================================================*
  * Target hardware information
- *   Device type: ARM Compatible->ARM Cortex
- *   Number of bits:     char:   8    short:   16    int:  32
+ *   Device type: STMicroelectronics->ST10/Super10
+ *   Number of bits:     char:   8    short:   16    int:  16
  *                       long:  32
- *                       native word size:  32
+ *                       native word size:  16
  *   Byte ordering: LittleEndian
  *   Signed integer division rounds to: Zero
  *   Shift right on a signed integer as arithmetic shift: on
@@ -37,10 +41,10 @@ extern "C" {
  *=======================================================================*/
 typedef signed char int8_T;
 typedef unsigned char uint8_T;
-typedef short int16_T;
-typedef unsigned short uint16_T;
-typedef int int32_T;
-typedef unsigned int uint32_T;
+typedef int int16_T;
+typedef unsigned int uint16_T;
+typedef long int32_T;
+typedef unsigned long uint32_T;
 typedef float real32_T;
 typedef double real64_T;
 

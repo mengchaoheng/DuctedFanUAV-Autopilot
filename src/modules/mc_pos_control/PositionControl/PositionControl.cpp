@@ -86,6 +86,13 @@ void PositionControl::setInputSetpoint(const vehicle_local_position_setpoint_s &
 	_acc_sp = Vector3f(setpoint.acceleration);
 	_yaw_sp = setpoint.yaw;
 	_yawspeed_sp = setpoint.yawspeed;
+
+	// for (size_t i = 0; i < 3; i++)
+	// {
+	// 	PX4_INFO("_pos_sp(%ld): %f", i, (double) _pos_sp(i));
+	// 	PX4_INFO("_vel_sp(%ld): %f", i, (double) _vel_sp(i));
+	// 	PX4_INFO("_acc_sp(%ld): %f", i, (double) _acc_sp(i));
+	// }
 }
 
 bool PositionControl::update(const float dt)
@@ -94,7 +101,13 @@ bool PositionControl::update(const float dt)
 	const bool valid = (PX4_ISFINITE(_pos_sp(0)) == PX4_ISFINITE(_pos_sp(1)))
 			   && (PX4_ISFINITE(_vel_sp(0)) == PX4_ISFINITE(_vel_sp(1)))
 			   && (PX4_ISFINITE(_acc_sp(0)) == PX4_ISFINITE(_acc_sp(1)));
-	// PX4_INFO("PX4_ISFINITE of NAN: %d", (int) PX4_ISFINITE(_pos_sp(0)));
+	// PX4_INFO("valid: %f", (double) valid);
+	// for (size_t i = 0; i < 3; i++)
+	// {
+	// 	PX4_INFO("_pos_sp(%ld): %f", i, (double) _pos_sp(i));
+	// 	PX4_INFO("_vel_sp(%ld): %f", i, (double) _vel_sp(i));
+	// 	PX4_INFO("_acc_sp(%ld): %f", i, (double) _acc_sp(i));
+	// }
 	_positionControl();
 	_velocityControl(dt);
 
@@ -112,6 +125,13 @@ void PositionControl::_positionControl()
 	// PX4_INFO("_pos_sp 0: %f", (double) (_pos_sp(0)));
 	// PX4_INFO("_pos_sp 1: %f", (double) (_pos_sp(1)));
 	// PX4_INFO("_pos_sp 2: %f", (double) (_pos_sp(2)));
+	// PX4_INFO("1");
+	// for (size_t i = 0; i < 3; i++)
+	// {
+
+	// 	PX4_INFO("vel_sp_position(%ld): %f", i, (double) vel_sp_position(i));
+	// 	// PX4_INFO("_vel_sp(%ld): %f", i, (double) _vel_sp(i));
+	// }
 	// Position and feed-forward velocity setpoints or position states being NAN results in them not having an influence
 	// PX4_INFO("_vel_sp 0: %f", (double) (_vel_sp(0)));
 	// PX4_INFO("_vel_sp 1: %f", (double) (_vel_sp(1)));
@@ -128,6 +148,13 @@ void PositionControl::_positionControl()
 	// PX4_INFO("_vel_sp 2: %f", (double) (_vel_sp(2)));
 
 
+	// PX4_INFO("before");
+	// for (size_t i = 0; i < 3; i++)
+	// {
+
+	// 	PX4_INFO("vel_sp_position(%ld): %f", i, (double) vel_sp_position(i));
+	// 	PX4_INFO("_vel_sp(%ld): %f", i, (double) _vel_sp(i));
+	// }
 	// make sure there are no NAN elements for further reference while constraining
 
 
@@ -170,6 +197,11 @@ void PositionControl::_velocityControl(const float dt)
 	// PX4_INFO("_acc_sp 1: %f", (double) (_acc_sp(1)));
 	// PX4_INFO("_acc_sp 2: %f", (double) (_acc_sp(2)));
 
+	// for (size_t i = 0; i < 3; i++)
+	// {
+	// 	PX4_INFO("acc_sp_velocity(%ld): %f", i, (double) acc_sp_velocity(i));
+	// 	PX4_INFO("_acc_sp(%ld): %f", i, (double) _acc_sp(i));
+	// }
 	_accelerationControl();
 
 	// Integrator anti-windup in vertical direction

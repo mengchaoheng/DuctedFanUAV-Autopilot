@@ -349,6 +349,10 @@ void FlightTaskManualAltitude::_updateSetpoints()
 
 	_man_input_filter.setParameters(_deltatime, _param_mc_man_tilt_tau.get());
 	_man_input_filter.update(sp);
+	// for (size_t i = 0; i < 2; i++)
+	// {
+	// 	PX4_INFO("sp(%ld): %f", i, (double) sp(i));
+	// }
 	sp = _man_input_filter.getState();
 	_rotateIntoHeadingFrame(sp);
 

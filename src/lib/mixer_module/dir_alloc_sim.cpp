@@ -1,218 +1,22 @@
 /*
+ * Prerelease License - for engineering feedback and testing purposes
+ * only. Not for sale.
  * File: dir_alloc_sim.c
  *
- * MATLAB Coder version            : 4.0
- * C/C++ source code generated on  : 25-Apr-2021 15:48:18
+ * MATLAB Coder version            : 24.1
+ * C/C++ source code generated on  : 2024-03-11 20:38:05
  */
 
 /* Include Files */
-#include <string.h>
 #include "dir_alloc_sim.h"
 
-/* Function Declarations */
-static void Simplex_loop_C(double B[13], double A[260], double b[13], double c
-  [20], double *z, double x[20], double *iters);
-static void inv_mch(double A[169], double col, double A_inv[169]);
-
 /* Function Definitions */
-
-/*
- * (c) mengchaoheng
- *  ²»¿¼ÂÇÎŞ½âµÄÇéĞÎ
- *  Last edited 2019-11
- *    min z=c*x   subj. to  A*x (=¡¢ >=¡¢ <=) b
- *    x
- *     %% Initialization
- * Arguments    : double B[13]
- *                double A[260]
- *                double b[13]
- *                double c[20]
- *                double *z
- *                double x[20]
- *                double *iters
- * Return Type  : void
- */
-static void Simplex_loop_C(double B[13], double A[260], double b[13], double c
-  [20], double *z, double x[20], double *iters)
-{
-  int exitg1;
-  boolean_T flag;
-  int e;
-  int L;
-  int i;
-  boolean_T exitg2;
-  double MIN;
-  double delta;
-  int k;
-  double a_je;
-
-  /*  Iterate through simplex algorithm main loop */
-  memset(&x[0], 0, 20U * sizeof(double));
-  *iters = 0.0;
-  *z = 0.0;
-
-  /*      [m,n] = size(A); */
-  /*      while ~all(c>=0)                      % 3.~isempty(c(c(N)<0)) */
-  /*      e = find(c < 0, 1, 'first'); % ½ø»ù±äÁ¿Ë÷Òı    % 4. e = N(find(c(N)<0,1)) */
-  do {
-    exitg1 = 0;
-    flag = false;
-    e = -1;
-    L = -1;
-    i = 0;
-    exitg2 = false;
-    while ((!exitg2) && (i < 20)) {
-      if (c[i] < 0.0) {
-        flag = true;
-        e = i;
-        exitg2 = true;
-      } else {
-        i++;
-      }
-    }
-
-    if (flag) {
-      /*              a_ie=A(:,e); */
-      /*              ip=a_ie>(1/tol); */
-      /*              delta=tol*ones(m,1); */
-      /*              if ~isempty(ip) */
-      /*                  delta(ip)=b(ip)./a_ie(ip); */
-      /*              end */
-      MIN = 1.0E+8;
-      for (i = 0; i < 13; i++) {
-        if (A[i + 13 * e] > 1.0E-8) {
-          delta = b[i] / A[i + 13 * e];
-        } else {
-          delta = 1.0E+8;
-        }
-
-        if (delta < MIN) {
-          L = i;
-          MIN = delta;
-        }
-      }
-
-      /*              [~,L]=min(delta);%Ñ¡ÔñÀë»ù (Àë»ùÔÚBÊı×éÖĞµÄĞĞË÷Òı) */
-      /*          li = B(L);    % Àë»ù±äÁ¿Ë÷Òı                */
-      /*              if delta(L) >= tol     */
-      if (MIN >= 1.0E+8) {
-        exitg1 = 1;
-      } else {
-        /*  ´ËÊ±Ò»¶¨ÓĞÒ»¸öL */
-        /*  (c) mengchaoheng */
-        /*  Last edited 2019-11 */
-        /*    min z=c*x   subj. to  A*x (=¡¢ >=¡¢ <=) b */
-        /*    x  */
-        /*     %% Compute the coefficients of the equation for new basic variabLe x_e. */
-        /*      [m, n] = size(A); */
-        /*  row of Leaving var    L = find(B==li,1); */
-        /*  Perform pivot operation, exchanging L-row with e-coLumn variabLe */
-        b[L] /= A[L + 13 * e];
-
-        /*  4. */
-        MIN = A[L + 13 * e];
-        for (i = 0; i < 20; i++) {
-          A[L + 13 * i] /= MIN;
-        }
-
-        /*     %% Compute the coefficients of the remaining constraints. */
-        /*      i=[1:L-1 L+1:m];     %  i = find(B~=li); */
-        /*      if ~isempty(i) */
-        /*          b(i) = b(i) - A(i,e)*b(L);                                                */
-        /*          A(i,1:n) = A(i,1:n) - A(i,e)*A(L,1:n);	 */
-        /*      end */
-        MIN = b[L];
-        for (i = 0; i < 13; i++) {
-          delta = b[i];
-          if (1 + i != L + 1) {
-            delta = b[i] - A[i + 13 * e] * MIN;
-            a_je = A[i + 13 * e];
-            for (k = 0; k < 20; k++) {
-              A[i + 13 * k] -= a_je * A[L + 13 * k];
-            }
-          }
-
-          b[i] = delta;
-        }
-
-        /*     %% Compute the objective function */
-        MIN = c[e];
-        *z -= c[e] * b[L];
-        for (k = 0; k < 20; k++) {
-          c[k] -= MIN * A[L + 13 * k];
-        }
-
-        /*      c(1:n) = c(1:n) - c_e * A(L,1:n);       */
-        /*     %% Compute new sets of basic and nonbasic variabLes. */
-        /*  N(find(N==e,1)) = li;  */
-        B[L] = (double)e + 1.0;
-
-        /*   B(find(B==li,1)) = e; */
-        /* »»»ù£¬¼´½øĞĞ³õµÈĞĞ±ä»» */
-        (*iters)++;
-      }
-    } else {
-      for (i = 0; i < 13; i++) {
-        x[(int)B[i] - 1] = b[i];
-      }
-
-      exitg1 = 1;
-    }
-  } while (exitg1 == 0);
-}
-
-/*
- * ¶Ô¾ØÕó½øĞĞ³õµÈĞĞ±ä»»ÇóÆäÄæ
- * Arguments    : double A[169]
- *                double col
- *                double A_inv[169]
- * Return Type  : void
- */
-static void inv_mch(double A[169], double col, double A_inv[169])
-{
-  int k;
-  int i;
-  double div_i;
-  int jj;
-
-  /*  function Ad_eye=inv_mvh(B_inv,Ad) */
-  /*  Ad_eye=B_inv\Ad;% »¯¼ò */
-  /*  [row, col] = size(A); */
-  /*  BÎªµ¥Î»¾ØÕó */
-  memset(&A_inv[0], 0, 169U * sizeof(double));
-  for (k = 0; k < 13; k++) {
-    A_inv[k + 13 * k] = 1.0;
-  }
-
-  for (i = 0; i < 13; i++) {
-    /*  ÒÀ´Î½«¶Ô½ÇĞĞµÄÔªËØ¹éÒ»»¯ */
-    div_i = A[i + 13 * i];
-    for (k = 0; k < (int)col; k++) {
-      A[i + 13 * k] /= div_i;
-      A_inv[i + 13 * k] /= div_i;
-    }
-
-    for (k = 0; k < 13; k++) {
-      div_i = -A[k + 13 * i] / A[i + 13 * i];
-      if (1 + i == 1 + k) {
-        div_i = 0.0;
-      }
-
-      /*  ³õµÈĞĞ±ä»» */
-      for (jj = 0; jj < (int)col; jj++) {
-        A[k + 13 * jj] += div_i * A[i + 13 * jj];
-        A_inv[k + 13 * jj] += div_i * A_inv[i + 13 * jj];
-      }
-    }
-  }
-}
-
 /*
  * (c) mengchaoheng
  *  Last edited 2019-11
- *    min z=c*x   subj. to  A*x (=¡¢ >=¡¢ <=) b
+ *    min z=c*x   subj. to  A*x (=ï¿½ï¿½ >=ï¿½ï¿½ <=) b
  *    x
- *  Ô­ÎÊÌâ
+ *  Ô­ï¿½ï¿½ï¿½ï¿½
  *  Performs direct control allocation by solving the LP
  *    max z=a   subj. to  Bu = av
  *    a,u               umin <= u <= umax
@@ -228,150 +32,246 @@ static void inv_mch(double A[169], double col, double A_inv[169])
  *   -------
  *  u     optimal control (m x 1)
  *  a     scaling factor
- *  ÕûÀí³É
+ *  ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
  *    min z=[0 -1]x   subj. to  [B -v]x = 0
  *    x                       [I 0;-I 0]x <= [umax; -umin]
- *    ÆäÖĞ x=[u; a]
- *  ¶ÔÓ¦¡¶Í¹ÓÅ»¯¡·p139,¼ÇÎª
+ *    ï¿½ï¿½ï¿½ï¿½ x=[u; a]
+ *  ï¿½ï¿½Ó¦ï¿½ï¿½Í¹ï¿½Å»ï¿½ï¿½ï¿½p139,ï¿½ï¿½Îª
  *    min z=c*x   subj. to  Aeq*x = beq
  *    x                     G*x <= h
- *  ºÏ²¢
- *    min z=c*x   subj. to  [Aeq; G]*x (=¡¢<=) [beq;h]
+ *  ï¿½Ï²ï¿½
+ *    min z=c*x   subj. to  [Aeq; G]*x (=ï¿½ï¿½<=) [beq;h]
  *    x
- *  ±£Ö¤x>=0£¬±äĞÎ
- *    min z=[c -c]*X   subj. to  [Aeq -Aeq;G -G]*X (=¡¢<=) [beq;h]
+ *  ï¿½ï¿½Ö¤x>=0ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
+ *    min z=[c -c]*X   subj. to  [Aeq -Aeq;G -G]*X (=ï¿½ï¿½<=) [beq;h]
  *     X
- *  ÆäÖĞ X=[x^+; x^-]
- * Arguments    : const double v[3]
- *                const double umin[4]
- *                const double umax[4]
- *                double u[4]
- *                double *z
- *                double *iters
+ *  ï¿½ï¿½ï¿½ï¿½ X=[x^+; x^-]
+ *
+ *  B=[-0.5   0       0.5   0;
+ *       0  -0.5    0       0.5;
+ *      0.25   0.25   0.25   0.25];
+ *
+ * Arguments    : const float v[3]
+ *                const float umin[4]
+ *                const float umax[4]
+ *                const float B[12]
+ *                float u[4]
+ *                float *z
+ *                float *iters
  * Return Type  : void
  */
-void dir_alloc_sim(const double v[3], const double umin[4], const double umax[4],
-                   double u[4], double *z, double *iters)
+void dir_alloc_sim(const float v[3], const float umin[4], const float umax[4],
+                   const float B[12], float u[4], float *z, float *iters)
 {
+  static float A[260];
+  static float P[169];
+  static float b_B[169];
+  static float Ad[130];
+  static float Ad_eye[130];
+  static const signed char iv2[169] = {
+      1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+      0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0,
+      0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0,
+      0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0,
+      0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+      0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+      0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1};
+  static const signed char iv[100] = {
+      1, 0,  0, 0,  0, -1, 0, 0,  0, 0,  0,  1, 0,  0, 0,  0, -1, 0, 0,  0,
+      0, 0,  1, 0,  0, 0,  0, -1, 0, 0,  0,  0, 0,  1, 0,  0, 0,  0, -1, 0,
+      0, 0,  0, 0,  1, 0,  0, 0,  0, -1, -1, 0, 0,  0, 0,  1, 0,  0, 0,  0,
+      0, -1, 0, 0,  0, 0,  1, 0,  0, 0,  0,  0, -1, 0, 0,  0, 0,  1, 0,  0,
+      0, 0,  0, -1, 0, 0,  0, 0,  1, 0,  0,  0, 0,  0, -1, 0, 0,  0, 0,  1};
+  static const signed char iv1[100] = {
+      1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0,
+      0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0,
+      0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0,
+      0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0,
+      0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1};
+  static const signed char iv4[20] = {0, 0, 0, 0, -1, 0, 0, 0, 0, 1,
+                                      0, 0, 0, 0, 0,  0, 0, 0, 0, 0};
+  static const signed char iv3[13] = {1,  2,  3,  11, 12, 13, 14,
+                                      15, 16, 17, 18, 19, 20};
+  float c[20];
+  float x[20];
+  float Aeq[15];
+  float b[13];
+  float div_i;
+  int Aeq_tmp;
+  int L;
+  int P_tmp;
+  int div_i_tmp;
+  int e;
   int i;
-  int i0;
-  static double Aeq[15];
-  static const double dv0[12] = { -0.5, 0.0, 0.25, 0.0, -0.5, 0.25, 0.5, 0.0,
-    0.25, 0.0, 0.5, 0.25 };
-
-  static double Ad[130];
-  static const signed char iv0[100] = { 1, 0, 0, 0, 0, -1, 0, 0, 0, 0, 0, 1, 0,
-    0, 0, 0, -1, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, -1, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0,
-    -1, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, -1, -1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, -1,
-    0, 0, 0, 0, 1, 0, 0, 0, 0, 0, -1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, -1, 0, 0, 0,
-    0, 1, 0, 0, 0, 0, 0, -1, 0, 0, 0, 0, 1 };
-
-  static double b_Ad[169];
-  static double P_inv[169];
-  static const signed char iv1[100] = { 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0,
-    0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0,
-    0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-    1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0,
-    0, 0, 0, 0, 0, 0, 0, 1 };
-
-  double dv1[13];
-  static const signed char iv2[13] = { 1, 2, 3, 11, 12, 13, 14, 15, 16, 17, 18,
-    19, 20 };
-
-  static double Ad_eye[130];
-  int i1;
-  double dv2[13];
-  static double b_Ad_eye[260];
-  static double dv3[20];
-  static const double dv4[20] = { 0.0, 0.0, 0.0, 0.0, -1.0, 0.0, 0.0, 0.0, 0.0,
-    1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0 };
-
-  static double x[20];
+  signed char c_B[13];
   for (i = 0; i < 4; i++) {
-    for (i0 = 0; i0 < 3; i0++) {
-      Aeq[i0 + 3 * i] = dv0[i0 + 3 * i];
-    }
+    Aeq[3 * i] = B[3 * i];
+    Aeq_tmp = 3 * i + 1;
+    Aeq[Aeq_tmp] = B[Aeq_tmp];
+    Aeq_tmp = 3 * i + 2;
+    Aeq[Aeq_tmp] = B[Aeq_tmp];
   }
-
-  for (i = 0; i < 3; i++) {
-    Aeq[12 + i] = -v[i];
-  }
-
-  /* bÇó½âÏßĞÔ¹æ»® */
-  /*  ¹¹ÔìÏßĞÔ¹æ»®±ê×¼ĞÍ */
+  /* bï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ô¹æ»® */
+  Aeq[12] = -v[0];
+  b[0] = 0.0F;
+  Aeq[13] = -v[1];
+  b[1] = 0.0F;
+  Aeq[14] = -v[2];
+  b[2] = 0.0F;
+  b[7] = 20.0F;
+  b[3] = umax[0];
+  b[8] = -umin[0];
+  b[4] = umax[1];
+  b[9] = -umin[1];
+  b[5] = umax[2];
+  b[10] = -umin[2];
+  b[6] = umax[3];
+  b[11] = -umin[3];
+  b[12] = 0.0F;
+  /*  ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ô¹æ»®ï¿½ï¿½×¼ï¿½ï¿½ */
   /*  Convert free variables to positively constrained variables */
   for (i = 0; i < 5; i++) {
-    for (i0 = 0; i0 < 3; i0++) {
-      Ad[i0 + 13 * i] = Aeq[i0 + 3 * i];
-      Ad[i0 + 13 * (i + 5)] = -Aeq[i0 + 3 * i];
-    }
+    div_i = Aeq[3 * i];
+    Ad[13 * i] = div_i;
+    Aeq_tmp = 13 * (i + 5);
+    Ad[Aeq_tmp] = -div_i;
+    div_i = Aeq[3 * i + 1];
+    Ad[13 * i + 1] = div_i;
+    Ad[Aeq_tmp + 1] = -div_i;
+    div_i = Aeq[3 * i + 2];
+    Ad[13 * i + 2] = div_i;
+    Ad[Aeq_tmp + 2] = -div_i;
   }
-
   for (i = 0; i < 10; i++) {
-    for (i0 = 0; i0 < 10; i0++) {
-      Ad[(i0 + 13 * i) + 3] = iv0[i0 + 10 * i];
+    for (e = 0; e < 10; e++) {
+      Ad[(e + 13 * i) + 3] = iv[e + 10 * i];
     }
   }
-
   /*  Ad=[B -v -B v; eye(5) -eye(5);-eye(5) eye(5)]; */
-  /*  Ad=[-0.5000         0    0.5000         0         0    0.5000         0   -0.5000         0         0; */
-  /*            0   -0.5000         0    0.5000         0         0    0.5000         0   -0.5000         0; */
-  /*       0.2500    0.2500    0.2500    0.2500         0   -0.2500   -0.2500   -0.2500   -0.2500   	    0; */
-  /*       1.0000         0         0         0         0   -1.0000         0         0         0         0; */
-  /*            0    1.0000         0         0         0         0   -1.0000         0         0         0; */
-  /*            0         0    1.0000         0         0         0         0   -1.0000         0         0; */
-  /*            0         0         0    1.0000         0         0         0         0   -1.0000         0; */
-  /*            0         0         0         0    1.0000         0         0         0         0   -1.0000; */
-  /*      -1.0000         0         0         0         0    1.0000         0         0         0         0; */
-  /*            0   -1.0000         0         0         0         0    1.0000         0         0         0; */
-  /*            0         0   -1.0000         0         0         0         0    1.0000         0         0; */
-  /*            0         0         0   -1.0000         0         0         0         0    1.0000         0; */
-  /*            0         0         0         0   -1.0000         0         0         0         0    1.0000]; */
-  /*  AdÖ»ÓĞµÚ5£¬µÚ10ÁĞ¸ù¾İv²»Í¬¶ø²»Í¬£¬ÆäËû¹Ì¶¨²»±ä */
+  /*  Ad=[-0.5000         0    0.5000         0         0    0.5000         0
+   * -0.5000         0         0; */
+  /*            0   -0.5000         0    0.5000         0         0    0.5000 0
+   * -0.5000         0; */
+  /*       0.2500    0.2500    0.2500    0.2500         0   -0.2500   -0.2500
+   * -0.2500   -0.2500   	    0; */
+  /*       1.0000         0         0         0         0   -1.0000         0 0
+   * 0         0; */
+  /*            0    1.0000         0         0         0         0   -1.0000 0
+   * 0         0; */
+  /*            0         0    1.0000         0         0         0         0
+   * -1.0000         0         0; */
+  /*            0         0         0    1.0000         0         0         0 0
+   * -1.0000         0; */
+  /*            0         0         0         0    1.0000         0         0 0
+   * 0   -1.0000; */
+  /*      -1.0000         0         0         0         0    1.0000         0 0
+   * 0         0; */
+  /*            0   -1.0000         0         0         0         0    1.0000 0
+   * 0         0; */
+  /*            0         0   -1.0000         0         0         0 0    1.0000
+   * 0         0; */
+  /*            0         0         0   -1.0000         0         0         0 0
+   * 1.0000         0; */
+  /*            0         0         0         0   -1.0000         0         0 0
+   * 0    1.0000]; */
+  /*  AdÖ»ï¿½Ğµï¿½5ï¿½ï¿½ï¿½ï¿½10ï¿½Ğ¸ï¿½ï¿½ï¿½vï¿½ï¿½Í¬ï¿½ï¿½ï¿½ï¿½Í¬ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ì¶ï¿½ï¿½ï¿½ï¿½ï¿½ */
   /*  [mad,~]= size(Ad); */
-  /*  ÏÈ°ÑÇ°Èı¸öµÈÊ½µÄ»ùÕÒµ½£¬²¢»¯¼ò */
+  /*  ï¿½È°ï¿½Ç°ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ê½ï¿½Ä»ï¿½ï¿½Òµï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ */
+  for (i = 0; i < 3; i++) {
+    P[13 * i] = Ad[13 * i];
+    P_tmp = 13 * i + 1;
+    P[P_tmp] = Ad[P_tmp];
+    P_tmp = 13 * i + 2;
+    P[P_tmp] = Ad[P_tmp];
+  }
+  for (i = 0; i < 10; i++) {
+    P_tmp = 13 * (i + 3);
+    P[P_tmp] = 0.0F;
+    P[P_tmp + 1] = 0.0F;
+    P[P_tmp + 2] = 0.0F;
+  }
+  for (i = 0; i < 3; i++) {
+    for (e = 0; e < 10; e++) {
+      P_tmp = (e + 13 * i) + 3;
+      P[P_tmp] = Ad[P_tmp];
+    }
+  }
+  for (i = 0; i < 10; i++) {
+    for (e = 0; e < 10; e++) {
+      P[(e + 13 * (i + 3)) + 3] = iv1[e + 10 * i];
+    }
+  }
   /*  P=[Ad(1:3,1:3) zeros(3,10);Ad(4:mad,1:3) eye(10)]; */
   /*  P=[Ad(1:3,1:3) zeros(3,10);Ad(4:13,1:3) eye(10)]; */
-  /*  ÇóÄæ */
-  /*  Ad_eye=P\Ad;% »¯¼ò */
-  /*  ÎŞ¹ØÁĞµÄÄæÕóP_invÊÇ³£¾ØÕó */
-  /*  P_inv=[-1     1     2     0     0     0     0     0     0     0     0     0     0; */
-  /*       0    -2     0     0     0     0     0     0     0     0     0     0     0; */
-  /*       1     1     2     0     0     0     0     0     0     0     0     0     0; */
-  /*       1    -1    -2     1     0     0     0     0     0     0     0     0     0; */
-  /*       0     2     0     0     1     0     0     0     0     0     0     0     0; */
-  /*      -1    -1    -2     0     0     1     0     0     0     0     0     0     0; */
-  /*       0     0     0     0     0     0     1     0     0     0     0     0     0; */
-  /*       0     0     0     0     0     0     0     1     0     0     0     0     0; */
-  /*      -1     1     2     0     0     0     0     0     1     0     0     0     0; */
-  /*       0    -2     0     0     0     0     0     0     0     1     0     0     0; */
-  /*       1     1     2     0     0     0     0     0     0     0     1     0     0; */
-  /*       0     0     0     0     0     0     0     0     0     0     0     1     0; */
-  /*       0     0     0     0     0     0     0     0     0     0     0     0     1]; */
-  for (i = 0; i < 3; i++) {
-    for (i0 = 0; i0 < 3; i0++) {
-      b_Ad[i0 + 13 * i] = Ad[i0 + 13 * i];
+  /*  ï¿½ï¿½ï¿½ï¿½ */
+  /*  Ad_eye=P\Ad;% ï¿½ï¿½ï¿½ï¿½ */
+  /*  ï¿½Ş¹ï¿½ï¿½Ğµï¿½ï¿½ï¿½ï¿½ï¿½P_invï¿½Ç³ï¿½ï¿½ï¿½ï¿½ï¿½ */
+  /*  P_inv=[-1     1     2     0     0     0     0     0     0     0     0 0 0;
+   */
+  /*       0    -2     0     0     0     0     0     0     0     0     0     0
+   * 0; */
+  /*       1     1     2     0     0     0     0     0     0     0     0     0
+   * 0; */
+  /*       1    -1    -2     1     0     0     0     0     0     0     0     0
+   * 0; */
+  /*       0     2     0     0     1     0     0     0     0     0     0     0
+   * 0; */
+  /*      -1    -1    -2     0     0     1     0     0     0     0     0     0
+   * 0; */
+  /*       0     0     0     0     0     0     1     0     0     0     0     0
+   * 0; */
+  /*       0     0     0     0     0     0     0     1     0     0     0     0
+   * 0; */
+  /*      -1     1     2     0     0     0     0     0     1     0     0     0
+   * 0; */
+  /*       0    -2     0     0     0     0     0     0     0     1     0     0
+   * 0; */
+  /*       1     1     2     0     0     0     0     0     0     0     1     0
+   * 0; */
+  /*       0     0     0     0     0     0     0     0     0     0     0     1
+   * 0; */
+  /*       0     0     0     0     0     0     0     0     0     0     0     0
+   * 1]; */
+  /*  å¯¹çŸ©é˜µè¿›è¡Œåˆç­‰è¡Œå˜æ¢æ±‚å…¶é€† */
+  /*  function Ad_eye=inv_mvh(B_inv,Ad) */
+  /*  Ad_eye=B_inv\Ad;% åŒ–ç®€ */
+  /*  [row, col] = size(A); */
+  /*  Bä¸ºå•ä½çŸ©é˜µ */
+  for (i = 0; i < 169; i++) {
+    b_B[i] = iv2[i];
+  }
+  for (i = 0; i < 13; i++) {
+    /*  ä¾æ¬¡å°†å¯¹è§’è¡Œçš„å…ƒç´ å½’ä¸€åŒ– */
+    div_i_tmp = i + 13 * i;
+    div_i = P[div_i_tmp];
+    for (Aeq_tmp = 0; Aeq_tmp < 13; Aeq_tmp++) {
+      P_tmp = i + 13 * Aeq_tmp;
+      P[P_tmp] /= div_i;
+      b_B[P_tmp] /= div_i;
+    }
+    for (Aeq_tmp = 0; Aeq_tmp < 13; Aeq_tmp++) {
+      div_i = -P[Aeq_tmp + 13 * i] / P[div_i_tmp];
+      if (i == Aeq_tmp) {
+        div_i = 0.0F;
+      }
+      /*  åˆç­‰è¡Œå˜æ¢ */
+      for (e = 0; e < 13; e++) {
+        P_tmp = Aeq_tmp + 13 * e;
+        L = i + 13 * e;
+        P[P_tmp] += div_i * P[L];
+        b_B[P_tmp] += div_i * b_B[L];
+      }
     }
   }
-
-  for (i = 0; i < 10; i++) {
-    for (i0 = 0; i0 < 3; i0++) {
-      b_Ad[i0 + 13 * (i + 3)] = 0.0;
+  for (i = 0; i < 13; i++) {
+    for (e = 0; e < 10; e++) {
+      div_i = 0.0F;
+      for (Aeq_tmp = 0; Aeq_tmp < 13; Aeq_tmp++) {
+        div_i += b_B[i + 13 * Aeq_tmp] * Ad[Aeq_tmp + 13 * e];
+      }
+      Ad_eye[i + 13 * e] = div_i;
     }
   }
-
-  for (i = 0; i < 3; i++) {
-    memcpy(&b_Ad[i * 13 + 3], &Ad[i * 13 + 3], 10U * sizeof(double));
-  }
-
-  for (i = 0; i < 10; i++) {
-    for (i0 = 0; i0 < 10; i0++) {
-      b_Ad[(i0 + 13 * (i + 3)) + 3] = iv1[i0 + 10 * i];
-    }
-  }
-
-  inv_mch(b_Ad, 13.0, P_inv);
-
   /*  Ad_eye=[1     0     0     1     0    -1     0     0    -1     0; */
   /*          0     1     0    -1     0     0    -1     0     1     0; */
   /*          0     0     1     1     0     0     0    -1    -1     0; */
@@ -385,7 +285,7 @@ void dir_alloc_sim(const double v[3], const double umin[4], const double umax[4]
   /*          0     0     0     1     0     0     0     0    -1     0; */
   /*          0     0     0    -1     0     0     0     0     1     0; */
   /*          0     0     0     0     0     0     0     0     0     0]; */
-  /*  ¸ù¾İÒÔÉÏ·ÖÎö£¬P_inv*AdÖ»ÓĞµÚ5£¬µÚ10ÁĞÒÀv²»Í¬¶ø±ä»¯¡£ */
+  /*  ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ï·ï¿½ï¿½ï¿½ï¿½ï¿½P_inv*AdÖ»ï¿½Ğµï¿½5ï¿½ï¿½ï¿½ï¿½10ï¿½ï¿½ï¿½ï¿½vï¿½ï¿½Í¬ï¿½ï¿½ï¿½ä»¯ï¿½ï¿½ */
   /*  for i=1:13 */
   /*      temp1=0; */
   /*      temp2=0; */
@@ -396,21 +296,50 @@ void dir_alloc_sim(const double v[3], const double umin[4], const double umax[4]
   /*      Ad_eye(i,5)=temp1; */
   /*      Ad_eye(i,10)=temp2; */
   /*  end */
-  /*  ¼ÓÉÏËÉ³Ú±äÁ¿¶ÔÓ¦µÄ»ù */
-  /*  AÊÇAd_eyeµÄÀ©³ä£¬µÚ5£¬µÚ10ÁĞÓëP_inv*Ad±ä»¯µÄ²¿·ÖÁĞÓĞ¹Ø£¬ÆäËûÊÇ³£Êı */
-  /*  A=[1     0     0     1     0    -1     0     0    -1     0     0     0     0     0     0     0     0     0     0     0; */
-  /*     0     1     0    -1     0     0    -1     0     1     0     0     0     0     0     0     0     0     0     0     0; */
-  /*     0     0     1     1     0     0     0    -1    -1     0     0     0     0     0     0     0     0     0     0     0; */
-  /*     0     0     0    -1     0     0     0     0     1     0     1     0     0     0     0     0     0     0     0     0; */
-  /*     0     0     0     1     0     0     0     0    -1     0     0     1     0     0     0     0     0     0     0     0; */
-  /*     0     0     0    -1     0     0     0     0     1     0     0     0     1     0     0     0     0     0     0     0; */
-  /*     0     0     0     1     0     0     0     0    -1     0     0     0     0     1     0     0     0     0     0     0; */
-  /*     0     0     0     0     0     0     0     0     0     0     0     0     0     0     1     0     0     0     0     0; */
-  /*     0     0     0     1     0     0     0     0    -1     0     0     0     0     0     0     1     0     0     0     0; */
-  /*     0     0     0    -1     0     0     0     0     1     0     0     0     0     0     0     0     1     0     0     0; */
-  /*     0     0     0     1     0     0     0     0    -1     0     0     0     0     0     0     0     0     1     0     0; */
-  /*     0     0     0    -1     0     0     0     0     1     0     0     0     0     0     0     0     0     0     1     0; */
-  /*     0     0     0     0     0     0     0     0     0     0     0     0     0     0     0     0     0     0     0     1]; */
+  /*  ï¿½ï¿½ï¿½ï¿½ï¿½É³Ú±ï¿½ï¿½ï¿½ï¿½ï¿½Ó¦ï¿½Ä»ï¿½ */
+  for (i = 0; i < 10; i++) {
+    A[13 * i] = Ad_eye[13 * i];
+    div_i_tmp = 13 * (i + 10);
+    A[div_i_tmp] = 0.0F;
+    Aeq_tmp = 13 * i + 1;
+    A[Aeq_tmp] = Ad_eye[Aeq_tmp];
+    A[div_i_tmp + 1] = 0.0F;
+    Aeq_tmp = 13 * i + 2;
+    A[Aeq_tmp] = Ad_eye[Aeq_tmp];
+    A[div_i_tmp + 2] = 0.0F;
+    for (e = 0; e < 10; e++) {
+      Aeq_tmp = (e + 13 * i) + 3;
+      A[Aeq_tmp] = Ad_eye[Aeq_tmp];
+      A[(e + div_i_tmp) + 3] = iv1[e + 10 * i];
+    }
+  }
+  /*  Aï¿½ï¿½Ad_eyeï¿½ï¿½ï¿½ï¿½ï¿½ä£¬ï¿½ï¿½5ï¿½ï¿½ï¿½ï¿½10ï¿½ï¿½ï¿½ï¿½P_inv*Adï¿½ä»¯ï¿½Ä²ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ğ¹Ø£ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ç³ï¿½ï¿½ï¿½ */
+  /*  A=[1     0     0     1     0    -1     0     0    -1     0     0     0 0
+   * 0     0     0     0     0     0     0; */
+  /*     0     1     0    -1     0     0    -1     0     1     0     0     0 0
+   * 0     0     0     0     0     0     0; */
+  /*     0     0     1     1     0     0     0    -1    -1     0     0     0 0
+   * 0     0     0     0     0     0     0; */
+  /*     0     0     0    -1     0     0     0     0     1     0     1     0 0
+   * 0     0     0     0     0     0     0; */
+  /*     0     0     0     1     0     0     0     0    -1     0     0     1 0
+   * 0     0     0     0     0     0     0; */
+  /*     0     0     0    -1     0     0     0     0     1     0     0     0 1
+   * 0     0     0     0     0     0     0; */
+  /*     0     0     0     1     0     0     0     0    -1     0     0     0 0
+   * 1     0     0     0     0     0     0; */
+  /*     0     0     0     0     0     0     0     0     0     0     0     0 0
+   * 0     1     0     0     0     0     0; */
+  /*     0     0     0     1     0     0     0     0    -1     0     0     0 0
+   * 0     0     1     0     0     0     0; */
+  /*     0     0     0    -1     0     0     0     0     1     0     0     0 0
+   * 0     0     0     1     0     0     0; */
+  /*     0     0     0     1     0     0     0     0    -1     0     0     0 0
+   * 0     0     0     0     1     0     0; */
+  /*     0     0     0    -1     0     0     0     0     1     0     0     0 0
+   * 0     0     0     0     0     1     0; */
+  /*     0     0     0     0     0     0     0     0     0     0     0     0 0
+   * 0     0     0     0     0     0     1]; */
   /*  for i=1:13 */
   /*      temp1=0; */
   /*      temp2=0; */
@@ -421,57 +350,143 @@ void dir_alloc_sim(const double v[3], const double umin[4], const double umax[4]
   /*      A(i,5)=temp1; */
   /*      A(i,10)=temp2; */
   /*  end */
-  /*  ×ªCĞèÒªÌØ±ğ×¢ÒâÏÂ±êµÄÇø±ğ */
+  /*  ×ªCï¿½ï¿½Òªï¿½Ø±ï¿½×¢ï¿½ï¿½ï¿½Â±ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ */
   /*  Simplex algorithm */
   /*  Iterate through simplex algorithm main loop */
-  *z = 0.0;
   for (i = 0; i < 13; i++) {
-    for (i0 = 0; i0 < 10; i0++) {
-      Ad_eye[i + 13 * i0] = 0.0;
-      for (i1 = 0; i1 < 13; i1++) {
-        Ad_eye[i + 13 * i0] += P_inv[i + 13 * i1] * Ad[i1 + 13 * i0];
+    c_B[i] = iv3[i];
+  }
+  /*  (c) mengchaoheng */
+  /*  ä¸è€ƒè™‘æ— è§£çš„æƒ…å½¢ */
+  /*  Last edited 2019-11 */
+  /*    min z=c*x   subj. to  A*x (=ã€ >=ã€ <=) b */
+  /*    x  */
+  /*     %% Initialization */
+  /*  Iterate through simplex algorithm main loop */
+  for (i = 0; i < 20; i++) {
+    c[i] = iv4[i];
+    x[i] = 0.0F;
+  }
+  *iters = 0.0F;
+  *z = 0.0F;
+  /*      [m,n] = size(A); */
+  /*      while ~all(c>=0)                      % 3.~isempty(c(c(N)<0)) */
+  /*      e = find(c < 0, 1, 'first'); % è¿›åŸºå˜é‡ç´¢å¼•    % 4. e =
+   * N(find(c(N)<0,1)) */
+  long exitg1;
+  bool exitg2;
+  bool flag;
+  do {
+    exitg1 = 0L;
+    flag = false;
+    e = -1;
+    L = -1;
+    i = 0;
+    exitg2 = false;
+    while ((!exitg2) && (i < 20)) {
+      if (c[i] < -1.0E-6F) {
+        /*  <0 */
+        flag = true;
+        e = i;
+        exitg2 = true;
+      } else {
+        i++;
       }
     }
-
-    dv1[i] = iv2[i];
-  }
-
-  for (i = 0; i < 10; i++) {
-    for (i0 = 0; i0 < 3; i0++) {
-      b_Ad_eye[i0 + 13 * i] = Ad_eye[i0 + 13 * i];
-      b_Ad_eye[i0 + 13 * (i + 10)] = 0.0;
+    if (flag) {
+      float MIN;
+      /*              a_ie=A(:,e); */
+      /*              ip=a_ie>(1/tol); */
+      /*              delta=tol*ones(m,1); */
+      /*              if ~isempty(ip) */
+      /*                  delta(ip)=b(ip)./a_ie(ip); */
+      /*              end */
+      MIN = 1.0E+6F;
+      for (i = 0; i < 13; i++) {
+        div_i = A[i + 13 * e];
+        if (div_i > 1.0E-6F) {
+          div_i = b[i] / div_i;
+        } else {
+          div_i = 1.0E+6F;
+        }
+        if (div_i < MIN) {
+          L = i;
+          MIN = div_i;
+        }
+      }
+      /*              [~,L]=min(delta);%é€‰æ‹©ç¦»åŸº (ç¦»åŸºåœ¨Bæ•°ç»„ä¸­çš„è¡Œç´¢å¼•) */
+      /*          li = B(L);    % ç¦»åŸºå˜é‡ç´¢å¼•                */
+      /*              if delta(L) >= tol     */
+      if (MIN >= 1.0E+6F) {
+        exitg1 = 1L;
+      } else {
+        /*  æ­¤æ—¶ä¸€å®šæœ‰ä¸€ä¸ªL */
+        /*  (c) mengchaoheng */
+        /*  Last edited 2019-11 */
+        /*    min z=c*x   subj. to  A*x (=ã€ >=ã€ <=) b */
+        /*    x  */
+        /*     %% Compute the coefficients of the equation for new basic
+         * variabLe x_e. */
+        /*      [m, n] = size(A); */
+        /*  row of Leaving var    L = find(B==li,1); */
+        /*  Perform pivot operation, exchanging L-row with e-coLumn variabLe */
+        div_i = A[L + 13 * e];
+        b[L] /= div_i;
+        /*  4. */
+        for (i = 0; i < 20; i++) {
+          div_i_tmp = L + 13 * i;
+          A[div_i_tmp] /= div_i;
+        }
+        /*     %% Compute the coefficients of the remaining constraints. */
+        /*      i=[1:L-1 L+1:m];     %  i = find(B~=li); */
+        /*      if ~isempty(i) */
+        /*          b(i) = b(i) - A(i,e)*b(L); */
+        /*          A(i,1:n) = A(i,1:n) - A(i,e)*A(L,1:n);	 */
+        /*      end */
+        MIN = b[L];
+        for (i = 0; i < 13; i++) {
+          if (i != L) {
+            div_i = A[i + 13 * e];
+            b[i] -= div_i * MIN;
+            for (Aeq_tmp = 0; Aeq_tmp < 20; Aeq_tmp++) {
+              div_i_tmp = i + 13 * Aeq_tmp;
+              A[div_i_tmp] -= div_i * A[L + 13 * Aeq_tmp];
+            }
+          }
+        }
+        /*     %% Compute the objective function */
+        div_i = c[e];
+        *z -= c[e] * b[L];
+        for (Aeq_tmp = 0; Aeq_tmp < 20; Aeq_tmp++) {
+          c[Aeq_tmp] -= div_i * A[L + 13 * Aeq_tmp];
+        }
+        /*      c(1:n) = c(1:n) - c_e * A(L,1:n);       */
+        /*     %% Compute new sets of basic and nonbasic variabLes. */
+        /*  N(find(N==e,1)) = li;  */
+        c_B[L] = (signed char)(e + 1);
+        /*   B(find(B==li,1)) = e; */
+        /* æ¢åŸºï¼Œå³è¿›è¡Œåˆç­‰è¡Œå˜æ¢ */
+        (*iters)++;
+      }
+    } else {
+      for (i = 0; i < 13; i++) {
+        x[c_B[i] - 1] = b[i];
+      }
+      exitg1 = 1L;
     }
-
-    for (i0 = 0; i0 < 10; i0++) {
-      b_Ad_eye[(i0 + 13 * i) + 3] = Ad_eye[(i0 + 13 * i) + 3];
-      b_Ad_eye[(i0 + 13 * (i + 10)) + 3] = iv1[i0 + 10 * i];
-    }
-  }
-
-  for (i = 0; i < 3; i++) {
-    dv2[i] = 0.0;
-  }
-
-  dv2[7] = 20.0;
-  for (i = 0; i < 4; i++) {
-    dv2[i + 3] = umax[i];
-    dv2[i + 8] = -umin[i];
-  }
-
-  dv2[12] = 0.0;
-  memcpy(&dv3[0], &dv4[0], 20U * sizeof(double));
-  Simplex_loop_C(dv1, b_Ad_eye, dv2, dv3, z, x, iters);
-
-  /*  ÏßĞÔ¹æ»®µ¥´¿ĞÎ·¨ */
-  for (i = 0; i < 4; i++) {
-    u[i] = x[i] - x[i + 5];
-  }
-
-  if (*z > 1.0) {
-    /*  ·Å´óÁË±¶Êı£¬ÔÙ»¹Ô­£¬ÈôĞ¡ÓÚ1£¬Ôò±íÊ¾ĞèÒªËõĞ¡£¬xÒÑ¾­×ÔÈ»µ½´ï±ß½ç */
-    for (i = 0; i < 4; i++) {
-      u[i] /= *z;
-    }
+  } while (exitg1 == 0L);
+  /*  ï¿½ï¿½ï¿½Ô¹æ»®ï¿½ï¿½ï¿½ï¿½ï¿½Î·ï¿½ */
+  /*  [x,z,iters]=Simplex_loop_mch(basis, A, b, c, z); */
+  u[0] = x[0] - x[5];
+  u[1] = x[1] - x[6];
+  u[2] = x[2] - x[7];
+  u[3] = x[3] - x[8];
+  if (*z > 1.0F) {
+    /*  ï¿½Å´ï¿½ï¿½Ë±ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ù»ï¿½Ô­ï¿½ï¿½ï¿½ï¿½Ğ¡ï¿½ï¿½1ï¿½ï¿½ï¿½ï¿½ï¿½Ê¾ï¿½ï¿½Òªï¿½ï¿½Ğ¡ï¿½ï¿½xï¿½Ñ¾ï¿½ï¿½ï¿½È»ï¿½ï¿½ï¿½ï¿½ß½ï¿½ */
+    u[0] /= *z;
+    u[1] /= *z;
+    u[2] /= *z;
+    u[3] /= *z;
   }
 }
 
@@ -489,7 +504,6 @@ void dir_alloc_sim_initialize(void)
  */
 void dir_alloc_sim_terminate(void)
 {
-  /* (no terminate code required) */
 }
 
 /*

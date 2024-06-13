@@ -31,5 +31,4 @@
 #
 ############################################################################
 
-px4_add_library(mixer_module mixer_module.cpp  dir_alloc_six.c dir_alloc_six.h dir_alloc_six_types.h rtwtypes.h)
-# dir_alloc_sim.cpp dir_alloc_sim.h dir_alloc_sim_types.h
+px4_add_library(mixer_module mixer_module.cpp dir_alloc_sim.cpp allocator_dir_LPwrap_4.c rt_nonfinite.c dir_alloc_six.c)

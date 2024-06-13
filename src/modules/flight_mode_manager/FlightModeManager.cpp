@@ -137,6 +137,7 @@ void FlightModeManager::Run()
 		}
 
 		start_flight_task();
+		// PX4_INFO("start_flight_task !");
 
 		if (_vehicle_command_sub.updated()) {
 			handleCommand();
@@ -144,6 +145,7 @@ void FlightModeManager::Run()
 
 		if (isAnyTaskActive()) {
 			generateTrajectorySetpoint(dt, vehicle_local_position);
+			// PX4_INFO("isAnyTaskActive !");
 		}
 
 	}
