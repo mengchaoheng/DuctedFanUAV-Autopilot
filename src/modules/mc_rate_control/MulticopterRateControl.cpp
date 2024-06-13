@@ -270,7 +270,7 @@ MulticopterRateControl::Run()
 			Vector3f att_control(0.f,0.f,0.f);
 			Vector3f error_fb(0.f,0.f,0.f);
 			// run rate controller
-			if (_use_indi == 1 && _actuator_outputs_value_sub.update(&actuator_outputs_value))
+			if (_use_indi == 1 && _actuator_outputs_value_sub.update(&actuator_outputs_value))// ang_acc, have to be use with AC
 			{
 				if (_maybe_landed || _landed)
 				{
@@ -288,7 +288,7 @@ MulticopterRateControl::Run()
 					// PX4_INFO("INDI");
 				}
 			}
-			else
+			else // torque, since reset rate_k, can be use for any alloc
 			{
 				att_control = _rate_control.update(rates, _rates_sp, angular_accel, dt, _maybe_landed || _landed);
 

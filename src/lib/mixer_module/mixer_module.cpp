@@ -549,8 +549,8 @@ bool MixingOutput::update()
 			int err = 0;
 			float rho;
 
-			Allocator.DP_LPCA(_fb,u_all,err, rho);
-			// Allocator.DPscaled_LPCA(_fb, u_all, err, rho);
+			// Allocator.DP_LPCA(_fb,u_all,err, rho); // what happen with pid?
+			Allocator.DPscaled_LPCA(_fb, u_all, err, rho);
 
 			// if(rho<1 && _use_indi == 1)
 			if(0)
