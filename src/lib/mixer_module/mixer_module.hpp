@@ -325,8 +325,6 @@ private:
 	float _u[4] {}; //  [-1, 1]
 	float _last_u[4] {};
 	matrix::Matrix<float, 4, 3> B_inv;
-
-	rc_channels_s		_rc_channels {};
 	const float _B[3][4] = { {-46.2254,0.0,46.2254,0.0}, {0.0,-46.0825,0.0,46.0825},{46.7411,46.7411,46.7411,46.7411}};
 	float B[12] {};
 	float lower{-0.3491f};
