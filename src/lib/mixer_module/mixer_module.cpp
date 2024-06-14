@@ -96,11 +96,11 @@ Allocator(df_4)
 
 	// last_delta_cmd_rad
 	for (size_t i = 0; i < 4; ++i) {
-		_lp_filter_actuator[i].reset(0);
 		_lp_filter_actuator[i].set_cutoff_frequency(_sample_freq, _param_cs1_cutoff.get());
+		_lp_filter_actuator[i].reset(0);
 
-		_notch_filter_actuator[i].reset(0);
 		_notch_filter_actuator[i].setParameters(_sample_freq, _param_imu_gyro_nf_freq.get(), _param_imu_gyro_nf_bw.get());
+		_notch_filter_actuator[i].reset(0);
 	}
 	B_inv.setZero();
 	B_inv(0, 0)=-0.0108f;
