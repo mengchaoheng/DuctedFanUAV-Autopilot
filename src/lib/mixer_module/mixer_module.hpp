@@ -267,24 +267,13 @@ private:
 	hrt_abstime _time_last_dt_update_multicopter{0};
 	hrt_abstime _time_last_dt_update_simple_mixer{0};
 
-	float _Omega_0_prev{0};
 	float _delta_prev[4];
 	//float _last_outputs[MAX_ACTUATORS];
-	float _dOmega_0_raw_prev{0};
-	float _Omega_d_prev{0};
-	float _dOmega_d_raw_prev{0};
-
-	float _pwm_hover{1500}; // SITL: _pwm_hover = 1500; Nuttx: by real fly test. Construct a gain to cancel the link from pwm to motor speed, so the current hover pwm is 1500, because the ratio is 0.5
-	float _omega_hover{1225.f};
-
-	hrt_abstime _timestamp_sample_prev{0};
 
 	// angular velocity filters
-	math::LowPassFilter2p<float> _lp_filter_actuator[5]={math::LowPassFilter2p<float>{250,20.f},math::LowPassFilter2p<float>{250,20.f},math::LowPassFilter2p<float>{250,20.f},math::LowPassFilter2p<float>{250,20.f},math::LowPassFilter2p<float>{250,20.f}};
-	math::NotchFilter<float> _notch_filter_actuator[5];
+	math::LowPassFilter2p<float> _lp_filter_actuator[4]={math::LowPassFilter2p<float>{250,20.f},math::LowPassFilter2p<float>{250,20.f},math::LowPassFilter2p<float>{250,20.f},math::LowPassFilter2p<float>{250,20.f}};
+	math::NotchFilter<float> _notch_filter_actuator[4];
 
-	// angular acceleration filter
-	math::LowPassFilter2p<float> _lp_filter_actuator_d[2]={math::LowPassFilter2p<float>{250,20.f},math::LowPassFilter2p<float>{250,20.f}};
 
 	unsigned _max_topic_update_interval_us{0}; ///< max _control_subs topic update interval (0=unlimited)
 

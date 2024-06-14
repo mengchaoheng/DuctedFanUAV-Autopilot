@@ -94,30 +94,9 @@ Vector3f IndiControl::update(const Vector3f &rate, const Vector3f &rate_sp, cons
 	else
 	{
 		Matrix<float, 4, 1> delta_0 (actuator_outputs_value.delta);
-
-		Vector3f H_2{-_I_prop*rate(2)/_I_x, _I_prop*rate(1)/_I_y, 0.f};
-
-		Vector3f T = (2.f * _H_1 * _B * delta_0 + H_2) * (actuator_outputs_value.propeller_omega_d - actuator_outputs_value.propeller_omega_0) + _H_3*(actuator_outputs_value.dpropeller_omega_d - actuator_outputs_value.dpropeller_omega_0);
-
-		// Nu_i = _B * delta_0 - _H_inv / (actuator_outputs_value.propeller_omega_0 * actuator_outputs_value.propeller_omega_0) * (angular_accel + T);
 		Nu_i = _B * delta_0 - angular_accel; // -f(x)
-		// Nu_i = _B * delta_0;
-		// PX4_INFO("Nu_i of INDI is: roll: %f, pitch: %f, yaw: %f \n", (double) Nu_i(0), (double) Nu_i(1), (double) Nu_i(2));
-		// PX4_INFO("T: roll: %f, pitch: %f, yaw: %f \n", (double) T(0), (double) T(1), (double) T(2));
-		// PX4_INFO("angular_accel+T: roll: %f, pitch: %f, yaw: %f \n", (double) (angular_accel(0)+T(0)), (double) (angular_accel(1)+T(1)), (double) (angular_accel(2)+T(2)));
 	}
-	// Vector3f K =   _H_inv / (actuator_outputs_value.propeller_omega_0 * actuator_outputs_value.propeller_omega_0) * _gain_p;
 	Vector3f K =  _gain_p; // by diag([92.4509;92.1649;186.9643]), using the same as PID param
-	// PX4_INFO("propeller_omega_0: %f", (double) actuator_outputs_value.propeller_omega_0);
-	// PX4_INFO("_H_inv: roll: %f, pitch: %f, yaw: %f \n", (double) _H_inv(0, 0), (double) _H_inv(1, 1), (double) _H_inv(2, 2));
-	// 18617.958984, pitch: 18682.771484, yaw: 8847.666992
-	// K(0) = PX4_ISFINITE(K(0)) ? K(0) : 0.0f;
-	// K(1) = PX4_ISFINITE(K(1)) ? K(1) : 0.0f;
-	// K(2) = PX4_ISFINITE(K(2)) ? K(2) : 0.0f;
 	Vector3f Nu_f= K.emult(rate_error);
-	// PX4_INFO("K of INDI is: roll: %f, pitch: %f, yaw: %f \n", (double) K(0), (double) K(1), (double) K(2));
-	// Nu_f(0) = math::constrain(Nu_f(0), -1.f, 1.f);
-	// Nu_f(1) = math::constrain(Nu_f(1), -1.f, 1.f);
-	// Nu_f(2) = math::constrain(Nu_f(2), -1.f, 1.f);
 	return Nu_f;
 }

@@ -93,27 +93,14 @@ Allocator(df_4)
 
 	// filter init
 	_sample_freq = (int) (1.0/((double) _param_cycle_time.get()/1e6));
-	// dOmega_0
-	_lp_filter_actuator_d[0].reset(0);
-	_lp_filter_actuator_d[0].set_cutoff_frequency(_sample_freq, _param_domega_cutoff.get());
-	// dOmega_d
-	_lp_filter_actuator_d[1].reset(0);
-	_lp_filter_actuator_d[1].set_cutoff_frequency(_sample_freq, _param_domega_d_cutoff.get());
-
-	// Omega_0
-	_lp_filter_actuator[0].reset(0);
-	_lp_filter_actuator[0].set_cutoff_frequency(_sample_freq, _param_omega_cutoff.get());
-
-	_notch_filter_actuator[0].reset(0);
-	_notch_filter_actuator[0].setParameters(_sample_freq, _param_imu_gyro_nf_freq.get(), _param_imu_gyro_nf_bw.get());
 
 	// last_delta_cmd_rad
 	for (size_t i = 0; i < 4; ++i) {
-		_lp_filter_actuator[i+1].reset(0);
+		_lp_filter_actuator[i].reset(0);
 		_lp_filter_actuator[i+1].set_cutoff_frequency(_sample_freq, _param_cs1_cutoff.get());
 
-		_notch_filter_actuator[i+1].reset(0);
-		_notch_filter_actuator[i+1].setParameters(_sample_freq, _param_imu_gyro_nf_freq.get(), _param_imu_gyro_nf_bw.get());
+		_notch_filter_actuator[i].reset(0);
+		_notch_filter_actuator[i].setParameters(_sample_freq, _param_imu_gyro_nf_freq.get(), _param_imu_gyro_nf_bw.get());
 	}
 	B_inv.setZero();
 	B_inv(0, 0)=-0.0108f;
@@ -165,54 +152,23 @@ void MixingOutput::printStatus() const
 	}
 }
 
-void MixingOutput::setHoverParams(const float pwm_hover, const float omega_hover)
-{
-	_pwm_hover = pwm_hover;
-	_omega_hover = omega_hover;
-}
-
 void MixingOutput::CheckAndUpdateFilters()
 {
 	// update software low pass filters
 
-	// Omega_0
-	if ((fabsf(_lp_filter_actuator[0].get_cutoff_freq() - _param_omega_cutoff.get()) > 0.1f)) {
-		_lp_filter_actuator[0].set_cutoff_frequency(_sample_freq, _param_omega_cutoff.get());
-		_lp_filter_actuator[0].reset(_Omega_0_prev);
-	}
-
-	if ((fabsf(_notch_filter_actuator[0].getNotchFreq() - _param_imu_gyro_nf_freq.get()) > 0.1f)
-	|| (fabsf(_notch_filter_actuator[0].getBandwidth() - _param_imu_gyro_nf_bw.get()) > 0.1f)
-	) {
-		_notch_filter_actuator[0].setParameters(_sample_freq, _param_imu_gyro_nf_freq.get(), _param_imu_gyro_nf_bw.get());
-		_notch_filter_actuator[0].reset(_Omega_0_prev);
-	}
-
 	// last_delta_cmd_rad
 	for (size_t i = 0; i < 4; ++i) {
-		if ((fabsf(_lp_filter_actuator[i+1].get_cutoff_freq() - _param_cs1_cutoff.get()) > 0.1f)) {
-			_lp_filter_actuator[i+1].set_cutoff_frequency(_sample_freq, _param_cs1_cutoff.get());
-			_lp_filter_actuator[i+1].reset(_delta_prev[i]);
+		if ((fabsf(_lp_filter_actuator[i].get_cutoff_freq() - _param_cs1_cutoff.get()) > 0.1f)) {
+			_lp_filter_actuator[i].set_cutoff_frequency(_sample_freq, _param_cs1_cutoff.get());
+			_lp_filter_actuator[i].reset(_delta_prev[i]);
 
 		}
-		if ((fabsf(_notch_filter_actuator[i+1].getNotchFreq() - _param_imu_gyro_nf_freq.get()) > 0.1f)
-		|| (fabsf(_notch_filter_actuator[i+1].getBandwidth() - _param_imu_gyro_nf_bw.get()) > 0.1f)
+		if ((fabsf(_notch_filter_actuator[i].getNotchFreq() - _param_imu_gyro_nf_freq.get()) > 0.1f)
+		|| (fabsf(_notch_filter_actuator[i].getBandwidth() - _param_imu_gyro_nf_bw.get()) > 0.1f)
 		) {
-			_notch_filter_actuator[i+1].setParameters(_sample_freq, _param_imu_gyro_nf_freq.get(), _param_imu_gyro_nf_bw.get());
-			_notch_filter_actuator[i+1].reset(_delta_prev[i]);
+			_notch_filter_actuator[i].setParameters(_sample_freq, _param_imu_gyro_nf_freq.get(), _param_imu_gyro_nf_bw.get());
+			_notch_filter_actuator[i].reset(_delta_prev[i]);
 		}
-	}
-
-
-	// dOmega_0
-	if ((fabsf(_lp_filter_actuator_d[0].get_cutoff_freq() - _param_domega_cutoff.get()) > 0.1f)) {
-		_lp_filter_actuator_d[0].set_cutoff_frequency(_sample_freq, _param_domega_cutoff.get());
-		_lp_filter_actuator_d[0].reset(_dOmega_0_raw_prev);
-	}
-	// dOmega_d
-	if ((fabsf(_lp_filter_actuator_d[1].get_cutoff_freq() - _param_domega_d_cutoff.get()) > 0.1f)) {
-		_lp_filter_actuator_d[1].set_cutoff_frequency(_sample_freq, _param_domega_d_cutoff.get());
-		_lp_filter_actuator_d[1].reset(_dOmega_d_raw_prev);
 	}
 }
 
@@ -234,7 +190,6 @@ void MixingOutput::updateParams()
 		_mixers->set_thrust_factor(_param_thr_mdl_fac.get());
 		_mixers->set_airmode((Mixer::Airmode)_param_mc_airmode.get());
 	}
-	setHoverParams(_param_mc_pwm_hover.get(), _param_mc_omega_hover.get());
 }
 
 bool MixingOutput::updateSubscriptions(bool allow_wq_switch, bool limit_callbacks_to_primary)
@@ -527,7 +482,7 @@ bool MixingOutput::update()
 	uint64_t timestamp_ca_start=hrt_absolute_time();
 	uint64_t timestamp_ca_end=hrt_absolute_time();
 	allocation_value_s allocation_value{};
-	if (_use_alloc == 1)
+	if (_use_alloc == 1 || _use_indi == 1) // indi have to use allocator, since it use the model for control value
 	{
 		_fb[0] = _controls[0].control[actuator_controls_s::INDEX_ROLL];
 		_fb[1] = _controls[0].control[actuator_controls_s::INDEX_PITCH];
@@ -535,26 +490,25 @@ bool MixingOutput::update()
 
 		if (_use_pca==1)
 		{
-			if(_use_indi == 1)
-			{
-				_error_fb[0] = _controls[0].error_fb[actuator_controls_s::INDEX_ROLL];
-				_error_fb[1] = _controls[0].error_fb[actuator_controls_s::INDEX_PITCH];
-				_error_fb[2] = _controls[0].error_fb[actuator_controls_s::INDEX_YAW];
+			// if(_use_indi == 1)
+			// {
 
-				_indi_fb[0] = _controls[0].indi_fb[actuator_controls_s::INDEX_ROLL];
-				_indi_fb[1] = _controls[0].indi_fb[actuator_controls_s::INDEX_PITCH];
-				_indi_fb[2] = _controls[0].indi_fb[actuator_controls_s::INDEX_YAW];
-			}
+			// }
 			float u_all[4];
 			int err = 0;
 			float rho;
 
-			// Allocator.DP_LPCA(_fb,u_all,err, rho); // what happen with pid?
-			Allocator.DPscaled_LPCA(_fb, u_all, err, rho);
+			Allocator.DP_LPCA(_fb,u_all,err, rho); // what happen with pid? allocation_value.flag=1;
+			// Allocator.DPscaled_LPCA(_fb, u_all, err, rho);
 
-			// if(rho<1 && _use_indi == 1)
-			if(0)
+			if(rho<1 && _use_indi == 1)
+			// if(0)
 			{
+
+
+				_indi_fb[0] = _controls[0].indi_fb[actuator_controls_s::INDEX_ROLL];
+				_indi_fb[1] = _controls[0].indi_fb[actuator_controls_s::INDEX_PITCH];
+				_indi_fb[2] = _controls[0].indi_fb[actuator_controls_s::INDEX_YAW];
 				float u_e[4] = {0.0, 0.0, 0.0, 0.0};
 				int err_e = 0;
 				float rho_e;
@@ -579,21 +533,24 @@ bool MixingOutput::update()
 				}
 				else
 				{
-					float uMin_new[4];
-					float uMax_new[4];
-					for (size_t i = 0; i < 4; i++)
-					{
-						uMin_new[i] = _uMin[i] - u_e[i];
-						uMax_new[i] = _uMax[i] - u_e[i];
-					}
+					_error_fb[0] = _controls[0].error_fb[actuator_controls_s::INDEX_ROLL];
+					_error_fb[1] = _controls[0].error_fb[actuator_controls_s::INDEX_PITCH];
+					_error_fb[2] = _controls[0].error_fb[actuator_controls_s::INDEX_YAW];
+					// float uMin_new[4];
+					// float uMax_new[4];
+					// for (size_t i = 0; i < 4; i++)
+					// {
+					// 	uMin_new[i] = _uMin[i] - u_e[i];
+					// 	uMax_new[i] = _uMax[i] - u_e[i];
+					// }
 
 					float u_d[4] = {0.0, 0.0, 0.0, 0.0};
 					int err_d = 0;
 					float rho_d;
 					// change limits
 					for (int i = 0; i < 4; ++i) {
-						Allocator.aircraft.upperLimits[i] = uMax_new[i];
-						Allocator.aircraft.lowerLimits[i] = uMin_new[i];
+						Allocator.aircraft.upperLimits[i] = _uMax[i] - u_e[i];
+						Allocator.aircraft.lowerLimits[i] = _uMin[i] - u_e[i];
 					}
 
 					Allocator.DP_LPCA(_error_fb,u_d,err_d, rho_d);
@@ -738,25 +695,7 @@ MixingOutput::setAndPublishActuatorOutputs(unsigned num_outputs, actuator_output
 	actuator_outputs.timestamp = hrt_absolute_time();
 	_outputs_pub.publish(actuator_outputs);
 
-	const float dt = math::constrain(((actuator_outputs.timestamp - _timestamp_sample_prev) / 1e6f), 0.0002f, 0.02f);
-	_timestamp_sample_prev = actuator_outputs.timestamp;
-
 	actuator_outputs_value_s actuator_outputs_value{};
-	// relationship of Omega and PWM, hold: PWM=1706 -> Omega=1225; PWM=1000 -> Omega=0.--by fly  test
-	// 1225/(1706-980)=1.735
-	// must Must have the correct _omega_hover and _pwm_hover
-	float hover_thrust_ratio = (_pwm_hover - (float) _min_value[0]) / (float) (_max_value[0]-_min_value[0]);
-	float coefficient = _omega_hover / hover_thrust_ratio;
-	// using _current_output_value to calculate current Omega cmd.
-
-	float Omega_d = 0;
-	if (_current_output_value[0] >  _min_value[0])
-		Omega_d= ((float) (_current_output_value[0] - _min_value[0]) / (float) (_max_value[0] - _min_value[0])) * coefficient; // assumption a const value
-
-	// using _last_output_value to estimate true value.
-	float Omega_0 = 0;
-	if (_last_output_value[0] >  _min_value[0])
-		Omega_0=((float) (_last_output_value[0] - _min_value[0]) / (float) (_max_value[0] - _min_value[0])) * coefficient;
 	//control surfaces, 0.3491 rad -> 180pwm.
 	for (size_t i = 0; i < 4 ; ++i) {
 		actuator_outputs_value.last_deltacmd[i] =(float) _last_u[i];
@@ -765,36 +704,14 @@ MixingOutput::setAndPublishActuatorOutputs(unsigned num_outputs, actuator_output
 	// - Apply general notch filter (IMU_GYRO_NF_FREQ)
 	// - Apply general low-pass filter (IMU_GYRO_CUTOFF)
 	// - Differentiate & apply specific angular acceleration (D-term) low-pass (IMU_DGYRO_CUTOFF)
-	float actuator_notched[5];
-	float Omega_0_has_lp_filter;
-	//thrust
-	actuator_notched[0] = _notch_filter_actuator[0].apply(Omega_0);
-	Omega_0_has_lp_filter = _lp_filter_actuator[0].apply(actuator_notched[0]);
-
+	float actuator_notched[4];
 	//control surfaces
 	for (size_t i = 0; i < 4; ++i) {
-		actuator_notched[i+1] = _notch_filter_actuator[i+1].apply(actuator_outputs_value.last_deltacmd[i]);
+		actuator_notched[i] = _notch_filter_actuator[i+1].apply(actuator_outputs_value.last_deltacmd[i]);
 		actuator_outputs_value.delta[i] = math::constrain(_lp_filter_actuator[i+1].apply(actuator_notched[i+1]), (float) (_uMin[i]), (float) (_uMax[i]));// 100%
 		_delta_prev[i] = actuator_outputs_value.delta[i];
 	}
-
-	//Derivative of thrust
-	float dOmega_0_raw = (Omega_0_has_lp_filter - _Omega_0_prev) / dt;
-	_Omega_0_prev = Omega_0_has_lp_filter;
-	_dOmega_0_raw_prev = dOmega_0_raw;
-	float dOmega_0 = _lp_filter_actuator_d[0].apply(dOmega_0_raw);
-
-
-	float dOmega_d_raw = (Omega_d - _Omega_d_prev) / dt;
-	_Omega_d_prev = Omega_d;
-	_dOmega_d_raw_prev = dOmega_d_raw;
-	float dOmega_d = _lp_filter_actuator_d[1].apply(dOmega_d_raw);
-
 	//------------------------publish-----------------------------
-	actuator_outputs_value.propeller_omega_d = Omega_d;
-	actuator_outputs_value.propeller_omega_0 = Omega_0_has_lp_filter;
-	actuator_outputs_value.dpropeller_omega_d = dOmega_d;
-	actuator_outputs_value.dpropeller_omega_0 = dOmega_0;
 	actuator_outputs_value.timestamp = hrt_absolute_time();
 	// _last_config_update = actuator_outputs_value.timestamp;
 	_outputs_value_pub.publish(actuator_outputs_value);

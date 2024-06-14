@@ -82,44 +82,25 @@ MulticopterRateControl::parameters_updated()
 	// rate control parameters
 	// The controller gain K is used to convert the parallel (P + I/s + sD) form
 	// to the ideal (K * [1 + 1/sTi + sTd]) form
-	if (_param_use_control_alloc.get() == 1)
-	{
-		// if ( (_use_lp_alloc || _param_use_lp_alloc.get()==1))
-		// {
+	const Vector3f torque_convert_acc=Vector3f(0.3491f*92.4509f, 0.3491f*92.1649f, 0.3491f*186.9643f);
 
-
-		// }
-		// else
-		// {
-			//inv
-			PX4_INFO("inv set rate_k");
-			// _param_mc_rollrate_k.set(0.3491f);
-			// _param_mc_pitchrate_k.set(0.3491f);
-			// _param_mc_yawrate_k.set(0.3491f);
-			_param_mc_rollrate_k.set(0.3491f*92.4509); // 0.3491 for scale the limits to +-1
-			_param_mc_pitchrate_k.set(0.3491f*92.1649);
-			_param_mc_yawrate_k.set(0.3491f*186.9643);
-
-		// }
-	}
-	else
-	{
-		PX4_INFO("inv reset rate_k");
-		_param_mc_rollrate_k.reset();
-		_param_mc_pitchrate_k.reset();
-		_param_mc_yawrate_k.reset();
-	}
 	const Vector3f rate_k = Vector3f(_param_mc_rollrate_k.get(), _param_mc_pitchrate_k.get(), _param_mc_yawrate_k.get());
 
-	_indi_control.setParams(rate_k.emult(Vector3f(_param_mc_indiroll_p.get(), _param_mc_indipitch_p.get(), _param_mc_indiyaw_p.get())),
+	_indi_control.setParams(Vector3f(_param_mc_indiroll_p.get(), _param_mc_indipitch_p.get(), _param_mc_indiyaw_p.get()),
 				_param_mc_wind_2_torque.get(), _param_mc_omega_2_wind.get());
 
 	_use_indi=_param_use_indi.get();
 
-	_rate_control.setGains(
-		rate_k.emult(Vector3f(_param_mc_rollrate_p.get(), _param_mc_pitchrate_p.get(), _param_mc_yawrate_p.get())),
-		rate_k.emult(Vector3f(_param_mc_rollrate_i.get(), _param_mc_pitchrate_i.get(), _param_mc_yawrate_i.get())),
-		rate_k.emult(Vector3f(_param_mc_rollrate_d.get(), _param_mc_pitchrate_d.get(), _param_mc_yawrate_d.get())));
+	if (_param_use_control_alloc.get() == 1)
+		_rate_control.setGains(
+			rate_k.emult(Vector3f(_param_mc_rollrate_p.get(), _param_mc_pitchrate_p.get(), _param_mc_yawrate_p.get())),
+			rate_k.emult(Vector3f(_param_mc_rollrate_i.get(), _param_mc_pitchrate_i.get(), _param_mc_yawrate_i.get())),
+			rate_k.emult(Vector3f(_param_mc_rollrate_d.get(), _param_mc_pitchrate_d.get(), _param_mc_yawrate_d.get())));
+	else
+		_rate_control.setGains(
+			torque_convert_acc.emult(rate_k.emult(Vector3f(_param_mc_rollrate_p.get(), _param_mc_pitchrate_p.get(), _param_mc_yawrate_p.get()))),
+			torque_convert_acc.emult(rate_k.emult(Vector3f(_param_mc_rollrate_i.get(), _param_mc_pitchrate_i.get(), _param_mc_yawrate_i.get()))),
+			torque_convert_acc.emult(rate_k.emult(Vector3f(_param_mc_rollrate_d.get(), _param_mc_pitchrate_d.get(), _param_mc_yawrate_d.get()))));
 
 	_rate_control.setIntegratorLimit(
 		Vector3f(_param_mc_rr_int_lim.get(), _param_mc_pr_int_lim.get(), _param_mc_yr_int_lim.get()));
