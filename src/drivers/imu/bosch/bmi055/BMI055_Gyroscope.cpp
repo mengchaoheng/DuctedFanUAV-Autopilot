@@ -72,6 +72,19 @@ void BMI055_Gyroscope::print_status()
 {
 	I2CSPIDriverBase::print_status();
 
+	const float min_interval = FIFO_SAMPLE_DT;
+	PX4_INFO("min_interval: %.1f us", min_interval);
+	PX4_INFO("FIFO_SAMPLE_DT: %.1f us (FIFO_MAX_SAMPLES %d)", FIFO_SAMPLE_DT, FIFO_MAX_SAMPLES);
+	_fifo_empty_interval_us = math::max(roundf((1e6f / (float)_px4_gyro.get_max_rate_hz()) / min_interval) * min_interval, min_interval);
+
+	PX4_INFO("FIFO get_max_rate_hz: %d hz ", _px4_gyro.get_max_rate_hz());
+	PX4_INFO("FIFO empty interval: %d us (%.1f Hz, samples:%.1f)", _fifo_empty_interval_us, 1e6 / _fifo_empty_interval_us, (float)_fifo_empty_interval_us / (1e6f / RATE));
+
+	_fifo_samples = math::min((float)_fifo_empty_interval_us / (1e6f / RATE), (float)FIFO_MAX_SAMPLES);
+	PX4_INFO("FIFO _fifo_samples: %d ", _fifo_samples);
+	// recompute FIFO empty interval (us) with actual sample limit
+	_fifo_empty_interval_us = _fifo_samples * (1e6f / RATE);
+
 	PX4_INFO("FIFO empty interval: %d us (%.1f Hz)", _fifo_empty_interval_us, 1e6 / _fifo_empty_interval_us);
 
 	perf_print_counter(_bad_register_perf);
