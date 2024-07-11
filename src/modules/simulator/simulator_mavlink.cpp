@@ -161,7 +161,7 @@ void Simulator::actuator_controls_from_outputs(mavlink_hil_actuator_controls_t *
 		} else {
 			const float pwm_center = (PWM_DEFAULT_MAX + PWM_DEFAULT_MIN) / 2;
 			const float pwm_delta = (PWM_DEFAULT_MAX - PWM_DEFAULT_MIN) / 2;
-
+			// important
 			/* scale PWM out PWM_DEFAULT_MIN..PWM_DEFAULT_MAX us to -1..1 for other channels */
 			msg->controls[i] = (_actuator_outputs.output[i] - pwm_center) / pwm_delta;
 			msg->controls[i] = math::constrain(msg->controls[i], -1.f, 1.f);
