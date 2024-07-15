@@ -33,19 +33,20 @@ param set-default MC_PITCHRATE_I 0.3
 param set-default MC_PITCHRATE_D 0.0
 param set-default MC_PITCHRATE_FF 0
 
-param set-default MC_YAW_P 5
-param set-default MC_YAWRATE_P 0.4
+param set-default MC_YAW_P 3
+param set-default MC_YAWRATE_P 0.3
 param set-default MC_YAWRATE_I 0.3
 param set-default MC_YAWRATE_D 0
 param set-default MC_YAWRATE_FF 0
+param set-default MC_YAW_WEIGHT 1
 
-param set-default MC_ACRO_EXPO_Y 0
-param set-default MC_ACRO_EXPO 0
-param set-default MC_ACRO_SUPEXPO 0
-param set-default MC_ACRO_SUPEXPOY 0
-param set-default MC_ACRO_R_MAX 90.0
-param set-default MC_ACRO_P_MAX 90.0
-param set-default MC_ACRO_Y_MAX 90.0
+# param set-default MC_ACRO_EXPO_Y 0
+# param set-default MC_ACRO_EXPO 0
+# param set-default MC_ACRO_SUPEXPO 0
+# param set-default MC_ACRO_SUPEXPOY 0
+# param set-default MC_ACRO_R_MAX 90.0
+# param set-default MC_ACRO_P_MAX 90.0
+# param set-default MC_ACRO_Y_MAX 90.0
 
 param set-default MC_INDI_ROLL_P 12.0
 param set-default MC_INDI_PITCH_P 12.0
@@ -54,7 +55,7 @@ param set-default MC_INDI_YAW_P 10.0
 param set-default MPC_THR_HOVER 0.5
 param set-default RTL_RETURN_ALT 2.5
 param set-default RTL_DESCEND_ALT 2.5
-param set-default SDLOG_PROFILE  1
+param set-default SDLOG_PROFILE  27
 param set-default SDLOG_MODE  0
 
 param set-default CS1_CUTOFF  8
