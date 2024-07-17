@@ -262,6 +262,8 @@ void FlightTaskOrbit::generate_lissajous_setpoints(const Vector2f &init_to_posit
 	// PX4_INFO("FlightTaskOrbit Running, _iter: %d", _iter);
 
 
+
+
 	// x = r*sin((2*pi/T)*t);
 	// y = r*sin(2*(2*pi/T)*t);
 	_position_setpoint(0) = _length*sin(2*3.14f*t/T);
@@ -283,7 +285,9 @@ void FlightTaskOrbit::generate_lissajous_setpoints(const Vector2f &init_to_posit
 	// _acceleration_setpoint(0) = NAN;
 
 	//yaw
-	_yaw_setpoint = _initial_heading;
+	// _yaw_setpoint = _initial_heading;
+	// _yawspeed_setpoint = NAN;
+	_yaw_setpoint = atan2f((_length*(2* 2*3.14f/T))*cos(2* 2*3.14f*t/T), (_length*(2*3.14f/T))*cos(2*3.14f*t/T));
 	_yawspeed_setpoint = NAN;
 }
 
