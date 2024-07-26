@@ -79,7 +79,7 @@ private:
 
 			static_assert(sizeof(act.output) / sizeof(act.output[0]) >= 16, "mavlink message requires at least 16 outputs");
 
-			msg.time_usec = act.timestamp;
+			msg.time_usec = act.timestamp / 1000;
 			msg.port = N;
 			msg.servo1_raw = act.output[0];
 			msg.servo2_raw = act.output[1];

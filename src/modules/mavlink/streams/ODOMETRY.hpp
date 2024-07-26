@@ -112,7 +112,7 @@ private:
 			//  Row-major representation of a 6x6 pose cross-covariance matrix upper right triangle
 			//  (states: x, y, z, roll, pitch, yaw; first six entries are the first ROW, next five entries are the second ROW, etc.)
 			for (auto &pc : msg.pose_covariance) {
-				pc = NAN;
+				pc = 0;
 			}
 
 			msg.pose_covariance[0]  = odom.position_variance[0];  // X  row 0, col 0
