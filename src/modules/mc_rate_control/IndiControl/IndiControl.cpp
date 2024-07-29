@@ -45,6 +45,8 @@ void IndiControl::setParams(const Vector3f &P, const float k_cv, const float k_v
 	_gain_p = P;
 	_k_cv = k_cv;
 	_k_v = k_v;//MC_OMEGA_2_WIND
+	// _k=k;  // k =_k_cv*_k_v*_k_v
+
 }
 
 void IndiControl::init()
@@ -58,23 +60,23 @@ void IndiControl::init()
 	_H_inv(0, 0) = 1.f/_H_1(0, 0);
 	_H_inv(1, 1) = 1.f/_H_1(1, 1);
 	_H_inv(2, 2) = 1.f/_H_1(2, 2);
-	// l1=0.149;l2=0.0698;k_v=3; % k_v*delta=F on cs
+	// l1=0.167;l2=0.0698;k=3; % k*delta=F on cs
 	// I_x=0.00967;I_y=0.0097;I_z=0.00448;
 	// I=diag([I_x;I_y;I_z]);
-	// B=I\[-l1 0 l1 0;0 -l1 0 l1;l2 l2 l2 l2]*k_v;
-	// % B=[-l1*k_v/I_x 0 l1*k_v/I_x 0;0 -l1*k_v/I_y 0 l1*k_v/I_y;l2*k_v/I_z l2*k_v/I_z l2*k_v/I_z l2*k_v/I_z];
-	// % B=I\diag([2*l1;2*l1;4*l2])*k_v*[-0.5 0 0.5 0;0 -0.5 0 0.5;0.25 0.25 0.25 0.25];
+	// B=I\[-l1 0 l1 0;0 -l1 0 l1;l2 l2 l2 l2]*k;
+	// % B=[-l1*k/I_x 0 l1*k/I_x 0;0 -l1*k/I_y 0 l1*k/I_y;l2*k/I_z l2*k/I_z l2*k/I_z l2*k/I_z];
+	// % B=I\diag([2*l1;2*l1;4*l2])*k*[-0.5 0 0.5 0;0 -0.5 0 0.5;0.25 0.25 0.25 0.25];
 	// % [-0.5 0 0.5 0;0 -0.5 0 0.5;0.25 0.25 0.25 0.25]= piv([-1 0 1;0 -1 1;1 0 1;0 1 1])
-	// % I\[2*l1 0 0;0 2*l1 0;0 0 4*l2]*k_v is the different of gain, that is diag([92.4509;92.1649;186.9643])
+	// % I\[2*l1 0 0;0 2*l1 0;0 0 4*l2]*k is the different of gain, that is diag([92.4509;92.1649;186.9643])
 	_B.setZero(); //= { {-46.2254,0.0,46.2254,0.0}, {0.0,-46.0825,0.0,46.0825},{46.7411,46.7411,46.7411,46.7411}};
-	_B(0, 0)=-_L_1*_k_v/_I_x; // the same as angular_accel
-	_B(0, 2)=_L_1*_k_v/_I_x;
-	_B(1, 1)=-_L_1*_k_v/_I_y;
-	_B(1, 3)=_L_1*_k_v/_I_y;
-	_B(2, 0)=_L_2*_k_v/_I_z;
-	_B(2, 1)=_L_2*_k_v/_I_z;
-	_B(2, 2)=_L_2*_k_v/_I_z;
-	_B(2, 3)=_L_2*_k_v/_I_z;
+	_B(0, 0)=-_L_1*_k/_I_x; // the same as angular_accel
+	_B(0, 2)=_L_1*_k/_I_x;
+	_B(1, 1)=-_L_1*_k/_I_y;
+	_B(1, 3)=_L_1*_k/_I_y;
+	_B(2, 0)=_L_2*_k/_I_z;
+	_B(2, 1)=_L_2*_k/_I_z;
+	_B(2, 2)=_L_2*_k/_I_z;
+	_B(2, 3)=_L_2*_k/_I_z;
 	// PX4_INFO("_B");
 	// _B.print();
 
@@ -94,7 +96,7 @@ Vector3f IndiControl::update(const Vector3f &rate, const Vector3f &rate_sp, cons
 	else
 	{
 		Matrix<float, 4, 1> delta_0 (actuator_outputs_value.delta);
-		Nu_i = _B * delta_0 - angular_accel; // -f(x)
+		Nu_i = _B * delta_0 - angular_accel; // estimation of -f(x) and other disturbance d
 	}
 	Vector3f K =  _gain_p; // by diag([92.4509;92.1649;186.9643]), using the same as PID param
 	Vector3f Nu_f= K.emult(rate_error);

@@ -66,11 +66,6 @@ MulticopterRateControl::init()
 		return false;
 	}
 
-	// limit to  250 / 200 Hz
-	// _vehicle_angular_velocity_sub.set_interval_us(hrt_abstime(_param_cycle_time.get()));
-
-	_last_run = hrt_absolute_time();
-
 	_indi_control.init();
 
 	return true;
@@ -82,8 +77,8 @@ MulticopterRateControl::parameters_updated()
 	// rate control parameters
 	// The controller gain K is used to convert the parallel (P + I/s + sD) form
 	// to the ideal (K * [1 + 1/sTi + sTd]) form
-	const Vector3f torque_convert_acc=Vector3f(0.3491f*92.4509f, 0.3491f*92.1649f, 0.3491f*186.9643f);
-
+	// const Vector3f torque_convert_acc=Vector3f(0.3491f*92.4509f, 0.3491f*92.1649f, 0.3491f*186.9643f); // 92.4509f since B_inv, 0.3491f since unit (outputs[i+4] = (_u[i])/0.3491f;).
+	//0.3491*92.4509*0.4=12.9 = _param_mc_indiroll_p
 	const Vector3f rate_k = Vector3f(_param_mc_rollrate_k.get(), _param_mc_pitchrate_k.get(), _param_mc_yawrate_k.get());
 
 	_indi_control.setParams(Vector3f(_param_mc_indiroll_p.get(), _param_mc_indipitch_p.get(), _param_mc_indiyaw_p.get()),
@@ -91,13 +86,13 @@ MulticopterRateControl::parameters_updated()
 
 	_use_indi=_param_use_indi.get();
 
-	if (_param_use_control_alloc.get() == 1)
-		_rate_control.setGains(
-			torque_convert_acc.emult(rate_k.emult(Vector3f(_param_mc_rollrate_p.get(), _param_mc_pitchrate_p.get(), _param_mc_yawrate_p.get()))),
-			torque_convert_acc.emult(rate_k.emult(Vector3f(_param_mc_rollrate_i.get(), _param_mc_pitchrate_i.get(), _param_mc_yawrate_i.get()))),
-			torque_convert_acc.emult(rate_k.emult(Vector3f(_param_mc_rollrate_d.get(), _param_mc_pitchrate_d.get(), _param_mc_yawrate_d.get()))));
+	// if (_param_use_control_alloc.get() == 1)
+	// 	_rate_control.setGains(
+	// 		torque_convert_acc.emult(rate_k.emult(Vector3f(_param_mc_rollrate_p.get(), _param_mc_pitchrate_p.get(), _param_mc_yawrate_p.get()))),
+	// 		torque_convert_acc.emult(rate_k.emult(Vector3f(_param_mc_rollrate_i.get(), _param_mc_pitchrate_i.get(), _param_mc_yawrate_i.get()))),
+	// 		torque_convert_acc.emult(rate_k.emult(Vector3f(_param_mc_rollrate_d.get(), _param_mc_pitchrate_d.get(), _param_mc_yawrate_d.get()))));
 
-	else
+	// else
 		_rate_control.setGains(
 			rate_k.emult(Vector3f(_param_mc_rollrate_p.get(), _param_mc_pitchrate_p.get(), _param_mc_yawrate_p.get())),
 			rate_k.emult(Vector3f(_param_mc_rollrate_i.get(), _param_mc_pitchrate_i.get(), _param_mc_yawrate_i.get())),
@@ -140,7 +135,7 @@ MulticopterRateControl::Run()
 
 	/* run controller on gyro changes */
 	vehicle_angular_velocity_s angular_velocity;
-	actuator_outputs_value_s actuator_outputs_value{};
+
 
 	// channels[6]:  -0.808163	0.008163	0.865306	=rate square
 	// channels[8]:  -0.812		0.0.028         0.868		=servo disturb
@@ -251,9 +246,14 @@ MulticopterRateControl::Run()
 			Vector3f indi_fb(0.f,0.f,0.f);
 			Vector3f att_control(0.f,0.f,0.f);
 			Vector3f error_fb(0.f,0.f,0.f);
+			// _actuator_outputs_value_sub.update(&_actuator_outputs_value);
+			float indi_dt=0.0f;
 			// run rate controller
-			if (_use_indi == 1 && _actuator_outputs_value_sub.update(&actuator_outputs_value))// ang_acc, have to be use with AC
+			if (_use_indi == 1 && _actuator_outputs_value_sub.update(&_actuator_outputs_value))// ang_acc, have to be use with AC
 			{
+				const hrt_abstime now_temp = hrt_absolute_time();
+				indi_dt = math::constrain((now_temp - _time_last_dt_update_multicopter) / 1e6f, 0.0001f, 0.02f);
+				_time_last_dt_update_multicopter = now_temp;
 				if (_maybe_landed || _landed)
 				{
 					att_control = _rate_control.update(rates, _rates_sp, angular_accel, dt, _maybe_landed || _landed);
@@ -262,7 +262,7 @@ MulticopterRateControl::Run()
 				else
 				{
 					_rate_control.resetIntegral();
-					error_fb = _indi_control.update(rates, _rates_sp, angular_accel, dt, actuator_outputs_value, indi_fb, _maybe_landed || _landed);
+					error_fb = _indi_control.update(rates, _rates_sp, angular_accel, dt, _actuator_outputs_value, indi_fb, _maybe_landed || _landed);
 					if (_param_use_tau_i.get() == 1)
 						att_control = error_fb + indi_fb;
 					else
@@ -300,6 +300,7 @@ MulticopterRateControl::Run()
 			actuators.control[actuator_controls_s::INDEX_THROTTLE] = PX4_ISFINITE(_thrust_sp) ? _thrust_sp : 0.0f;
 			actuators.control[actuator_controls_s::INDEX_LANDING_GEAR] = _landing_gear;
 			actuators.timestamp_sample = angular_velocity.timestamp_sample;
+			actuators.indi_dt=indi_dt;
 
 			// scale effort by battery status if enabled
 			if (_param_mc_bat_scale_en.get()) {

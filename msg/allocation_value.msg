@@ -1,4 +1,5 @@
 uint64 timestamp	# time since system start(microseconds)
+uint64 timestamp_sample
 int8 flag #0-inv 1-pca
 float32[3] error
 float32[3] ud_error

@@ -91,7 +91,6 @@ param set-default MAV_0_FORWARD 1
 param set-default SER_TEL1_BAUD 921600
 
 param set-default SDLOG_PROFILE  1
-param set-default CYC_T 5000
 param set-default CS1_CUTOFF  3
 param set-default DOMEGA_CUTOFF  10
 param set-default DOMEGA_D_CUTOFF  10

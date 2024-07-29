@@ -117,6 +117,8 @@ private:
 	bool _actuators_0_circuit_breaker_enabled{false};	/**< circuit breaker to suppress output */
 	bool _landed{true};
 	bool _maybe_landed{true};
+	hrt_abstime _time_last_dt_update_multicopter{0};;
+	actuator_outputs_value_s _actuator_outputs_value{};
 	// bool _actuator_outputs_sub_flag{false};
 	bool _use_indi{false};
 
@@ -176,7 +178,6 @@ private:
 		(ParamFloat<px4::params::MC_INDI_YAW_P>) _param_mc_indiyaw_p,
 		(ParamInt<px4::params::USE_INDI>) _param_use_indi,
 		(ParamInt<px4::params::USE_CA>) _param_use_control_alloc,
-		(ParamInt<px4::params::CYC_T>) _param_cycle_time,
 		(ParamInt<px4::params::USE_TAUI>) _param_use_tau_i
 
 	)

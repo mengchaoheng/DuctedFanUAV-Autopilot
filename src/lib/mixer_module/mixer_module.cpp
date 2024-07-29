@@ -70,7 +70,9 @@ _max_num_outputs(max_num_outputs < MAX_ACTUATORS ? max_num_outputs : MAX_ACTUATO
 _interface(interface),
 _control_latency_perf(perf_alloc(PC_ELAPSED, "control latency")),
 df_4(_B, lower, upper),
-Allocator(df_4)
+Allocator(df_4),
+df_4_PID(_B_PID, lower_PID, upper_PID),
+Allocator_PID(df_4_PID)
 {
 	output_limit_init(&_output_limit);
 	_output_limit.ramp_up = ramp_up;
@@ -92,8 +94,6 @@ Allocator(df_4)
 	_motor_test.test_motor_sub.subscribe();
 
 	// filter init
-	_sample_freq = (int) (1.0/((double) _param_cycle_time.get()/1e6));
-
 	// last_delta_cmd_rad
 	for (size_t i = 0; i < 4; ++i) {
 		_lp_filter_actuator[i].set_cutoff_frequency(_sample_freq, _param_cs1_cutoff.get());
@@ -103,18 +103,29 @@ Allocator(df_4)
 		_notch_filter_actuator[i].reset(0);
 	}
 	B_inv.setZero();
-	B_inv(0, 0)=-0.0108f;
-	B_inv(0, 2)=0.0053f;
+	B_inv(0, 0)=-0.0115f;
+	B_inv(0, 2)=0.0059f;
 
-	B_inv(1, 1)=-0.0109f;
-	B_inv(1, 2)=0.0053f;
+	B_inv(1, 1)=-0.0115f;
+	B_inv(1, 2)=0.0059f;
 
-	B_inv(2, 0)=0.0108f;
-	B_inv(2, 2)=0.0053f;
+	B_inv(2, 0)=0.0115f;
+	B_inv(2, 2)=0.0059f;
 
-	B_inv(3, 1)=0.0109f;
-	B_inv(3, 2)=0.0053f;
+	B_inv(3, 1)=0.0115f;
+	B_inv(3, 2)=0.0059f;
+	B_inv_PID.setZero();
+	B_inv_PID(0, 0)=-1.0f;
+	B_inv_PID(0, 2)=1.0f;
 
+	B_inv_PID(1, 1)=-1.0f;
+	B_inv_PID(1, 2)=1.0f;
+
+	B_inv_PID(2, 0)=1.0f;
+	B_inv_PID(2, 2)=1.0f;
+
+	B_inv_PID(3, 1)=1.0f;
+	B_inv_PID(3, 2)=1.0f;
 	for (int i = 0; i < 3; i++) {
 		for (int j = 0; j < 4; j++) {
 			B[i+j*3] = _B[i][j];
@@ -125,6 +136,8 @@ Allocator(df_4)
 	{
 		_uMin[i] = lower;
 		_uMax[i] = upper;
+		_uMin_PID[i] = lower_PID;
+		_uMax_PID[i] = upper_PID;
 		// _uMin_new[i] = -0.3491f;
 		// _uMax_new[i] = 0.3491f;
 	}
@@ -142,6 +155,10 @@ void MixingOutput::printStatus() const
 	PX4_INFO("Mixer loaded: %s", _mixers ? "yes" : "no");
 	PX4_INFO("Switched to rate_ctrl work queue: %i", (int)_wq_switched);
 	PX4_INFO("Driver instance: %i", _driver_instance);
+	PX4_INFO("_mixing_output.setMaxTopicUpdateRate(update_interval_in_us) in pwmout, that is:");
+	PX4_INFO("_max_topic_update_interval_us of mixing: %i", _max_topic_update_interval_us);
+
+	PX4_INFO("_sample_freq of mixing: %f", (double) _sample_freq);
 
 	PX4_INFO("Channel Configuration:");
 
@@ -272,7 +289,7 @@ bool MixingOutput::updateSubscriptions(bool allow_wq_switch, bool limit_callback
 
 void MixingOutput::setMaxTopicUpdateRate(unsigned max_topic_update_interval_us)
 {
-	_max_topic_update_interval_us = max_topic_update_interval_us;
+	_max_topic_update_interval_us = max_topic_update_interval_us; //have been constrain from  0.5 - 100 ms (10 - 2000Hz) in PWMOut.cpp but not in PWMSim.cpp
 
 	for (unsigned i = 0; i < actuator_controls_s::NUM_ACTUATOR_CONTROL_GROUPS; i++) {
 		if (_groups_subscribed & (1 << i)) {
@@ -334,6 +351,11 @@ void MixingOutput::updateOutputSlewrateSimplemixer()
 	const hrt_abstime now = hrt_absolute_time();
 	const float dt = math::constrain((now - _time_last_dt_update_simple_mixer) / 1e6f, 0.0001f, 0.02f);
 	_time_last_dt_update_simple_mixer = now;
+	float tmp=1.0f / dt; // (Hz)
+	if((fabsf(tmp - _sample_freq) / _sample_freq) > 0.01f){
+		_sample_freq = tmp;
+		CheckAndUpdateFilters();
+	}
 
 	// set dt for slew rate limiter in SimpleMixer (is reset internally after usig it, so needs to be set on every update)
 	_mixers->set_dt_once(dt);
@@ -482,18 +504,13 @@ bool MixingOutput::update()
 	uint64_t timestamp_ca_start=hrt_absolute_time();
 	uint64_t timestamp_ca_end=hrt_absolute_time();
 	allocation_value_s allocation_value{};
-	if (_use_alloc == 1 || _use_indi == 1) // indi have to use allocator, since it use the model for control value
-	{
+	// indi have to use allocator, since it use the model for control value. all this just for ductedfan4.
+	if(_use_indi == 1){
 		_fb[0] = _controls[0].control[actuator_controls_s::INDEX_ROLL];
 		_fb[1] = _controls[0].control[actuator_controls_s::INDEX_PITCH];
 		_fb[2] = _controls[0].control[actuator_controls_s::INDEX_YAW];
-
 		if (_use_pca==1)
 		{
-			// if(_use_indi == 1)
-			// {
-
-			// }
 			float u_all[4];
 			int err = 0;
 			float rho;
@@ -501,11 +518,9 @@ bool MixingOutput::update()
 			Allocator.DP_LPCA(_fb,u_all,err, rho); // what happen with pid? allocation_value.flag=1;
 			// Allocator.DPscaled_LPCA(_fb, u_all, err, rho);
 
-			if(rho<1 && _use_indi == 1)
+			if(rho<1)
 			// if(0)
 			{
-
-
 				_indi_fb[0] = _controls[0].indi_fb[actuator_controls_s::INDEX_ROLL];
 				_indi_fb[1] = _controls[0].indi_fb[actuator_controls_s::INDEX_PITCH];
 				_indi_fb[2] = _controls[0].indi_fb[actuator_controls_s::INDEX_YAW];
@@ -528,7 +543,7 @@ bool MixingOutput::update()
 					{
 						_u[i] = math::constrain((float) u_all[i], (float) (_uMin[i]), (float) (_uMax[i]));
 					}
-					// PX4_INFO("dir 2");
+					// PX4_INFO("INDI dir 2");
 					allocation_value.flag=2;
 				}
 				else
@@ -573,7 +588,7 @@ bool MixingOutput::update()
 					{
 						_u[i] = math::constrain((float) (u_d[i] + u_e[i]), (float) (_uMin[i]), (float) (_uMax[i]));
 					}
-					PX4_INFO("dir 3");
+					PX4_INFO("INDI dir 3");
 					allocation_value.flag=3;
 				}
 			}
@@ -585,14 +600,12 @@ bool MixingOutput::update()
 
 				}
 				allocation_value.flag=1;
-				// PX4_INFO(" dir 1");
+				// PX4_INFO("INDI dir 1");
 			}
-
 		}
-		else
+		else //inv
 		{
-			//inv
-			// PX4_INFO("inv");
+			// PX4_INFO("INDI inv");
 			matrix::Matrix<float, 3, 1> y_desire (_fb);
 			matrix::Matrix<float, 4, 1> u_inv = B_inv * y_desire;
 			for (size_t i = 0; i < 4; i++)
@@ -601,9 +614,6 @@ bool MixingOutput::update()
 			}
 			allocation_value.flag=-1;
 		}
-		timestamp_ca_end = hrt_absolute_time();
-		// PX4_INFO("alloc time: %lld \n", (timestamp_ca_end - timestamp_ca_start) ); //nuttx
-
 		for (size_t i = 0; i < 3; i++)
 		{
 			float  temp = 0.0f;
@@ -613,7 +623,6 @@ bool MixingOutput::update()
 			}
 			allocation_value.error[i] =_fb[i] - temp;
 		}
-
 		for (size_t i = 0; i < 4; i++)
 		{
 			allocation_value.u[i] = _u[i];
@@ -624,16 +633,80 @@ bool MixingOutput::update()
 		{
 			outputs[i+4] = (_u[i])/0.3491f;
 		}
-
 	}
-	else
-	{
-		for (size_t i = 0; i < 4; i++)
-		{
-			_u[i] = outputs[i+4];
+	else{
+		if (_use_alloc == 1){ //_use_alloc only use for PID
+			// when using PID, >> B_inv=[-1 0 1;0 -1 1;1 0 1;0 1 1], B=pinv(B_inv)
+			// B =
+			//    -0.5000         0    0.5000         0
+			//    -0.0000   -0.5000   -0.0000    0.5000
+			//     0.2500    0.2500    0.2500    0.2500
+			_fb[0] = math::constrain(_controls[0].control[actuator_controls_s::INDEX_ROLL], -1.f, 1.f);
+			_fb[1] = math::constrain(_controls[0].control[actuator_controls_s::INDEX_PITCH], -1.f, 1.f);
+			_fb[2] = math::constrain(_controls[0].control[actuator_controls_s::INDEX_YAW], -1.f, 1.f);
+			if (_use_pca==1)
+			{
+				float u_all[4];
+				int err = 0;
+				float rho;
+
+				Allocator_PID.DP_LPCA(_fb,u_all,err, rho); // what happen with pid? allocation_value.flag=1;
+				// Allocator_PID.DPscaled_LPCA(_fb, u_all, err, rho);
+				// = dir
+				for (size_t i = 0; i < 4; i++)
+				{
+					_u[i] =  math::constrain( u_all[i], _uMin_PID[i], _uMax_PID[i]);
+
+				}
+				allocation_value.flag=1;
+				// PX4_INFO("PID dir 1");
+			}
+			else //inv
+			{
+				// PX4_INFO("PID inv");
+				matrix::Matrix<float, 3, 1> y_desire (_fb);
+				matrix::Matrix<float, 4, 1> u_inv = B_inv_PID * y_desire;
+				for (size_t i = 0; i < 4; i++)
+				{
+					_u[i] =  math::constrain( u_inv(i,0), _uMin_PID[i], _uMax_PID[i]);
+				}
+				allocation_value.flag=-1;
+			}
+
+			for (size_t i = 0; i < 3; i++)
+			{
+				float  temp = 0.0f;
+				for(int k = 0 ; k < 4 ; k++)
+				{
+					temp += _B_PID[i][k] * _u[k];
+				}
+				allocation_value.error[i] =_fb[i] - temp;
+			}
+
+			for (size_t i = 0; i < 4; i++)
+			{
+				allocation_value.u[i] = _u[i];
+				allocation_value.umin[i] = _uMin_PID[i];
+				allocation_value.umax[i] = _uMax_PID[i];
+			}
+			for (size_t i = 0; i < 4; i++)
+			{
+				outputs[i+4] = _u[i];
+			}
+		}
+		else{
+			for (size_t i = 0; i < 4; i++)
+			{
+				_u[i] = outputs[i+4];
+				allocation_value.u[i] = outputs[i+4];
+
+			}
 		}
 	}
-	allocation_value.timestamp = (timestamp_ca_end - timestamp_ca_start);//hrt_absolute_time();
+	timestamp_ca_end = hrt_absolute_time();
+	// PX4_INFO("alloc time: %lld \n", (timestamp_ca_end - timestamp_ca_start) ); //nuttx
+	allocation_value.timestamp = timestamp_ca_end;
+	allocation_value.timestamp_sample= (timestamp_ca_end - timestamp_ca_start);//hrt_absolute_time();
 	_allocation_value_pub.publish(allocation_value);
 
 	/* the output limit call takes care of out of band errors, NaN and constrains */ // [-1, 1] -> [min_rad, max_rad] == [min_pwm, max_pwm]
@@ -805,7 +878,7 @@ int MixingOutput::controlCallback(uintptr_t handle, uint8_t control_group, uint8
 
 	input = output->_controls[control_group].control[control_index];
 	/* limit control input */
-	input = math::constrain(input, -1.f, 1.f);//already done
+	input = math::constrain(input, -1.f, 1.f);
 	/* motor spinup phase - lock throttle to zero */
 	if (output->_output_limit.state == OUTPUT_LIMIT_STATE_RAMP) {
 		if (((control_group == actuator_controls_s::GROUP_INDEX_ATTITUDE ||

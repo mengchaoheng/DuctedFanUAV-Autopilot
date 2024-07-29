@@ -305,21 +305,31 @@ private:
 	float _indi_fb[3] = {0.0, 0.0, 0.0};
 	float _error_fb[3] = {0.0, 0.0, 0.0};
 	float _fb[3] = {0.0, 0.0, 0.0};
-	int _sample_freq;
+	float _sample_freq{50.0f}; // update rate of MixingOutput, also sample rate of lowpass filter (Hz).
 	bool _use_indi{false};
 	bool _use_alloc{false};
 	bool _use_pca{false};
 	float _uMin[4] {};
 	float _uMax[4] {};
-	float _u[4] {}; //  [-1, 1]
+	float _u[4] {};
 	float _last_u[4] {};
+	float B[12] {}; // for allocator_dir_LPwrap_4
 	matrix::Matrix<float, 4, 3> B_inv;
-	const float _B[3][4] = { {-46.2254,0.0,46.2254,0.0}, {0.0,-46.0825,0.0,46.0825},{46.7411,46.7411,46.7411,46.7411}};
-	float B[12] {};
+	const float _B[3][4] = { {-43.6031f,0.0f,43.6031f,0.0f}, {0.0f,-43.4519f,0.0f,43.4519},{42.5051f,42.5051f,42.5051f,42.5051f}};
 	float lower{-0.3491f};
     	float upper{0.3491f};
 	Aircraft<3, 4> df_4; // 创建一个具有 4 个操纵向量和 3 个广义力矩的飞行器对象
 	DP_LP_ControlAllocator<3, 4> Allocator; // 创建一个控制分配器对象，用于具有 4 个操纵向量和 3 个广义力矩的飞行器(转化为线性规划问题，其维数和参数 <3, 4> 有关。)
+
+	// for PX4 PID controller
+	matrix::Matrix<float, 4, 3> B_inv_PID;
+	const float _B_PID[3][4] = { {-0.5f,0.f,0.5f,0.f}, {0.0f,-0.5f,0.0f,0.5f},{0.25f,0.25f,0.25f,0.25f}};
+	float lower_PID{-1.0f};
+    	float upper_PID{1.0f};
+	float _uMin_PID[4] {};
+	float _uMax_PID[4] {};
+	Aircraft<3, 4> df_4_PID; // 创建一个具有 4 个操纵向量和 3 个广义力矩的飞行器对象
+	DP_LP_ControlAllocator<3, 4> Allocator_PID; // 创建一个控制分配器对象，用于具有 4 个操纵向量和 3 个广义力矩的飞行器(转化为线性规划问题，其维数和参数 <3, 4> 有关。)
 	// 然后可以使用飞行器对象和控制分配器对象进行操作
 	DEFINE_PARAMETERS(
 		(ParamInt<px4::params::MC_AIRMODE>) _param_mc_airmode,   ///< multicopter air-mode
@@ -343,7 +353,6 @@ private:
 		(ParamFloat<px4::params::OMEGA_CUTOFF>) _param_omega_cutoff,
 		(ParamFloat<px4::params::DOMEGA_D_CUTOFF>) _param_domega_d_cutoff,
 		(ParamFloat<px4::params::DOMEGA_CUTOFF>) _param_domega_cutoff,
-		(ParamInt<px4::params::CYC_T>) _param_cycle_time,
 		(ParamInt<px4::params::ALLOC_BUFF_L>) _param_alloc_buff_l
 	)
 };

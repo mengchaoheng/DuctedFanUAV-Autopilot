@@ -81,13 +81,14 @@ private:
 	matrix::Vector3f _gain_p; ///< rate control proportional gain for all axes x, y, z
 	//I of prop
 	float _I_prop{0.000037f};
-	float _I_x{0.00967};
-	float _I_y{0.0097};
-	float _I_z{0.00448};
-	float _L_1{0.149f};
+	float _I_x{0.01149};
+	float _I_y{0.01153};
+	float _I_z{0.004865};
+	float _L_1{0.167f};
 	float _L_2{0.0698};
 	float _k_cv{0.0073f};
-	float _k_v{3.0f};	//MC_OMEGA_2_WIND
+	float _k_v{0.0169f};	//MC_OMEGA_2_WIND
+	float _k{3.0f};	// delta_2_force, k  =_k_cv*_k_v*_k_v
 	matrix::Matrix<float, 3, 3> _H_1;
 	matrix::Matrix<float, 3, 3> _H_inv;
 	matrix::Matrix<float, 3, 4> _B;

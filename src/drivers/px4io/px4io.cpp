@@ -2202,7 +2202,7 @@ PX4IO::io_publish_pwm_outputs()
 		outputs.output[i] = ctl[i];
 	}
 
-	_to_outputs.publish(outputs);
+	_to_outputs.publish(outputs);  // 50hz
 
 	/* get mixer status flags from IO */
 	MultirotorMixer::saturation_status saturation_status;

@@ -473,19 +473,6 @@ PARAM_DEFINE_FLOAT(MC_INDI_YAW_P, 10.f);
 PARAM_DEFINE_INT32(USE_INDI, 0);
 
 /**
- * cycle time
- *
- * Run cycle of rate controller.
- *
- * @min 1000
- * @max 8000
- * @decimal 4000
- * @increment 1000
- * @group Multicopter Rate Control
- */
-PARAM_DEFINE_INT32(CYC_T, 4000);
-
-/**
  * use tau_i.
  *
  * @value 0 remove indi, just use error fb.

@@ -619,7 +619,7 @@ float VehicleAngularVelocity::FilterAngularVelocity(int axis, float data[], int 
 	// Apply general low-pass filter (IMU_GYRO_CUTOFF)
 	_lp_filter_velocity[axis].applyArray(data, N);
 
-	// return last filtered sample
+	// return last filtered sample  //???
 	return data[N - 1];
 }
 

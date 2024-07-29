@@ -488,7 +488,6 @@ void PWMOut::update_current_rate()
 
 	// max interval 0.5 - 100 ms (10 - 2000Hz)
 	const int update_interval_in_us = math::constrain(1000000 / max_rate, 500, 100000);
-	// const int update_interval_in_us = math::constrain(1000000 / max_rate, 4000, 10000);//4ms - 100ms (10 - 250Hz)
 
 	if (_current_update_rate != max_rate) {
 		PX4_INFO("instance: %d, max rate: %d, default: %d, alt: %d", _instance, max_rate, _pwm_default_rate, _pwm_alt_rate);
@@ -2218,7 +2217,8 @@ int PWMOut::print_status()
 		PX4_INFO("%d - PWM_EXTRA 0x%04" PRIx32, _instance, _pwm_mask);
 	}
 
-	PX4_INFO("%d - Max update rate: %i Hz", _instance, _current_update_rate);
+	PX4_INFO("%d - Max update rate(_current_update_rate): %i Hz", _instance, _current_update_rate);
+	PX4_INFO("instance: %d, default: %d, alt: %d", _instance, _pwm_default_rate, _pwm_alt_rate);
 
 	const char *mode_str = nullptr;
 
