@@ -246,21 +246,21 @@ MulticopterRateControl::Run()
 			Vector3f indi_fb(0.f,0.f,0.f);
 			Vector3f att_control(0.f,0.f,0.f);
 			Vector3f error_fb(0.f,0.f,0.f);
-			// _actuator_outputs_value_sub.update(&_actuator_outputs_value);
+			_actuator_outputs_value_sub.update(&_actuator_outputs_value);
 			float indi_dt=0.0f;
 			// run rate controller
-			if (_use_indi == 1 && _actuator_outputs_value_sub.update(&_actuator_outputs_value))// ang_acc, have to be use with AC
+			if (_use_indi == 1)// ang_acc, have to be use with AC
 			{
 				const hrt_abstime now_temp = hrt_absolute_time();
 				indi_dt = math::constrain((now_temp - _time_last_dt_update_multicopter) / 1e6f, 0.0001f, 0.02f);
 				_time_last_dt_update_multicopter = now_temp;
-				if (_maybe_landed || _landed)
-				{
-					att_control = _rate_control.update(rates, _rates_sp, angular_accel, dt, _maybe_landed || _landed);
-					// PX4_INFO("_landed PID");
-				}
-				else
-				{
+				// if (_maybe_landed || _landed)
+				// {
+				// 	att_control = _rate_control.update(rates, _rates_sp, angular_accel, dt, _maybe_landed || _landed);
+				// 	// PX4_INFO("_landed PID");
+				// }
+				// else
+				// {
 					_rate_control.resetIntegral();
 					error_fb = _indi_control.update(rates, _rates_sp, angular_accel, dt, _actuator_outputs_value, indi_fb, _maybe_landed || _landed);
 					if (_param_use_tau_i.get() == 1)
@@ -268,9 +268,9 @@ MulticopterRateControl::Run()
 					else
 						att_control = error_fb;
 					// PX4_INFO("INDI");
-				}
+				// }
 			}
-			else // torque, since reset rate_k, can be use for any alloc
+			else
 			{
 				att_control = _rate_control.update(rates, _rates_sp, angular_accel, dt, _maybe_landed || _landed);
 

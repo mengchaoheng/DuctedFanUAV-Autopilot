@@ -316,7 +316,8 @@ private:
 	float _last_u[4] {};
 	float B[12] {}; // for allocator_dir_LPwrap_4
 	matrix::Matrix<float, 4, 3> B_inv;
-	const float _B[3][4] = { {-43.6031f,0.0f,43.6031f,0.0f}, {0.0f,-43.4519f,0.0f,43.4519},{42.5051f,42.5051f,42.5051f,42.5051f}};
+	// const float _B[3][4]       = { {-46.2254,0.0,46.2254,0.0}, {0.0,-46.0825,0.0,46.0825},{46.7411,46.7411,46.7411,46.7411}};
+	const float _B[3][4]    = { {-43.6031,0.0,43.6031,0.0}, {0.0,-43.4519,0.0,43.4519},{42.5051,42.5051,42.5051,42.5051}}; // Use a larger value of tol of struct LinearProgrammingProblem
 	float lower{-0.3491f};
     	float upper{0.3491f};
 	Aircraft<3, 4> df_4; // 创建一个具有 4 个操纵向量和 3 个广义力矩的飞行器对象
@@ -324,7 +325,7 @@ private:
 
 	// for PX4 PID controller
 	matrix::Matrix<float, 4, 3> B_inv_PID;
-	const float _B_PID[3][4] = { {-0.5f,0.f,0.5f,0.f}, {0.0f,-0.5f,0.0f,0.5f},{0.25f,0.25f,0.25f,0.25f}};
+	const float _B_PID[3][4] = { {-0.5,0.0,0.5,0.0}, {0.0,-0.5,0.0,0.5},{0.25,0.25,0.25,0.25}};
 	float lower_PID{-1.0f};
     	float upper_PID{1.0f};
 	float _uMin_PID[4] {};

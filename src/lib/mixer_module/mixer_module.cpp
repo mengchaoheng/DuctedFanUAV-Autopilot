@@ -520,11 +520,11 @@ bool MixingOutput::update()
 			int err = 0;
 			float rho;
 
-			Allocator.DP_LPCA(_fb,u_all,err, rho); // what happen with pid? allocation_value.flag=1;
-			// Allocator.DPscaled_LPCA(_fb, u_all, err, rho);
+			// Allocator.DP_LPCA(_fb,u_all,err, rho); // The message "No Initial Feasible Solution found" will appear. change tol.
+			Allocator.DPscaled_LPCA(_fb, u_all, err, rho);
 
-			// if(rho<1)
-			if(0)
+			if(rho<1)
+			// if(0)
 			{
 				_indi_fb[0] = _controls[0].indi_fb[actuator_controls_s::INDEX_ROLL];
 				_indi_fb[1] = _controls[0].indi_fb[actuator_controls_s::INDEX_PITCH];
@@ -532,7 +532,8 @@ bool MixingOutput::update()
 				float u_e[4] = {0.0, 0.0, 0.0, 0.0};
 				int err_e = 0;
 				float rho_e;
-				Allocator.DP_LPCA(_indi_fb,u_e,err_e, rho_e);
+				// Allocator.DP_LPCA(_indi_fb,u_e,err_e, rho_e);
+				Allocator.DPscaled_LPCA(_indi_fb, u_e, err_e, rho_e);
 				for (size_t i = 0; i < 3; i++)
 				{
 					float  temp = 0.0f;
@@ -556,14 +557,6 @@ bool MixingOutput::update()
 					_error_fb[0] = _controls[0].error_fb[actuator_controls_s::INDEX_ROLL];
 					_error_fb[1] = _controls[0].error_fb[actuator_controls_s::INDEX_PITCH];
 					_error_fb[2] = _controls[0].error_fb[actuator_controls_s::INDEX_YAW];
-					// float uMin_new[4];
-					// float uMax_new[4];
-					// for (size_t i = 0; i < 4; i++)
-					// {
-					// 	uMin_new[i] = _uMin[i] - u_e[i];
-					// 	uMax_new[i] = _uMax[i] - u_e[i];
-					// }
-
 					float u_d[4] = {0.0, 0.0, 0.0, 0.0};
 					int err_d = 0;
 					float rho_d;
@@ -572,9 +565,8 @@ bool MixingOutput::update()
 						Allocator.aircraft.upperLimits[i] = _uMax[i] - u_e[i];
 						Allocator.aircraft.lowerLimits[i] = _uMin[i] - u_e[i];
 					}
-
-					Allocator.DP_LPCA(_error_fb,u_d,err_d, rho_d);
-
+					// Allocator.DP_LPCA(_error_fb,u_d,err_d, rho_d);
+					Allocator.DPscaled_LPCA(_error_fb, u_d, err_d, rho_d);
 					// change limits
 					for (int i = 0; i < 4; ++i) {
 						Allocator.aircraft.upperLimits[i] = _uMax[i];
@@ -641,8 +633,8 @@ bool MixingOutput::update()
 	}
 	else{
 		if (_use_alloc == 1){ //_use_alloc only use for PID
-			// when using PID, >> B_inv=[-1 0 1;0 -1 1;1 0 1;0 1 1], B=pinv(B_inv)
-			// B =
+			// when using PID, >> B_inv_PID=[-1 0 1;0 -1 1;1 0 1;0 1 1], _B_PID=pinv(B_inv_PID)
+			// _B_PID =
 			//    -0.5000         0    0.5000         0
 			//    -0.0000   -0.5000   -0.0000    0.5000
 			//     0.2500    0.2500    0.2500    0.2500
@@ -655,8 +647,8 @@ bool MixingOutput::update()
 				int err = 0;
 				float rho;
 
-				Allocator_PID.DP_LPCA(_fb,u_all,err, rho); // what happen with pid? allocation_value.flag=1;
-				// Allocator_PID.DPscaled_LPCA(_fb, u_all, err, rho);
+				// Allocator_PID.DP_LPCA(_fb,u_all,err, rho); // The message "No Initial Feasible Solution found" will appear. change tol.
+				Allocator_PID.DPscaled_LPCA(_fb, u_all, err, rho);
 				// = dir
 				for (size_t i = 0; i < 4; i++)
 				{
