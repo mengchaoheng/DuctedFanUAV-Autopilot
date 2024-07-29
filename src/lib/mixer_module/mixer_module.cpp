@@ -175,18 +175,19 @@ void MixingOutput::CheckAndUpdateFilters()
 
 	// last_delta_cmd_rad
 	for (size_t i = 0; i < 4; ++i) {
-		if ((fabsf(_lp_filter_actuator[i].get_cutoff_freq() - _param_cs1_cutoff.get()) > 0.1f)) {
+		if ( _sample_rate_changed || (fabsf(_lp_filter_actuator[i].get_cutoff_freq() - _param_cs1_cutoff.get()) > 0.1f)) {
 			_lp_filter_actuator[i].set_cutoff_frequency(_sample_freq, _param_cs1_cutoff.get());
 			_lp_filter_actuator[i].reset(_delta_prev[i]);
 
 		}
-		if ((fabsf(_notch_filter_actuator[i].getNotchFreq() - _param_imu_gyro_nf_freq.get()) > 0.1f)
+		if ( _sample_rate_changed || (fabsf(_notch_filter_actuator[i].getNotchFreq() - _param_imu_gyro_nf_freq.get()) > 0.1f)
 		|| (fabsf(_notch_filter_actuator[i].getBandwidth() - _param_imu_gyro_nf_bw.get()) > 0.1f)
 		) {
 			_notch_filter_actuator[i].setParameters(_sample_freq, _param_imu_gyro_nf_freq.get(), _param_imu_gyro_nf_bw.get());
 			_notch_filter_actuator[i].reset(_delta_prev[i]);
 		}
 	}
+	_sample_rate_changed = false;
 }
 
 void MixingOutput::updateParams()
@@ -352,8 +353,12 @@ void MixingOutput::updateOutputSlewrateSimplemixer()
 	const float dt = math::constrain((now - _time_last_dt_update_simple_mixer) / 1e6f, 0.0001f, 0.02f);
 	_time_last_dt_update_simple_mixer = now;
 	float tmp=1.0f / dt; // (Hz)
+
 	if((fabsf(tmp - _sample_freq) / _sample_freq) > 0.01f){
+		// PX4_INFO("tmp: %f \n", (double)  tmp);
+		// PX4_INFO("_sample_freq: %f \n", (double)  _sample_freq);
 		_sample_freq = tmp;
+		_sample_rate_changed = true;
 		CheckAndUpdateFilters();
 	}
 
@@ -518,8 +523,8 @@ bool MixingOutput::update()
 			Allocator.DP_LPCA(_fb,u_all,err, rho); // what happen with pid? allocation_value.flag=1;
 			// Allocator.DPscaled_LPCA(_fb, u_all, err, rho);
 
-			if(rho<1)
-			// if(0)
+			// if(rho<1)
+			if(0)
 			{
 				_indi_fb[0] = _controls[0].indi_fb[actuator_controls_s::INDEX_ROLL];
 				_indi_fb[1] = _controls[0].indi_fb[actuator_controls_s::INDEX_PITCH];

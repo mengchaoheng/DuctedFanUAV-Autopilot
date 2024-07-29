@@ -267,7 +267,8 @@ private:
 	hrt_abstime _time_last_dt_update_multicopter{0};
 	hrt_abstime _time_last_dt_update_simple_mixer{0};
 
-	float _delta_prev[4];
+	float _delta_prev[4]={0.0, 0.0, 0.0, 0.0};
+	bool _sample_rate_changed = false;
 	//float _last_outputs[MAX_ACTUATORS];
 
 	// angular velocity filters
@@ -305,7 +306,7 @@ private:
 	float _indi_fb[3] = {0.0, 0.0, 0.0};
 	float _error_fb[3] = {0.0, 0.0, 0.0};
 	float _fb[3] = {0.0, 0.0, 0.0};
-	float _sample_freq{50.0f}; // update rate of MixingOutput, also sample rate of lowpass filter (Hz).
+	float _sample_freq{200.0f}; // update rate of MixingOutput, also sample rate of lowpass filter (Hz).
 	bool _use_indi{false};
 	bool _use_alloc{false};
 	bool _use_pca{false};
