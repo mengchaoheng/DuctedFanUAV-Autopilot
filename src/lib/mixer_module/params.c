@@ -79,28 +79,6 @@ PARAM_DEFINE_INT32(USE_CA, 0);
 PARAM_DEFINE_INT32(USE_PCA, 0);
 
 /**
- * PWM_HOVER
- *
- * The PWM value of the hover of the ductedfan.
- *
- * @min 1000
- * @max 2000
- * @group Mixer Output
- */
-PARAM_DEFINE_FLOAT(MC_PWM_HOVER, 1500.f);
-
-/**
- * OMEGA_HOVER
- *
- * The speed of the propeller when hovering of the ductedfan. rad/s
- *
- * @min 1000
- * @max 2000
- * @group Mixer Output
- */
-PARAM_DEFINE_FLOAT(MC_OMEGA_HOVER, 1225.f);
-
-/**
 * Low pass filter cutoff frequency for control surface
 *
 * The cutoff frequency for the 2nd order butterworth filter on the primary gyro.
@@ -114,63 +92,4 @@ PARAM_DEFINE_FLOAT(MC_OMEGA_HOVER, 1225.f);
 * @reboot_required true
 * @group Mixer Output
 */
-PARAM_DEFINE_FLOAT(CS1_CUTOFF, 30.0f);
-
-/**
-* Low pass filter cutoff frequency for omega
-*
-* The cutoff frequency for the 2nd order butterworth filter on the primary gyro.
-* This only affects the deflection angular sent to the controllers.
-*
-* A value of 0 disables the filter.
-*
-* @min 0
-* @max 1000
-* @unit Hz
-* @reboot_required true
-* @group Mixer Output
-*/
-PARAM_DEFINE_FLOAT(OMEGA_CUTOFF, 30.0f);
-
-/**
-* Low pass filter cutoff frequency for domega_d
-*
-* The cutoff frequency for the 2nd order butterworth filter on the primary gyro.
-* This only affects the deflection angular sent to the controllers.
-*
-* A value of 0 disables the filter.
-*
-* @min 0
-* @max 1000
-* @unit Hz
-* @reboot_required true
-* @group Mixer Output
-*/
-PARAM_DEFINE_FLOAT(DOMEGA_D_CUTOFF, 30.0f);
-
-/**
-* Low pass filter cutoff frequency for domega_0
-*
-* The cutoff frequency for the 2nd order butterworth filter on the primary gyro.
-* This only affects the deflection angular sent to the controllers.
-*
-* A value of 0 disables the filter.
-*
-* @min 0
-* @max 1000
-* @unit Hz
-* @reboot_required true
-* @group Mixer Output
-*/
-PARAM_DEFINE_FLOAT(DOMEGA_CUTOFF, 30.0f);
-
-/**
- * alloc_buffer_length
- *
- * use priority control allocation or not.
- *
- * @min 1
- * @max 1000
- * @group Mixer Output
- */
-PARAM_DEFINE_INT32(ALLOC_BUFF_L, 2);
+PARAM_DEFINE_FLOAT(CS_CUTOFF, 10.0f);

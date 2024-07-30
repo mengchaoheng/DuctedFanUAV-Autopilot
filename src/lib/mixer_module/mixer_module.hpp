@@ -204,8 +204,6 @@ private:
 
 	unsigned motorTest();
 
-	void setHoverParams(const float pwm_hover, const float omega_hover);
-
 	void updateOutputSlewrateMultirotorMixer();
 	void updateOutputSlewrateSimplemixer();
 	void setAndPublishActuatorOutputs(unsigned num_outputs, actuator_outputs_s &actuator_outputs);
@@ -248,8 +246,6 @@ private:
 	uint16_t _min_value[MAX_ACTUATORS] {};
 	uint16_t _max_value[MAX_ACTUATORS] {};
 	uint16_t _current_output_value[MAX_ACTUATORS] {}; ///< current output values (reordered)
-	uint16_t _last_output_value[2] {}; ///< last output values (reordered)
-
 	uint16_t _reverse_output_mask{0}; ///< reverses the interval [min, max] -> [max, min], NOT motor direction
 	output_limit_t _output_limit;
 
@@ -269,11 +265,9 @@ private:
 
 	float _delta_prev[4]={0.0, 0.0, 0.0, 0.0};
 	bool _sample_rate_changed = false;
-	//float _last_outputs[MAX_ACTUATORS];
 
 	// angular velocity filters
 	math::LowPassFilter2p<float> _lp_filter_actuator[4]={math::LowPassFilter2p<float>{250,20.f},math::LowPassFilter2p<float>{250,20.f},math::LowPassFilter2p<float>{250,20.f},math::LowPassFilter2p<float>{250,20.f}};
-	math::NotchFilter<float> _notch_filter_actuator[4];
 
 
 	unsigned _max_topic_update_interval_us{0}; ///< max _control_subs topic update interval (0=unlimited)
@@ -343,18 +337,6 @@ private:
 		(ParamInt<px4::params::USE_PCA>) _param_use_pca,
 		(ParamInt<px4::params::USE_CA>) _param_use_alloc,
 		(ParamInt<px4::params::USE_INDI>) _param_use_indi,
-		(ParamFloat<px4::params::IMU_GYRO_CUTOFF>) _param_imu_gyro_cutoff,
-		(ParamFloat<px4::params::IMU_GYRO_NF_FREQ>) _param_imu_gyro_nf_freq,
-		(ParamFloat<px4::params::IMU_GYRO_NF_BW>) _param_imu_gyro_nf_bw,
-		(ParamInt<px4::params::IMU_GYRO_RATEMAX>) _param_imu_gyro_rate_max,
-
-		(ParamFloat<px4::params::IMU_DGYRO_CUTOFF>) _param_imu_dgyro_cutoff,
-		(ParamFloat<px4::params::MC_PWM_HOVER>) _param_mc_pwm_hover,
-		(ParamFloat<px4::params::MC_OMEGA_HOVER>) _param_mc_omega_hover,
-		(ParamFloat<px4::params::CS1_CUTOFF>) _param_cs1_cutoff,
-		(ParamFloat<px4::params::OMEGA_CUTOFF>) _param_omega_cutoff,
-		(ParamFloat<px4::params::DOMEGA_D_CUTOFF>) _param_domega_d_cutoff,
-		(ParamFloat<px4::params::DOMEGA_CUTOFF>) _param_domega_cutoff,
-		(ParamInt<px4::params::ALLOC_BUFF_L>) _param_alloc_buff_l
+		(ParamFloat<px4::params::CS_CUTOFF>) _param_cs_cutoff
 	)
 };

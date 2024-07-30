@@ -96,11 +96,8 @@ Allocator_PID(df_4_PID)
 	// filter init
 	// last_delta_cmd_rad
 	for (size_t i = 0; i < 4; ++i) {
-		_lp_filter_actuator[i].set_cutoff_frequency(_sample_freq, _param_cs1_cutoff.get());
+		_lp_filter_actuator[i].set_cutoff_frequency(_sample_freq, _param_cs_cutoff.get());
 		_lp_filter_actuator[i].reset(0);
-
-		_notch_filter_actuator[i].setParameters(_sample_freq, _param_imu_gyro_nf_freq.get(), _param_imu_gyro_nf_bw.get());
-		_notch_filter_actuator[i].reset(0);
 	}
 	B_inv.setZero();
 	B_inv(0, 0)=-0.0115f;
@@ -138,8 +135,6 @@ Allocator_PID(df_4_PID)
 		_uMax[i] = upper;
 		_uMin_PID[i] = lower_PID;
 		_uMax_PID[i] = upper_PID;
-		// _uMin_new[i] = -0.3491f;
-		// _uMax_new[i] = 0.3491f;
 	}
 }
 
@@ -175,16 +170,9 @@ void MixingOutput::CheckAndUpdateFilters()
 
 	// last_delta_cmd_rad
 	for (size_t i = 0; i < 4; ++i) {
-		if ( _sample_rate_changed || (fabsf(_lp_filter_actuator[i].get_cutoff_freq() - _param_cs1_cutoff.get()) > 0.1f)) {
-			_lp_filter_actuator[i].set_cutoff_frequency(_sample_freq, _param_cs1_cutoff.get());
+		if ( _sample_rate_changed || (fabsf(_lp_filter_actuator[i].get_cutoff_freq() - _param_cs_cutoff.get()) > 0.1f)) {
+			_lp_filter_actuator[i].set_cutoff_frequency(_sample_freq, _param_cs_cutoff.get());
 			_lp_filter_actuator[i].reset(_delta_prev[i]);
-
-		}
-		if ( _sample_rate_changed || (fabsf(_notch_filter_actuator[i].getNotchFreq() - _param_imu_gyro_nf_freq.get()) > 0.1f)
-		|| (fabsf(_notch_filter_actuator[i].getBandwidth() - _param_imu_gyro_nf_bw.get()) > 0.1f)
-		) {
-			_notch_filter_actuator[i].setParameters(_sample_freq, _param_imu_gyro_nf_freq.get(), _param_imu_gyro_nf_bw.get());
-			_notch_filter_actuator[i].reset(_delta_prev[i]);
 		}
 	}
 	_sample_rate_changed = false;
@@ -514,15 +502,12 @@ bool MixingOutput::update()
 		_fb[0] = _controls[0].control[actuator_controls_s::INDEX_ROLL];
 		_fb[1] = _controls[0].control[actuator_controls_s::INDEX_PITCH];
 		_fb[2] = _controls[0].control[actuator_controls_s::INDEX_YAW];
-		if (_use_pca==1)
-		{
+		if (_use_pca==1){
 			float u_all[4];
 			int err = 0;
 			float rho;
-
 			// Allocator.DP_LPCA(_fb,u_all,err, rho); // The message "No Initial Feasible Solution found" will appear. change tol.
 			Allocator.DPscaled_LPCA(_fb, u_all, err, rho);
-
 			if(rho<1)
 			// if(0)
 			{
@@ -534,26 +519,21 @@ bool MixingOutput::update()
 				float rho_e;
 				// Allocator.DP_LPCA(_indi_fb,u_e,err_e, rho_e);
 				Allocator.DPscaled_LPCA(_indi_fb, u_e, err_e, rho_e);
-				for (size_t i = 0; i < 3; i++)
-				{
+				for (size_t i = 0; i < 3; i++){
 					float  temp = 0.0f;
-					for(int k = 0 ; k < 4 ; k++)
-					{
+					for(int k = 0 ; k < 4 ; k++){
 						temp += _B[i][k] * u_e[k];
 					}
 					allocation_value.ue_error[i] =_indi_fb[i] - temp;
 				}
-				if (rho_e<1)
-				{
-					for (size_t i = 0; i < 4; i++)
-					{
+				if (rho_e<1){
+					for (size_t i = 0; i < 4; i++){
 						_u[i] = math::constrain((float) u_all[i], (float) (_uMin[i]), (float) (_uMax[i]));
 					}
 					// PX4_INFO("INDI dir 2");
 					allocation_value.flag=2;
 				}
-				else
-				{
+				else{
 					_error_fb[0] = _controls[0].error_fb[actuator_controls_s::INDEX_ROLL];
 					_error_fb[1] = _controls[0].error_fb[actuator_controls_s::INDEX_PITCH];
 					_error_fb[2] = _controls[0].error_fb[actuator_controls_s::INDEX_YAW];
@@ -572,27 +552,22 @@ bool MixingOutput::update()
 						Allocator.aircraft.upperLimits[i] = _uMax[i];
 						Allocator.aircraft.lowerLimits[i] = _uMin[i];
 					}
-					for (size_t i = 0; i < 3; i++)
-					{
+					for (size_t i = 0; i < 3; i++){
 						float  temp = 0.0f;
-						for(int k = 0 ; k < 4 ; k++)
-						{
+						for(int k = 0 ; k < 4 ; k++){
 							temp += _B[i][k] * u_d[k];
 						}
 						allocation_value.ud_error[i] =_error_fb[i] - temp;
 					}
-					for (size_t i = 0; i < 4; i++)
-					{
+					for (size_t i = 0; i < 4; i++){
 						_u[i] = math::constrain((float) (u_d[i] + u_e[i]), (float) (_uMin[i]), (float) (_uMax[i]));
 					}
 					PX4_INFO("INDI dir 3");
 					allocation_value.flag=3;
 				}
 			}
-			else
-			{
-				for (size_t i = 0; i < 4; i++)
-				{
+			else{
+				for (size_t i = 0; i < 4; i++){
 					_u[i] =  math::constrain( u_all[i], _uMin[i], _uMax[i]);
 
 				}
@@ -600,19 +575,16 @@ bool MixingOutput::update()
 				// PX4_INFO("INDI dir 1");
 			}
 		}
-		else //inv
-		{
+		else{ //inv
 			// PX4_INFO("INDI inv");
 			matrix::Matrix<float, 3, 1> y_desire (_fb);
 			matrix::Matrix<float, 4, 1> u_inv = B_inv * y_desire;
-			for (size_t i = 0; i < 4; i++)
-			{
+			for (size_t i = 0; i < 4; i++){
 				_u[i] =  math::constrain( u_inv(i,0), _uMin[i], _uMax[i]);
 			}
 			allocation_value.flag=-1;
 		}
-		for (size_t i = 0; i < 3; i++)
-		{
+		for (size_t i = 0; i < 3; i++){
 			float  temp = 0.0f;
 			for(int k = 0 ; k < 4 ; k++)
 			{
@@ -620,14 +592,12 @@ bool MixingOutput::update()
 			}
 			allocation_value.error[i] =_fb[i] - temp;
 		}
-		for (size_t i = 0; i < 4; i++)
-		{
+		for (size_t i = 0; i < 4; i++){
 			allocation_value.u[i] = _u[i];
 			allocation_value.umin[i] = _uMin[i];
 			allocation_value.umax[i] = _uMax[i];
 		}
-		for (size_t i = 0; i < 4; i++)
-		{
+		for (size_t i = 0; i < 4; i++){
 			outputs[i+4] = (_u[i])/0.3491f;
 		}
 	}
@@ -641,8 +611,7 @@ bool MixingOutput::update()
 			_fb[0] = math::constrain(_controls[0].control[actuator_controls_s::INDEX_ROLL], -1.f, 1.f);
 			_fb[1] = math::constrain(_controls[0].control[actuator_controls_s::INDEX_PITCH], -1.f, 1.f);
 			_fb[2] = math::constrain(_controls[0].control[actuator_controls_s::INDEX_YAW], -1.f, 1.f);
-			if (_use_pca==1)
-			{
+			if (_use_pca==1){
 				float u_all[4];
 				int err = 0;
 				float rho;
@@ -650,16 +619,13 @@ bool MixingOutput::update()
 				// Allocator_PID.DP_LPCA(_fb,u_all,err, rho); // The message "No Initial Feasible Solution found" will appear. change tol.
 				Allocator_PID.DPscaled_LPCA(_fb, u_all, err, rho);
 				// = dir
-				for (size_t i = 0; i < 4; i++)
-				{
+				for (size_t i = 0; i < 4; i++){
 					_u[i] =  math::constrain( u_all[i], _uMin_PID[i], _uMax_PID[i]);
-
 				}
 				allocation_value.flag=1;
 				// PX4_INFO("PID dir 1");
 			}
-			else //inv
-			{
+			else{ //inv
 				// PX4_INFO("PID inv");
 				matrix::Matrix<float, 3, 1> y_desire (_fb);
 				matrix::Matrix<float, 4, 1> u_inv = B_inv_PID * y_desire;
@@ -669,9 +635,7 @@ bool MixingOutput::update()
 				}
 				allocation_value.flag=-1;
 			}
-
-			for (size_t i = 0; i < 3; i++)
-			{
+			for (size_t i = 0; i < 3; i++){
 				float  temp = 0.0f;
 				for(int k = 0 ; k < 4 ; k++)
 				{
@@ -679,21 +643,17 @@ bool MixingOutput::update()
 				}
 				allocation_value.error[i] =_fb[i] - temp;
 			}
-
-			for (size_t i = 0; i < 4; i++)
-			{
+			for (size_t i = 0; i < 4; i++){
 				allocation_value.u[i] = _u[i];
 				allocation_value.umin[i] = _uMin_PID[i];
 				allocation_value.umax[i] = _uMax_PID[i];
 			}
-			for (size_t i = 0; i < 4; i++)
-			{
+			for (size_t i = 0; i < 4; i++){
 				outputs[i+4] = _u[i];
 			}
 		}
 		else{
-			for (size_t i = 0; i < 4; i++)
-			{
+			for (size_t i = 0; i < 4; i++){
 				_u[i] = outputs[i+4];
 				allocation_value.u[i] = outputs[i+4];
 
@@ -764,33 +724,14 @@ MixingOutput::setAndPublishActuatorOutputs(unsigned num_outputs, actuator_output
 
 	actuator_outputs.timestamp = hrt_absolute_time();
 	_outputs_pub.publish(actuator_outputs);
-
+	// publish cs delta for indi controller
 	actuator_outputs_value_s actuator_outputs_value{};
-	//control surfaces, 0.3491 rad -> 180pwm.
-	for (size_t i = 0; i < 4 ; ++i) {
-		actuator_outputs_value.last_deltacmd[i] =(float) _last_u[i];
-	}
-	// actuator filtering:
-	// - Apply general notch filter (IMU_GYRO_NF_FREQ)
-	// - Apply general low-pass filter (IMU_GYRO_CUTOFF)
-	// - Differentiate & apply specific angular acceleration (D-term) low-pass (IMU_DGYRO_CUTOFF)
-	float actuator_notched[4];
-	//control surfaces
 	for (size_t i = 0; i < 4; ++i) {
-		actuator_notched[i] = _notch_filter_actuator[i].apply(actuator_outputs_value.last_deltacmd[i]);
-		actuator_outputs_value.delta[i] = math::constrain(_lp_filter_actuator[i].apply(actuator_notched[i]), (float) (_uMin[i]), (float) (_uMax[i]));// 100%
+		actuator_outputs_value.delta[i] = math::constrain(_lp_filter_actuator[i].apply(_u[i]), (float) (_uMin[i]), (float) (_uMax[i]));//
 		_delta_prev[i] = actuator_outputs_value.delta[i];
 	}
-	//------------------------publish-----------------------------
 	actuator_outputs_value.timestamp = hrt_absolute_time();
-	// _last_config_update = actuator_outputs_value.timestamp;
 	_outputs_value_pub.publish(actuator_outputs_value);
-
-	//update _last_output_value
-	_last_output_value[0] = _current_output_value[0];
-	for (size_t i = 0; i < 4; ++i) {
-		_last_u[i] = (double) _u[i];
-	}
 
 }
 
