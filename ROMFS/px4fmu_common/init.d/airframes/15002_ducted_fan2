@@ -31,14 +31,6 @@ param set-default MC_YAWRATE_I 0.2
 param set-default MC_YAWRATE_D 0
 param set-default MC_YAWRATE_FF 0
 
-param set-default MC_ACRO_EXPO_Y 0
-param set-default MC_ACRO_EXPO 0
-param set-default MC_ACRO_SUPEXPO 0
-param set-default MC_ACRO_SUPEXPOY 0
-param set-default MC_ACRO_R_MAX 90.0
-param set-default MC_ACRO_P_MAX 90.0
-param set-default MC_ACRO_Y_MAX 90.0
-
 param set-default NAV_ACC_RAD 2
 
 param set-default PWM_DISARMED 900
@@ -48,7 +40,7 @@ param set-default PWM_MAIN_MIN3 1340
 param set-default PWM_MAIN_MIN4 1330
 param set-default PWM_MAIN_MAX3 1700
 param set-default PWM_MAIN_MAX4 1690
-param set-default PWM_RATE 333
+param set-default PWM_RATE 150
 
 param set-default RTL_RETURN_ALT 2.5
 param set-default RTL_DESCEND_ALT 2.5

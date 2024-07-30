@@ -36,14 +36,6 @@ param set-default MC_YAWRATE_I 0.3
 param set-default MC_YAWRATE_D 0
 param set-default MC_YAWRATE_FF 0
 
-param set-default MC_ACRO_EXPO_Y 0
-param set-default MC_ACRO_EXPO 0
-param set-default MC_ACRO_SUPEXPO 0
-param set-default MC_ACRO_SUPEXPOY 0
-param set-default MC_ACRO_R_MAX 90.0
-param set-default MC_ACRO_P_MAX 90.0
-param set-default MC_ACRO_Y_MAX 90.0
-
 param set-default MPC_THR_HOVER 0.7
 param set-default MPC_VEL_MANUAL 4
 param set-default MPC_XY_CRUISE 4
@@ -88,17 +80,12 @@ param set-default MAV_0_FORWARD 1
 param set-default SER_TEL1_BAUD 921600
 
 param set-default SDLOG_PROFILE  1
-param set-default CS1_CUTOFF  3
-param set-default DOMEGA_CUTOFF  10
-param set-default DOMEGA_D_CUTOFF  10
-param set-default OMEGA_CUTOFF  10
+param set-default CS_CUTOFF  3
 param set-default IMU_DGYRO_CUTOFF  5
 
 param set-default COM_PREARM_MODE  1
 #param set-default CBRK_IO_SAFETY  22027
 #param set-default IMU_GYRO_RATEMAX 400
-
-param set-default MC_PWM_HOVER 1706
 
 set MAV_TYPE 3
 
