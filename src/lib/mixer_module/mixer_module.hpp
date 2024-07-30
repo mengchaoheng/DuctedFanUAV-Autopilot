@@ -308,7 +308,6 @@ private:
 	float _uMax[4] {};
 	float _u[4] {};
 	float _last_u[4] {};
-	float B[12] {}; // for allocator_dir_LPwrap_4
 	matrix::Matrix<float, 4, 3> B_inv;
 	// const float _B[3][4]       = { {-46.2254,0.0,46.2254,0.0}, {0.0,-46.0825,0.0,46.0825},{46.7411,46.7411,46.7411,46.7411}};
 	const float _B[3][4]    = { {-43.6031,0.0,43.6031,0.0}, {0.0,-43.4519,0.0,43.4519},{42.5051,42.5051,42.5051,42.5051}}; // Use a larger value of tol of struct LinearProgrammingProblem

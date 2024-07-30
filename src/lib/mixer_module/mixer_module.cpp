@@ -38,17 +38,6 @@
 #include <uORB/Publication.hpp>
 #include <px4_platform_common/log.h>
 
-
-#include "dir_alloc_sim.h"
-#include "dir_alloc_six.h"
-#include "allocator_dir_LPwrap_4.h"
-#include "rt_nonfinite.h"
-extern "C" {
-    void allocator_dir_LPwrap_4(const float B[12], const float v[3],
-                            const float umin[4], const float umax[4],
-                            float u[4], float *z, unsigned int *iters);
-}
-
 using namespace time_literals;
 
 
@@ -123,11 +112,6 @@ Allocator_PID(df_4_PID)
 
 	B_inv_PID(3, 1)=1.0f;
 	B_inv_PID(3, 2)=1.0f;
-	for (int i = 0; i < 3; i++) {
-		for (int j = 0; j < 4; j++) {
-			B[i+j*3] = _B[i][j];
-		}
-	}
 
 	for (size_t i = 0; i < 4; i++)
 	{
