@@ -170,6 +170,8 @@ void MixingOutput::updateParams()
 	_use_indi = _param_use_indi.get();
 	_use_alloc = _param_use_alloc.get();
 	_use_pca = _param_use_pca.get();
+	_use_dist = _param_use_dist.get();
+	_dist_mag = _param_dist_mag.get();
 
 	// update mixer if we have one
 	if (_mixers) {
@@ -481,6 +483,19 @@ bool MixingOutput::update()
 	uint64_t timestamp_ca_start=hrt_absolute_time();
 	uint64_t timestamp_ca_end=hrt_absolute_time();
 	allocation_value_s allocation_value{};
+	// for test
+	if(_use_dist==1){
+		for (size_t i = 0; i < 4; i++)
+		{
+			_uMin[i] = lower+_dist_mag;
+			_uMax[i] = upper-_dist_mag;
+		}
+		for (int i = 0; i < 4; ++i) {
+			Allocator.aircraft.upperLimits[i] = _uMax[i];
+			Allocator.aircraft.lowerLimits[i] = _uMin[i];
+		}
+
+	}
 	// indi have to use allocator, since it use the model for control value. all this just for ductedfan4.
 	if(_use_indi == 1){
 		_fb[0] = _controls[0].control[actuator_controls_s::INDEX_ROLL];
@@ -582,7 +597,12 @@ bool MixingOutput::update()
 			allocation_value.umax[i] = _uMax[i];
 		}
 		for (size_t i = 0; i < 4; i++){
-			outputs[i+4] = (_u[i])/0.3491f;
+			if(_use_dist==1){
+				outputs[i+4] = (_u[i]+_dist_mag)/0.3491f;
+			}
+			else{
+				outputs[i+4] = (_u[i])/0.3491f;
+			}
 		}
 	}
 	else{

@@ -79,6 +79,17 @@ PARAM_DEFINE_INT32(USE_CA, 0);
 PARAM_DEFINE_INT32(USE_PCA, 0);
 
 /**
+ * USE_DIST
+ *
+ * use disturbance or not.
+ *
+ * @value 0 not use
+ * @value 1 use USE_DISTURB
+ * @group Mixer Output
+ */
+PARAM_DEFINE_INT32(USE_DIST, 0);
+
+/**
 * Low pass filter cutoff frequency for control surface
 *
 * The cutoff frequency for the 2nd order butterworth filter on the primary gyro.
@@ -93,3 +104,16 @@ PARAM_DEFINE_INT32(USE_PCA, 0);
 * @group Mixer Output
 */
 PARAM_DEFINE_FLOAT(CS_CUTOFF, 10.0f);
+
+/**
+* DIST_MAG
+*
+* The magnitude of the disturbance added to the control surfaces.
+*
+* @min 0
+* @max 0.3491
+* @unit rad
+* @reboot_required false
+* @group Mixer Output
+*/
+PARAM_DEFINE_FLOAT(DIST_MAG, 0.0f);

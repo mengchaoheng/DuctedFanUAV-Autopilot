@@ -304,6 +304,9 @@ private:
 	bool _use_indi{false};
 	bool _use_alloc{false};
 	bool _use_pca{false};
+	bool _use_dist{false};
+	float _dist_mag{0.0f};
+	float pert_to_cs{0.0f};
 	float _uMin[4] {};
 	float _uMax[4] {};
 	float _u[4] {};
@@ -336,6 +339,8 @@ private:
 		(ParamInt<px4::params::USE_PCA>) _param_use_pca,
 		(ParamInt<px4::params::USE_CA>) _param_use_alloc,
 		(ParamInt<px4::params::USE_INDI>) _param_use_indi,
-		(ParamFloat<px4::params::CS_CUTOFF>) _param_cs_cutoff
+		(ParamFloat<px4::params::CS_CUTOFF>) _param_cs_cutoff,
+		(ParamInt<px4::params::USE_DIST>) _param_use_dist,
+		(ParamFloat<px4::params::DIST_MAG>) _param_dist_mag
 	)
 };
