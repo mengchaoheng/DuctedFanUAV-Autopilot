@@ -596,14 +596,19 @@ bool MixingOutput::update()
 			allocation_value.umin[i] = _uMin[i];
 			allocation_value.umax[i] = _uMax[i];
 		}
-		for (size_t i = 0; i < 4; i++){
-			if(_use_dist==1){
-				outputs[i+4] = (_u[i]+_dist_mag)/0.3491f;
-			}
-			else{
+
+		if(_use_dist==1){
+			outputs[0+4] = (_u[0]+_dist_mag)/0.3491f;
+			outputs[1+4] = (_u[1]+_dist_mag)/0.3491f;
+			outputs[2+4] = (_u[2]-_dist_mag)/0.3491f;
+			outputs[3+4] = (_u[3]-_dist_mag)/0.3491f;
+		}
+		else{
+			for (size_t i = 0; i < 4; i++){
 				outputs[i+4] = (_u[i])/0.3491f;
 			}
 		}
+
 	}
 	else{
 		if (_use_alloc == 1){ //_use_alloc only use for PID
