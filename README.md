@@ -18,7 +18,7 @@ Our development work is now mainly concentrated on the df-1.12.3 branch, based o
 <img src="flight_test.png" width="30%" />
 
 ## Installation
-Before running this project, you need to deploy the development environment. Please refer to the [PX4 official website](https://docs.px4.io/v1.12/en/) (v1.12) to ensure that your computer (macOS/Linux) can open the default model simulation by executing the make command and take off through QGC or terminal commands.
+Before running this project, you need to deploy the development environment. Please refer to the [PX4 official website](https://docs.px4.io/v1.12/en/) (v1.12) to ensure that your computer (macOS/Linux) can open the default model simulation by executing the `make px4_sitl gazebo` command and take off through QGC or terminal commands.
 
 > It's easy to upgrade this project to the latest version of px4, but we need a lot of testing before doing so.
 
