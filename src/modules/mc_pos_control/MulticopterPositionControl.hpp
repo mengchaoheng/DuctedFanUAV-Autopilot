@@ -132,6 +132,7 @@ private:
 	bool _use_step_ref{false};
 	bool _use_step_ref_prev{false};
 	hrt_abstime _add_step_time;
+	float start_yaw_body{0.0f};
 	float _cycle_time;
 	float _step_roll_amp;
 	float _step_pitch_amp;

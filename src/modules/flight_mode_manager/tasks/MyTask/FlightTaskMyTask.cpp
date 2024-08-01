@@ -14,6 +14,7 @@ bool FlightTaskMyTask::update()
   _position_setpoint(0) = 0.f;
 	_position_setpoint(1) = 0.f;
   _position_setpoint(2) = _position(2);
+  _yaw_setpoint=M_PI;
   PX4_INFO("FlightTaskMyTask update was called! go to home!!!\n"); // report update
   return true;
 }

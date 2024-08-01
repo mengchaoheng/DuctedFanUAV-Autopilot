@@ -495,6 +495,16 @@ bool MixingOutput::update()
 			Allocator.aircraft.lowerLimits[i] = _uMin[i];
 		}
 
+	}else{
+		for (size_t i = 0; i < 4; i++)
+		{
+			_uMin[i] = lower;
+			_uMax[i] = upper;
+		}
+		for (int i = 0; i < 4; ++i) {
+			Allocator.aircraft.upperLimits[i] = _uMax[i];
+			Allocator.aircraft.lowerLimits[i] = _uMin[i];
+		}
 	}
 	// indi have to use allocator, since it use the model for control value. all this just for ductedfan4.
 	if(_use_indi == 1){
