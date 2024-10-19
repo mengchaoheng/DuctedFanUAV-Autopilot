@@ -968,6 +968,7 @@ public:
             for(int i=0;i<EffectorSize;++i){
                 output[i]=0;
             }
+            err=-1;
             return;
         }
         //=======================
@@ -1115,6 +1116,7 @@ public:
             for(int i=0;i<EffectorSize;++i){
                 output[i]=0;
             }
+            err=-1;
             return;
         }
         //=======================
@@ -1330,6 +1332,7 @@ public:
             for(int i=0;i<EffectorSize;++i){
                 output[i]=0;
             }
+            err = -1;
             return;
         }
         //=======================
@@ -1549,7 +1552,8 @@ public:
         }
         return;
     }
-    void DP_LPCA_prio(float input_higher[ControlSize],float input_lower[ControlSize], float output[EffectorSize], int& err, float & rho){
+    void DP_LPCA_copy(float input_higher[ControlSize],float input_lower[ControlSize], float output[EffectorSize], int& err, float & rho){
+        // yd=input_lower
         // % Prioritizing Commands by DP_LPCA
         // % Direction Preserving Control Allocation Linear Program
         // %
@@ -1601,6 +1605,7 @@ public:
             for(int i=0;i<EffectorSize;++i){
                 output[i]=0;
             }
+            err=-1;
             return;
         }
         //=======================
@@ -1675,30 +1680,18 @@ public:
         }
         if(err!=0) // Construct an incorrect solution to accompany error flags
         {
-            if(err==-2){
-                // DP_LPCA(yd, u3, err3, rho3);
-                float tmp_higher[ControlSize] ={};
-                for (int i = 0; i < ControlSize; i++)
+            // use result_init data
+            // matlab: indv = inB1<=(k+1); xout(inB1(indv)) = y1(indv); % in matlab the index from 1 to k, but cpp is 0 to k-1
+            for(int i=0;i<ControlSize;++i){
+                if(result_init.inB[i] <= EffectorSize)
                 {
-                    tmp_higher[i] =  0.0f;
+                    xout[result_init.inB[i]]=result_init.y0[i];
                 }
-                DP_LPCA_prio(tmp_higher,input_higher, output, err, rho);
-                return;
             }
-            else{
-                // use result_init data
-                // matlab: indv = inB1<=(k+1); xout(inB1(indv)) = y1(indv); % in matlab the index from 1 to k, but cpp is 0 to k-1
-                for(int i=0;i<ControlSize;++i){
-                    if(result_init.inB[i] <= EffectorSize)
-                    {
-                        xout[result_init.inB[i]]=result_init.y0[i];
-                    }
-                }
-                // xout(~e1(1:k+1)) = -xout(~e1(1:k+1))+h(~e1(1:k+1));
-                for(int i=0;i<DP_LPCA_problem.n;++i){
-                    if(!result_init.e[i]){
-                        xout[i] = -xout[i] + DP_LPCA_problem.h[i];
-                    }
+            // xout(~e1(1:k+1)) = -xout(~e1(1:k+1))+h(~e1(1:k+1));
+            for(int i=0;i<DP_LPCA_problem.n;++i){
+                if(!result_init.e[i]){
+                    xout[i] = -xout[i] + DP_LPCA_problem.h[i];
                 }
             }
         }
@@ -1739,7 +1732,6 @@ public:
         for(int i=0;i<EffectorSize;++i){
             output[i]=xout[i]+this->aircraft.lowerLimits[i];
         }
-        // Use upper_lam to prevent control surfaces from approaching position limits
         rho = xout[EffectorSize];
         if(rho>1){
             for(int i=0;i<EffectorSize;++i){

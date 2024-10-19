@@ -507,38 +507,48 @@ bool MixingOutput::update()
 		}
 	}
 
-	// // =====================run test for allocation running time===========================================
-	// float m_higher[3]={0.0,  0.0,  60.0f}; //
-	// float m_lower[3]={20,  10,   0};
-	// float input[3]={m_lower[0]+m_higher[0],  m_lower[1]+m_higher[1],   m_lower[2]+m_higher[2]};
-	// //==========================allocateControl===========================
-	// float u1[4]; int err1=0;
-	// timestamp_ca_start = hrt_absolute_time();
-	// Allocator.allocateControl(input, u1, err1);
-	// timestamp_ca_end = hrt_absolute_time();
-	// PX4_INFO("allocateControl: u1: %f, u2: %f, u3: %f, u4: %f. \n",(double) u1[0],(double) u1[1],(double) u1[2],(double) u1[3]);
-	// PX4_INFO("allocateControl time: %lld \n", (timestamp_ca_end - timestamp_ca_start) ); //nuttx
-	// //=========================DPscaled_LPCA============================INFO  [mixer_module] dir_alloc_sim time: 16
-	// float u2[4];int err2=0;float rho2=0;
-	// timestamp_ca_start = hrt_absolute_time();
-	// Allocator.DPscaled_LPCA(input, u2, err2, rho2);
-	// timestamp_ca_end = hrt_absolute_time();
-	// PX4_INFO("DPscaled_LPCA: u1: %f, u2: %f, u3: %f, u4: %f. \n",(double) u2[0],(double) u2[1],(double) u2[2],(double) u2[3]);
-	// PX4_INFO("DPscaled_LPCA time: %lld \n", (timestamp_ca_end - timestamp_ca_start) ); //nuttx
-	// //========================DP_LPCA=============================
-	// float u3[4];int err3=0;float rho3=0;
-	// timestamp_ca_start = hrt_absolute_time();
-	// Allocator.DP_LPCA(input, u3, err3, rho3);
-	// timestamp_ca_end = hrt_absolute_time();
-	// PX4_INFO("DP_LPCA: u1: %f, u2: %f, u3: %f, u4: %f. \n",(double) u3[0],(double) u3[1],(double) u3[2],(double) u3[3]);
-	// PX4_INFO("DP_LPCA time: %lld \n", (timestamp_ca_end - timestamp_ca_start) ); //nuttx
-	// //========================DP_LPCA_prio=============================
-	// float u4[4];int err4=0;float rho4=0;
-	// timestamp_ca_start = hrt_absolute_time();
-	// Allocator.DP_LPCA_prio(m_higher,m_lower, u4, err4, rho4);
-	// timestamp_ca_end = hrt_absolute_time();
-	// PX4_INFO("DP_LPCA: u1: %f, u2: %f, u3: %f, u4: %f. \n",(double) u4[0],(double) u4[1],(double) u4[2],(double) u4[3]);
-	// PX4_INFO("DP_LPCA time: %lld \n", (timestamp_ca_end - timestamp_ca_start) ); //nuttx
+	// =====================run test for allocation running time===========================================
+	float m_higher[3]={0.0,  0.0,  60.0f}; //
+	float m_lower[3]={20.0f,  10.0f,   0.0f};
+	float input[3]={m_lower[0]+m_higher[0],  m_lower[1]+m_higher[1],   m_lower[2]+m_higher[2]};
+	//==========================allocateControl===========================
+	float u1[4]; int err1=0;
+	timestamp_ca_start = hrt_absolute_time();
+	Allocator.allocateControl(input, u1, err1);
+	timestamp_ca_end = hrt_absolute_time();
+	PX4_INFO("allocateControl: u1: %f, u2: %f, u3: %f, u4: %f. \n",(double) u1[0],(double) u1[1],(double) u1[2],(double) u1[3]);
+	PX4_INFO("allocateControl time: %lld \n", (timestamp_ca_end - timestamp_ca_start) ); //nuttx
+	//=========================DPscaled_LPCA============================INFO  [mixer_module] dir_alloc_sim time: 16
+	float u2[4];int err2=0;float rho2=0;float u2_tmp[4];
+	timestamp_ca_start = hrt_absolute_time();
+	Allocator.DPscaled_LPCA(input, u2_tmp, err2, rho2);
+	Allocator.restoring(u2_tmp,u2);
+	timestamp_ca_end = hrt_absolute_time();
+	PX4_INFO("DPscaled_LPCA: u1: %f, u2: %f, u3: %f, u4: %f. \n",(double) u2[0],(double) u2[1],(double) u2[2],(double) u2[3]);
+	PX4_INFO("DPscaled_LPCA time: %lld \n", (timestamp_ca_end - timestamp_ca_start) ); //nuttx
+	//========================DP_LPCA=============================
+	float u3[4];int err3=0;float rho3=0;float u3_tmp[4];
+	timestamp_ca_start = hrt_absolute_time();
+	Allocator.DP_LPCA(input, u3_tmp, err3, rho3);
+	Allocator.restoring(u3_tmp,u3);
+	timestamp_ca_end = hrt_absolute_time();
+	PX4_INFO("DP_LPCA: u1: %f, u2: %f, u3: %f, u4: %f. \n",(double) u3[0],(double) u3[1],(double) u3[2],(double) u3[3]);
+	PX4_INFO("DP_LPCA time: %lld \n", (timestamp_ca_end - timestamp_ca_start) ); //nuttx
+	//========================DP_LPCA_prio=============================
+	float u4[4];int err4=0;float rho4=0;float u4_tmp[4];
+	// float m_lower[3]={30.0f,  0.0f,   -0.0f};
+        float u5[4];int err5=0;float rho5=0;float u5_tmp[4]; float m_tmp[3]={0.0,  0.0,  0.0f};
+	timestamp_ca_start = hrt_absolute_time();
+        Allocator.DP_LPCA_copy(m_higher,m_lower, u4_tmp, err4, rho4);
+        if (err4<0){
+            Allocator.DP_LPCA_copy(m_tmp,m_higher, u5_tmp, err5, rho5);
+            Allocator.restoring(u5_tmp,u4);
+        }else{
+            Allocator.restoring(u4_tmp,u4);
+        }
+	timestamp_ca_end = hrt_absolute_time();
+	PX4_INFO("DP_LPCA_prio: u1: %f, u2: %f, u3: %f, u4: %f. \n",(double) u4[0],(double) u4[1],(double) u4[2],(double) u4[3]);
+	PX4_INFO("DP_LPCA_prio time: %lld \n", (timestamp_ca_end - timestamp_ca_start) ); //nuttx
 
 
 	// indi have to use allocator, since it use the model for control value. all this just for ductedfan4.
