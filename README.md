@@ -30,6 +30,20 @@ See the [forum and chat](https://docs.px4.io/master/en/#support) if you need hel
 
 
 ## Usage
+Keep a clean compilation when switching to a different branch.
+```
+make distclean
+```
+
+Make sure you're on the `df-1.12.3` branch. You can use `git status` to check
+```
+git checkout df-1.12.3
+```
+Ensure that the required submodules for loading the df-1.12.3 branch are loaded.
+```
+git submodule update --init --recursive
+```
+> **Note:** px4 is not sensitive to the Python environment, but you need to ensure that you have installed the required Python packages. Refer to [Development Environment Deployment](https://docs.px4.io/main/en/dev_setup/dev_env.html)
 ### Simulation
 1. ductedfan2
 ```
