@@ -14,26 +14,29 @@ Our development work is now mainly concentrated on the df-1.12.3 branch, based o
   * ductedfan6: DFUAV with six control surfaces and one rotor.
   * ductedfan_mini: mini DFUAV with four control surfaces and one rotor.
   * ToDo: many more experimental types based on Ducted Fan.
-* Supports gazebo-based simulation and can easily communicate with the ros package. We implement DuctedFanUAV simulation by modifying the gazebo model and plugins, more detail in [DF_gazebo](https://github.com/mengchaoheng/DF_gazebo.git) which forked from [PX4-SITL_gazebo-classic](https://github.com/PX4/PX4-SITL_gazebo-classic.git) (sitl_gazebo).
+* Supports gazebo-based simulation ([Gazebo Classic](https://docs.px4.io/main/en/sim_gazebo_classic/)) and can easily communicate with the ros package. We implement DuctedFanUAV simulation by modifying the gazebo model and plugins, more detail in [DF_gazebo](https://github.com/mengchaoheng/DF_gazebo.git) which forked from [PX4-SITL_gazebo-classic](https://github.com/PX4/PX4-SITL_gazebo-classic.git) (sitl_gazebo).
 * We have performed extensive flight tests with DuctedFanUAV equipped with Pixhawk.
 <img src="sitl_gazebo_df4.png" width="60%" />
 <img src="flight_test.png" width="30%" />
 
 ## Installation
-Before running this project, you need to deploy the development environment. Please refer to the [PX4 official website](https://docs.px4.io/v1.12/en/) (v1.12) to ensure that your computer (macOS/Linux) can open the default model simulation by executing the `make px4_sitl gazebo` command and take off through QGC or terminal commands.
+Before running this project, you need to deploy the development environment. Please refer to the [PX4 official website](https://docs.px4.io/v1.12/en/) (v1.12) to ensure that your computer (macOS/Linux) can open the default model simulation by executing the `make px4_sitl gazebo` or `make px4_sitl gazebo-classic` command and take off through QGC or terminal commands.
 
-> It's easy to upgrade this project to the latest version of px4, but we need a lot of testing before doing so.
+> It's easy to upgrade this project to the latest version of px4, just make sure that the [Gazebo Classic environment](https://docs.px4.io/main/en/sim_gazebo_classic/#installation) is deployed in a supported ubuntu version, but we need a lot of testing before doing so.
 
+> Due to [Ubuntu 22.04 with Arm64 architecture cannot install gazebo](https://github.com/osrf/gazebo_tutorials/pull/169), the gazebo classical may not run on arm64-based Ubuntu 22 and later versions. However, AMD should still support it. As long as the px4 official gazebo classical simulation can run, the code in this repository can be executed.
 
 The [PX4 User Guide](https://docs.px4.io/master/en/) explains how to assemble [supported vehicles](https://docs.px4.io/master/en/airframes/airframe_reference.html) and fly drones with PX4.
 See the [forum and chat](https://docs.px4.io/master/en/#support) if you need help!
 
 
 ## Usage
-Keep a clean compilation when switching to a different branch.
+Clone this repository:
 ```
-make distclean
+git clone
 ```
+
+
 
 Make sure you're on the `df-1.12.3` branch. You can use `git status` to check
 ```
@@ -43,6 +46,17 @@ Ensure that the required submodules for loading the df-1.12.3 branch are loaded.
 ```
 git submodule update --init --recursive
 ```
+When switching branches or wishing to recompile, you can use 
+```
+make distclean
+```
+to keep a clean compilation, and then run
+```
+git submodule update --init --recursive
+
+```
+again to rebuild, The compilation command is as follows.
+
 > **Note:** px4 is not sensitive to the Python environment, but you need to ensure that you have installed the required Python packages. Refer to [Development Environment Deployment](https://docs.px4.io/main/en/dev_setup/dev_env.html)
 ### Simulation
 1. ductedfan2
