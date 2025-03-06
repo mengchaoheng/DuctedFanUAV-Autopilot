@@ -20,11 +20,11 @@ Our development work is now mainly concentrated on the df-1.12.3 branch, based o
 <img src="flight_test.png" width="30%" />
 
 ## Installation
-Before running this project, you need to deploy the development environment. Please refer to the [PX4 official website](https://docs.px4.io/v1.12/en/) (v1.12) to ensure that your computer (macOS/Linux) can open the default model simulation by executing the `make px4_sitl gazebo` or `make px4_sitl gazebo-classic` command and take off through QGC or terminal commands.
+Before running this project, you need to deploy the development environment. Please refer to the [PX4 official website](https://docs.px4.io/v1.12/en/) (v1.12) to ensure that your computer (macOS/Linux) can open the default model simulation by executing the `make px4_sitl gazebo` or `make px4_sitl gazebo-classic` command and take off through QGC or terminal commands. It's recommended to use Ubuntu 20.04.
 
 > It's easy to upgrade this project to the latest version of px4, just make sure that the [Gazebo Classic environment](https://docs.px4.io/main/en/sim_gazebo_classic/#installation) is deployed in a supported ubuntu version, but we need a lot of testing before doing so.
 
-> Due to [Ubuntu 22.04 with Arm64 architecture cannot install gazebo](https://github.com/osrf/gazebo_tutorials/pull/169), the gazebo classical may not run on arm64-based Ubuntu 22 and later versions. However, AMD should still support it. As long as the px4 official gazebo classical simulation can run, the code in this repository can be executed.
+> Due to [Ubuntu 22.04 or later with Arm64 architecture cannot install gazebo](https://github.com/osrf/gazebo_tutorials/pull/169), the gazebo classical may not run on arm64-based Ubuntu 22 and later versions. However, AMD should still support it. As long as the px4 official gazebo classical simulation can run, the code in this repository can be executed.
 
 The [PX4 User Guide](https://docs.px4.io/master/en/) explains how to assemble [supported vehicles](https://docs.px4.io/master/en/airframes/airframe_reference.html) and fly drones with PX4.
 See the [forum and chat](https://docs.px4.io/master/en/#support) if you need help!
