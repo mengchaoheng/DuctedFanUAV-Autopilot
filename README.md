@@ -33,19 +33,19 @@ See the [forum and chat](https://docs.px4.io/master/en/#support) if you need hel
 ## Usage
 Clone this repository:
 ```
-git clone
+git clone https://github.com/mengchaoheng/DuctedFanUAV-Autopilot.git
 ```
-
-
 
 Make sure you're on the `df-1.12.3` branch. You can use `git status` to check
 ```
 git checkout df-1.12.3
 ```
+
 Ensure that the required submodules for loading the df-1.12.3 branch are loaded.
 ```
 git submodule update --init --recursive
 ```
+
 When switching branches or wishing to recompile, you can use 
 ```
 make distclean
