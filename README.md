@@ -29,14 +29,69 @@ Before running this project, you need to deploy the development environment. Ple
 The [PX4 User Guide](https://docs.px4.io/master/en/) explains how to assemble [supported vehicles](https://docs.px4.io/master/en/airframes/airframe_reference.html) and fly drones with PX4.
 See the [forum and chat](https://docs.px4.io/master/en/#support) if you need help!
 
+For Ubuntu 20.04, installing the simulation environment is quite straightforward:
+1. Install git:
+
+```bash
+sudo apt install git
+```
+
+2. Clone code:
+
+```bash
+git clone https://github.com/mengchaoheng/DuctedFanUAV-Autopilot --recursive
+```
+
+3. Go to the path of the code:
+
+```bash
+cd DuctedFanUAV-Autopilot 
+```
+
+4. Run the ubuntu.sh with no arguments (in a bash shell) to install everything:
+
+```bash
+# For arm64-based ubuntu. See https://github.com/PX4/PX4-Autopilot/issues/21117
+bash ./Tools/setup/ubuntu.sh
+```
+
+Or download the development environment deployment script from the official website. 
+
+```bash
+wget https://raw.githubusercontent.com/PX4/PX4-Autopilot/main/Tools/setup/ubuntu.sh
+wget https://raw.githubusercontent.com/PX4/PX4-Autopilot/main/Tools/setup/requirements.txt
+bash ubuntu.sh
+```
+
+5. Start Gazebo SITL using the following command:
+
+
+5.1 Test the built-in quadcopter simulation:
+
+```bash
+make px4_sitl gazebo 
+```
+5.2 Test the simulation of this project:
+```bash
+make px4_sitl gazebo_ductedfan4 
+```
+
+> **Note:**  In Ubuntu 22.04 and higher versions, Gazebo Classic is no longer supported on arm64 Ubuntu. If Gazebo was installed using a script on amd64 Ubuntu, it needs to be uninstalled and reinstalled：
+```bash
+sudo apt remove gz-harmonic
+sudo apt install aptitude
+sudo aptitude install gazebo libgazebo11 libgazebo-dev
+```
 
 ## Usage
 Clone this repository:
 ```
 git clone https://github.com/mengchaoheng/DuctedFanUAV-Autopilot.git
+
+cd DuctedFanUAV-Autopilot 
 ```
 
-Make sure you're on the `df-1.12.3` branch. You can use `git status` to check
+Make sure you're on the `df-1.12.3` branch. You can use `git status` to check it.
 ```
 git checkout df-1.12.3
 ```
