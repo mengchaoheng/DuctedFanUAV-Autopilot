@@ -557,76 +557,26 @@ bool MixingOutput::update()
 		_fb[1] = _controls[0].control[actuator_controls_s::INDEX_PITCH];
 		_fb[2] = _controls[0].control[actuator_controls_s::INDEX_YAW];
 		if (_use_pca==1){
-			float u_all[4];
-			int err = 0;
-			float rho;
-			// Allocator.DP_LPCA(_fb,u_all,err, rho); // The message "No Initial Feasible Solution found" will appear. change tol.
-			Allocator.DPscaled_LPCA(_fb, u_all, err, rho);
-			if(rho<1)
-			// if(0)
-			{
-				_indi_fb[0] = _controls[0].indi_fb[actuator_controls_s::INDEX_ROLL];
-				_indi_fb[1] = _controls[0].indi_fb[actuator_controls_s::INDEX_PITCH];
-				_indi_fb[2] = _controls[0].indi_fb[actuator_controls_s::INDEX_YAW];
-				float u_e[4] = {0.0, 0.0, 0.0, 0.0};
-				int err_e = 0;
-				float rho_e;
-				// Allocator.DP_LPCA(_indi_fb,u_e,err_e, rho_e);
-				Allocator.DPscaled_LPCA(_indi_fb, u_e, err_e, rho_e);
-				for (size_t i = 0; i < 3; i++){
-					float  temp = 0.0f;
-					for(int k = 0 ; k < 4 ; k++){
-						temp += _B[i][k] * u_e[k];
-					}
-					allocation_value.ue_error[i] =_indi_fb[i] - temp;
-				}
-				if (rho_e<1){
-					for (size_t i = 0; i < 4; i++){
-						_u[i] = math::constrain((float) u_all[i], (float) (_uMin[i]), (float) (_uMax[i]));
-					}
-					// PX4_INFO("INDI dir 2");
-					allocation_value.flag=2;
-				}
-				else{
-					_error_fb[0] = _controls[0].error_fb[actuator_controls_s::INDEX_ROLL];
-					_error_fb[1] = _controls[0].error_fb[actuator_controls_s::INDEX_PITCH];
-					_error_fb[2] = _controls[0].error_fb[actuator_controls_s::INDEX_YAW];
-					float u_d[4] = {0.0, 0.0, 0.0, 0.0};
-					int err_d = 0;
-					float rho_d;
-					// change limits
-					for (int i = 0; i < 4; ++i) {
-						Allocator.aircraft.upperLimits[i] = _uMax[i] - u_e[i];
-						Allocator.aircraft.lowerLimits[i] = _uMin[i] - u_e[i];
-					}
-					// Allocator.DP_LPCA(_error_fb,u_d,err_d, rho_d);
-					Allocator.DPscaled_LPCA(_error_fb, u_d, err_d, rho_d);
-					// change limits
-					for (int i = 0; i < 4; ++i) {
-						Allocator.aircraft.upperLimits[i] = _uMax[i];
-						Allocator.aircraft.lowerLimits[i] = _uMin[i];
-					}
-					for (size_t i = 0; i < 3; i++){
-						float  temp = 0.0f;
-						for(int k = 0 ; k < 4 ; k++){
-							temp += _B[i][k] * u_d[k];
-						}
-						allocation_value.ud_error[i] =_error_fb[i] - temp;
-					}
-					for (size_t i = 0; i < 4; i++){
-						_u[i] = math::constrain((float) (u_d[i] + u_e[i]), (float) (_uMin[i]), (float) (_uMax[i]));
-					}
-					PX4_INFO("INDI dir 3");
-					allocation_value.flag=3;
-				}
-			}
-			else{
-				for (size_t i = 0; i < 4; i++){
-					_u[i] =  math::constrain( u_all[i], _uMin[i], _uMax[i]);
+			_indi_fb[0] = _controls[0].indi_fb[actuator_controls_s::INDEX_ROLL];
+			_indi_fb[1] = _controls[0].indi_fb[actuator_controls_s::INDEX_PITCH];
+			_indi_fb[2] = _controls[0].indi_fb[actuator_controls_s::INDEX_YAW];
+			_error_fb[0] = _controls[0].error_fb[actuator_controls_s::INDEX_ROLL];
+			_error_fb[1] = _controls[0].error_fb[actuator_controls_s::INDEX_PITCH];
+			_error_fb[2] = _controls[0].error_fb[actuator_controls_s::INDEX_YAW];
+			float u_pca[4];int err_flag_1=0;float rho_1=0;float u_pca_tmp_1[4];
+			int err_flag_2=0;float rho_2=0;float u_pca_tmp_2[4]; float m_zero[3]={0.0,  0.0,  0.0f};
+			Allocator.DP_LPCA_copy(_indi_fb,_error_fb, u_pca_tmp_1, err_flag_1, rho_1);
+			if (err_flag_1<0){
+			    Allocator.DP_LPCA_copy(m_zero,_fb, u_pca_tmp_2, err_flag_2, rho_2);
+			    Allocator.restoring(u_pca_tmp_2,u_pca);
+			    allocation_value.flag=2;
 
-				}
-				allocation_value.flag=1;
-				// PX4_INFO("INDI dir 1");
+			}else{
+			    Allocator.restoring(u_pca_tmp_1,u_pca);
+			    allocation_value.flag=1;
+			}
+			for (size_t i = 0; i < 4; i++){
+				_u[i] = math::constrain((float) (u_pca[i]), (float) (_uMin[i]), (float) (_uMax[i]));
 			}
 		}
 		else{ //inv
