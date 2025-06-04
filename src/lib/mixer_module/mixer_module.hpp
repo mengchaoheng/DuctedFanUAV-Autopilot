@@ -334,13 +334,13 @@ private:
 		(ParamFloat<px4::params::MOT_SLEW_MAX>) _param_mot_slew_max,
 		(ParamFloat<px4::params::THR_MDL_FAC>) _param_thr_mdl_fac, ///< thrust to motor control signal modelling factor
 		(ParamInt<px4::params::MOT_ORDERING>) _param_mot_ordering,
-		(ParamInt<px4::params::DUCTEDFAN_MID1>) _param_ductedfan_mid1,
-		(ParamInt<px4::params::DUCTEDFAN_MID2>) _param_ductedfan_mid2,
-		(ParamInt<px4::params::USE_PCA>) _param_use_pca,
-		(ParamInt<px4::params::USE_CA>) _param_use_alloc,
-		(ParamInt<px4::params::USE_INDI>) _param_use_indi,
-		(ParamFloat<px4::params::CS_CUTOFF>) _param_cs_cutoff,
-		(ParamInt<px4::params::USE_DIST>) _param_use_dist,
-		(ParamFloat<px4::params::DIST_MAG>) _param_dist_mag
+		(ParamInt<px4::params::USER_DF_MID1>) _param_ductedfan_mid1,
+		(ParamInt<px4::params::USER_DF_MID2>) _param_ductedfan_mid2,
+		(ParamInt<px4::params::USER_USE_PCA>) _param_use_pca,
+		(ParamInt<px4::params::USER_PID_CA>) _param_use_alloc,
+		(ParamInt<px4::params::USER_USE_INDI>) _param_use_indi,
+		(ParamFloat<px4::params::USER_CS_CUTOFF>) _param_cs_cutoff,
+		(ParamInt<px4::params::USER_ADD_DIST>) _param_use_dist,
+		(ParamFloat<px4::params::USER_DIST_MAG>) _param_dist_mag
 	)
 };

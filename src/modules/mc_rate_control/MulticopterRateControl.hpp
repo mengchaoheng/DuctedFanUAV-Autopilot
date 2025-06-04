@@ -171,14 +171,14 @@ private:
 
 		(ParamInt<px4::params::CBRK_RATE_CTRL>) _param_cbrk_rate_ctrl,
 
-		(ParamFloat<px4::params::MC_OMEGA_2_WIND>) _param_mc_omega_2_wind,
-		(ParamFloat<px4::params::MC_WIND_2_TORQUE>) _param_mc_wind_2_torque,
-		(ParamFloat<px4::params::MC_INDI_ROLL_P>) _param_mc_indiroll_p,
-		(ParamFloat<px4::params::MC_INDI_PITCH_P>) _param_mc_indipitch_p,
-		(ParamFloat<px4::params::MC_INDI_YAW_P>) _param_mc_indiyaw_p,
-		(ParamInt<px4::params::USE_INDI>) _param_use_indi,
-		(ParamInt<px4::params::USE_CA>) _param_use_control_alloc,
-		(ParamInt<px4::params::USE_TAUI>) _param_use_tau_i
+		(ParamFloat<px4::params::USER_OMEGA_2_W>) _param_mc_omega_2_wind,
+		(ParamFloat<px4::params::USER_W_2_T>) _param_mc_wind_2_torque,
+		(ParamFloat<px4::params::USER_INDI_R_P>) _param_mc_indiroll_p,
+		(ParamFloat<px4::params::USER_INDI_P_P>) _param_mc_indipitch_p,
+		(ParamFloat<px4::params::USER_INDI_Y_P>) _param_mc_indiyaw_p,
+		(ParamInt<px4::params::USER_USE_INDI>) _param_use_indi,
+		(ParamInt<px4::params::USER_PID_CA>) _param_use_control_alloc,
+		(ParamInt<px4::params::USER_USE_TAUI>) _param_use_tau_i
 
 	)
 

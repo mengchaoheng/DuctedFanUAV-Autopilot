@@ -43,7 +43,7 @@ PARAM_DEFINE_INT32(MOT_ORDERING, 0);
  * @max 2000
  * @group Mixer Output
  */
-PARAM_DEFINE_INT32(DUCTEDFAN_MID1, 1500);
+PARAM_DEFINE_INT32(USER_DF_MID1, 1500);
 
 /**
  * PWM_DUCTEDFAN_MID2
@@ -54,10 +54,10 @@ PARAM_DEFINE_INT32(DUCTEDFAN_MID1, 1500);
  * @max 2000
  * @group Mixer Output
  */
-PARAM_DEFINE_INT32(DUCTEDFAN_MID2, 1500);
+PARAM_DEFINE_INT32(USER_DF_MID2, 1500);
 
 /**
- * USE_CA
+ * USER_PID_CA
  *
  * use control allocation or not.
  *
@@ -65,10 +65,10 @@ PARAM_DEFINE_INT32(DUCTEDFAN_MID2, 1500);
  * @value 1 use CA
  * @group Mixer Output
  */
-PARAM_DEFINE_INT32(USE_CA, 0);
+PARAM_DEFINE_INT32(USER_PID_CA, 0);
 
 /**
- * USE_PCA
+ * USER_USE_PCA
  *
  * use priority control allocation or not.
  *
@@ -76,10 +76,10 @@ PARAM_DEFINE_INT32(USE_CA, 0);
  * @value 1 use PCA
  * @group Mixer Output
  */
-PARAM_DEFINE_INT32(USE_PCA, 0);
+PARAM_DEFINE_INT32(USER_USE_PCA, 0);
 
 /**
- * USE_DIST
+ * USER_ADD_DIST
  *
  * use disturbance or not.
  *
@@ -87,7 +87,7 @@ PARAM_DEFINE_INT32(USE_PCA, 0);
  * @value 1 use USE_DISTURB
  * @group Mixer Output
  */
-PARAM_DEFINE_INT32(USE_DIST, 0);
+PARAM_DEFINE_INT32(USER_ADD_DIST, 0);
 
 /**
 * Low pass filter cutoff frequency for control surface
@@ -103,10 +103,10 @@ PARAM_DEFINE_INT32(USE_DIST, 0);
 * @reboot_required true
 * @group Mixer Output
 */
-PARAM_DEFINE_FLOAT(CS_CUTOFF, 10.0f);
+PARAM_DEFINE_FLOAT(USER_CS_CUTOFF, 10.0f);
 
 /**
-* DIST_MAG
+* USER_DIST_MAG
 *
 * The magnitude of the disturbance added to the control surfaces.
 *
@@ -116,4 +116,4 @@ PARAM_DEFINE_FLOAT(CS_CUTOFF, 10.0f);
 * @reboot_required false
 * @group Mixer Output
 */
-PARAM_DEFINE_FLOAT(DIST_MAG, 0.0f);
+PARAM_DEFINE_FLOAT(USER_DIST_MAG, 0.0f);

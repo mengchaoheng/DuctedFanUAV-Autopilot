@@ -44,7 +44,7 @@ void IndiControl::setParams(const Vector3f &P, const float k_cv, const float k_v
 {
 	_gain_p = P;
 	_k_cv = k_cv;
-	_k_v = k_v;//MC_OMEGA_2_WIND
+	_k_v = k_v;//USER_OMEGA_2_W
 	// _k=k;  // k =_k_cv*_k_v*_k_v
 
 }

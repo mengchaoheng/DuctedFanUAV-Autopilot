@@ -87,7 +87,7 @@ private:
 	float _L_1{0.167f};
 	float _L_2{0.0698};
 	float _k_cv{0.0073f};
-	float _k_v{0.0169f};	//MC_OMEGA_2_WIND
+	float _k_v{0.0169f};	//USER_OMEGA_2_W
 	float _k{3.0f};	// delta_2_force, k  =_k_cv*_k_v*_k_v
 	matrix::Matrix<float, 3, 3> _H_1;
 	matrix::Matrix<float, 3, 3> _H_inv;

@@ -410,7 +410,7 @@ PARAM_DEFINE_INT32(MC_BAT_SCALE_EN, 0);
  * @increment 0.005
  * @group Multicopter Rate Control
  */
-PARAM_DEFINE_FLOAT(MC_OMEGA_2_WIND, 3.0f);// //0.0117f
+PARAM_DEFINE_FLOAT(USER_OMEGA_2_W, 3.0f);// //0.0117f
 
 /**
  * k_cv
@@ -423,7 +423,7 @@ PARAM_DEFINE_FLOAT(MC_OMEGA_2_WIND, 3.0f);// //0.0117f
  * @increment 0.005
  * @group Multicopter Rate Control
  */
-PARAM_DEFINE_FLOAT(MC_WIND_2_TORQUE, 0.0073f);//0.0073 //0.015f
+PARAM_DEFINE_FLOAT(USER_W_2_T, 0.0073f);//0.0073 //0.015f
 
 /**
  * Roll rate P gain of INDI
@@ -435,7 +435,7 @@ PARAM_DEFINE_FLOAT(MC_WIND_2_TORQUE, 0.0073f);//0.0073 //0.015f
  * @increment 0.01
  * @group Multicopter Rate Control
  */
-PARAM_DEFINE_FLOAT(MC_INDI_ROLL_P, 10.f);
+PARAM_DEFINE_FLOAT(USER_INDI_R_P, 10.f);
 
 /**
  * Pitch rate P gain of INDI
@@ -447,7 +447,7 @@ PARAM_DEFINE_FLOAT(MC_INDI_ROLL_P, 10.f);
  * @increment 0.01
  * @group Multicopter Rate Control
  */
-PARAM_DEFINE_FLOAT(MC_INDI_PITCH_P, 10.f);
+PARAM_DEFINE_FLOAT(USER_INDI_P_P, 10.f);
 
 /**
  * Yaw rate P gain of INDI
@@ -459,10 +459,10 @@ PARAM_DEFINE_FLOAT(MC_INDI_PITCH_P, 10.f);
  * @increment 0.01
  * @group Multicopter Rate Control
  */
-PARAM_DEFINE_FLOAT(MC_INDI_YAW_P, 10.f);
+PARAM_DEFINE_FLOAT(USER_INDI_Y_P, 10.f);
 
 /**
- * USE_INDI
+ * USER_USE_INDI
  *
  * use INDI control or not.
  *
@@ -470,7 +470,7 @@ PARAM_DEFINE_FLOAT(MC_INDI_YAW_P, 10.f);
  * @value 1 INDI
  * @group Multicopter Rate Control
  */
-PARAM_DEFINE_INT32(USE_INDI, 0);
+PARAM_DEFINE_INT32(USER_USE_INDI, 0);
 
 /**
  * use tau_i.
@@ -479,4 +479,4 @@ PARAM_DEFINE_INT32(USE_INDI, 0);
  * @value 1 use indi fb
  * @group Multicopter Rate Control
  */
-PARAM_DEFINE_INT32(USE_TAUI, 1);
+PARAM_DEFINE_INT32(USER_USE_TAUI, 1);

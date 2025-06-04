@@ -43,9 +43,9 @@ param set-default MC_ACRO_R_MAX 90.0
 param set-default MC_ACRO_P_MAX 90.0
 param set-default MC_ACRO_Y_MAX 90.0
 
-param set-default MC_INDI_ROLL_P 12.0
-param set-default MC_INDI_PITCH_P 12.0
-param set-default MC_INDI_YAW_P 10.0
+param set-default USER_INDI_R_P 12.0
+param set-default USER_INDI_P_P 12.0
+param set-default USER_INDI_Y_P 10.0
 
 param set-default MPC_THR_HOVER 0.5
 param set-default RTL_RETURN_ALT 2.5
@@ -58,7 +58,7 @@ param set-default DOMEGA_CUTOFF  10
 param set-default DOMEGA_D_CUTOFF  10
 param set-default OMEGA_CUTOFF  10
 param set-default IMU_DGYRO_CUTOFF  10
-param set-default USE_CA 0
+param set-default USER_PID_CA 0
 
 param set-default MC_PWM_HOVER 1500
 
