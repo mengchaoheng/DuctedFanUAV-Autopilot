@@ -1556,11 +1556,11 @@ public:
         // yd=input_lower
         // % Prioritizing Commands by DP_LPCA
         // % Direction Preserving Control Allocation Linear Program
-        // %
+        // % For the DP_LPCA_prio:
         // % function [u, errout,lambda] = DP_LPCA_prio(m_higher,m_lower,B,uMin,uMax,itlim)
         // % A.5 Building a Control Allocator for Feasible and Infeasible Solutions
         // %
-        // %
+        // % This DP_LPCA_copy:
         // %  Inputs:
         // %          input_higher [n]    = higher objective
         // %          input_lower [n]    = lower objective
