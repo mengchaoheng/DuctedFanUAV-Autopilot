@@ -65,7 +65,9 @@
 #include <uORB/topics/vehicle_local_position.h>
 #include <uORB/topics/vehicle_local_position_setpoint.h>
 // #include <uORB/topics/rc_channels.h>
-
+#include <uORB/topics/vehicle_command.h>
+#include <uORB/topics/vehicle_status.h>
+#include <commander/px4_custom_mode.h>
 using namespace time_literals;
 
 class MulticopterPositionControl : public ModuleBase<MulticopterPositionControl>, public control::SuperBlock,
@@ -137,6 +139,17 @@ private:
 	float _step_roll_amp;
 	float _step_pitch_amp;
 
+	// --- 用于飞行模式切换记录与控制 ---
+	uORB::Publication<vehicle_command_s> _vehicle_command_pub{ORB_ID(vehicle_command)};
+	uORB::Subscription _vehicle_status_sub{ORB_ID(vehicle_status)};
+	uint8_t _original_main_mode{0};
+	bool _mode_recorded{false};
+	bool _mode_restored{false};
+
+	int _step_repeat_counter{0};
+	bool _step_active{false};               // 当前是否正在step中
+	bool _step_waiting_for_next{false};     // 是否处于等待期
+	hrt_abstime _last_step_end_time{0};     // 上一轮结束时的时间
 
 	DEFINE_PARAMETERS(
 		// Position Control

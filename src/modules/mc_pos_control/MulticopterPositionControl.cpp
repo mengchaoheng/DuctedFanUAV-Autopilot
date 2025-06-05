@@ -458,53 +458,130 @@ void MulticopterPositionControl::Run()
 			attitude_setpoint.timestamp = hrt_absolute_time();
 
 			// for sitl roll/pitch step
-			if ((_use_step_ref || _param_mc_use_step_ref.get() == 1))
-			{
-				if (!_use_step_ref_prev)
-					_add_step_time = hrt_absolute_time(); // only play the first time.
-					start_yaw_body = attitude_setpoint.yaw_body;
+			// 自动触发逻辑控制入口
+			if (_param_mc_use_step_ref.get() == 1) {
 
-				hrt_abstime interval = hrt_elapsed_time(&_add_step_time);
-				// PX4_INFO("interval %ld", interval);
-				if (interval / 1e6f < 0.5f * _cycle_time)
-				{
-					PX4_INFO("0");
-					// attitude_setpoint.roll_body = 0.0f;
-					// attitude_setpoint.pitch_body = 0.0f;
-					attitude_setpoint.yaw_body = start_yaw_body + 0.0f;
-					Quatf q_sp = Eulerf(attitude_setpoint.roll_body, attitude_setpoint.pitch_body, attitude_setpoint.yaw_body);
-					q_sp.copyTo(attitude_setpoint.q_d);
+				// === 当前是否要启动 step 测试 ===
+				if (!_step_active && !_step_waiting_for_next && _step_repeat_counter < 20) {
+					_use_step_ref = true;
+					_step_active = true;
+					PX4_INFO("STEP #%d STARTED", _step_repeat_counter + 1);
 				}
-				else if (interval / 1e6f >= 0.5f * _cycle_time && interval / 1e6f < _cycle_time)
-				{
-					PX4_INFO("+");
-					// attitude_setpoint.roll_body = _step_roll_amp;
-					// attitude_setpoint.pitch_body = _step_pitch_amp;
-					attitude_setpoint.yaw_body = start_yaw_body + M_PI/4.0f;
-					Quatf q_sp = Eulerf(attitude_setpoint.roll_body, attitude_setpoint.pitch_body, attitude_setpoint.yaw_body);
-					q_sp.copyTo(attitude_setpoint.q_d);
-				}
-				else if (interval / 1e6f >= _cycle_time && interval / 1e6f < 1.5f * _cycle_time)
-				{
-					PX4_INFO("-");
-					// attitude_setpoint.roll_body = -_step_roll_amp;
-					// attitude_setpoint.pitch_body = -_step_pitch_amp;
-					attitude_setpoint.yaw_body = start_yaw_body - M_PI/4.0f;
-					Quatf q_sp = Eulerf(attitude_setpoint.roll_body, attitude_setpoint.pitch_body, attitude_setpoint.yaw_body);
-					q_sp.copyTo(attitude_setpoint.q_d);
-				}
-				else if (interval / 1e6f >= 1.5f * _cycle_time && interval / 1e6f < 2.0f * _cycle_time)
-				{
-					PX4_INFO("0");
-					// attitude_setpoint.roll_body = 0.0f;
-					// attitude_setpoint.pitch_body = 0.0f;
-					attitude_setpoint.yaw_body = start_yaw_body + 0.0f;
-					Quatf q_sp = Eulerf(attitude_setpoint.roll_body, attitude_setpoint.pitch_body, attitude_setpoint.yaw_body);
-					q_sp.copyTo(attitude_setpoint.q_d);
-				}// when interval / 1e6f >= 2.0f * _cycle_time,  nothing to do.
 
+				// === step 测试执行逻辑 ===
+				if (_use_step_ref) {
+
+					if (!_use_step_ref_prev) {
+						_add_step_time = hrt_absolute_time();
+						start_yaw_body = attitude_setpoint.yaw_body;
+
+						// 记录当前模式
+						vehicle_status_s status;
+						if (_vehicle_status_sub.copy(&status)) {
+							_original_main_mode = status.nav_state;
+							_mode_recorded = true;
+							_mode_restored = false;
+
+							// 切换到 ALTCTL
+							vehicle_command_s cmd{};
+							cmd.timestamp = hrt_absolute_time();
+							cmd.param1 = 1.0f;
+							cmd.param2 = PX4_CUSTOM_MAIN_MODE_ALTCTL;
+							cmd.param3 = 0.0f;
+							cmd.command = vehicle_command_s::VEHICLE_CMD_DO_SET_MODE;
+							cmd.target_system = 1;
+							cmd.target_component = 1;
+							cmd.source_system = 1;
+							cmd.source_component = 1;
+							cmd.from_external = false;
+							_vehicle_command_pub.publish(cmd);
+							PX4_INFO("Switched to ALTCTL mode.");
+						}
+					}
+
+					// 计算扰动时间
+					hrt_abstime interval = hrt_elapsed_time(&_add_step_time);
+					float time_sec = interval / 1e6f;
+
+					if (time_sec < 0.5f * _cycle_time) {
+						attitude_setpoint.yaw_body = start_yaw_body;
+					} else if (time_sec < 1.0f * _cycle_time) {
+						attitude_setpoint.yaw_body = start_yaw_body + M_PI / 4.0f;
+					} else if (time_sec < 1.5f * _cycle_time) {
+						attitude_setpoint.yaw_body = start_yaw_body - M_PI / 4.0f;
+					} else if (time_sec < 2.0f * _cycle_time) {
+						attitude_setpoint.yaw_body = start_yaw_body;
+					}
+
+					Quatf q_sp = Eulerf(attitude_setpoint.roll_body,
+							attitude_setpoint.pitch_body,
+							attitude_setpoint.yaw_body);
+					q_sp.copyTo(attitude_setpoint.q_d);
+
+					// step 结束，恢复模式并进入等待状态
+					if (time_sec >= 2.0f * _cycle_time && !_mode_restored) {
+						vehicle_command_s cmd{};
+						cmd.timestamp = hrt_absolute_time();
+						cmd.param1 = 1.0f;
+
+						switch (_original_main_mode) {
+							case vehicle_status_s::NAVIGATION_STATE_POSCTL:
+								cmd.param2 = PX4_CUSTOM_MAIN_MODE_POSCTL;
+								break;
+							case vehicle_status_s::NAVIGATION_STATE_AUTO_LOITER:
+								cmd.param2 = PX4_CUSTOM_MAIN_MODE_AUTO;
+								cmd.param3 = PX4_CUSTOM_SUB_MODE_AUTO_LOITER;
+								break;
+							case vehicle_status_s::NAVIGATION_STATE_OFFBOARD:
+								cmd.param2 = PX4_CUSTOM_MAIN_MODE_OFFBOARD;
+								break;
+							default:
+								cmd.param2 = PX4_CUSTOM_MAIN_MODE_POSCTL;
+								break;
+						}
+
+						cmd.command = vehicle_command_s::VEHICLE_CMD_DO_SET_MODE;
+						cmd.target_system = 1;
+						cmd.target_component = 1;
+						cmd.source_system = 1;
+						cmd.source_component = 1;
+						cmd.from_external = false;
+
+						_vehicle_command_pub.publish(cmd);
+						_mode_restored = true;
+
+						// 结束step，进入等待阶段
+						_use_step_ref = false;
+						_step_active = false;
+						_step_waiting_for_next = true;
+						_last_step_end_time = hrt_absolute_time();
+						_step_repeat_counter++;
+						PX4_INFO("STEP #%d DONE", _step_repeat_counter);
+					}
+				}
+
+				// === 执行等待状态逻辑 ===
+				if (_step_waiting_for_next) {
+					float wait_elapsed = hrt_elapsed_time(&_last_step_end_time) / 1e6f;
+					if (wait_elapsed >= 2.0f * _cycle_time) {
+						_step_waiting_for_next = false;  // 准备进入下一轮
+					}
+				}
 			}
-			_use_step_ref_prev = _use_step_ref || _param_mc_use_step_ref.get() == 1;
+			// 如果中断
+			else {
+				if (_step_active || _step_waiting_for_next || _use_step_ref || _step_repeat_counter > 0) {
+					PX4_INFO("STEP test interrupted: param disabled or aborted at cycle #%d", _step_repeat_counter);
+				}
+				// 参数关闭或结束：重置
+				_use_step_ref = false;
+				_step_active = false;
+				_step_waiting_for_next = false;
+				_mode_recorded = false;
+				_mode_restored = false;
+				_step_repeat_counter = 0;
+			}
+			_use_step_ref_prev = _use_step_ref;
 
 			_vehicle_attitude_setpoint_pub.publish(attitude_setpoint);
 			// PX4_INFO("position _vehicle_attitude_setpoint_pub");

@@ -567,7 +567,7 @@ bool MixingOutput::update()
 			int err_flag_2=0;float rho_2=0;float u_pca_tmp_2[4]; float m_zero[3]={0.0,  0.0,  0.0f};
 			Allocator.DP_LPCA_copy(_indi_fb,_error_fb, u_pca_tmp_1, err_flag_1, rho_1);
 			if (err_flag_1<0){
-			    Allocator.DP_LPCA_copy(m_zero,_fb, u_pca_tmp_2, err_flag_2, rho_2);
+			    Allocator.DP_LPCA_copy(m_zero,_indi_fb, u_pca_tmp_2, err_flag_2, rho_2);
 			    Allocator.restoring(u_pca_tmp_2,u_pca);
 			    allocation_value.flag=2;
 
