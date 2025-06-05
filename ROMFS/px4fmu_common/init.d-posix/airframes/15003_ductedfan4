@@ -50,9 +50,20 @@ param set-default RTL_DESCEND_ALT 2.5
 param set-default SDLOG_PROFILE  27
 param set-default SDLOG_MODE  0
 
-param set-default USER_CS_CUTOFF  8
-param set-default IMU_DGYRO_CUTOFF  10
+param set-default USER_CS_CUTOFF  20
+param set-default IMU_GYRO_CUTOFF  80
 param set-default USER_PID_CA 0
+
+# param set-default IMU_GYRO_RATEMAX  800
+# param set-default IMU_INTEG_RATE  250
+
+param set-default EKF2_ACC_B_NOISE  0.001
+param set-default EKF2_ACC_NOISE  0.1
+param set-default EKF2_GYR_B_NOISE  0.0005
+param set-default EKF2_GYR_NOISE  0.001
+param set-default EKF2_MAG_NOISE  0.01
+param set-default EKF2_BARO_NOISE  1.0
+param set-default EKF2_GPS_V_NOISE  0.2
 
 set MAV_TYPE 3
 set PWM_OUT 1
