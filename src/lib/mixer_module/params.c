@@ -117,3 +117,16 @@ PARAM_DEFINE_FLOAT(USER_CS_CUTOFF, 10.0f);
 * @group Mixer Output
 */
 PARAM_DEFINE_FLOAT(USER_DIST_MAG, 0.0f);
+
+/**
+* USER_TIME_CONST
+*
+* time Constant of actuator.
+*
+* @min 0.0001
+* @max 0.1
+* @unit s
+* @reboot_required false
+* @group Mixer Output
+*/
+PARAM_DEFINE_FLOAT(USER_TIME_CONST, 0.03f);

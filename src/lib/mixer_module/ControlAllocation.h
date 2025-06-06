@@ -1758,7 +1758,7 @@ public:
         // % for cpp is difficult to calc null(B) but we can calc
         // % norm(B*u_null)>0.00001
         matrix::Vector<float, ControlSize> tmp= B*u_null;
-        if(tmp.norm()> 0.001){ // a=0
+        if(tmp.norm()> 0.001f){ // a=0
             for(int i=0;i<EffectorSize;++i){
                 u_rest[i]=u[i];
             }
@@ -1774,20 +1774,20 @@ public:
         }
         float K_max=FLT_MAX; // 1.0/FLT_EPSILON; or FLT_MAX
         for(int i=0;i<EffectorSize;++i){
-            float tmp=0.0f;
+            float tmpu=0.0f;
             if(u_null(i)>0){
                 if(fabs(u_null(i))<FLT_EPSILON){
                     u_null(i)=FLT_EPSILON;
                 }
-                tmp=uMax_new[i]/u_null(i);
+                tmpu=uMax_new[i]/u_null(i);
             }else{
                 if(fabs(u_null(i))<FLT_EPSILON){
                     u_null(i)=-FLT_EPSILON;
                 }
-                tmp=uMin_new[i]/u_null(i);
+                tmpu=uMin_new[i]/u_null(i);
             }
-            if(tmp<K_max){ // find smaller
-                K_max=tmp;
+            if(tmpu<K_max){ // find smaller
+                K_max=tmpu;
             }
         }
         for(int i=0;i<EffectorSize;++i){

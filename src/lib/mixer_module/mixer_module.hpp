@@ -309,15 +309,15 @@ private:
 	float pert_to_cs{0.0f};
 	float _uMin[4] {};
 	float _uMax[4] {};
-	float _u[4] {};
-	float _last_u[4] {};
+	float _u[4] {0.0f, 0.0f, 0.0f, 0.0f};
+	float _last_u[4] {0.0f, 0.0f, 0.0f, 0.0f};
 	matrix::Matrix<float, 4, 3> B_inv;
 	// const float _B[3][4]       = { {-46.2254,0.0,46.2254,0.0}, {0.0,-46.0825,0.0,46.0825},{46.7411,46.7411,46.7411,46.7411}};
 	const float _B[3][4]    = { {-43.6031,0.0,43.6031,0.0}, {0.0,-43.4519,0.0,43.4519},{42.5051,42.5051,42.5051,42.5051}}; // Use a larger value of tol of struct LinearProgrammingProblem
 	float lower{-0.3491f};
     	float upper{0.3491f};
 	Aircraft<3, 4> df_4; // 创建一个具有 4 个操纵向量和 3 个广义力矩的飞行器对象
-	DP_LP_ControlAllocator<3, 4> Allocator; // 创建一个控制分配器对象，用于具有 4 个操纵向量和 3 个广义力矩的飞行器(转化为线性规划问题，其维数和参数 <3, 4> 有关。)
+	DP_LP_ControlAllocator<3, 4> Allocator_INDI; // 创建一个控制分配器对象，用于具有 4 个操纵向量和 3 个广义力矩的飞行器(转化为线性规划问题，其维数和参数 <3, 4> 有关。)
 
 	// for PX4 PID controller
 	matrix::Matrix<float, 4, 3> B_inv_PID;
@@ -329,6 +329,10 @@ private:
 	Aircraft<3, 4> df_4_PID; // 创建一个具有 4 个操纵向量和 3 个广义力矩的飞行器对象
 	DP_LP_ControlAllocator<3, 4> Allocator_PID; // 创建一个控制分配器对象，用于具有 4 个操纵向量和 3 个广义力矩的飞行器(转化为线性规划问题，其维数和参数 <3, 4> 有关。)
 	// 然后可以使用飞行器对象和控制分配器对象进行操作
+
+	hrt_abstime _time_last{0};
+	float first_order_update(float u, float u_pre, float T, float dt);
+	float _time_const{0.01f};
 	DEFINE_PARAMETERS(
 		(ParamInt<px4::params::MC_AIRMODE>) _param_mc_airmode,   ///< multicopter air-mode
 		(ParamFloat<px4::params::MOT_SLEW_MAX>) _param_mot_slew_max,
@@ -341,6 +345,7 @@ private:
 		(ParamInt<px4::params::USER_USE_INDI>) _param_use_indi,
 		(ParamFloat<px4::params::USER_CS_CUTOFF>) _param_cs_cutoff,
 		(ParamInt<px4::params::USER_ADD_DIST>) _param_use_dist,
-		(ParamFloat<px4::params::USER_DIST_MAG>) _param_dist_mag
+		(ParamFloat<px4::params::USER_DIST_MAG>) _param_dist_mag,
+		(ParamFloat<px4::params::USER_TIME_CONST>) _param_time_const
 	)
 };
