@@ -227,6 +227,7 @@ PARAM_DEFINE_FLOAT(USER_STEP_TIME, 0.f);
 
 /**
  * USER_TEST_TIME
+ *
  * cycle time of the step test.
  *
  * @min 0
