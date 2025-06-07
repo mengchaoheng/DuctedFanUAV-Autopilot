@@ -486,7 +486,7 @@ void MulticopterPositionControl::Run()
 							vehicle_command_s cmd{};
 							cmd.timestamp = hrt_absolute_time();
 							cmd.param1 = 1.0f;
-							cmd.param2 = PX4_CUSTOM_MAIN_MODE_ALTCTL;
+							cmd.param2 = PX4_CUSTOM_MAIN_MODE_POSCTL; // PX4_CUSTOM_MAIN_MODE_POSCTL or PX4_CUSTOM_MAIN_MODE_ALTCTL
 							cmd.param3 = 0.0f;
 							cmd.command = vehicle_command_s::VEHICLE_CMD_DO_SET_MODE;
 							cmd.target_system = 1;
@@ -495,7 +495,7 @@ void MulticopterPositionControl::Run()
 							cmd.source_component = 1;
 							cmd.from_external = false;
 							_vehicle_command_pub.publish(cmd);
-							PX4_INFO("Switched to ALTCTL mode.");
+							PX4_INFO("Switched to POSCTL mode."); //POSCTL or ALTCTL
 						}
 					}
 
