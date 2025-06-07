@@ -347,6 +347,7 @@ private:
 		(ParamFloat<px4::params::USER_CS_CUTOFF>) _param_cs_cutoff,
 		(ParamInt<px4::params::USER_ADD_DIST>) _param_use_dist,
 		(ParamFloat<px4::params::USER_DIST_MAG>) _param_dist_mag,
-		(ParamFloat<px4::params::USER_TIME_CONST>) _param_time_const
+		(ParamFloat<px4::params::USER_TIME_CONST>) _param_time_const,
+		(ParamInt<px4::params::USER_ACTUATOR>) _param_use_actuator
 	)
 };

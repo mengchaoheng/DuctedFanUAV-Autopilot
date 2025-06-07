@@ -624,7 +624,14 @@ bool MixingOutput::update()
 			allocation_value.u[i] = _u[i];
 			allocation_value.umin[i] = _uMin[i];
 			allocation_value.umax[i] = _uMax[i];
-			_u_real[i] = first_order_update(_u[i], _last_u[i], _time_const, 1.0f/_sample_freq); //实际飞行中令T=dt，不加入模拟执行器动态，实际执行器有动态。
+			if(_param_use_actuator.get() == 1){
+				// PX4_INFO("use actuator");
+				_u_real[i] = first_order_update(_u[i], _last_u[i], _time_const, 1.0f/_sample_freq); //加入模拟执行器动态
+			}
+			else{
+				// PX4_INFO("not use actuator");
+				_u_real[i] = _u[i];//不加入模拟执行器动态
+			}
 			allocation_value.u_ultimate[i] = _u_real[i];
 			_last_u[i] = _u_real[i]; // save last u for first order update
 		}
@@ -692,7 +699,14 @@ bool MixingOutput::update()
 				allocation_value.u[i] = _u[i];
 				allocation_value.umin[i] = _uMin_PID[i];
 				allocation_value.umax[i] = _uMax_PID[i];
-				_u_real[i] = first_order_update(_u[i], _last_u[i], _time_const, 1.0f/_sample_freq);
+				if(_param_use_actuator.get() == 1){
+					// PX4_INFO("use actuator");
+					_u_real[i] = first_order_update(_u[i], _last_u[i], _time_const, 1.0f/_sample_freq); //加入模拟执行器动态
+				}
+				else{
+					// PX4_INFO("not use actuator");
+					_u_real[i] = _u[i];//不加入模拟执行器动态
+				}
 				allocation_value.u_ultimate[i] = _u_real[i];
 				_last_u[i] = _u_real[i]; // save last u for first order update
 			}
@@ -777,7 +791,7 @@ MixingOutput::setAndPublishActuatorOutputs(unsigned num_outputs, actuator_output
 	// publish cs delta for indi controller
 	actuator_outputs_value_s actuator_outputs_value{};
 	for (size_t i = 0; i < 4; ++i) {
-		actuator_outputs_value.delta[i] = math::constrain(_lp_filter_actuator[i].apply(_u_real[i]), (float) (_uMin[i]), (float) (_uMax[i]));//
+		actuator_outputs_value.delta[i] = math::constrain(_lp_filter_actuator[i].apply(_u[i]), (float) (_uMin[i]), (float) (_uMax[i]));//
 		_delta_prev[i] = actuator_outputs_value.delta[i];
 	}
 	actuator_outputs_value.timestamp = hrt_absolute_time();

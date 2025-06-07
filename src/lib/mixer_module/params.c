@@ -131,3 +131,14 @@ PARAM_DEFINE_FLOAT(USER_DIST_MAG, 0.0f);
 * @group Mixer Output
 */
 PARAM_DEFINE_FLOAT(USER_TIME_CONST, 0.03f);
+
+/**
+ * USER_ACTUATOR
+ *
+ * use ACTUATOR simulate or not.
+ *
+ * @value 0 not use  ACTUATOR simulate
+ * @value 1 use ACTUATOR simulate by first_order_update
+ * @group Mixer Output
+ */
+PARAM_DEFINE_INT32(USER_ACTUATOR, 0);
