@@ -68,15 +68,16 @@ PARAM_DEFINE_INT32(USER_DF_MID2, 1500);
 PARAM_DEFINE_INT32(USER_PID_CA, 0);
 
 /**
- * USER_USE_PCA
+ * USER_AC_METHOD
  *
  * use priority control allocation or not.
  *
  * @value 0 use inv
- * @value 1 use PCA
+ * @value 1 use DIR
+ * @value 2 use PCA
  * @group Mixer Output
  */
-PARAM_DEFINE_INT32(USER_USE_PCA, 0);
+PARAM_DEFINE_INT32(USER_AC_METHOD, 0);
 
 /**
  * USER_ADD_DIST

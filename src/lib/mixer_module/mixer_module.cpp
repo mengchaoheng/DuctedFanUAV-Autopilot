@@ -170,7 +170,7 @@ void MixingOutput::updateParams()
 	CheckAndUpdateFilters();
 	_use_indi = _param_use_indi.get();
 	_use_alloc = _param_use_alloc.get();
-	_use_pca = _param_use_pca.get();
+	_alloc_method = _param_alloc_method.get();
 	_use_dist = _param_use_dist.get();
 	_dist_mag = _param_dist_mag.get();
 	_time_const=_param_time_const.get();
@@ -566,7 +566,7 @@ bool MixingOutput::update()
 		_fb[0] = _controls[0].control[actuator_controls_s::INDEX_ROLL];
 		_fb[1] = _controls[0].control[actuator_controls_s::INDEX_PITCH];
 		_fb[2] = _controls[0].control[actuator_controls_s::INDEX_YAW];
-		if (_use_pca==1){
+		if (_alloc_method==2){
 			_indi_fb[0] = _controls[0].indi_fb[actuator_controls_s::INDEX_ROLL];
 			_indi_fb[1] = _controls[0].indi_fb[actuator_controls_s::INDEX_PITCH];
 			_indi_fb[2] = _controls[0].indi_fb[actuator_controls_s::INDEX_YAW];
@@ -579,15 +579,29 @@ bool MixingOutput::update()
 			if (err_flag_1<0){
 			    Allocator_INDI.DP_LPCA_copy(m_zero,_indi_fb, u_pca_tmp_2, err_flag_2, rho_2);
 			    Allocator_INDI.restoring(u_pca_tmp_2,u_pca);
-			    allocation_value.flag=2;
-
+			    allocation_value.flag=3;
 			}else{
 			    Allocator_INDI.restoring(u_pca_tmp_1,u_pca);
-			    allocation_value.flag=1;
+			    allocation_value.flag=2;
 			}
 			for (size_t i = 0; i < 4; i++){
 				_u[i] = math::constrain((float) (u_pca[i]), (float) (_uMin[i]), (float) (_uMax[i]));
 			}
+
+		}
+		else if(_alloc_method==1){  // dir
+			// PX4_INFO("INDI dir");
+			float u_dir[4];int err_flag=0;float rho=0;float u_dir_tmp[4];float m_zero[3]={0.0,  0.0,  0.0f};
+			Allocator_INDI.DP_LPCA_copy(m_zero, _fb, u_dir_tmp, err_flag, rho); //error,
+			Allocator_INDI.restoring(u_dir_tmp,u_dir);
+			// Allocator_INDI.DP_LPCA(_fb, u_dir_tmp, err_flag, rho);
+			// Allocator_INDI.restoring(u_dir_tmp,u_dir);
+			// Allocator_INDI.DPscaled_LPCA(_fb, u_dir_tmp, err_flag, rho);
+			// Allocator_INDI.restoring(u_dir_tmp,u_dir);
+			for (size_t i = 0; i < 4; i++){
+				_u[i] = math::constrain((float) (u_dir[i]), (float) (_uMin[i]), (float) (_uMax[i]));
+			}
+			allocation_value.flag=1;
 		}
 		else{ //inv
 			// PX4_INFO("INDI inv");
@@ -596,7 +610,7 @@ bool MixingOutput::update()
 			for (size_t i = 0; i < 4; i++){
 				_u[i] =  math::constrain( u_inv(i,0), _uMin[i], _uMax[i]);
 			}
-			allocation_value.flag=-1;
+			allocation_value.flag=0;
 		}
 		for (size_t i = 0; i < 3; i++){
 			float  temp = 0.0f;
@@ -639,7 +653,7 @@ bool MixingOutput::update()
 			_fb[0] = math::constrain(_controls[0].control[actuator_controls_s::INDEX_ROLL], -1.f, 1.f);
 			_fb[1] = math::constrain(_controls[0].control[actuator_controls_s::INDEX_PITCH], -1.f, 1.f);
 			_fb[2] = math::constrain(_controls[0].control[actuator_controls_s::INDEX_YAW], -1.f, 1.f);
-			if (_use_pca==1){ //
+			if (_alloc_method==1 || _alloc_method==2){ //
 				float u_all[4];
 				int err = 0;
 				float rho;
@@ -654,7 +668,7 @@ bool MixingOutput::update()
 					_u[i] =  math::constrain( u_all[i], _uMin_PID[i], _uMax_PID[i]);
 				}
 				allocation_value.flag=1;
-				// PX4_INFO("PID dir 1");
+				// PX4_INFO("PID PCA 1 == INV since higher is zro");
 			}
 			else{ //inv
 				// PX4_INFO("PID inv");
@@ -664,7 +678,7 @@ bool MixingOutput::update()
 				{
 					_u[i] =  math::constrain( u_inv(i,0), _uMin_PID[i], _uMax_PID[i]);
 				}
-				allocation_value.flag=-1;
+				allocation_value.flag=0;
 			}
 			for (size_t i = 0; i < 3; i++){
 				float  temp = 0.0f;

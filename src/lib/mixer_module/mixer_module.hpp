@@ -303,7 +303,7 @@ private:
 	float _sample_freq{200.0f}; // update rate of MixingOutput, also sample rate of lowpass filter (Hz).
 	bool _use_indi{false};
 	bool _use_alloc{false};
-	bool _use_pca{false};
+	uint16_t _alloc_method{0};
 	bool _use_dist{false};
 	float _dist_mag{0.0f};
 	float pert_to_cs{0.0f};
@@ -341,7 +341,7 @@ private:
 		(ParamInt<px4::params::MOT_ORDERING>) _param_mot_ordering,
 		(ParamInt<px4::params::USER_DF_MID1>) _param_ductedfan_mid1,
 		(ParamInt<px4::params::USER_DF_MID2>) _param_ductedfan_mid2,
-		(ParamInt<px4::params::USER_USE_PCA>) _param_use_pca,
+		(ParamInt<px4::params::USER_AC_METHOD>) _param_alloc_method,
 		(ParamInt<px4::params::USER_PID_CA>) _param_use_alloc,
 		(ParamInt<px4::params::USER_USE_INDI>) _param_use_indi,
 		(ParamFloat<px4::params::USER_CS_CUTOFF>) _param_cs_cutoff,

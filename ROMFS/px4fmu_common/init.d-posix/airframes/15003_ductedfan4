@@ -50,8 +50,8 @@ param set-default RTL_DESCEND_ALT 2.5
 param set-default SDLOG_PROFILE  27
 param set-default SDLOG_MODE  0
 
-param set-default USER_CS_CUTOFF  20
-param set-default IMU_GYRO_CUTOFF  80
+param set-default USER_CS_CUTOFF  30
+param set-default IMU_GYRO_CUTOFF  0
 param set-default USER_PID_CA 0
 
 param set-default IMU_GYRO_RATEMAX  0
