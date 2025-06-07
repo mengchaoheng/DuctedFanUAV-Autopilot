@@ -84,7 +84,7 @@ void IndiControl::init()
 }
 
 Vector3f IndiControl::update(const Vector3f &rate, const Vector3f &rate_sp, const Vector3f &angular_accel,
-			     const float dt, const actuator_outputs_value_s &actuator_outputs_value, Vector3f &Nu_i, const bool landed)
+			     const float dt, const actuator_outputs_value_s &actuator_outputs_value, Vector3f &Nu_i, const bool landed, bool use_u)
 {
 	// angular rates error
 	Vector3f rate_error = rate_sp - rate;
@@ -96,7 +96,13 @@ Vector3f IndiControl::update(const Vector3f &rate, const Vector3f &rate_sp, cons
 	else
 	{
 		Matrix<float, 4, 1> delta_0 (actuator_outputs_value.delta);
-		Nu_i = _B * delta_0 - angular_accel; // estimation of -f(x) and other disturbance d
+		if(use_u) {
+			Nu_i = _B * delta_0 - angular_accel;
+		}
+		else {
+			Nu_i =  - angular_accel;
+		}
+
 	}
 	Vector3f K =  _gain_p; // by diag([92.4509;92.1649;186.9643]), using the same as PID param
 	Vector3f Nu_f= K.emult(rate_error);

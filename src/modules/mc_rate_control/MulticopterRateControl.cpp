@@ -85,6 +85,8 @@ MulticopterRateControl::parameters_updated()
 				_param_mc_wind_2_torque.get(), _param_mc_omega_2_wind.get());
 
 	_use_indi=_param_use_indi.get();
+	_use_tau_i=_param_use_tau_i.get();
+	_use_u=_param_use_u.get();
 
 	// if (_param_use_control_alloc.get() == 1)
 	// 	_rate_control.setGains(
@@ -262,8 +264,8 @@ MulticopterRateControl::Run()
 				// else
 				// {
 					_rate_control.resetIntegral();
-					error_fb = _indi_control.update(rates, _rates_sp, angular_accel, dt, _actuator_outputs_value, indi_fb, _maybe_landed || _landed);
-					if (_param_use_tau_i.get() == 1)
+					error_fb = _indi_control.update(rates, _rates_sp, angular_accel, dt, _actuator_outputs_value, indi_fb, _maybe_landed || _landed,  _use_u);
+					if (_use_tau_i)
 						att_control = error_fb + indi_fb;
 					else
 						att_control = error_fb;

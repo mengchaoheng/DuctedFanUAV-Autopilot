@@ -480,3 +480,12 @@ PARAM_DEFINE_INT32(USER_USE_INDI, 0);
  * @group Multicopter Rate Control
  */
 PARAM_DEFINE_INT32(USER_USE_TAUI, 1);
+
+/**
+ * use u_0.
+ *
+ * @value 0 remove u_0, just use y^(/rho)_0.
+ * @value 1 use u_0
+ * @group Multicopter Rate Control
+ */
+PARAM_DEFINE_INT32(USER_USE_U, 1);

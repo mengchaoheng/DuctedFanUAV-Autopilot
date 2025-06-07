@@ -310,6 +310,7 @@ private:
 	float _uMin[4] {};
 	float _uMax[4] {};
 	float _u[4] {0.0f, 0.0f, 0.0f, 0.0f};
+	float _u_real[4] {0.0f, 0.0f, 0.0f, 0.0f};
 	float _last_u[4] {0.0f, 0.0f, 0.0f, 0.0f};
 	matrix::Matrix<float, 4, 3> B_inv;
 	// const float _B[3][4]       = { {-46.2254,0.0,46.2254,0.0}, {0.0,-46.0825,0.0,46.0825},{46.7411,46.7411,46.7411,46.7411}};
@@ -330,7 +331,7 @@ private:
 	DP_LP_ControlAllocator<3, 4> Allocator_PID; // 创建一个控制分配器对象，用于具有 4 个操纵向量和 3 个广义力矩的飞行器(转化为线性规划问题，其维数和参数 <3, 4> 有关。)
 	// 然后可以使用飞行器对象和控制分配器对象进行操作
 
-	hrt_abstime _time_last{0};
+	hrt_abstime _allocation_runing_time_ms{0};
 	float first_order_update(float u, float u_pre, float T, float dt);
 	float _time_const{0.01f};
 	DEFINE_PARAMETERS(

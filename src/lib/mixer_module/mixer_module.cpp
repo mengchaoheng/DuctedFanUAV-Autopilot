@@ -138,6 +138,7 @@ void MixingOutput::printStatus() const
 	PX4_INFO("_max_topic_update_interval_us of mixing: %i", _max_topic_update_interval_us);
 
 	PX4_INFO("_sample_freq of mixing: %f", (double) _sample_freq);
+	PX4_INFO("allocation running time: %" PRIu64 "ms \n", _allocation_runing_time_ms);
 
 	PX4_INFO("Channel Configuration:");
 
@@ -488,8 +489,8 @@ bool MixingOutput::update()
 	// // "outputs" is the value alfter mix, range from [-1, 1]. _current_output_value is pwm value alfter output_limit_calc.
 	// // just using in ductedfan
 	// // PX4_INFO("dir_alloc_sim:\n");
-	uint64_t timestamp_ca_start=hrt_absolute_time();
-	uint64_t timestamp_ca_end=hrt_absolute_time();
+	hrt_abstime timestamp_ca_start=hrt_absolute_time();
+	hrt_abstime timestamp_ca_end=hrt_absolute_time();
 	allocation_value_s allocation_value{};
 	// for test
 	if(_use_dist==1){
@@ -560,10 +561,7 @@ bool MixingOutput::update()
 
 
 	// indi have to use allocator, since it use the model for control value. all this CA and INDI just for ductedfan4 since we have to set B.
-	// dt < _time_const  < epsilon^*=0.07 here
-	hrt_abstime now = hrt_absolute_time();
-	float dt = math::constrain((now - _time_last) / 1e6f, 0.0001f, _time_const); //for CA in first order update
-	_time_last = now;
+	// dt < _time_const  < epsilon^*=0.2 here. 实际上也需要大于一定值，因为噪声，这里下界是0.01，这与噪声和滤波器都有关。按照实际情况，kst0.15秒转60度，时间常数取0.03.. for CA in first order update
 	if(_use_indi == 1){
 		_fb[0] = _controls[0].control[actuator_controls_s::INDEX_ROLL];
 		_fb[1] = _controls[0].control[actuator_controls_s::INDEX_PITCH];
@@ -588,7 +586,7 @@ bool MixingOutput::update()
 			    allocation_value.flag=1;
 			}
 			for (size_t i = 0; i < 4; i++){
-				_u[i] = first_order_update(math::constrain((float) (u_pca[i]), (float) (_uMin[i]), (float) (_uMax[i])), _last_u[i], _time_const, dt);
+				_u[i] = math::constrain((float) (u_pca[i]), (float) (_uMin[i]), (float) (_uMax[i]));
 			}
 		}
 		else{ //inv
@@ -596,7 +594,7 @@ bool MixingOutput::update()
 			matrix::Matrix<float, 3, 1> y_desire (_fb);
 			matrix::Matrix<float, 4, 1> u_inv = B_inv * y_desire;
 			for (size_t i = 0; i < 4; i++){
-				_u[i] =  first_order_update(math::constrain( u_inv(i,0), _uMin[i], _uMax[i]), _last_u[i], _time_const, dt);
+				_u[i] =  math::constrain( u_inv(i,0), _uMin[i], _uMax[i]);
 			}
 			allocation_value.flag=-1;
 		}
@@ -612,18 +610,21 @@ bool MixingOutput::update()
 			allocation_value.u[i] = _u[i];
 			allocation_value.umin[i] = _uMin[i];
 			allocation_value.umax[i] = _uMax[i];
-			_last_u[i] = _u[i]; // save last u for first order update
+			_u_real[i] = first_order_update(_u[i], _last_u[i], _time_const, 1.0f/_sample_freq); //实际飞行中令T=dt，不加入模拟执行器动态，实际执行器有动态。
+			allocation_value.u_ultimate[i] = _u_real[i];
+			_last_u[i] = _u_real[i]; // save last u for first order update
 		}
 
+
 		if(_use_dist==1){
-			outputs[0+4] = (_u[0]+_dist_mag)/0.3491f;
-			outputs[1+4] = (_u[1]+_dist_mag)/0.3491f;
-			outputs[2+4] = (_u[2]-_dist_mag)/0.3491f;
-			outputs[3+4] = (_u[3]-_dist_mag)/0.3491f;
+			outputs[0+4] = (_u_real[0]+_dist_mag)/0.3491f;
+			outputs[1+4] = (_u_real[1]+_dist_mag)/0.3491f;
+			outputs[2+4] = (_u_real[2]-_dist_mag)/0.3491f;
+			outputs[3+4] = (_u_real[3]-_dist_mag)/0.3491f;
 		}
 		else{
 			for (size_t i = 0; i < 4; i++){
-				outputs[i+4] = (_u[i])/0.3491f;
+				outputs[i+4] = (_u_real[i])/0.3491f;
 			}
 		}
 
@@ -650,7 +651,7 @@ bool MixingOutput::update()
 				Allocator_PID.restoring(u_pid_tmp,u_all);
 				// = dir
 				for (size_t i = 0; i < 4; i++){
-					_u[i] =  first_order_update(math::constrain( u_all[i], _uMin_PID[i], _uMax_PID[i]), _last_u[i], _time_const, dt);
+					_u[i] =  math::constrain( u_all[i], _uMin_PID[i], _uMax_PID[i]);
 				}
 				allocation_value.flag=1;
 				// PX4_INFO("PID dir 1");
@@ -661,7 +662,7 @@ bool MixingOutput::update()
 				matrix::Matrix<float, 4, 1> u_inv = B_inv_PID * y_desire;
 				for (size_t i = 0; i < 4; i++)
 				{
-					_u[i] =  first_order_update(math::constrain( u_inv(i,0), _uMin_PID[i], _uMax_PID[i]), _last_u[i], _time_const, dt);
+					_u[i] =  math::constrain( u_inv(i,0), _uMin_PID[i], _uMax_PID[i]);
 				}
 				allocation_value.flag=-1;
 			}
@@ -677,24 +678,28 @@ bool MixingOutput::update()
 				allocation_value.u[i] = _u[i];
 				allocation_value.umin[i] = _uMin_PID[i];
 				allocation_value.umax[i] = _uMax_PID[i];
-				_last_u[i] = _u[i]; // save last u for first order update
+				_u_real[i] = first_order_update(_u[i], _last_u[i], _time_const, 1.0f/_sample_freq);
+				allocation_value.u_ultimate[i] = _u_real[i];
+				_last_u[i] = _u_real[i]; // save last u for first order update
 			}
 			for (size_t i = 0; i < 4; i++){
-				outputs[i+4] = _u[i];
+				outputs[i+4] = _u_real[i];
 			}
 		}
 		else{ // origin system
 			for (size_t i = 0; i < 4; i++){
-				_u[i] = outputs[i+4]*0.3491f;
+				_u_real[i] = outputs[i+4]*0.3491f;
 				allocation_value.u[i] = outputs[i+4];
+				allocation_value.u_ultimate[i] = _u_real[i];
 
 			}
 		}
 	}
 	timestamp_ca_end = hrt_absolute_time();
 	// PX4_INFO("alloc time: %lld \n", (timestamp_ca_end - timestamp_ca_start) ); //nuttx
+	_allocation_runing_time_ms = (timestamp_ca_end - timestamp_ca_start); //us
 	allocation_value.timestamp = timestamp_ca_end;
-	allocation_value.timestamp_sample= (timestamp_ca_end - timestamp_ca_start);//hrt_absolute_time();
+	allocation_value.timestamp_sample=_allocation_runing_time_ms;
 	_allocation_value_pub.publish(allocation_value);
 
 	/* the output limit call takes care of out of band errors, NaN and constrains */ // [-1, 1] -> [min_rad, max_rad] == [min_pwm, max_pwm]
@@ -758,7 +763,7 @@ MixingOutput::setAndPublishActuatorOutputs(unsigned num_outputs, actuator_output
 	// publish cs delta for indi controller
 	actuator_outputs_value_s actuator_outputs_value{};
 	for (size_t i = 0; i < 4; ++i) {
-		actuator_outputs_value.delta[i] = math::constrain(_lp_filter_actuator[i].apply(_u[i]), (float) (_uMin[i]), (float) (_uMax[i]));//
+		actuator_outputs_value.delta[i] = math::constrain(_lp_filter_actuator[i].apply(_u_real[i]), (float) (_uMin[i]), (float) (_uMax[i]));//
 		_delta_prev[i] = actuator_outputs_value.delta[i];
 	}
 	actuator_outputs_value.timestamp = hrt_absolute_time();

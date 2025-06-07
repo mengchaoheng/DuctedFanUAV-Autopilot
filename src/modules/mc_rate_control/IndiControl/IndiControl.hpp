@@ -73,7 +73,7 @@ public:
 	 * @return [-1,1] normalized torque vector to apply to the vehicle //This is not a value between -1 and +1
 	 */
 	matrix::Vector3f update(const matrix::Vector3f &rate, const matrix::Vector3f &rate_sp, const matrix::Vector3f &angular_accel,
-			     const float dt, const actuator_outputs_value_s &actuator_outputs_value, matrix::Vector3f &Nu_i, const bool landed);
+			     const float dt, const actuator_outputs_value_s &actuator_outputs_value, matrix::Vector3f &Nu_i, const bool landed, bool use_u);
 
 private:
 

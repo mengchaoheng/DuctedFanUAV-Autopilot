@@ -121,6 +121,8 @@ private:
 	actuator_outputs_value_s _actuator_outputs_value{};
 	// bool _actuator_outputs_sub_flag{false};
 	bool _use_indi{false};
+	bool _use_tau_i{true};
+	bool _use_u{true};
 
 	float _battery_status_scale{0.0f};
 
@@ -178,7 +180,8 @@ private:
 		(ParamFloat<px4::params::USER_INDI_Y_P>) _param_mc_indiyaw_p,
 		(ParamInt<px4::params::USER_USE_INDI>) _param_use_indi,
 		(ParamInt<px4::params::USER_PID_CA>) _param_use_control_alloc,
-		(ParamInt<px4::params::USER_USE_TAUI>) _param_use_tau_i
+		(ParamInt<px4::params::USER_USE_TAUI>) _param_use_tau_i,
+		(ParamInt<px4::params::USER_USE_U>) _param_use_u
 
 	)
 
