@@ -224,3 +224,13 @@ PARAM_DEFINE_FLOAT(USER_STEP_P_AMP, 0.0f);
  * @group Multicopter Rate Control
  */
 PARAM_DEFINE_FLOAT(USER_STEP_TIME, 0.f);
+
+/**
+ * USER_TEST_TIME
+ * cycle time of the step test.
+ *
+ * @min 0
+ * @max 125
+ * @group Multicopter Rate Control
+ */
+PARAM_DEFINE_INT32(USER_TEST_TIME, 1);

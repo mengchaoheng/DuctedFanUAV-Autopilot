@@ -459,10 +459,10 @@ void MulticopterPositionControl::Run()
 
 			// for sitl roll/pitch step
 			// 自动触发逻辑控制入口
-			if (_param_mc_use_step_ref.get() == 1) {
+			if (_param_user_add_ref.get() == 1) {
 
 				// === 当前是否要启动 step 测试 ===
-				if (!_step_active && !_step_waiting_for_next && _step_repeat_counter < 20) {
+				if (!_step_active && !_step_waiting_for_next && _step_repeat_counter < _param_test_time.get()) {
 					_use_step_ref = true;
 					_step_active = true;
 					PX4_INFO("STEP #%d STARTED", _step_repeat_counter + 1);

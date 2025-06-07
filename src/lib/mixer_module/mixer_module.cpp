@@ -689,7 +689,7 @@ bool MixingOutput::update()
 		else{ // origin system
 			for (size_t i = 0; i < 4; i++){
 				_u_real[i] = outputs[i+4]*0.3491f;
-				allocation_value.u[i] = outputs[i+4];
+				allocation_value.u[i] = _u_real[i];
 				allocation_value.u_ultimate[i] = _u_real[i];
 
 			}
