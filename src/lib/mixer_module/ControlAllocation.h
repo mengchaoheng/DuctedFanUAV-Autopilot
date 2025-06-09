@@ -930,7 +930,7 @@ public:
         {
             Pre_DPscaled_LPCA_problem.h[i+DPscaled_LPCA_problem.n] = 2*fabs(DPscaled_LPCA_problem.b[i]);
         }
-        // for restoring
+        // update B and B_aug every time for restoring
         B_aug.setZero();
         B.setZero();
         for (int i = 0; i < ControlSize; ++i) {
@@ -1747,6 +1747,15 @@ public:
                 u_rest[i]=u[i];
             }
             return;
+        }
+        // update B and B_aug every time for restoring
+        B_aug.setZero();
+        B.setZero();
+        for (int i = 0; i < ControlSize; ++i) {
+            for (int j = 0; j < EffectorSize; ++j) {
+                B_aug(i,j) = this->aircraft.controlEffectMatrix[i][j];
+                B(i,j) = this->aircraft.controlEffectMatrix[i][j];
+            }
         }
         // update B_aug
         B_aug.setRow(ControlSize, u_current);

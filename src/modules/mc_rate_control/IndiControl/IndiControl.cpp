@@ -40,26 +40,24 @@
 
 using namespace matrix;
 
-void IndiControl::setParams(const Vector3f &P, const float k_cv, const float k_v)
+void IndiControl::setParams(const Vector3f &P, const float k)
 {
 	_gain_p = P;
-	_k_cv = k_cv;
-	_k_v = k_v;//USER_OMEGA_2_W
-	// _k=k;  // k =_k_cv*_k_v*_k_v
+	_k=k;  // k =_k_cv*_k_v*_k_v
+	_B.setZero(); //= { {-46.2254,0.0,46.2254,0.0}, {0.0,-46.0825,0.0,46.0825},{46.7411,46.7411,46.7411,46.7411}};
+	_B(0, 0)=-_L_1*_k/_I_x;
+	_B(0, 2)=_L_1*_k/_I_x;
+	_B(1, 1)=-_L_1*_k/_I_y;
+	_B(1, 3)=_L_1*_k/_I_y;
+	_B(2, 0)=_L_2*_k/_I_z;
+	_B(2, 1)=_L_2*_k/_I_z;
+	_B(2, 2)=_L_2*_k/_I_z;
+	_B(2, 3)=_L_2*_k/_I_z;
 
 }
 
 void IndiControl::init()
 {
-	_H_1.setZero();
-	_H_1(0, 0) = 0.3491f * _k_cv*_k_v*_k_v*2.f*_L_1/_I_x;
-	_H_1(1, 1) = 0.3491f * _k_cv*_k_v*_k_v*2.f*_L_1/_I_y;
-	_H_1(2, 2) = 0.3491f * _k_cv*_k_v*_k_v*4.f*_L_2/_I_z;
-
-	_H_inv.setZero();
-	_H_inv(0, 0) = 1.f/_H_1(0, 0);
-	_H_inv(1, 1) = 1.f/_H_1(1, 1);
-	_H_inv(2, 2) = 1.f/_H_1(2, 2);
 	// l1=0.167;l2=0.0698;k=3; % k*delta=F on cs
 	// I_x=0.00967;I_y=0.0097;I_z=0.00448;
 	// I=diag([I_x;I_y;I_z]);
@@ -69,7 +67,7 @@ void IndiControl::init()
 	// % [-0.5 0 0.5 0;0 -0.5 0 0.5;0.25 0.25 0.25 0.25]= piv([-1 0 1;0 -1 1;1 0 1;0 1 1])
 	// % I\[2*l1 0 0;0 2*l1 0;0 0 4*l2]*k is the different of gain, that is diag([92.4509;92.1649;186.9643])
 	_B.setZero(); //= { {-46.2254,0.0,46.2254,0.0}, {0.0,-46.0825,0.0,46.0825},{46.7411,46.7411,46.7411,46.7411}};
-	_B(0, 0)=-_L_1*_k/_I_x; // the same as angular_accel
+	_B(0, 0)=-_L_1*_k/_I_x;
 	_B(0, 2)=_L_1*_k/_I_x;
 	_B(1, 1)=-_L_1*_k/_I_y;
 	_B(1, 3)=_L_1*_k/_I_y;
@@ -79,8 +77,6 @@ void IndiControl::init()
 	_B(2, 3)=_L_2*_k/_I_z;
 	// PX4_INFO("_B");
 	// _B.print();
-
-	_H_3(2) = _I_prop/_I_z; // _I_z ???
 }
 
 Vector3f IndiControl::update(const Vector3f &rate, const Vector3f &rate_sp, const Vector3f &angular_accel,

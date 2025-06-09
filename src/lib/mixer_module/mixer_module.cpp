@@ -88,19 +88,39 @@ Allocator_PID(df_4_PID)
 		_lp_filter_actuator[i].set_cutoff_frequency(_sample_freq, _param_cs_cutoff.get());
 		_lp_filter_actuator[i].reset(0);
 	}
+	Allocator_INDI.aircraft.controlEffectMatrix[0][0]= -_L_1*_k/_I_x;
+	Allocator_INDI.aircraft.controlEffectMatrix[0][2]= _L_1*_k/_I_x;
+	Allocator_INDI.aircraft.controlEffectMatrix[1][1]= -_L_1*_k/_I_y;
+	Allocator_INDI.aircraft.controlEffectMatrix[1][3]= _L_1*_k/_I_y;
+	Allocator_INDI.aircraft.controlEffectMatrix[2][0]= _L_2*_k/_I_z;
+	Allocator_INDI.aircraft.controlEffectMatrix[2][1]= _L_2*_k/_I_z;
+	Allocator_INDI.aircraft.controlEffectMatrix[2][2]= _L_2*_k/_I_z;
+	Allocator_INDI.aircraft.controlEffectMatrix[2][3]= _L_2*_k/_I_z;
+
+	_B[0][0]= -_L_1*_k/_I_x;
+	_B[0][2]= _L_1*_k/_I_x;
+	_B[1][1]= -_L_1*_k/_I_y;
+	_B[1][3]= _L_1*_k/_I_y;
+	_B[2][0]= _L_2*_k/_I_z;
+	_B[2][1]= _L_2*_k/_I_z;
+	_B[2][2]= _L_2*_k/_I_z;
+	_B[2][3]= _L_2*_k/_I_z;
+
+	// B^{\dagger}=P^{\dagger} K^{-1}=[-0.5000   -0.0000    0.2500;0   -0.5000    0.2500;0.5000   -0.0000    0.2500;0    0.5000    0.2500]*diag([ I_x/(k*l1)  I_y/(k*l1)  I_z/(k*l2)  ])
 	B_inv.setZero();
-	B_inv(0, 0)=-0.0115f;
-	B_inv(0, 2)=0.0059f;
+	B_inv(0, 0)=-0.5f* _I_x/(_k*_L_1);
+	B_inv(0, 2)=0.25f* _I_z/(_k*_L_2);
 
-	B_inv(1, 1)=-0.0115f;
-	B_inv(1, 2)=0.0059f;
+	B_inv(1, 1)=-0.5f* _I_y/(_k*_L_1);
+	B_inv(1, 2)=0.25f* _I_z/(_k*_L_2);
 
-	B_inv(2, 0)=0.0115f;
-	B_inv(2, 2)=0.0059f;
+	B_inv(2, 0)=0.5f* _I_x/(_k*_L_1);
+	B_inv(2, 2)=0.25f* _I_z/(_k*_L_2);
 
-	B_inv(3, 1)=0.0115f;
-	B_inv(3, 2)=0.0059f;
-	B_inv_PID.setZero();
+	B_inv(3, 1)=0.5f* _I_y/(_k*_L_1);
+	B_inv(3, 2)=0.25f* _I_z/(_k*_L_2);
+
+	B_inv_PID.setZero(); // k=1, I_x=1, I_y=1, I_z=1
 	B_inv_PID(0, 0)=-1.0f;
 	B_inv_PID(0, 2)=1.0f;
 
@@ -165,7 +185,7 @@ void MixingOutput::CheckAndUpdateFilters()
 
 void MixingOutput::updateParams()
 {
-	ModuleParams::updateParams();
+	ModuleParams::updateParams(); // only run when parameters are updated
 
 	CheckAndUpdateFilters();
 	_use_indi = _param_use_indi.get();
@@ -173,7 +193,39 @@ void MixingOutput::updateParams()
 	_alloc_method = _param_alloc_method.get();
 	_use_dist = _param_use_dist.get();
 	_dist_mag = _param_dist_mag.get();
-	_time_const=math::constrain(_param_time_const.get(), 2.0f/_sample_freq, 0.2f);// dt < _time_const  < epsilon^*=0.2 here.  dt小于执行器时间常数这是对本程序中模拟执行器行为的要求，见matlab。保守起见取下限2.0f/_sample_freq
+	_time_const=math::constrain(_param_time_const.get(), 1.0f/_sample_freq, 0.2f);// dt < _time_const  < epsilon^*=0.2 here.  dt小于执行器时间常数这是对本程序中模拟执行器行为的要求，见matlab。保守起见取下限1.0f/_sample_freq
+	//uopdate Allocator_INDI _B  B_inv
+	_k = _param_k.get();
+	Allocator_INDI.aircraft.controlEffectMatrix[0][0]= -_L_1*_k/_I_x;
+	Allocator_INDI.aircraft.controlEffectMatrix[0][2]= _L_1*_k/_I_x;
+	Allocator_INDI.aircraft.controlEffectMatrix[1][1]= -_L_1*_k/_I_y;
+	Allocator_INDI.aircraft.controlEffectMatrix[1][3]= _L_1*_k/_I_y;
+	Allocator_INDI.aircraft.controlEffectMatrix[2][0]= _L_2*_k/_I_z;
+	Allocator_INDI.aircraft.controlEffectMatrix[2][1]= _L_2*_k/_I_z;
+	Allocator_INDI.aircraft.controlEffectMatrix[2][2]= _L_2*_k/_I_z;
+	Allocator_INDI.aircraft.controlEffectMatrix[2][3]= _L_2*_k/_I_z;
+
+	_B[0][0]= -_L_1*_k/_I_x;
+	_B[0][2]= _L_1*_k/_I_x;
+	_B[1][1]= -_L_1*_k/_I_y;
+	_B[1][3]= _L_1*_k/_I_y;
+	_B[2][0]= _L_2*_k/_I_z;
+	_B[2][1]= _L_2*_k/_I_z;
+	_B[2][2]= _L_2*_k/_I_z;
+	_B[2][3]= _L_2*_k/_I_z;
+
+	B_inv(0, 0)=-0.5f* _I_x/(_k*_L_1);
+	B_inv(0, 2)=0.25f* _I_z/(_k*_L_2);
+
+	B_inv(1, 1)=-0.5f* _I_y/(_k*_L_1);
+	B_inv(1, 2)=0.25f* _I_z/(_k*_L_2);
+
+	B_inv(2, 0)=0.5f* _I_x/(_k*_L_1);
+	B_inv(2, 2)=0.25f* _I_z/(_k*_L_2);
+
+	B_inv(3, 1)=0.5f* _I_y/(_k*_L_1);
+	B_inv(3, 2)=0.25f* _I_z/(_k*_L_2);
+
 
 	// update mixer if we have one
 	if (_mixers) {

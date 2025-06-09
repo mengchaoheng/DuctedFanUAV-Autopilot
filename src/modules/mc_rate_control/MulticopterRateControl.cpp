@@ -81,8 +81,7 @@ MulticopterRateControl::parameters_updated()
 	//0.3491*92.4509*0.4=12.9 = _param_mc_indiroll_p
 	const Vector3f rate_k = Vector3f(_param_mc_rollrate_k.get(), _param_mc_pitchrate_k.get(), _param_mc_yawrate_k.get());
 
-	_indi_control.setParams(Vector3f(_param_mc_indiroll_p.get(), _param_mc_indipitch_p.get(), _param_mc_indiyaw_p.get()),
-				_param_mc_wind_2_torque.get(), _param_mc_omega_2_wind.get());
+	_indi_control.setParams(Vector3f(_param_mc_indiroll_p.get(), _param_mc_indipitch_p.get(), _param_mc_indiyaw_p.get()),  _param_omega_2_force.get());
 
 	_use_indi=_param_use_indi.get();
 	_use_tau_i=_param_use_tau_i.get();

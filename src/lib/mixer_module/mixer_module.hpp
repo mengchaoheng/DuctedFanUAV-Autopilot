@@ -312,15 +312,30 @@ private:
 	float _u[4] {0.0f, 0.0f, 0.0f, 0.0f};
 	float _u_real[4] {0.0f, 0.0f, 0.0f, 0.0f};
 	float _last_u[4] {0.0f, 0.0f, 0.0f, 0.0f};
+	// for _B _B_PID B_inv B_inv_PID .
+	// If B is full raw rank, The Moore–Penrose Pseudo-inverse B^+= B^T (B B^T)^{-1},since
+	// B=K*P, K=I\diag([l1 l1 l2])k, P=[-1     0     1     0; 0    -1     0     1; 1     1     1     1];   K=diag([ k*l1/I_x  k*l1/I_y  k*l2/I_z  ])
+        // B^{\dagger} = P^\top K K^{-1} (P P^\top)^{-1} K^{-1} = P^\top (P P^\top)^{-1} K^{-1}=P^{\dagger} K^{-1}
+	// P^{\dagger}=[-0.5000   -0.0000    0.2500;0   -0.5000    0.2500;0.5000   -0.0000    0.2500;0    0.5000    0.2500]
+	// B^{\dagger}=P^{\dagger} K^{-1}=[-0.5000   -0.0000    0.2500;0   -0.5000    0.2500;0.5000   -0.0000    0.2500;0    0.5000    0.2500]*diag([ I_x/(k*l1)  I_y/(k*l1)  I_z/(k*l2)  ])
+	//
+	float _I_x{0.01149f};//setting in the .sdf
+	float _I_y{0.01153f};//setting in the .sdf
+	float _I_z{0.00487f};//setting in the .sdf
+	float _L_1{0.167f}; //setting in the .sdf
+	float _L_2{0.069f}; //setting in the .sdf
+	float _k{3.0f};	// USER_OMEGA_2_F, k  =_k_cv*_k_v*_k_v, setting k in the gazebo
+
+
 	matrix::Matrix<float, 4, 3> B_inv;
 	// const float _B[3][4]       = { {-46.2254,0.0,46.2254,0.0}, {0.0,-46.0825,0.0,46.0825},{46.7411,46.7411,46.7411,46.7411}};
-	const float _B[3][4]    = { {-43.6031,0.0,43.6031,0.0}, {0.0,-43.4519,0.0,43.4519},{42.5051,42.5051,42.5051,42.5051}}; // Use a larger value of tol of struct LinearProgrammingProblem
+	float _B[3][4]    = { {-43.6031,0.0,43.6031,0.0}, {0.0,-43.4519,0.0,43.4519},{42.5051,42.5051,42.5051,42.5051}}; // Use a larger value of tol of struct LinearProgrammingProblem
 	float lower{-0.3491f};
     	float upper{0.3491f};
 	Aircraft<3, 4> df_4; // 创建一个具有 4 个操纵向量和 3 个广义力矩的飞行器对象
 	DP_LP_ControlAllocator<3, 4> Allocator_INDI; // 创建一个控制分配器对象，用于具有 4 个操纵向量和 3 个广义力矩的飞行器(转化为线性规划问题，其维数和参数 <3, 4> 有关。)
 
-	// for PX4 PID controller
+	// for PX4 PID controller, k=1, I_x=1, I_y=1, I_z=1
 	matrix::Matrix<float, 4, 3> B_inv_PID;
 	const float _B_PID[3][4] = { {-0.5,0.0,0.5,0.0}, {0.0,-0.5,0.0,0.5},{0.25,0.25,0.25,0.25}};
 	float lower_PID{-1.0f};
@@ -348,6 +363,7 @@ private:
 		(ParamInt<px4::params::USER_ADD_DIST>) _param_use_dist,
 		(ParamFloat<px4::params::USER_DIST_MAG>) _param_dist_mag,
 		(ParamFloat<px4::params::USER_TIME_CONST>) _param_time_const,
-		(ParamInt<px4::params::USER_ACTUATOR>) _param_use_actuator
+		(ParamInt<px4::params::USER_ACTUATOR>) _param_use_actuator,
+		(ParamFloat<px4::params::USER_OMEGA_2_F>) _param_k
 	)
 };

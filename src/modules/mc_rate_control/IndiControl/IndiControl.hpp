@@ -56,10 +56,9 @@ public:
 	/**
 	 * Set the rate control gains
 	 * @param P 3D vector of proportional gains for body x,y,z axis
-	 * @param k_cv
-	 * @param k_v
+	 * @param k
 	 */
-	void setParams(const matrix::Vector3f &P, const float k_cv, const float k_v);
+	void setParams(const matrix::Vector3f &P, const float k);
 
 	void init();
 
@@ -70,6 +69,8 @@ public:
 	 * @param dt desired vehicle angular rate setpoint
 	 * @param actuator_outputs_value current value of actuators
 	 * @param Nu_i second term of virtual control
+	 * @param use_u use u0 or not
+	 * @param use_tau_i use Nu_i or not
 	 * @return [-1,1] normalized torque vector to apply to the vehicle //This is not a value between -1 and +1
 	 */
 	matrix::Vector3f update(const matrix::Vector3f &rate, const matrix::Vector3f &rate_sp, const matrix::Vector3f &angular_accel,
@@ -80,17 +81,13 @@ private:
 	// Gains
 	matrix::Vector3f _gain_p; ///< rate control proportional gain for all axes x, y, z
 	//I of prop
-	float _I_prop{0.000037f};
-	float _I_x{0.01149};
-	float _I_y{0.01153};
-	float _I_z{0.004865};
-	float _L_1{0.167f};
-	float _L_2{0.0698};
-	float _k_cv{0.0073f};
-	float _k_v{0.0169f};	//USER_OMEGA_2_W
-	float _k{3.0f};	// delta_2_force, k  =_k_cv*_k_v*_k_v
-	matrix::Matrix<float, 3, 3> _H_1;
-	matrix::Matrix<float, 3, 3> _H_inv;
+	float _I_prop{0.000037f};// ignore
+	float _I_x{0.01149};//setting in the .sdf
+	float _I_y{0.01153};//setting in the .sdf
+	float _I_z{0.004865};//setting in the .sdf
+	float _L_1{0.167f}; //setting in the .sdf
+	float _L_2{0.0698}; //setting in the .sdf
+	float _k{3.0f};	// USER_OMEGA_2_F, k  =_k_cv*_k_v*_k_v, setting k in the gazebo
+
 	matrix::Matrix<float, 3, 4> _B;
-	matrix::Vector3f _H_3{0.f, 0.f, 0.f};
 };
