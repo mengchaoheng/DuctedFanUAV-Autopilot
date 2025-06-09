@@ -481,12 +481,13 @@ void MulticopterPositionControl::Run()
 							_original_main_mode = status.nav_state;
 							_mode_recorded = true;
 							_mode_restored = false;
+							PX4_INFO("Record mode.");
 
 							// 切换到 ALTCTL
 							vehicle_command_s cmd{};
 							cmd.timestamp = hrt_absolute_time();
 							cmd.param1 = 1.0f;
-							cmd.param2 = PX4_CUSTOM_MAIN_MODE_POSCTL; // PX4_CUSTOM_MAIN_MODE_POSCTL or PX4_CUSTOM_MAIN_MODE_ALTCTL
+							cmd.param2 = PX4_CUSTOM_MAIN_MODE_ALTCTL; // PX4_CUSTOM_MAIN_MODE_POSCTL or PX4_CUSTOM_MAIN_MODE_ALTCTL
 							cmd.param3 = 0.0f;
 							cmd.command = vehicle_command_s::VEHICLE_CMD_DO_SET_MODE;
 							cmd.target_system = 1;
@@ -495,7 +496,7 @@ void MulticopterPositionControl::Run()
 							cmd.source_component = 1;
 							cmd.from_external = false;
 							_vehicle_command_pub.publish(cmd);
-							PX4_INFO("Switched to POSCTL mode."); //POSCTL or ALTCTL
+							PX4_INFO("Switched to ALTCTL mode."); //POSCTL or ALTCTL
 						}
 					}
 
@@ -503,13 +504,13 @@ void MulticopterPositionControl::Run()
 					hrt_abstime interval = hrt_elapsed_time(&_add_step_time);
 					float time_sec = interval / 1e6f;
 
-					if (time_sec < 0.5f * _cycle_time) {
+					if (time_sec < 1.f * _cycle_time) {
 						attitude_setpoint.yaw_body = start_yaw_body;
-					} else if (time_sec < 1.0f * _cycle_time) {
-						attitude_setpoint.yaw_body = start_yaw_body + M_PI / 4.0f;
 					} else if (time_sec < 1.5f * _cycle_time) {
-						attitude_setpoint.yaw_body = start_yaw_body - M_PI / 4.0f;
+						attitude_setpoint.yaw_body = start_yaw_body + M_PI / 4.0f;
 					} else if (time_sec < 2.0f * _cycle_time) {
+						attitude_setpoint.yaw_body = start_yaw_body - M_PI / 4.0f;
+					} else if (time_sec < 2.5f * _cycle_time) {
 						attitude_setpoint.yaw_body = start_yaw_body;
 					}
 
@@ -519,7 +520,7 @@ void MulticopterPositionControl::Run()
 					q_sp.copyTo(attitude_setpoint.q_d);
 
 					// step 结束，恢复模式并进入等待状态
-					if (time_sec >= 2.0f * _cycle_time && !_mode_restored) {
+					if (time_sec >= 4.0f * _cycle_time && !_mode_restored) {
 						vehicle_command_s cmd{};
 						cmd.timestamp = hrt_absolute_time();
 						cmd.param1 = 1.0f;
