@@ -84,12 +84,12 @@ void IndiControl::init()
 }
 
 Vector3f IndiControl::update(const Vector3f &rate, const Vector3f &rate_sp, const Vector3f &angular_accel,
-			     const float dt, const actuator_outputs_value_s &actuator_outputs_value, Vector3f &Nu_i, const bool landed, bool use_u)
+			     const float dt, const actuator_outputs_value_s &actuator_outputs_value, Vector3f &Nu_i, const bool landed, bool use_u, bool use_tau_i)
 {
 	// angular rates error
 	Vector3f rate_error = rate_sp - rate;
 
-	if (landed) {
+	if (landed || !use_tau_i) {
 		Nu_i.setZero();
 		// PX4_INFO("Nu_i of INDI is zero");
 	}

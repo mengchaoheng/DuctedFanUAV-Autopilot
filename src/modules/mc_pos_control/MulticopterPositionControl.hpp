@@ -196,8 +196,8 @@ private:
 		(ParamFloat<px4::params::MPC_XY_VEL_ALL>) _param_mpc_xy_vel_all,
 		(ParamFloat<px4::params::MPC_Z_VEL_ALL>) _param_mpc_z_vel_all,
 		(ParamInt<px4::params::USER_ADD_REF>) _param_user_add_ref,
-		(ParamFloat<px4::params::USER_STEP_R_AMP>) _param_step_roll_amp,
-		(ParamFloat<px4::params::USER_STEP_P_AMP>) _param_step_pitch_amp,
+		// (ParamFloat<px4::params::USER_STEP_R_AMP>) _param_step_roll_amp,
+		// (ParamFloat<px4::params::USER_STEP_P_AMP>) _param_step_pitch_amp,
 		(ParamFloat<px4::params::USER_STEP_TIME>) _param_step_ref_time,
 		(ParamInt<px4::params::USER_TEST_TIME>) _param_test_time
 	);

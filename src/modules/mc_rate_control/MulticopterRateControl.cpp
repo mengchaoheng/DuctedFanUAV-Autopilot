@@ -264,11 +264,11 @@ MulticopterRateControl::Run()
 				// else
 				// {
 					_rate_control.resetIntegral();
-					error_fb = _indi_control.update(rates, _rates_sp, angular_accel, dt, _actuator_outputs_value, indi_fb, _maybe_landed || _landed,  _use_u);
-					if (_use_tau_i)
+					error_fb = _indi_control.update(rates, _rates_sp, angular_accel, dt, _actuator_outputs_value, indi_fb, _maybe_landed || _landed,  _use_u, _use_tau_i);
+					// if (_use_tau_i)
 						att_control = error_fb + indi_fb;
-					else
-						att_control = error_fb;
+					// else
+					// 	att_control = error_fb;
 					// PX4_INFO("INDI");
 				// }
 			}

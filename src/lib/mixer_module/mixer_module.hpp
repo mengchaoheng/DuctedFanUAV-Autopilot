@@ -339,8 +339,8 @@ private:
 		(ParamFloat<px4::params::MOT_SLEW_MAX>) _param_mot_slew_max,
 		(ParamFloat<px4::params::THR_MDL_FAC>) _param_thr_mdl_fac, ///< thrust to motor control signal modelling factor
 		(ParamInt<px4::params::MOT_ORDERING>) _param_mot_ordering,
-		(ParamInt<px4::params::USER_DF_MID1>) _param_ductedfan_mid1,
-		(ParamInt<px4::params::USER_DF_MID2>) _param_ductedfan_mid2,
+		// (ParamInt<px4::params::USER_DF_MID1>) _param_ductedfan_mid1,
+		// (ParamInt<px4::params::USER_DF_MID2>) _param_ductedfan_mid2,
 		(ParamInt<px4::params::USER_AC_METHOD>) _param_alloc_method,
 		(ParamInt<px4::params::USER_PID_CA>) _param_use_alloc,
 		(ParamInt<px4::params::USER_USE_INDI>) _param_use_indi,

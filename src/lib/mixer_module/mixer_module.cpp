@@ -173,7 +173,7 @@ void MixingOutput::updateParams()
 	_alloc_method = _param_alloc_method.get();
 	_use_dist = _param_use_dist.get();
 	_dist_mag = _param_dist_mag.get();
-	_time_const=_param_time_const.get();
+	_time_const=math::constrain(_param_time_const.get(), 2.0f/_sample_freq, 0.2f);// dt < _time_const  < epsilon^*=0.2 here.  dt小于执行器时间常数这是对本程序中模拟执行器行为的要求，见matlab。保守起见取下限2.0f/_sample_freq
 
 	// update mixer if we have one
 	if (_mixers) {
@@ -791,7 +791,7 @@ MixingOutput::setAndPublishActuatorOutputs(unsigned num_outputs, actuator_output
 	// publish cs delta for indi controller
 	actuator_outputs_value_s actuator_outputs_value{};
 	for (size_t i = 0; i < 4; ++i) {
-		actuator_outputs_value.delta[i] = math::constrain(_lp_filter_actuator[i].apply(_u[i]), (float) (_uMin[i]), (float) (_uMax[i]));//
+		actuator_outputs_value.delta[i] = math::constrain(_lp_filter_actuator[i].apply(_u_real[i]), (float) (_uMin[i]), (float) (_uMax[i]));//
 		_delta_prev[i] = actuator_outputs_value.delta[i];
 	}
 	actuator_outputs_value.timestamp = hrt_absolute_time();

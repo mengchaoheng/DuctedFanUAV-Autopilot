@@ -135,8 +135,8 @@ int MulticopterPositionControl::parameters_update(bool force)
 			param_notify_changes();
 		}
 		_cycle_time = _param_step_ref_time.get();
-		_step_roll_amp = _param_step_roll_amp.get();
-		_step_pitch_amp = _param_step_pitch_amp.get();
+		// _step_roll_amp = _param_step_roll_amp.get();
+		// _step_pitch_amp = _param_step_pitch_amp.get();
 
 		if (_param_mpc_tiltmax_air.get() > MAX_SAFE_TILT_DEG) {
 			_param_mpc_tiltmax_air.set(MAX_SAFE_TILT_DEG);
