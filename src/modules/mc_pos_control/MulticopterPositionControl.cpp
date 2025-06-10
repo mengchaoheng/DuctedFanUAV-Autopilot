@@ -526,16 +526,16 @@ void MulticopterPositionControl::Run()
 						cmd.param1 = 1.0f;
 
 						switch (_original_main_mode) {
-							case vehicle_status_s::NAVIGATION_STATE_POSCTL:
-								cmd.param2 = PX4_CUSTOM_MAIN_MODE_POSCTL;
-								break;
-							case vehicle_status_s::NAVIGATION_STATE_AUTO_LOITER:
-								cmd.param2 = PX4_CUSTOM_MAIN_MODE_AUTO;
-								cmd.param3 = PX4_CUSTOM_SUB_MODE_AUTO_LOITER;
-								break;
-							case vehicle_status_s::NAVIGATION_STATE_OFFBOARD:
-								cmd.param2 = PX4_CUSTOM_MAIN_MODE_OFFBOARD;
-								break;
+							// case vehicle_status_s::NAVIGATION_STATE_POSCTL:
+							// 	cmd.param2 = PX4_CUSTOM_MAIN_MODE_POSCTL;
+							// 	break;
+							// case vehicle_status_s::NAVIGATION_STATE_AUTO_LOITER:
+							// 	cmd.param2 = PX4_CUSTOM_MAIN_MODE_AUTO;
+							// 	cmd.param3 = PX4_CUSTOM_SUB_MODE_AUTO_LOITER;
+							// 	break;
+							// case vehicle_status_s::NAVIGATION_STATE_OFFBOARD:
+							// 	cmd.param2 = PX4_CUSTOM_MAIN_MODE_OFFBOARD;
+							// 	break;
 							default:
 								cmd.param2 = PX4_CUSTOM_MAIN_MODE_POSCTL;
 								break;
