@@ -506,11 +506,11 @@ void MulticopterPositionControl::Run()
 
 					if (time_sec < 1.f * _cycle_time) {
 						attitude_setpoint.yaw_body = start_yaw_body;
-					} else if (time_sec < 1.5f * _cycle_time) {
+					} else if (time_sec < 2.f * _cycle_time) {
 						attitude_setpoint.yaw_body = start_yaw_body + M_PI / 4.0f;
-					} else if (time_sec < 2.0f * _cycle_time) {
+					} else if (time_sec < 3.0f * _cycle_time) {
 						attitude_setpoint.yaw_body = start_yaw_body - M_PI / 4.0f;
-					} else if (time_sec < 2.5f * _cycle_time) {
+					} else if (time_sec < 4.0f * _cycle_time) {
 						attitude_setpoint.yaw_body = start_yaw_body;
 					}
 
@@ -520,7 +520,7 @@ void MulticopterPositionControl::Run()
 					q_sp.copyTo(attitude_setpoint.q_d);
 
 					// step 结束，恢复模式并进入等待状态
-					if (time_sec >= 4.0f * _cycle_time && !_mode_restored) {
+					if (time_sec >= 5.0f * _cycle_time && !_mode_restored) {
 						vehicle_command_s cmd{};
 						cmd.timestamp = hrt_absolute_time();
 						cmd.param1 = 1.0f;
