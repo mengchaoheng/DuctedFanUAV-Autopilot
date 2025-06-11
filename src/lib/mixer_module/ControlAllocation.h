@@ -573,6 +573,7 @@ public:
     float controlEffectMatrix[ControlSize][EffectorSize]; // 控制效应矩阵 (generalizedMomentSize X controlVectorSize)
     float upperLimits[EffectorSize]; // 操纵向量上限变量
     float lowerLimits[EffectorSize]; // 操纵向量下限变量
+    float BuMin[ControlSize];
     // 构造函数
     // 拷贝构造函数
     AircraftBase(const AircraftBase& other) {
@@ -588,6 +589,7 @@ public:
             for (int j = 0; j < EffectorSize; ++j) {
                 controlEffectMatrix[i][j] = other.controlEffectMatrix[i][j];
             }
+            BuMin[i]=other.BuMin[i];
         }
     }
     AircraftBase() {
@@ -601,6 +603,7 @@ public:
             for (int j = 0; j < ControlSize; ++j) {
                 controlEffectMatrix[j][i] = 0.0f;
             }
+            BuMin[i]=0;
         }
     }
     // 析构函数
@@ -645,6 +648,13 @@ public:
                 this->controlEffectMatrix[j][i] = controlEffectMatrixInit[j][i];
             }
         }
+        for (int i = 0; i < ControlSize; ++i) {
+            float temp = 0.0f;
+            for (int j = 0; j < EffectorSize; ++j) {
+                temp +=  this->controlEffectMatrix[i][j]*this->lowerLimits[j];
+            }
+            this->BuMin[i] = temp; // 计算BuMin
+        }
     }
     // 构造函数，接受对应于飞行器类模板参数的初始化参数
     Aircraft(const float (&upperLimitsInit)[EffectorSize],
@@ -659,6 +669,13 @@ public:
             }
         }
         // and define other value manual to set B (controlEffectMatrix).
+        for (int i = 0; i < ControlSize; ++i) {
+            float temp = 0.0f;
+            for (int j = 0; j < EffectorSize; ++j) {
+                temp +=  this->controlEffectMatrix[i][j]*this->lowerLimits[j];
+            }
+            this->BuMin[i] = temp; // 计算BuMin
+        }
     }
     Aircraft(const float (&controlEffectMatrixInit)[ControlSize][EffectorSize], const float& lowerBound, const float& upperBound) : lower(lowerBound), upper(upperBound){
         // 使用传入的初始化参数和飞行器
@@ -669,6 +686,13 @@ public:
             for (int j = 0; j < ControlSize; ++j) {
                 this->controlEffectMatrix[j][i] = controlEffectMatrixInit[j][i];
             }
+        }
+        for (int i = 0; i < ControlSize; ++i) {
+            float temp = 0.0f;
+            for (int j = 0; j < EffectorSize; ++j) {
+                temp +=  this->controlEffectMatrix[i][j]*this->lowerLimits[j];
+            }
+            this->BuMin[i] = temp; // 计算BuMin
         }
     }
 
@@ -740,14 +764,12 @@ public:
         // update A b h every time
         for(int i=0; i<DP_LPCA_problem.m; ++i)
         {
-            float temp=0;
             for(int j=0; j<DP_LPCA_problem.n-1; ++j)
             {
                 DP_LPCA_problem.A[i][j] = this->aircraft.controlEffectMatrix[i][j];
-                temp += -this->aircraft.controlEffectMatrix[i][j]*this->aircraft.lowerLimits[j];
             }
             DP_LPCA_problem.A[i][DP_LPCA_problem.n-1] = 0;
-            DP_LPCA_problem.b[i] = temp;
+            DP_LPCA_problem.b[i] = -this->aircraft.BuMin[i];
         }
         for(int i=0; i<DP_LPCA_problem.n-1; ++i)
         {
@@ -755,6 +777,8 @@ public:
         }
         //==================================PreDP_LPCA_problem================================
         Pre_DP_LPCA_problem.itlim = 10;
+
+        //ci
         for(int i=0; i<DP_LPCA_problem.n; ++i)
         {
             Pre_DP_LPCA_problem.c[i] =0;
@@ -763,15 +787,17 @@ public:
         {
             Pre_DP_LPCA_problem.c[i+DP_LPCA_problem.n] = 1;
         }
+        // inBi
         for(int i=0; i<DP_LPCA_problem.m; ++i)
         {
             Pre_DP_LPCA_problem.inB[i] = DP_LPCA_problem.n+i;
         }
+        // ei
         for(int i=0; i<DP_LPCA_problem.m+DP_LPCA_problem.n; ++i)
         {
             Pre_DP_LPCA_problem.e[i] = true;
         }
-        // update sb(since b is update) Ai bi hi every time
+        //Ai bi=b
         for(int i=0; i<DP_LPCA_problem.m; ++i)
         {
             for(int j=0; j<DP_LPCA_problem.n; ++j)
@@ -785,6 +811,7 @@ public:
         {
             Pre_DP_LPCA_problem.A[i][i + DP_LPCA_problem.n] = (DP_LPCA_problem.b[i] > 0) ? 1 : -1; // sb = 2*(b > 0)-1; Ai = [A diag(sb)];
         }
+        // hi
         for(int i=0; i<DP_LPCA_problem.n; ++i)
         {
             Pre_DP_LPCA_problem.h[i] = DP_LPCA_problem.h[i];
@@ -930,7 +957,7 @@ public:
         {
             Pre_DPscaled_LPCA_problem.h[i+DPscaled_LPCA_problem.n] = 2*fabs(DPscaled_LPCA_problem.b[i]);
         }
-        // update B and B_aug every time for restoring
+        //   for restoring
         B_aug.setZero();
         B.setZero();
         for (int i = 0; i < ControlSize; ++i) {
@@ -1126,43 +1153,21 @@ public:
         // ref. is A.6.4 Initialization of the Simplex Algorithm of <Aircraft control allocation>
 
         // now we update the problem by input data.
-        // update A b h every time
-        for(int i=0; i<DP_LPCA_problem.m; ++i)
-        {
-            float temp=0;
-            for(int j=0; j<DP_LPCA_problem.n-1; ++j)
-            {
-                DP_LPCA_problem.A[i][j] = this->aircraft.controlEffectMatrix[i][j];
-                temp += -this->aircraft.controlEffectMatrix[i][j]*this->aircraft.lowerLimits[j];
-            }
-            DP_LPCA_problem.A[i][DP_LPCA_problem.n-1] = -input[i];
-            this->generalizedMoment[i] = input[i]; // just record.
-            DP_LPCA_problem.b[i] = temp;
+        if(isupdate){
+            Update();
+            isupdate = false; // only update once.
         }
-        for(int i=0; i<DP_LPCA_problem.n-1; ++i)
-        {
-            DP_LPCA_problem.h[i] = this->aircraft.upperLimits[i]-this->aircraft.lowerLimits[i];
-        }
+        // update A b h by input data.
         // update sb(since b is update) Ai bi hi every time
         for(int i=0; i<DP_LPCA_problem.m; ++i)
         {
-            for(int j=0; j<DP_LPCA_problem.n; ++j)
-            {
-                Pre_DP_LPCA_problem.A[i][j] = DP_LPCA_problem.A[i][j];
-            }
-            Pre_DP_LPCA_problem.b[i] = DP_LPCA_problem.b[i]; // the same as DP_LPCA_problem
+            DP_LPCA_problem.A[i][DP_LPCA_problem.n-1] = -input[i];
+            DP_LPCA_problem.b[i] = -this->aircraft.BuMin[i]; //
 
-        }
-        for(int i=0; i<DP_LPCA_problem.m; ++i)
-        {
+            Pre_DP_LPCA_problem.A[i][DP_LPCA_problem.n-1] = -input[i]; // the same as DP_LPCA_problem.A[i][DP_LPCA_problem.n-1]
+            Pre_DP_LPCA_problem.b[i] = -this->aircraft.BuMin[i]; // the same as DP_LPCA_problem
+
             Pre_DP_LPCA_problem.A[i][i + DP_LPCA_problem.n] = (DP_LPCA_problem.b[i] > 0) ? 1 : -1; // sb = 2*(b > 0)-1; Ai = [A diag(sb)];
-        }
-        for(int i=0; i<DP_LPCA_problem.n; ++i)
-        {
-            Pre_DP_LPCA_problem.h[i] = DP_LPCA_problem.h[i];
-        }
-        for(int i=0; i<DP_LPCA_problem.m; ++i)
-        {
             Pre_DP_LPCA_problem.h[i+DP_LPCA_problem.n] = 2*fabs(DP_LPCA_problem.b[i]);
         }
 
@@ -1614,44 +1619,22 @@ public:
         // To find Feasible solution construct problem with appended slack variables
         // ref. is A.6.4 Initialization of the Simplex Algorithm of <Aircraft control allocation>
 
-        // now we update the problem by input data.
-        // update A b h every time
-        for(int i=0; i<DP_LPCA_problem.m; ++i)
-        {
-            float temp=0;
-            for(int j=0; j<DP_LPCA_problem.n-1; ++j)
-            {
-                DP_LPCA_problem.A[i][j] = this->aircraft.controlEffectMatrix[i][j];
-                temp += -this->aircraft.controlEffectMatrix[i][j]*this->aircraft.lowerLimits[j];
-            }
-            DP_LPCA_problem.A[i][DP_LPCA_problem.n-1] = -input_lower[i];
-            this->generalizedMoment[i] = input_lower[i]; // just record.
-            DP_LPCA_problem.b[i] = input_higher[i]+temp;
+        // now we update the problem by aircraft.
+        if(isupdate){
+            Update();
+            isupdate = false; // only update once.
         }
-        for(int i=0; i<DP_LPCA_problem.n-1; ++i)
-        {
-            DP_LPCA_problem.h[i] = this->aircraft.upperLimits[i]-this->aircraft.lowerLimits[i];
-        }
+        // update A b h by input data.
         // update sb(since b is update) Ai bi hi every time
         for(int i=0; i<DP_LPCA_problem.m; ++i)
         {
-            for(int j=0; j<DP_LPCA_problem.n; ++j)
-            {
-                Pre_DP_LPCA_problem.A[i][j] = DP_LPCA_problem.A[i][j];
-            }
-            Pre_DP_LPCA_problem.b[i] = DP_LPCA_problem.b[i]; // the same as DP_LPCA_problem
+            DP_LPCA_problem.A[i][DP_LPCA_problem.n-1] = -input_lower[i];
+            DP_LPCA_problem.b[i] = input_higher[i]-this->aircraft.BuMin[i]; //
 
-        }
-        for(int i=0; i<DP_LPCA_problem.m; ++i)
-        {
+            Pre_DP_LPCA_problem.A[i][DP_LPCA_problem.n-1] = -input_lower[i]; // the same as DP_LPCA_problem.A[i][DP_LPCA_problem.n-1]
+            Pre_DP_LPCA_problem.b[i] = input_higher[i]-this->aircraft.BuMin[i]; // the same as DP_LPCA_problem
+
             Pre_DP_LPCA_problem.A[i][i + DP_LPCA_problem.n] = (DP_LPCA_problem.b[i] > 0) ? 1 : -1; // sb = 2*(b > 0)-1; Ai = [A diag(sb)];
-        }
-        for(int i=0; i<DP_LPCA_problem.n; ++i)
-        {
-            Pre_DP_LPCA_problem.h[i] = DP_LPCA_problem.h[i];
-        }
-        for(int i=0; i<DP_LPCA_problem.m; ++i)
-        {
             Pre_DP_LPCA_problem.h[i+DP_LPCA_problem.n] = 2*fabs(DP_LPCA_problem.b[i]);
         }
 
@@ -1748,15 +1731,6 @@ public:
             }
             return;
         }
-        // update B and B_aug every time for restoring
-        B_aug.setZero();
-        B.setZero();
-        for (int i = 0; i < ControlSize; ++i) {
-            for (int j = 0; j < EffectorSize; ++j) {
-                B_aug(i,j) = this->aircraft.controlEffectMatrix[i][j];
-                B(i,j) = this->aircraft.controlEffectMatrix[i][j];
-            }
-        }
         // update B_aug
         B_aug.setRow(ControlSize, u_current);
         //u_null=pinv(B_aug)*v_aug;
@@ -1803,6 +1777,55 @@ public:
             u_rest[i]=u[i] + matrix::typeFunction::min(K_max,K_opt) *u_null(i);
         }
     }
+    void Update(){
+        //for DP_LPCA and DP_LPCA_copy.   A b h
+
+        // B*uMin of aircraft， b
+        for (int i = 0; i < ControlSize; ++i) {
+            float temp = 0.0f;
+            for (int j = 0; j < EffectorSize; ++j) {
+                temp +=  this->aircraft.controlEffectMatrix[i][j]*this->aircraft.lowerLimits[j];
+            }
+            this->aircraft.BuMin[i] = temp; // 计算BuMin
+            DP_LPCA_problem.b[i]=-temp; //暂时。还需要重新计算
+
+        }
+
+        // A  h  (c is fixed)
+        for(int i=0; i<DP_LPCA_problem.m; ++i)
+        {
+            for(int j=0; j<DP_LPCA_problem.n-1; ++j)
+            {
+                DP_LPCA_problem.A[i][j] = this->aircraft.controlEffectMatrix[i][j]; // [n-1] will update every time
+
+                Pre_DP_LPCA_problem.A[i][j] = this->aircraft.controlEffectMatrix[i][j]; // the same as DP_LPCA_problem.A[i][j]
+            }
+            Pre_DP_LPCA_problem.b[i] = DP_LPCA_problem.b[i];
+
+            Pre_DP_LPCA_problem.A[i][i + DP_LPCA_problem.n] = (DP_LPCA_problem.b[i] > 0) ? 1 : -1; // sb = 2*(b > 0)-1; Ai = [A diag(sb)];
+            Pre_DP_LPCA_problem.h[i+DP_LPCA_problem.n] = 2*fabs(DP_LPCA_problem.b[i]);
+        }
+        for(int i=0; i<DP_LPCA_problem.n-1; ++i)
+        {
+            DP_LPCA_problem.h[i] = this->aircraft.upperLimits[i]-this->aircraft.lowerLimits[i];  //[n] is fixed 1
+            Pre_DP_LPCA_problem.h[i] = DP_LPCA_problem.h[i];
+        }
+        // for DPscaled_LPCA is update every time
+        //   for restoring
+        B_aug.setZero();
+        B.setZero();
+        for (int i = 0; i < ControlSize; ++i) {
+            for (int j = 0; j < EffectorSize; ++j) {
+                B_aug(i,j) = this->aircraft.controlEffectMatrix[i][j];
+                B(i,j) = this->aircraft.controlEffectMatrix[i][j];
+            }
+        }
+        v_aug.setZero();
+        v_aug(ControlSize)=a_constant;
+
+        // std::cout << "is updated" << std::endl;
+        isupdate = false;
+    }
     // 其他成员函数和成员变量定义
     float generalizedMoment[ControlSize]; // 构造函数设置
     // 线性规划相关
@@ -1817,6 +1840,8 @@ public:
     matrix::Vector<float, EffectorSize> u_null;
     float a_constant=-2; //arbitrary a<0 (if null(B)'*u = 0, rank([B_aug v_aug]) ~= rank(B_aug), it have to be a=0)
     matrix::Matrix<float, ControlSize, EffectorSize> B;
+    bool isupdate{false}; //if update aircraft data, then set isupdate = true.
+
 };
 // and user can define more...
 // template <int ControlSize, int EffectSize>
