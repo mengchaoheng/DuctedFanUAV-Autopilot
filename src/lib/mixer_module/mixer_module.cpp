@@ -687,9 +687,10 @@ bool MixingOutput::update()
 		}
 		else if(_alloc_method==3){
 			//=========================WLS_alloc_gen===========================
-			wls_alloc_gen(_B_array, _fb, _uMin, _uMax, _I3_array, _I4_array, _u_d, _gam, _u_wls, _W0, 100, 4);
+			float u_wls[4];float gam = 1e6f; float W0[4]={0.0f, 0.0f, 0.0f, 0.0f};  float u_d[4] = {0.0f, 0.0f, 0.0f, 0.0f};
+			wls_alloc_gen(_B_array, _fb, _uMin, _uMax, _I3_array, _I4_array, u_d, gam, u_wls, W0, 100, 4);
 			for (size_t i = 0; i < 4; i++){
-				_u[i] = math::constrain((float) (_u_wls[i]), (float) (_uMin[i]), (float) (_uMax[i]));
+				_u[i] = math::constrain((float) (u_wls[i]), (float) (_uMin[i]), (float) (_uMax[i]));
 			}
 			allocation_value.flag=3;
 		}else{ //inv
