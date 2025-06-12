@@ -61,6 +61,7 @@
 // #include <lib/ecl/EKF/RingBuffer.h>
 
 #include "ControlAllocation.h"
+#include "wls_alloc_gen.h"
 /**
  * @class OutputModuleInterface
  * Base class for an output module.
@@ -334,6 +335,24 @@ private:
     	float upper{0.3491f};
 	Aircraft<3, 4> df_4; // 创建一个具有 4 个操纵向量和 3 个广义力矩的飞行器对象
 	DP_LP_ControlAllocator<3, 4> Allocator_INDI; // 创建一个控制分配器对象，用于具有 4 个操纵向量和 3 个广义力矩的飞行器(转化为线性规划问题，其维数和参数 <3, 4> 有关。)
+	// for wls
+	float _u_wls[4]={0.0f, 0.0f, 0.0f, 0.0f};;
+	float _B_array[12];
+	float _gam = 1e6f;
+	float _W0[4]={0.0f, 0.0f, 0.0f, 0.0f};
+	float _u_d[4] = {0.0f, 0.0f, 0.0f, 0.0f};
+	float _I4_array[16] = {
+	1.0f, 0.0f, 0.0f, 0.0f,
+	0.0f, 1.0f, 0.0f, 0.0f,
+	0.0f, 0.0f, 1.0f, 0.0f,
+	0.0f, 0.0f, 0.0f, 1.0f
+	};
+	float _I3_array[9] = {
+	1.0f, 0.0f, 0.0f,  // 第1行
+	0.0f, 1.0f, 0.0f,  // 第2行
+	0.0f, 0.0f, 1.0f   // 第3行
+	};
+
 
 	// for PX4 PID controller, k=1, I_x=1, I_y=1, I_z=1
 	matrix::Matrix<float, 4, 3> B_inv_PID;

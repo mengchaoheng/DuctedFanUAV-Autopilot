@@ -96,6 +96,7 @@ Allocator_PID(df_4_PID)
 	Allocator_INDI.aircraft.controlEffectMatrix[2][1]= _L_2*_k/_I_z;
 	Allocator_INDI.aircraft.controlEffectMatrix[2][2]= _L_2*_k/_I_z;
 	Allocator_INDI.aircraft.controlEffectMatrix[2][3]= _L_2*_k/_I_z;
+	Allocator_INDI.isupdate = true;
 
 	_B[0][0]= -_L_1*_k/_I_x;
 	_B[0][2]= _L_1*_k/_I_x;
@@ -106,6 +107,13 @@ Allocator_PID(df_4_PID)
 	_B[2][2]= _L_2*_k/_I_z;
 	_B[2][3]= _L_2*_k/_I_z;
 
+	for (int i = 0; i < 3; i++)
+	{
+		for(int j=0;j<4;j++)
+		{
+			_B_array[i+3*j] = _B[i][j];
+		}
+	}
 	// B^{\dagger}=P^{\dagger} K^{-1}=[-0.5000   -0.0000    0.2500;0   -0.5000    0.2500;0.5000   -0.0000    0.2500;0    0.5000    0.2500]*diag([ I_x/(k*l1)  I_y/(k*l1)  I_z/(k*l2)  ])
 	B_inv.setZero();
 	B_inv(0, 0)=-0.5f* _I_x/(_k*_L_1);
@@ -191,40 +199,84 @@ void MixingOutput::updateParams()
 	_use_indi = _param_use_indi.get();
 	_use_alloc = _param_use_alloc.get();
 	_alloc_method = _param_alloc_method.get();
-	_use_dist = _param_use_dist.get();
+	int tmp=_param_use_dist.get();
+	if(_use_dist!=tmp)
+	{
+		_use_dist = tmp;
+		if(_use_dist)
+		{
+			for (size_t i = 0; i < 4; i++)
+			{
+				_uMin[i] = lower+_dist_mag;
+				_uMax[i] = upper-_dist_mag;
+			}
+			for (int i = 0; i < 4; ++i) {
+				Allocator_INDI.aircraft.upperLimits[i] = _uMax[i];
+				Allocator_INDI.aircraft.lowerLimits[i] = _uMin[i];
+				Allocator_INDI.isupdate = true;
+			}
+		}
+		else
+		{
+			for (size_t i = 0; i < 4; i++)
+			{
+				_uMin[i] = lower;
+				_uMax[i] = upper;
+			}
+			for (int i = 0; i < 4; ++i) {
+				Allocator_INDI.aircraft.upperLimits[i] = _uMax[i];
+				Allocator_INDI.aircraft.lowerLimits[i] = _uMin[i];
+				Allocator_INDI.isupdate = true;
+			}
+		}
+
+	}
 	_dist_mag = _param_dist_mag.get();
 	_time_const=math::constrain(_param_time_const.get(), 1.0f/_sample_freq, 0.2f);// dt < _time_const  < epsilon^*=0.2 here.  dt小于执行器时间常数这是对本程序中模拟执行器行为的要求，见matlab。保守起见取下限1.0f/_sample_freq
 	//uopdate Allocator_INDI _B  B_inv
-	_k = _param_k.get();
-	Allocator_INDI.aircraft.controlEffectMatrix[0][0]= -_L_1*_k/_I_x;
-	Allocator_INDI.aircraft.controlEffectMatrix[0][2]= _L_1*_k/_I_x;
-	Allocator_INDI.aircraft.controlEffectMatrix[1][1]= -_L_1*_k/_I_y;
-	Allocator_INDI.aircraft.controlEffectMatrix[1][3]= _L_1*_k/_I_y;
-	Allocator_INDI.aircraft.controlEffectMatrix[2][0]= _L_2*_k/_I_z;
-	Allocator_INDI.aircraft.controlEffectMatrix[2][1]= _L_2*_k/_I_z;
-	Allocator_INDI.aircraft.controlEffectMatrix[2][2]= _L_2*_k/_I_z;
-	Allocator_INDI.aircraft.controlEffectMatrix[2][3]= _L_2*_k/_I_z;
+	float tmp_k=_param_k.get();
+	if(_k != tmp_k){
+		_k = tmp_k;
+		Allocator_INDI.aircraft.controlEffectMatrix[0][0]= -_L_1*_k/_I_x;
+		Allocator_INDI.aircraft.controlEffectMatrix[0][2]= _L_1*_k/_I_x;
+		Allocator_INDI.aircraft.controlEffectMatrix[1][1]= -_L_1*_k/_I_y;
+		Allocator_INDI.aircraft.controlEffectMatrix[1][3]= _L_1*_k/_I_y;
+		Allocator_INDI.aircraft.controlEffectMatrix[2][0]= _L_2*_k/_I_z;
+		Allocator_INDI.aircraft.controlEffectMatrix[2][1]= _L_2*_k/_I_z;
+		Allocator_INDI.aircraft.controlEffectMatrix[2][2]= _L_2*_k/_I_z;
+		Allocator_INDI.aircraft.controlEffectMatrix[2][3]= _L_2*_k/_I_z;
+		Allocator_INDI.isupdate = true; // set to true, so that the next time we call Allocator_INDI.Update(), it will update the B matrix and B_inv matrix.
 
-	_B[0][0]= -_L_1*_k/_I_x;
-	_B[0][2]= _L_1*_k/_I_x;
-	_B[1][1]= -_L_1*_k/_I_y;
-	_B[1][3]= _L_1*_k/_I_y;
-	_B[2][0]= _L_2*_k/_I_z;
-	_B[2][1]= _L_2*_k/_I_z;
-	_B[2][2]= _L_2*_k/_I_z;
-	_B[2][3]= _L_2*_k/_I_z;
+		_B[0][0]= -_L_1*_k/_I_x;
+		_B[0][2]= _L_1*_k/_I_x;
+		_B[1][1]= -_L_1*_k/_I_y;
+		_B[1][3]= _L_1*_k/_I_y;
+		_B[2][0]= _L_2*_k/_I_z;
+		_B[2][1]= _L_2*_k/_I_z;
+		_B[2][2]= _L_2*_k/_I_z;
+		_B[2][3]= _L_2*_k/_I_z;
 
-	B_inv(0, 0)=-0.5f* _I_x/(_k*_L_1);
-	B_inv(0, 2)=0.25f* _I_z/(_k*_L_2);
+		for (int i = 0; i < 3; i++)
+		{
+			for(int j=0;j<4;j++)
+			{
+				_B_array[i+3*j] = _B[i][j];
+			}
+		}
 
-	B_inv(1, 1)=-0.5f* _I_y/(_k*_L_1);
-	B_inv(1, 2)=0.25f* _I_z/(_k*_L_2);
+		B_inv(0, 0)=-0.5f* _I_x/(_k*_L_1);
+		B_inv(0, 2)=0.25f* _I_z/(_k*_L_2);
 
-	B_inv(2, 0)=0.5f* _I_x/(_k*_L_1);
-	B_inv(2, 2)=0.25f* _I_z/(_k*_L_2);
+		B_inv(1, 1)=-0.5f* _I_y/(_k*_L_1);
+		B_inv(1, 2)=0.25f* _I_z/(_k*_L_2);
 
-	B_inv(3, 1)=0.5f* _I_y/(_k*_L_1);
-	B_inv(3, 2)=0.25f* _I_z/(_k*_L_2);
+		B_inv(2, 0)=0.5f* _I_x/(_k*_L_1);
+		B_inv(2, 2)=0.25f* _I_z/(_k*_L_2);
+
+		B_inv(3, 1)=0.5f* _I_y/(_k*_L_1);
+		B_inv(3, 2)=0.25f* _I_z/(_k*_L_2);
+	}
+
 
 
 	// update mixer if we have one
@@ -544,29 +596,7 @@ bool MixingOutput::update()
 	hrt_abstime timestamp_ca_start=hrt_absolute_time();
 	hrt_abstime timestamp_ca_end=hrt_absolute_time();
 	allocation_value_s allocation_value{};
-	// for test
-	if(_use_dist==1){
-		for (size_t i = 0; i < 4; i++)
-		{
-			_uMin[i] = lower+_dist_mag;
-			_uMax[i] = upper-_dist_mag;
-		}
-		for (int i = 0; i < 4; ++i) {
-			Allocator_INDI.aircraft.upperLimits[i] = _uMax[i];
-			Allocator_INDI.aircraft.lowerLimits[i] = _uMin[i];
-		}
 
-	}else{
-		for (size_t i = 0; i < 4; i++)
-		{
-			_uMin[i] = lower;
-			_uMax[i] = upper;
-		}
-		for (int i = 0; i < 4; ++i) {
-			Allocator_INDI.aircraft.upperLimits[i] = _uMax[i];
-			Allocator_INDI.aircraft.lowerLimits[i] = _uMin[i];
-		}
-	}
 
 	// // =====================run test for allocation running time===========================================
 	// float m_higher[3]={0.0,  0.0,  60.0f}; //
@@ -655,7 +685,14 @@ bool MixingOutput::update()
 			}
 			allocation_value.flag=1;
 		}
-		else{ //inv
+		else if(_alloc_method==3){
+			//=========================WLS_alloc_gen===========================
+			wls_alloc_gen(_B_array, _fb, _uMin, _uMax, _I3_array, _I4_array, _u_d, _gam, _u_wls, _W0, 100, 4);
+			for (size_t i = 0; i < 4; i++){
+				_u[i] = math::constrain((float) (_u_wls[i]), (float) (_uMin[i]), (float) (_uMax[i]));
+			}
+			allocation_value.flag=3;
+		}else{ //inv
 			// PX4_INFO("INDI inv");
 			matrix::Matrix<float, 3, 1> y_desire (_fb);
 			matrix::Matrix<float, 4, 1> u_inv = B_inv * y_desire;

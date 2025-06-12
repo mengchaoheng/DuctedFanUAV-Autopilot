@@ -47,11 +47,12 @@ param set-default USER_INDI_Y_P 10.0
 param set-default MPC_THR_HOVER 0.5
 param set-default RTL_RETURN_ALT 2.5
 param set-default RTL_DESCEND_ALT 2.5
-param set-default SDLOG_PROFILE  27
+param set-default SDLOG_PROFILE  25
 param set-default SDLOG_MODE  0
 
-param set-default USER_CS_CUTOFF  30
+param set-default USER_CS_CUTOFF  10
 param set-default IMU_GYRO_CUTOFF  0
+param set-default IMU_DGYRO_CUTOFF  10
 param set-default USER_PID_CA 0
 
 param set-default IMU_GYRO_RATEMAX  0

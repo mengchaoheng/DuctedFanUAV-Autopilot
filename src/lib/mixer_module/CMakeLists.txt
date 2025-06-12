@@ -31,4 +31,4 @@
 #
 ############################################################################
 
-px4_add_library(mixer_module mixer_module.cpp)
+px4_add_library(mixer_module mixer_module.cpp wls_alloc_gen.h wls_alloc_gen.cpp wls_alloc_gen_types.h wls_alloc_gen_types.h rtwtypes.h)
