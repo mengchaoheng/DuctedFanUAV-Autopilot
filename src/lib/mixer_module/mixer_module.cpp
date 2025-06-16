@@ -666,9 +666,7 @@ bool MixingOutput::update()
 		//=========================WLS_alloc_gen (generate by matlab)===========================
 		float u6[4];float gam = 1e6f; float W0[4]={0.0f, 0.0f, 0.0f, 0.0f};  float u_d[4] = {0.0f, 0.0f, 0.0f, 0.0f};
 		timestamp_ca_start = hrt_absolute_time();
-		wls_alloc_gen(_B_array, input, _uMin, _uMax, _I3_array, _I4_array,
-			u_d, gam, u6, W0,
-			100, 4);
+		wls_alloc_gen(_B_array, input, _uMin, _uMax, _I3_array, _I4_array, u_d, gam, u6, W0, 100, 4);
 		timestamp_ca_end = hrt_absolute_time();
 		_allocation_test_runing_time_us5=timestamp_ca_end - timestamp_ca_start;
 		// PX4_INFO("wls_alloc_gen: u1: %f, u2: %f, u3: %f, u4: %f. \n",(double) u6[0],(double) u6[1],(double) u6[2],(double) u6[3]);
