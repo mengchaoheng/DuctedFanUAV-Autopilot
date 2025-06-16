@@ -169,8 +169,8 @@ void MixingOutput::printStatus() const
 	PX4_INFO("allocation running time: %" PRIu64 "us \n", _allocation_runing_time_us);
 
 	PX4_INFO("allocator test running time: %" PRIu64 "us \n", _allocation_test_runing_time_us1);
-	PX4_INFO("DPscaled_LPCA test running time: %" PRIu64 "us \n", _allocation_test_runing_time_us2);
-	PX4_INFO("DP_LPCA test running time: %" PRIu64 "us \n", _allocation_test_runing_time_us3);
+	PX4_INFO("DP_LPCA test running time: %" PRIu64 "us \n", _allocation_test_runing_time_us2);
+	PX4_INFO("DPscaled_LPCA test running time: %" PRIu64 "us \n", _allocation_test_runing_time_us3);
 	PX4_INFO("DP_LPCA_prio test running time: %" PRIu64 "us \n", _allocation_test_runing_time_us4);
 	PX4_INFO("WLS test running time: %" PRIu64 "us \n", _allocation_test_runing_time_us5);
 
@@ -620,24 +620,24 @@ bool MixingOutput::update()
 		_allocation_test_runing_time_us1=timestamp_ca_end - timestamp_ca_start;
 		// PX4_INFO("allocateControl: u1: %f, u2: %f, u3: %f, u4: %f. \n",(double) u1[0],(double) u1[1],(double) u1[2],(double) u1[3]);
 		// PX4_INFO("allocateControl time: %lld \n", (timestamp_ca_end - timestamp_ca_start) ); //nuttx
-		//=========================DPscaled_LPCA============================INFO  [mixer_module] dir_alloc_sim time: 16
+		//========================DP_LPCA=============================
 		float u2[4];int err2=0;float rho2=0;float u2_tmp[4];
 		timestamp_ca_start = hrt_absolute_time();
-		Allocator_INDI.DPscaled_LPCA(input, u2_tmp, err2, rho2);
+		Allocator_INDI.DP_LPCA(input, u2_tmp, err2, rho2);
 		Allocator_INDI.restoring(u2_tmp,u2);
 		timestamp_ca_end = hrt_absolute_time();
 		_allocation_test_runing_time_us2=timestamp_ca_end - timestamp_ca_start;
-		// PX4_INFO("DPscaled_LPCA: u1: %f, u2: %f, u3: %f, u4: %f. \n",(double) u2[0],(double) u2[1],(double) u2[2],(double) u2[3]);
-		// PX4_INFO("DPscaled_LPCA time: %lld \n", (timestamp_ca_end - timestamp_ca_start) ); //nuttx
-		//========================DP_LPCA=============================
+		// PX4_INFO("DP_LPCA: u1: %f, u2: %f, u3: %f, u4: %f. \n",(double) u2[0],(double) u2[1],(double) u2[2],(double) u2[3]);
+		// PX4_INFO("DP_LPCA time: %lld \n", (timestamp_ca_end - timestamp_ca_start) ); //nuttx
+		//=========================DPscaled_LPCA============================INFO  [mixer_module] dir_alloc_sim time: 16
 		float u3[4];int err3=0;float rho3=0;float u3_tmp[4];
 		timestamp_ca_start = hrt_absolute_time();
-		Allocator_INDI.DP_LPCA(input, u3_tmp, err3, rho3);
+		Allocator_INDI.DPscaled_LPCA(input, u3_tmp, err3, rho3);
 		Allocator_INDI.restoring(u3_tmp,u3);
 		timestamp_ca_end = hrt_absolute_time();
 		_allocation_test_runing_time_us3=timestamp_ca_end - timestamp_ca_start;
-		// PX4_INFO("DP_LPCA: u1: %f, u2: %f, u3: %f, u4: %f. \n",(double) u3[0],(double) u3[1],(double) u3[2],(double) u3[3]);
-		// PX4_INFO("DP_LPCA time: %lld \n", (timestamp_ca_end - timestamp_ca_start) ); //nuttx
+		// PX4_INFO("DPscaled_LPCA: u1: %f, u2: %f, u3: %f, u4: %f. \n",(double) u3[0],(double) u3[1],(double) u3[2],(double) u3[3]);
+		// PX4_INFO("DPscaled_LPCA time: %lld \n", (timestamp_ca_end - timestamp_ca_start) ); //nuttx
 		//========================DP_LPCA_prio=============================
 		float u4[4];int err4=0;float rho4=0;float u4_tmp[4];
 		// float m_lower[3]={30.0f,  0.0f,   -0.0f};
@@ -680,7 +680,7 @@ bool MixingOutput::update()
 	// indi have to use allocator, since it use the model for control value. all this CA and INDI just for ductedfan4 since we have to set B.
 	// dt < _time_const  < epsilon^*=0.2 here. 实际上也需要大于一定值，因为噪声，这里下界是0.01，这与噪声和滤波器都有关。按照实际情况，kst0.15秒转60度，时间常数取0.03.. for CA in first order update
 	timestamp_ca_start = hrt_absolute_time();
-	if(_param_use_indi.get() == 1){
+	if(_use_indi == 1){
 		_fb[0] = _controls[0].control[actuator_controls_s::INDEX_ROLL];
 		_fb[1] = _controls[0].control[actuator_controls_s::INDEX_PITCH];
 		_fb[2] = _controls[0].control[actuator_controls_s::INDEX_YAW];
