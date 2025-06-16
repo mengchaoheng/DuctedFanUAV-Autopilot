@@ -163,9 +163,9 @@ void MixingOutput::printStatus() const
 	PX4_INFO("Switched to rate_ctrl work queue: %i", (int)_wq_switched);
 	PX4_INFO("Driver instance: %i", _driver_instance);
 	PX4_INFO("_mixing_output.setMaxTopicUpdateRate(update_interval_in_us) in pwmout, that is:");
-	PX4_INFO("_max_topic_update_interval_us of mixing: %i", _max_topic_update_interval_us);
+	PX4_INFO("_max_topic_update_interval_us of mixing: %i", _max_topic_update_interval_us);// 发布pwm周期，和pwm_out参数有关。
 
-	PX4_INFO("_sample_freq of mixing: %f", (double) _sample_freq);
+	PX4_INFO("_sample_freq of mixing: %f", (double) _sample_freq);//控制器控制频率，
 	PX4_INFO("allocation running time: %" PRIu64 "us \n", _allocation_runing_time_us);
 
 	PX4_INFO("allocator test running time: %" PRIu64 "us \n", _allocation_test_runing_time_us1);
