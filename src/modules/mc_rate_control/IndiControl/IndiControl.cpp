@@ -53,6 +53,7 @@ void IndiControl::setParams(const Vector3f &P, const float k)
 	_B(2, 1)=_L_2*_k/_I_z;
 	_B(2, 2)=_L_2*_k/_I_z;
 	_B(2, 3)=_L_2*_k/_I_z;
+	// PX4_INFO("INDI is updated");
 
 }
 

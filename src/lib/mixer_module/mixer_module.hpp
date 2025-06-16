@@ -360,9 +360,15 @@ private:
 	DP_LP_ControlAllocator<3, 4> Allocator_PID; // 创建一个控制分配器对象，用于具有 4 个操纵向量和 3 个广义力矩的飞行器(转化为线性规划问题，其维数和参数 <3, 4> 有关。)
 	// 然后可以使用飞行器对象和控制分配器对象进行操作
 
-	hrt_abstime _allocation_runing_time_ms{0};
+	hrt_abstime _allocation_runing_time_us{0};
+	hrt_abstime _allocation_test_runing_time_us1{0};
+	hrt_abstime _allocation_test_runing_time_us2{0};
+	hrt_abstime _allocation_test_runing_time_us3{0};
+	hrt_abstime _allocation_test_runing_time_us4{0};
+	hrt_abstime _allocation_test_runing_time_us5{0};
 	float first_order_update(float u, float u_pre, float T, float dt);
 	float _time_const{0.01f};
+	uint16_t _use_ac_test{0};
 	DEFINE_PARAMETERS(
 		(ParamInt<px4::params::MC_AIRMODE>) _param_mc_airmode,   ///< multicopter air-mode
 		(ParamFloat<px4::params::MOT_SLEW_MAX>) _param_mot_slew_max,
@@ -378,6 +384,7 @@ private:
 		(ParamFloat<px4::params::USER_DIST_MAG>) _param_dist_mag,
 		(ParamFloat<px4::params::USER_TIME_CONST>) _param_time_const,
 		(ParamInt<px4::params::USER_ACTUATOR>) _param_use_actuator,
-		(ParamFloat<px4::params::USER_OMEGA_2_F>) _param_k
+		(ParamFloat<px4::params::USER_OMEGA_2_F>) _param_k,
+		(ParamInt<px4::params::USER_AC_TEST>) _param_ac_test
 	)
 };

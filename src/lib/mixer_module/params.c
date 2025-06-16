@@ -63,6 +63,7 @@ PARAM_DEFINE_INT32(USER_DF_MID2, 1500);
  *
  * @value 0 use the default mix=inv
  * @value 1 use CA
+ * @reboot_required false
  * @group Mixer Output
  */
 PARAM_DEFINE_INT32(USER_PID_CA, 0);
@@ -75,6 +76,8 @@ PARAM_DEFINE_INT32(USER_PID_CA, 0);
  * @value 0 use inv
  * @value 1 use DIR
  * @value 2 use PCA
+ * @value 3 use WLS
+ * @reboot_required false
  * @group Mixer Output
  */
 PARAM_DEFINE_INT32(USER_AC_METHOD, 0);
@@ -86,6 +89,7 @@ PARAM_DEFINE_INT32(USER_AC_METHOD, 0);
  *
  * @value 0 not use
  * @value 1 use USE_DISTURB
+ * @reboot_required false
  * @group Mixer Output
  */
 PARAM_DEFINE_INT32(USER_ADD_DIST, 0);
@@ -101,7 +105,7 @@ PARAM_DEFINE_INT32(USER_ADD_DIST, 0);
 * @min 0
 * @max 1000
 * @unit Hz
-* @reboot_required true
+* @reboot_required false
 * @group Mixer Output
 */
 PARAM_DEFINE_FLOAT(USER_CS_CUTOFF, 10.0f);
@@ -139,6 +143,19 @@ PARAM_DEFINE_FLOAT(USER_TIME_CONST, 0.03f);
  *
  * @value 0 not use  ACTUATOR simulate
  * @value 1 use ACTUATOR simulate by first_order_update
+ * @reboot_required false
  * @group Mixer Output
  */
 PARAM_DEFINE_INT32(USER_ACTUATOR, 0);
+
+/**
+ * USER_AC_TEST
+ *
+ * running test or not.
+ *
+ * @value 0 not running test
+ * @value 1 running test
+ * @reboot_required false
+ * @group Mixer Output
+ */
+PARAM_DEFINE_INT32(USER_AC_TEST, 0);

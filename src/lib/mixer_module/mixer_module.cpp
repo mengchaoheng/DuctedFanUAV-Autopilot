@@ -166,7 +166,13 @@ void MixingOutput::printStatus() const
 	PX4_INFO("_max_topic_update_interval_us of mixing: %i", _max_topic_update_interval_us);
 
 	PX4_INFO("_sample_freq of mixing: %f", (double) _sample_freq);
-	PX4_INFO("allocation running time: %" PRIu64 "ms \n", _allocation_runing_time_ms);
+	PX4_INFO("allocation running time: %" PRIu64 "us \n", _allocation_runing_time_us);
+
+	PX4_INFO("allocator test running time: %" PRIu64 "us \n", _allocation_test_runing_time_us1);
+	PX4_INFO("DPscaled_LPCA test running time: %" PRIu64 "us \n", _allocation_test_runing_time_us2);
+	PX4_INFO("DP_LPCA test running time: %" PRIu64 "us \n", _allocation_test_runing_time_us3);
+	PX4_INFO("DP_LPCA_prio test running time: %" PRIu64 "us \n", _allocation_test_runing_time_us4);
+	PX4_INFO("WLS test running time: %" PRIu64 "us \n", _allocation_test_runing_time_us5);
 
 	PX4_INFO("Channel Configuration:");
 
@@ -199,7 +205,8 @@ void MixingOutput::updateParams()
 	_use_indi = _param_use_indi.get();
 	_use_alloc = _param_use_alloc.get();
 	_alloc_method = _param_alloc_method.get();
-	int tmp=_param_use_dist.get();
+	_use_ac_test = _param_ac_test.get();
+	bool tmp=(bool) _param_use_dist.get();
 	if(_use_dist!=tmp)
 	{
 		_use_dist = tmp;
@@ -597,58 +604,86 @@ bool MixingOutput::update()
 	hrt_abstime timestamp_ca_end=hrt_absolute_time();
 	allocation_value_s allocation_value{};
 
+	if(_use_ac_test==1){
+		// PX4_INFO("INDI test");
+		// =====================run test for allocation running time===========================================
+		float m_higher[3]={0.0,  0.0,  30.0f}; //
+		float m_lower[3]={20.0f,  10.0f,   0.0f};
+		float input[3]={m_lower[0]+m_higher[0],  m_lower[1]+m_higher[1],   m_lower[2]+m_higher[2]};
+		//==========================allocateControl===========================
+		float u1[4]; int err1=0;
+		timestamp_ca_start = hrt_absolute_time();
+		Allocator_INDI.allocateControl(input, u1, err1);
+		timestamp_ca_end = hrt_absolute_time();
+		_allocation_test_runing_time_us1=timestamp_ca_end - timestamp_ca_start;
+		// PX4_INFO("allocateControl: u1: %f, u2: %f, u3: %f, u4: %f. \n",(double) u1[0],(double) u1[1],(double) u1[2],(double) u1[3]);
+		// PX4_INFO("allocateControl time: %lld \n", (timestamp_ca_end - timestamp_ca_start) ); //nuttx
+		//=========================DPscaled_LPCA============================INFO  [mixer_module] dir_alloc_sim time: 16
+		float u2[4];int err2=0;float rho2=0;float u2_tmp[4];
+		timestamp_ca_start = hrt_absolute_time();
+		Allocator_INDI.DPscaled_LPCA(input, u2_tmp, err2, rho2);
+		Allocator_INDI.restoring(u2_tmp,u2);
+		timestamp_ca_end = hrt_absolute_time();
+		_allocation_test_runing_time_us2=timestamp_ca_end - timestamp_ca_start;
+		// PX4_INFO("DPscaled_LPCA: u1: %f, u2: %f, u3: %f, u4: %f. \n",(double) u2[0],(double) u2[1],(double) u2[2],(double) u2[3]);
+		// PX4_INFO("DPscaled_LPCA time: %lld \n", (timestamp_ca_end - timestamp_ca_start) ); //nuttx
+		//========================DP_LPCA=============================
+		float u3[4];int err3=0;float rho3=0;float u3_tmp[4];
+		timestamp_ca_start = hrt_absolute_time();
+		Allocator_INDI.DP_LPCA(input, u3_tmp, err3, rho3);
+		Allocator_INDI.restoring(u3_tmp,u3);
+		timestamp_ca_end = hrt_absolute_time();
+		_allocation_test_runing_time_us3=timestamp_ca_end - timestamp_ca_start;
+		// PX4_INFO("DP_LPCA: u1: %f, u2: %f, u3: %f, u4: %f. \n",(double) u3[0],(double) u3[1],(double) u3[2],(double) u3[3]);
+		// PX4_INFO("DP_LPCA time: %lld \n", (timestamp_ca_end - timestamp_ca_start) ); //nuttx
+		//========================DP_LPCA_prio=============================
+		float u4[4];int err4=0;float rho4=0;float u4_tmp[4];
+		// float m_lower[3]={30.0f,  0.0f,   -0.0f};
+		int err41=0;float rho41=0;float u4_tmp1[4]; float m_tmp[3]={0.0,  0.0,  0.0f};
+		timestamp_ca_start = hrt_absolute_time();
+		Allocator_INDI.DP_LPCA_copy(m_higher,m_lower, u4_tmp, err4, rho4);
+		if (err4<0){
+			Allocator_INDI.DP_LPCA_copy(m_tmp,m_higher, u4_tmp1, err41, rho41);// or (m_tmp,input, u4_tmp1, err41, rho41);
+			Allocator_INDI.restoring(u4_tmp1,u4);
+		}else{
+			Allocator_INDI.restoring(u4_tmp,u4);
+		}
+		timestamp_ca_end = hrt_absolute_time();
+		_allocation_test_runing_time_us4=timestamp_ca_end - timestamp_ca_start;
+		// PX4_INFO("DP_LPCA_prio: u1: %f, u2: %f, u3: %f, u4: %f. \n",(double) u4[0],(double) u4[1],(double) u4[2],(double) u4[3]);
+		// PX4_INFO("DP_LPCA_prio time: %lld \n", (timestamp_ca_end - timestamp_ca_start) ); //nuttx
+		// //========================allocator_dir_LPwrap_4 (generate by matlab) =============================
+		// float u5[4]={ 0.0,  0.0,   0.0,   0.0};
+		// float z_allocator_dir_LPwrap_4= 0.0;
+		// unsigned int iters_allocator_dir_LPwrap_4= 0;
+		// timestamp_ca_start = hrt_absolute_time();
+		// allocator_dir_LPwrap_4(_B_array, input, _uMin, _uMax, u5, &z_allocator_dir_LPwrap_4, &iters_allocator_dir_LPwrap_4); // allocator_dir_LPwrap_4 execution time: 7.08e-07s
+		// timestamp_ca_end = hrt_absolute_time();
+		// PX4_INFO("allocator_dir_LPwrap_4: u1: %f, u2: %f, u3: %f, u4: %f. \n",(double) u5[0],(double) u5[1],(double) u5[2],(double) u5[3]);
+		// PX4_INFO("allocator_dir_LPwrap_4 time: %lld \n", (timestamp_ca_end - timestamp_ca_start) ); //nuttx
+		//=========================WLS_alloc_gen (generate by matlab)===========================
+		float u6[4];float gam = 1e6f; float W0[4]={0.0f, 0.0f, 0.0f, 0.0f};  float u_d[4] = {0.0f, 0.0f, 0.0f, 0.0f};
+		timestamp_ca_start = hrt_absolute_time();
+		wls_alloc_gen(_B_array, input, _uMin, _uMax, _I3_array, _I4_array,
+			u_d, gam, u6, W0,
+			100, 4);
+		timestamp_ca_end = hrt_absolute_time();
+		_allocation_test_runing_time_us5=timestamp_ca_end - timestamp_ca_start;
+		// PX4_INFO("wls_alloc_gen: u1: %f, u2: %f, u3: %f, u4: %f. \n",(double) u6[0],(double) u6[1],(double) u6[2],(double) u6[3]);
+		// PX4_INFO("wls_alloc_gen time: %lld \n", (timestamp_ca_end - timestamp_ca_start) ); //nuttx
 
-	// // =====================run test for allocation running time===========================================
-	// float m_higher[3]={0.0,  0.0,  60.0f}; //
-	// float m_lower[3]={20.0f,  10.0f,   0.0f};
-	// float input[3]={m_lower[0]+m_higher[0],  m_lower[1]+m_higher[1],   m_lower[2]+m_higher[2]};
-	// //==========================allocateControl===========================
-	// float u1[4]; int err1=0;
-	// timestamp_ca_start = hrt_absolute_time();
-	// Allocator_INDI.allocateControl(input, u1, err1);
-	// timestamp_ca_end = hrt_absolute_time();
-	// PX4_INFO("allocateControl: u1: %f, u2: %f, u3: %f, u4: %f. \n",(double) u1[0],(double) u1[1],(double) u1[2],(double) u1[3]);
-	// PX4_INFO("allocateControl time: %lld \n", (timestamp_ca_end - timestamp_ca_start) ); //nuttx
-	// //=========================DPscaled_LPCA============================INFO  [mixer_module] dir_alloc_sim time: 16
-	// float u2[4];int err2=0;float rho2=0;float u2_tmp[4];
-	// timestamp_ca_start = hrt_absolute_time();
-	// Allocator_INDI.DPscaled_LPCA(input, u2_tmp, err2, rho2);
-	// Allocator_INDI.restoring(u2_tmp,u2);
-	// timestamp_ca_end = hrt_absolute_time();
-	// PX4_INFO("DPscaled_LPCA: u1: %f, u2: %f, u3: %f, u4: %f. \n",(double) u2[0],(double) u2[1],(double) u2[2],(double) u2[3]);
-	// PX4_INFO("DPscaled_LPCA time: %lld \n", (timestamp_ca_end - timestamp_ca_start) ); //nuttx
-	// //========================DP_LPCA=============================
-	// float u3[4];int err3=0;float rho3=0;float u3_tmp[4];
-	// timestamp_ca_start = hrt_absolute_time();
-	// Allocator_INDI.DP_LPCA(input, u3_tmp, err3, rho3);
-	// Allocator_INDI.restoring(u3_tmp,u3);
-	// timestamp_ca_end = hrt_absolute_time();
-	// PX4_INFO("DP_LPCA: u1: %f, u2: %f, u3: %f, u4: %f. \n",(double) u3[0],(double) u3[1],(double) u3[2],(double) u3[3]);
-	// PX4_INFO("DP_LPCA time: %lld \n", (timestamp_ca_end - timestamp_ca_start) ); //nuttx
-	// //========================DP_LPCA_prio=============================
-	// float u4[4];int err4=0;float rho4=0;float u4_tmp[4];
-	// // float m_lower[3]={30.0f,  0.0f,   -0.0f};
-        // float u5[4];int err5=0;float rho5=0;float u5_tmp[4]; float m_tmp[3]={0.0,  0.0,  0.0f};
-	// timestamp_ca_start = hrt_absolute_time();
-        // Allocator_INDI.DP_LPCA_copy(m_higher,m_lower, u4_tmp, err4, rho4);
-        // if (err4<0){
-        //     Allocator_INDI.DP_LPCA_copy(m_tmp,m_higher, u5_tmp, err5, rho5);
-        //     Allocator_INDI.restoring(u5_tmp,u4);
-        // }else{
-        //     Allocator_INDI.restoring(u4_tmp,u4);
-        // }
-	// timestamp_ca_end = hrt_absolute_time();
-	// PX4_INFO("DP_LPCA_prio: u1: %f, u2: %f, u3: %f, u4: %f. \n",(double) u4[0],(double) u4[1],(double) u4[2],(double) u4[3]);
-	// PX4_INFO("DP_LPCA_prio time: %lld \n", (timestamp_ca_end - timestamp_ca_start) ); //nuttx
-
+		_use_ac_test=0;
+	}
 
 	// indi have to use allocator, since it use the model for control value. all this CA and INDI just for ductedfan4 since we have to set B.
 	// dt < _time_const  < epsilon^*=0.2 here. 实际上也需要大于一定值，因为噪声，这里下界是0.01，这与噪声和滤波器都有关。按照实际情况，kst0.15秒转60度，时间常数取0.03.. for CA in first order update
-	if(_use_indi == 1){
+	timestamp_ca_start = hrt_absolute_time();
+	if(_param_use_indi.get() == 1){
 		_fb[0] = _controls[0].control[actuator_controls_s::INDEX_ROLL];
 		_fb[1] = _controls[0].control[actuator_controls_s::INDEX_PITCH];
 		_fb[2] = _controls[0].control[actuator_controls_s::INDEX_YAW];
 		if (_alloc_method==2){
+			// PX4_INFO("INDI pca");
 			_indi_fb[0] = _controls[0].indi_fb[actuator_controls_s::INDEX_ROLL];
 			_indi_fb[1] = _controls[0].indi_fb[actuator_controls_s::INDEX_PITCH];
 			_indi_fb[2] = _controls[0].indi_fb[actuator_controls_s::INDEX_YAW];
@@ -687,6 +722,7 @@ bool MixingOutput::update()
 		}
 		else if(_alloc_method==3){
 			//=========================WLS_alloc_gen===========================
+			// PX4_INFO("INDI wls");
 			float u_wls[4];float gam = 1e6f; float W0[4]={0.0f, 0.0f, 0.0f, 0.0f};  float u_d[4] = {0.0f, 0.0f, 0.0f, 0.0f};
 			wls_alloc_gen(_B_array, _fb, _uMin, _uMax, _I3_array, _I4_array, u_d, gam, u_wls, W0, 100, 4);
 			for (size_t i = 0; i < 4; i++){
@@ -815,9 +851,9 @@ bool MixingOutput::update()
 	}
 	timestamp_ca_end = hrt_absolute_time();
 	// PX4_INFO("alloc time: %lld \n", (timestamp_ca_end - timestamp_ca_start) ); //nuttx
-	_allocation_runing_time_ms = (timestamp_ca_end - timestamp_ca_start); //us
+	_allocation_runing_time_us = (timestamp_ca_end - timestamp_ca_start); //us
 	allocation_value.timestamp = timestamp_ca_end;
-	allocation_value.timestamp_sample=_allocation_runing_time_ms;
+	allocation_value.timestamp_sample=_allocation_runing_time_us;
 	_allocation_value_pub.publish(allocation_value);
 
 	/* the output limit call takes care of out of band errors, NaN and constrains */ // [-1, 1] -> [min_rad, max_rad] == [min_pwm, max_pwm]
