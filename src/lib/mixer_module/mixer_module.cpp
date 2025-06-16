@@ -209,6 +209,7 @@ void MixingOutput::updateParams()
 	bool tmp=(bool) _param_use_dist.get();
 	if(_use_dist!=tmp)
 	{
+		// PX4_INFO("using dist");
 		_use_dist = tmp;
 		if(_use_dist)
 		{
@@ -243,6 +244,7 @@ void MixingOutput::updateParams()
 	//uopdate Allocator_INDI _B  B_inv
 	float tmp_k=_param_k.get();
 	if(_k != tmp_k){
+		// PX4_INFO("update model");
 		_k = tmp_k;
 		Allocator_INDI.aircraft.controlEffectMatrix[0][0]= -_L_1*_k/_I_x;
 		Allocator_INDI.aircraft.controlEffectMatrix[0][2]= _L_1*_k/_I_x;
