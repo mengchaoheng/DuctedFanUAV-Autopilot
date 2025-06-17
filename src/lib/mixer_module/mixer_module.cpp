@@ -112,6 +112,7 @@ Allocator_PID(df_4_PID)
 		for(int j=0;j<4;j++)
 		{
 			_B_array[i+3*j] = _B[i][j];
+			_B_PID_array[i+3*j] = _B_PID[i][j];
 		}
 	}
 	// B^{\dagger}=P^{\dagger} K^{-1}=[-0.5000   -0.0000    0.2500;0   -0.5000    0.2500;0.5000   -0.0000    0.2500;0    0.5000    0.2500]*diag([ I_x/(k*l1)  I_y/(k*l1)  I_z/(k*l2)  ])
@@ -682,7 +683,7 @@ bool MixingOutput::update()
 		_fb[0] = _controls[0].control[actuator_controls_s::INDEX_ROLL];
 		_fb[1] = _controls[0].control[actuator_controls_s::INDEX_PITCH];
 		_fb[2] = _controls[0].control[actuator_controls_s::INDEX_YAW];
-		if (_alloc_method==2){
+		if (_alloc_method==3){ // pca
 			// PX4_INFO("INDI pca");
 			_indi_fb[0] = _controls[0].indi_fb[actuator_controls_s::INDEX_ROLL];
 			_indi_fb[1] = _controls[0].indi_fb[actuator_controls_s::INDEX_PITCH];
@@ -696,17 +697,17 @@ bool MixingOutput::update()
 			if (err_flag_1<0){
 			    Allocator_INDI.DP_LPCA_copy(m_zero,_indi_fb, u_pca_tmp_2, err_flag_2, rho_2);
 			    Allocator_INDI.restoring(u_pca_tmp_2,u_pca);
-			    allocation_value.flag=3;
+			    allocation_value.flag=4;
 			}else{
 			    Allocator_INDI.restoring(u_pca_tmp_1,u_pca);
-			    allocation_value.flag=2;
+			    allocation_value.flag=3;
 			}
 			for (size_t i = 0; i < 4; i++){
 				_u[i] = math::constrain((float) (u_pca[i]), (float) (_uMin[i]), (float) (_uMax[i]));
 			}
 
 		}
-		else if(_alloc_method==1){  // dir
+		else if(_alloc_method==2){  // dir
 			// PX4_INFO("INDI dir");
 			float u_dir[4];int err_flag=0;float rho=0;float u_dir_tmp[4];float m_zero[3]={0.0,  0.0,  0.0f};
 			Allocator_INDI.DP_LPCA_copy(m_zero, _fb, u_dir_tmp, err_flag, rho); //error,
@@ -718,18 +719,19 @@ bool MixingOutput::update()
 			for (size_t i = 0; i < 4; i++){
 				_u[i] = math::constrain((float) (u_dir[i]), (float) (_uMin[i]), (float) (_uMax[i]));
 			}
-			allocation_value.flag=1;
+			allocation_value.flag=2;
 		}
-		else if(_alloc_method==3){
+		else if(_alloc_method==1){ //wls
 			//=========================WLS_alloc_gen===========================
+			// Strictly speaking, restoring is not necessary because WLS itself guarantees the minimum norm.
 			// PX4_INFO("INDI wls");
 			float u_wls[4];float gam = 1e6f; float W0[4]={0.0f, 0.0f, 0.0f, 0.0f};  float u_d[4] = {0.0f, 0.0f, 0.0f, 0.0f};
 			wls_alloc_gen(_B_array, _fb, _uMin, _uMax, _I3_array, _I4_array, u_d, gam, u_wls, W0, 100, 4);
 			for (size_t i = 0; i < 4; i++){
 				_u[i] = math::constrain((float) (u_wls[i]), (float) (_uMin[i]), (float) (_uMax[i]));
 			}
-			allocation_value.flag=3;
-		}else{ //inv
+			allocation_value.flag=1;
+		}else{ //0 inv
 			// PX4_INFO("INDI inv");
 			matrix::Matrix<float, 3, 1> y_desire (_fb);
 			matrix::Matrix<float, 4, 1> u_inv = B_inv * y_desire;
@@ -786,7 +788,7 @@ bool MixingOutput::update()
 			_fb[0] = math::constrain(_controls[0].control[actuator_controls_s::INDEX_ROLL], -1.f, 1.f);
 			_fb[1] = math::constrain(_controls[0].control[actuator_controls_s::INDEX_PITCH], -1.f, 1.f);
 			_fb[2] = math::constrain(_controls[0].control[actuator_controls_s::INDEX_YAW], -1.f, 1.f);
-			if (_alloc_method==1 || _alloc_method==2){ //
+			if (_alloc_method==2 || _alloc_method==3){ // dir or pca
 				float u_all[4];
 				int err = 0;
 				float rho;
@@ -800,10 +802,18 @@ bool MixingOutput::update()
 				for (size_t i = 0; i < 4; i++){
 					_u[i] =  math::constrain( u_all[i], _uMin_PID[i], _uMax_PID[i]);
 				}
-				allocation_value.flag=1;
+				allocation_value.flag=2;
 				// PX4_INFO("PID PCA 1 == INV since higher is zro");
 			}
-			else{ //inv
+			else if(_alloc_method==1){ // wls
+				// PX4_INFO("PID wls");
+				float u_wls[4];float gam = 1e6f; float W0[4]={0.0f, 0.0f, 0.0f, 0.0f};  float u_d[4] = {0.0f, 0.0f, 0.0f, 0.0f};
+				wls_alloc_gen(_B_PID_array, _fb, _uMin_PID, _uMax_PID, _I3_array, _I4_array, u_d, gam, u_wls, W0, 100, 4);
+				for (size_t i = 0; i < 4; i++){
+					_u[i] = math::constrain((float) (u_wls[i]), (float) (_uMin_PID[i]), (float) (_uMax_PID[i]));
+				}
+				allocation_value.flag=1;
+			}else{ // inv
 				// PX4_INFO("PID inv");
 				matrix::Matrix<float, 3, 1> y_desire (_fb);
 				matrix::Matrix<float, 4, 1> u_inv = B_inv_PID * y_desire;

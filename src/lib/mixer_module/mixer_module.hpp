@@ -352,6 +352,7 @@ private:
 	// for PX4 PID controller, k=1, I_x=1, I_y=1, I_z=1
 	matrix::Matrix<float, 4, 3> B_inv_PID;
 	const float _B_PID[3][4] = { {-0.5,0.0,0.5,0.0}, {0.0,-0.5,0.0,0.5},{0.25,0.25,0.25,0.25}};
+	float _B_PID_array[12];
 	float lower_PID{-1.0f};
     	float upper_PID{1.0f};
 	float _uMin_PID[4] {};

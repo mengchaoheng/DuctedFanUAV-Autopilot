@@ -79,6 +79,8 @@ MulticopterRateControl::parameters_updated()
 	// to the ideal (K * [1 + 1/sTi + sTd]) form
 	// const Vector3f torque_convert_acc=Vector3f(0.3491f*92.4509f, 0.3491f*92.1649f, 0.3491f*186.9643f); // 92.4509f since B_inv, 0.3491f since unit (outputs[i+4] = (_u[i])/0.3491f;).
 	//0.3491*92.4509*0.4=12.9 = _param_mc_indiroll_p
+
+	// for example, for default PID, control=_param_mc_indiroll_p*error= B'*delta' = 92.4509\B*delta/0.3491=92.4509\INDI_control/0.3491, where B*delta=INDI_control. such that, INDI_P=_param_mc_indiroll_p*0.3491f*92.4509f
 	const Vector3f rate_k = Vector3f(_param_mc_rollrate_k.get(), _param_mc_pitchrate_k.get(), _param_mc_yawrate_k.get());
 
 	_indi_control.setParams(Vector3f(_param_mc_indiroll_p.get(), _param_mc_indipitch_p.get(), _param_mc_indiyaw_p.get()),  _param_omega_2_force.get());
