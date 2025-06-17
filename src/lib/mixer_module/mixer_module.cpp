@@ -818,7 +818,7 @@ bool MixingOutput::update()
 			_last_u[i] = _u_real[i]; // save last u for first order update
 		}
 
-
+		// // 两个标志位共同使能，要使遥控器控制，参数必须使用默认值。这里，遥控器和参数都是各自更新的。
 		if(_use_dist==1 || _rc_dist_flag){
 			outputs[0+4] = (_u_real[0]+_dist_mag)/0.3491f;
 			outputs[1+4] = (_u_real[1]+_dist_mag)/0.3491f;

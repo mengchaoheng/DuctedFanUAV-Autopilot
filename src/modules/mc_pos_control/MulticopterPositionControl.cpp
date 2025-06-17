@@ -481,6 +481,7 @@ void MulticopterPositionControl::Run()
 
 			// for sitl  yaw step
 			// 自动触发逻辑控制入口
+			// 两个标志位共同使能，要使遥控器控制，参数必须使用默认值。
 			if (_param_user_add_ref.get() == 1 || _rc_step_flag) {
 
 				// === 当前是否要启动 step 测试 ===

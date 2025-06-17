@@ -269,6 +269,7 @@ MulticopterRateControl::Run()
 			_actuator_outputs_value_sub.update(&_actuator_outputs_value);
 			float indi_dt=0.0f;
 			// run rate controller
+			// 两个标志位共同使能，要使遥控器控制，参数必须使用默认值。
 			if (_use_indi == 1 || _rc_indi_flag)// ang_acc, have to be use with AC
 			{
 				const hrt_abstime now_temp = hrt_absolute_time();
