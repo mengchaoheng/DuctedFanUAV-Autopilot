@@ -265,6 +265,25 @@ void MulticopterPositionControl::Run()
 	perf_begin(_cycle_perf);
 	vehicle_local_position_s local_pos;
 
+	// rc detection
+	// channels[6]:  -0.808163	0.008163	0.865306	=
+	// channels[8]:  -0.812		0.0.028         0.868		=servo disturb
+	// channels[9]:  -0.812		0.0.028         0.868		=yaw step
+	// channels[12]: -1		-1              1		=
+	if (_rc_channels_sub.update(&_rc_channels))
+	{
+		if (_rc_channels.channels[9] < 0.5f)
+		{
+			_rc_step_flag = false;
+			// PX4_INFO("no step !");
+		}
+		else
+		{
+			_rc_step_flag = true;
+			// PX4_INFO("step !");
+		}
+	}
+
 	if (_local_pos_sub.update(&local_pos)) {
 		const hrt_abstime time_stamp_now = local_pos.timestamp;
 		const float dt = math::constrain(((time_stamp_now - _time_stamp_last_loop) * 1e-6f), 0.002f, 0.04f);
@@ -457,9 +476,9 @@ void MulticopterPositionControl::Run()
 			_control.getAttitudeSetpoint(attitude_setpoint);
 			attitude_setpoint.timestamp = hrt_absolute_time();
 
-			// for sitl roll/pitch step
+			// for sitl  yaw step
 			// 自动触发逻辑控制入口
-			if (_param_user_add_ref.get() == 1) {
+			if (_param_user_add_ref.get() == 1 || _rc_step_flag) {
 
 				// === 当前是否要启动 step 测试 ===
 				if (!_step_active && !_step_waiting_for_next && _step_repeat_counter < _param_test_time.get()) {
@@ -573,6 +592,20 @@ void MulticopterPositionControl::Run()
 			else {
 				if (_step_active || _step_waiting_for_next || _use_step_ref || _step_repeat_counter > 0) {
 					PX4_INFO("STEP test interrupted: param disabled or aborted at cycle #%d", _step_repeat_counter);
+					// === 中断后强制切换回 POSCTL 模式 ===
+					vehicle_command_s cmd{};
+					cmd.timestamp = hrt_absolute_time();
+					cmd.param1 = 1.0f;
+					cmd.param2 = PX4_CUSTOM_MAIN_MODE_POSCTL;
+					cmd.command = vehicle_command_s::VEHICLE_CMD_DO_SET_MODE;
+					cmd.target_system = 1;
+					cmd.target_component = 1;
+					cmd.source_system = 1;
+					cmd.source_component = 1;
+					cmd.from_external = false;
+
+					_vehicle_command_pub.publish(cmd);
+					PX4_INFO("STEP test interrupted: switched back to POSCTL mode.");
 				}
 				// 参数关闭或结束：重置
 				_use_step_ref = false;

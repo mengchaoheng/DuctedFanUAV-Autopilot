@@ -64,7 +64,7 @@
 #include <uORB/topics/vehicle_land_detected.h>
 #include <uORB/topics/vehicle_local_position.h>
 #include <uORB/topics/vehicle_local_position_setpoint.h>
-// #include <uORB/topics/rc_channels.h>
+#include <uORB/topics/rc_channels.h>
 #include <uORB/topics/vehicle_command.h>
 #include <uORB/topics/vehicle_status.h>
 #include <commander/px4_custom_mode.h>
@@ -138,6 +138,11 @@ private:
 	float _cycle_time;
 	float _step_roll_amp;
 	float _step_pitch_amp;
+
+	uORB::Subscription _rc_channels_sub{ORB_ID(rc_channels)};
+	rc_channels_s		_rc_channels{};
+	bool _rc_step_flag{false};
+
 
 	// --- 用于飞行模式切换记录与控制 ---
 	uORB::Publication<vehicle_command_s> _vehicle_command_pub{ORB_ID(vehicle_command)};

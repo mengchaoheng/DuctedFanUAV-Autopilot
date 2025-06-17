@@ -53,7 +53,7 @@
 #include <uORB/topics/multirotor_motor_limits.h>
 #include <uORB/topics/parameter_update.h>
 #include <uORB/topics/test_motor.h>
-// #include <uORB/topics/rc_channels.h>
+#include <uORB/topics/rc_channels.h>
 #include <lib/mathlib/math/Limits.hpp>
 #include <lib/matrix/matrix/math.hpp>
 #include <mathlib/math/filter/LowPassFilter2p.hpp>
@@ -306,6 +306,11 @@ private:
 	bool _use_alloc{false};
 	uint16_t _alloc_method{0};
 	bool _use_dist{false};
+	bool _pre_rc_dist_flag{false};
+	uORB::Subscription _rc_channels_sub{ORB_ID(rc_channels)};
+	rc_channels_s		_rc_channels{};
+	bool _rc_dist_flag{false};
+
 	float _dist_mag{0.0f};
 	float pert_to_cs{0.0f};
 	float _uMin[4] {};

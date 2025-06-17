@@ -210,7 +210,6 @@ void MixingOutput::updateParams()
 	bool tmp=(bool) _param_use_dist.get();
 	if(_use_dist!=tmp)
 	{
-		// PX4_INFO("using dist");
 		_use_dist = tmp;
 		if(_use_dist)
 		{
@@ -224,6 +223,7 @@ void MixingOutput::updateParams()
 				Allocator_INDI.aircraft.lowerLimits[i] = _uMin[i];
 				Allocator_INDI.isupdate = true;
 			}
+			// PX4_INFO("using dist");
 		}
 		else
 		{
@@ -600,6 +600,57 @@ bool MixingOutput::update()
 	float outputs[MAX_ACTUATORS] {};
 	const unsigned mixed_num_outputs = _mixers->mix(outputs, _max_num_outputs);
 
+	// rc detection
+	// channels[6]:  -0.808163	0.008163	0.865306	=
+	// channels[8]:  -0.812		0.0.028         0.868		=servo disturb
+	// channels[9]:  -0.812		0.0.028         0.868		=yaw step
+	// channels[12]: -1		-1              1		=
+	if (_rc_channels_sub.update(&_rc_channels))
+	{
+		if (_rc_channels.channels[8] < 0.5f)
+		{
+			_rc_dist_flag = false;
+			// PX4_INFO("no dist !");
+		}
+		else
+		{
+			_rc_dist_flag = true;
+			// PX4_INFO("dist !");
+		}
+	}
+	if(_pre_rc_dist_flag!=_rc_dist_flag)
+	{
+		_pre_rc_dist_flag = _rc_dist_flag;
+		if(_rc_dist_flag)
+		{
+			for (size_t i = 0; i < 4; i++)
+			{
+				_uMin[i] = lower+_dist_mag;
+				_uMax[i] = upper-_dist_mag;
+			}
+			for (int i = 0; i < 4; ++i) {
+				Allocator_INDI.aircraft.upperLimits[i] = _uMax[i];
+				Allocator_INDI.aircraft.lowerLimits[i] = _uMin[i];
+				Allocator_INDI.isupdate = true;
+			}
+			PX4_INFO("model update !");
+		}
+		else
+		{
+			for (size_t i = 0; i < 4; i++)
+			{
+				_uMin[i] = lower;
+				_uMax[i] = upper;
+			}
+			for (int i = 0; i < 4; ++i) {
+				Allocator_INDI.aircraft.upperLimits[i] = _uMax[i];
+				Allocator_INDI.aircraft.lowerLimits[i] = _uMin[i];
+				Allocator_INDI.isupdate = true;
+			}
+			PX4_INFO("model recover !");
+		}
+
+	}
 	// // "outputs" is the value alfter mix, range from [-1, 1]. _current_output_value is pwm value alfter output_limit_calc.
 	// // just using in ductedfan
 	// // PX4_INFO("dir_alloc_sim:\n");
@@ -765,7 +816,7 @@ bool MixingOutput::update()
 		}
 
 
-		if(_use_dist==1){
+		if(_use_dist==1 || _rc_dist_flag){
 			outputs[0+4] = (_u_real[0]+_dist_mag)/0.3491f;
 			outputs[1+4] = (_u_real[1]+_dist_mag)/0.3491f;
 			outputs[2+4] = (_u_real[2]-_dist_mag)/0.3491f;
