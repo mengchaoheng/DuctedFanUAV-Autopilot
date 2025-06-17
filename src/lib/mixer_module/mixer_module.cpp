@@ -607,7 +607,7 @@ bool MixingOutput::update()
 	// channels[12]: -1		-1              1		=
 	if (_rc_channels_sub.update(&_rc_channels))
 	{
-		if (_rc_channels.channels[8] < 0.5f)
+		if (_rc_channels.channels[8] < 0.f)
 		{
 			_rc_dist_flag = false;
 			// PX4_INFO("no dist !");

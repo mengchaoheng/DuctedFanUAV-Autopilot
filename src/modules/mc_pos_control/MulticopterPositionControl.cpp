@@ -272,7 +272,7 @@ void MulticopterPositionControl::Run()
 	// channels[12]: -1		-1              1		=
 	if (_rc_channels_sub.update(&_rc_channels))
 	{
-		if (_rc_channels.channels[9] < 0.5f)
+		if (_rc_channels.channels[9] < 0.f)
 		{
 			_rc_step_flag = false;
 			// PX4_INFO("no step !");
