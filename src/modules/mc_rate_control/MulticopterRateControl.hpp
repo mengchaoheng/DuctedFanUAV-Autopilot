@@ -61,7 +61,7 @@
 #include <uORB/topics/vehicle_land_detected.h>
 #include <uORB/topics/vehicle_rates_setpoint.h>
 #include <uORB/topics/vehicle_status.h>
-
+#include <uORB/topics/rc_channels.h>
 using namespace time_literals;
 
 class MulticopterRateControl : public ModuleBase<MulticopterRateControl>, public ModuleParams, public px4::WorkItem
@@ -123,6 +123,9 @@ private:
 	bool _use_indi{false};
 	bool _use_tau_i{true};
 	bool _use_u{true};
+	uORB::Subscription _rc_channels_sub{ORB_ID(rc_channels)};
+	rc_channels_s		_rc_channels{};
+	bool _rc_indi_flag{false};
 
 	float _battery_status_scale{0.0f};
 

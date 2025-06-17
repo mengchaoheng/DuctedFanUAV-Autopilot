@@ -266,13 +266,16 @@ void MulticopterPositionControl::Run()
 	vehicle_local_position_s local_pos;
 
 	// rc detection
-	// channels[6]:  -0.808163	0.008163	0.865306	=
-	// channels[8]:  -0.812		0.0.028         0.868		=servo disturb
-	// channels[9]:  -0.812		0.0.028         0.868		=yaw step
-	// channels[12]: -1		-1              1		=
+	// 上是-1
+	// channels[6]:  -1	0	1	= yaw step  // 7通道右上角
+	// 9-12通道在正面
+	// channels[8]:  -1	0       1	=servo disturb
+	// channels[9]:  -1	0       1	=
+	// channels[10]: -1	0       1	=
+	// channels[11]: -1	0       1	=pid or indi
 	if (_rc_channels_sub.update(&_rc_channels))
 	{
-		if (_rc_channels.channels[9] < 0.f)
+		if (_rc_channels.channels[6] < 0.f)
 		{
 			_rc_step_flag = false;
 			// PX4_INFO("no step !");

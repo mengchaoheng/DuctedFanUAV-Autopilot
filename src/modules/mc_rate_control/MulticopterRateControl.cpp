@@ -139,11 +139,28 @@ MulticopterRateControl::Run()
 	/* run controller on gyro changes */
 	vehicle_angular_velocity_s angular_velocity;
 
+	// 上是-1
+	// channels[6]:  -1	0	1	= yaw step  // 7通道右上角
+	// 9-12通道在正面
+	// channels[8]:  -1	0       1	=servo disturb
+	// channels[9]:  -1	0       1	=
+	// channels[10]: -1	0       1	=
+	// channels[11]: -1	0       1	=pid or indi
+	if (_rc_channels_sub.update(&_rc_channels))
+	{
+		// PX4_INFO("Hello rc! 7:%f. 9:%f. 10:%f. 11:%f. 12:%f.", (double) _rc_channels.channels[6], (double) _rc_channels.channels[8], (double) _rc_channels.channels[9], (double) _rc_channels.channels[10], (double) _rc_channels.channels[11]);
+		if (_rc_channels.channels[11] < 0.f)
+		{
+			_rc_indi_flag = false;
+			// PX4_INFO("PID !");
+		}
+		else
+		{
+			_rc_indi_flag = true;
+			// PX4_INFO("indi  !");
+		}
+	}
 
-	// channels[6]:  -0.808163	0.008163	0.865306	=rate square
-	// channels[8]:  -0.812		0.0.028         0.868		=servo disturb
-	// channels[9]:  -0.812		0.0.028         0.868		=roll and pitch step
-	// channels[12]: -1		-1              1		=pid or indi
 
 	if (_vehicle_angular_velocity_sub.update(&angular_velocity)) {
 
@@ -252,7 +269,7 @@ MulticopterRateControl::Run()
 			_actuator_outputs_value_sub.update(&_actuator_outputs_value);
 			float indi_dt=0.0f;
 			// run rate controller
-			if (_use_indi == 1)// ang_acc, have to be use with AC
+			if (_use_indi == 1 || _rc_indi_flag)// ang_acc, have to be use with AC
 			{
 				const hrt_abstime now_temp = hrt_absolute_time();
 				indi_dt = math::constrain((now_temp - _time_last_dt_update_multicopter) / 1e6f, 0.0001f, 0.02f);
