@@ -101,15 +101,15 @@ void ICM20689::print_status()
 	// round down to nearest FIFO sample dt * SAMPLES_PER_TRANSFER
 	const float min_interval = FIFO_SAMPLE_DT * SAMPLES_PER_TRANSFER;
 
-	PX4_INFO("FIFO_SAMPLE_DT: %.1f us (SAMPLES_PER_TRANSFER %d FIFO_MAX_SAMPLES %d)", FIFO_SAMPLE_DT, SAMPLES_PER_TRANSFER, FIFO_MAX_SAMPLES);
-	PX4_INFO("min_interval: %.1f us", min_interval);
-	PX4_INFO("FIFO get_max_rate_hz: %d hz, %.1f us.", _px4_gyro.get_max_rate_hz(), 1e6f / (float)_px4_gyro.get_max_rate_hz());
+	PX4_INFO("FIFO_SAMPLE_DT: %.1f us (SAMPLES_PER_TRANSFER %d FIFO_MAX_SAMPLES %d)", (double) FIFO_SAMPLE_DT, SAMPLES_PER_TRANSFER, FIFO_MAX_SAMPLES);
+	PX4_INFO("min_interval: %.1f us", (double) min_interval);
+	PX4_INFO("FIFO get_max_rate_hz: %d hz, %.1f us.", _px4_gyro.get_max_rate_hz(), (double) (1e6f / (float)_px4_gyro.get_max_rate_hz()));
 
 	_fifo_empty_interval_us = math::max(roundf((1e6f / (float)_px4_gyro.get_max_rate_hz()) / min_interval) * min_interval, min_interval);
 
 
 
-	PX4_INFO("FIFO _fifo_empty_interval_us by IMU_GYRO_RATEMAX: %d us (%.1f Hz, samples:%.1f)", _fifo_empty_interval_us, 1e6 / _fifo_empty_interval_us, (float)_fifo_empty_interval_us / (1e6f / GYRO_RATE));
+	PX4_INFO("FIFO _fifo_empty_interval_us by IMU_GYRO_RATEMAX: %d us (%.1f Hz, samples:%.1f)", _fifo_empty_interval_us, (double) (1e6 / _fifo_empty_interval_us), (double) (_fifo_empty_interval_us / (1e6f / GYRO_RATE)));
 
 
 	_fifo_gyro_samples = roundf(math::min((float)_fifo_empty_interval_us / (1e6f / GYRO_RATE), (float)FIFO_MAX_SAMPLES));
@@ -120,7 +120,7 @@ void ICM20689::print_status()
 	// recompute FIFO empty interval (us) with actual gyro sample limit
 	_fifo_empty_interval_us = _fifo_gyro_samples * (1e6f / GYRO_RATE);
 
-	PX4_INFO("FIFO final empty interval: %d us (%.1f Hz)", _fifo_empty_interval_us, 1e6 / _fifo_empty_interval_us);
+	PX4_INFO("FIFO final empty interval: %d us (%.1f Hz)", _fifo_empty_interval_us, (double) (1e6 / _fifo_empty_interval_us));
 
 	perf_print_counter(_bad_register_perf);
 	perf_print_counter(_bad_transfer_perf);

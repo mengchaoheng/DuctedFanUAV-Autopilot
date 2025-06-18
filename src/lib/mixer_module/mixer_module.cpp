@@ -207,7 +207,7 @@ void MixingOutput::updateParams()
 	_use_alloc = _param_use_alloc.get();
 	_alloc_method = _param_alloc_method.get();
 	_use_ac_test = _param_ac_test.get();
-	bool tmp=(bool) _param_use_dist.get();
+	bool tmp=  _param_use_dist.get();
 	if(_use_dist!=tmp)
 	{
 		_use_dist = tmp;
@@ -244,7 +244,7 @@ void MixingOutput::updateParams()
 	_time_const=math::constrain(_param_time_const.get(), 1.0f/_sample_freq, 0.2f);// dt < _time_const  < epsilon^*=0.2 here.  dt小于执行器时间常数这是对本程序中模拟执行器行为的要求，见matlab。保守起见取下限1.0f/_sample_freq
 	//uopdate Allocator_INDI _B  B_inv
 	float tmp_k=_param_k.get();
-	if(_k != tmp_k){
+	if(fabsf(tmp_k - _k) > FLT_EPSILON){
 		// PX4_INFO("update model");
 		_k = tmp_k;
 		Allocator_INDI.aircraft.controlEffectMatrix[0][0]= -_L_1*_k/_I_x;

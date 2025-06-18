@@ -207,7 +207,7 @@ bool FlightTaskOrbit::update()
 	setRadius(r);
 	setVelocity(v);
 
-	const Vector2f center_to_position = Vector2f(_position) - _center;
+	// const Vector2f center_to_position = Vector2f(_position) - _center;
 	const Vector2f init_to_position = Vector2f(_position) - _init_pos;
 
 	// if (_in_circle_approach) {
