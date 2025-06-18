@@ -204,7 +204,7 @@ private:
 		// (ParamFloat<px4::params::USER_STEP_R_AMP>) _param_step_roll_amp,
 		// (ParamFloat<px4::params::USER_STEP_P_AMP>) _param_step_pitch_amp,
 		(ParamFloat<px4::params::USER_STEP_TIME>) _param_step_ref_time,
-		(ParamInt<px4::params::USER_TEST_TIME>) _param_test_time
+		(ParamInt<px4::params::USER_TEST_NUM>) _param_test_time
 	);
 
 	control::BlockDerivative _vel_x_deriv; /**< velocity derivative in x */

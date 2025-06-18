@@ -114,6 +114,8 @@ PARAM_DEFINE_FLOAT(USER_CS_CUTOFF, 10.0f);
 * @min 0
 * @max 0.3491
 * @unit rad
+* @decimal 4
+* @increment 0.0001
 * @group Mixer Output
 */
 PARAM_DEFINE_FLOAT(USER_DIST_MAG, 0.0f);
@@ -126,6 +128,8 @@ PARAM_DEFINE_FLOAT(USER_DIST_MAG, 0.0f);
 * @min 0.0001
 * @max 0.1
 * @unit s
+* @decimal 4
+* @increment 0.0001
 * @group Mixer Output
 */
 PARAM_DEFINE_FLOAT(USER_TIME_CONST, 0.03f);
@@ -135,8 +139,8 @@ PARAM_DEFINE_FLOAT(USER_TIME_CONST, 0.03f);
  *
  * use ACTUATOR simulate or not.
  *
- * @value 0 not use  ACTUATOR simulate
- * @value 1 use ACTUATOR simulate by first_order_update
+ * @value 0 not use
+ * @value 1 use
  * @group Mixer Output
  */
 PARAM_DEFINE_INT32(USER_ACTUATOR, 0);
