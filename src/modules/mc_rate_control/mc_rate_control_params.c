@@ -462,7 +462,7 @@ PARAM_DEFINE_INT32(USER_USE_INDI, 0);
 /**
  * use tau_i.
  *
- * @value 0 remove indi, just use error fb.
+ * @value 0 just use error fb.
  * @value 1 use indi fb
  * @group Multicopter Rate Control
  */

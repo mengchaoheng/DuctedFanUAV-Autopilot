@@ -162,10 +162,10 @@ PARAM_DEFINE_FLOAT(MC_MAN_TILT_TAU, 0.0f);
 /**
  * USER_ADD_REF
  *
- * add step roll ref.
+ * add step ref.
  *
- * @value 0 not
- * @value 1 yes
+ * @value 0 without
+ * @value 1 add step ref
  * @group Multicopter Rate Control
  */
 PARAM_DEFINE_INT32(USER_ADD_REF, 0);
@@ -213,12 +213,13 @@ PARAM_DEFINE_FLOAT(USER_STEP_P_AMP, 0.0f);
 // PARAM_DEFINE_FLOAT(MC_YAW_AMP, 0.0f);
 
 /**
- * Period of perturbation step wave
+ * Period of step wave
  *
- * The period of the perturbed step wave, in seconds.
+ * The period of the step wave, in seconds.
  *
  * @min 0.0
  * @max 30
+ * @unit s
  * @decimal 2
  * @increment 0.01
  * @group Multicopter Rate Control

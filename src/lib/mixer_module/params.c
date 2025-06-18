@@ -61,8 +61,8 @@ PARAM_DEFINE_INT32(USER_DF_MID2, 1500);
  *
  * use control allocation or not.
  *
- * @value 0 use the default mix=inv
- * @value 1 use CA
+ * @value 0 default mix=inv
+ * @value 1 PID CA
  * @group Mixer Output
  */
 PARAM_DEFINE_INT32(USER_PID_CA, 0);
@@ -72,10 +72,10 @@ PARAM_DEFINE_INT32(USER_PID_CA, 0);
  *
  * use priority control allocation or not.
  *
- * @value 0 use inv
- * @value 1 use DIR
- * @value 2 use PCA
- * @value 3 use WLS
+ * @value 0 inv
+ * @value 1 DIR
+ * @value 2 WLS
+ * @value 3 PCA
  * @group Mixer Output
  */
 PARAM_DEFINE_INT32(USER_AC_METHOD, 0);
@@ -85,8 +85,8 @@ PARAM_DEFINE_INT32(USER_AC_METHOD, 0);
  *
  * use disturbance or not.
  *
- * @value 0 not use
- * @value 1 use USE_DISTURB
+ * @value 0 without
+ * @value 1 add disturbance
  * @group Mixer Output
  */
 PARAM_DEFINE_INT32(USER_ADD_DIST, 0);
@@ -139,8 +139,8 @@ PARAM_DEFINE_FLOAT(USER_TIME_CONST, 0.03f);
  *
  * use ACTUATOR simulate or not.
  *
- * @value 0 not use
- * @value 1 use
+ * @value 0 without
+ * @value 1 actuator simulation
  * @group Mixer Output
  */
 PARAM_DEFINE_INT32(USER_ACTUATOR, 0);
@@ -150,7 +150,7 @@ PARAM_DEFINE_INT32(USER_ACTUATOR, 0);
  *
  * running test or not.
  *
- * @value 0 not running test
+ * @value 0 without
  * @value 1 running test
  * @group Mixer Output
  */
