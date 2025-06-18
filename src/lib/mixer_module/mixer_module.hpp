@@ -316,7 +316,8 @@ private:
 	float _uMin[4] {};
 	float _uMax[4] {};
 	float _u[4] {0.0f, 0.0f, 0.0f, 0.0f};
-	float _u_real[4] {0.0f, 0.0f, 0.0f, 0.0f};
+	float _u_cmd[4] {0.0f, 0.0f, 0.0f, 0.0f};
+	float _u_estimate[4] {0.0f, 0.0f, 0.0f, 0.0f};
 	float _last_u[4] {0.0f, 0.0f, 0.0f, 0.0f};
 	// for _B _B_PID B_inv B_inv_PID .
 	// If B is full raw rank, The Moore–Penrose Pseudo-inverse B^+= B^T (B B^T)^{-1},since
@@ -373,6 +374,7 @@ private:
 	hrt_abstime _allocation_test_runing_time_us4{0};
 	hrt_abstime _allocation_test_runing_time_us5{0};
 	float first_order_update(float u, float u_pre, float T, float dt);
+	float first_order_update_zoh(float u_pre, float y_pre, float T, float dt);
 	float _time_const{0.01f};
 	uint16_t _use_ac_test{0};
 	DEFINE_PARAMETERS(

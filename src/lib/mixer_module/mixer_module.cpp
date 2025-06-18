@@ -519,13 +519,26 @@ unsigned MixingOutput::motorTest()
 	return (_motor_test.in_test_mode || had_update) ? _max_num_outputs : 0;
 }
 
-// 一阶系统实时更新函数
-float MixingOutput::first_order_update(float u, float u_pre, float T, float dt)
+// 一阶系统实时更新函数, Euler 前向差分（Forward Euler）,稳定性只在 dt/T < 1 时保持（否则不稳定）。离散化方法对比见matlab。
+float MixingOutput::first_order_update(float u_pre, float y_pre, float T, float dt)
 {
-    float y = u_pre + (dt / T) * (u - u_pre);
+    float y = y_pre + (dt / T) * (u_pre - y_pre);
     return y;
 }
 
+float MixingOutput::first_order_update_zoh(float u_pre, float y_pre, float T, float dt)
+{
+    if (T < 1e-6f) {
+        // 若 T 很小，系统响应应为 y ≈ u
+        return u_pre;
+    }
+
+    float A = expf(-dt / T);           // 离散极点
+    float B = 1.0f - A;                // 输入系数
+
+    float y = A * y_pre + B * u_pre;   // ZOH差分更新
+    return y;
+}
 bool MixingOutput::update()
 {
 	if (!_mixers) {
@@ -806,33 +819,35 @@ bool MixingOutput::update()
 			allocation_value.u[i] = _u[i];
 			allocation_value.umin[i] = _uMin[i];
 			allocation_value.umax[i] = _uMax[i];
+			//实际系统不使用额外执行器模拟。仿真中均可（默认使用，不使用时，为了估计值准确，时间常数置0）。
+			_u_estimate[i] = first_order_update_zoh(_u[i], _last_u[i], _time_const, 1.0f/_sample_freq);
 			if(_param_use_actuator.get() == 1){
 				// PX4_INFO("use actuator");
-				_u_real[i] = first_order_update(_u[i], _last_u[i], _time_const, 1.0f/_sample_freq); //加入模拟执行器动态
+				_u_cmd[i] = _u_estimate[i]; //仿真中执行器是即时的，观测值直接作为舵指令，也即为舵实际位置。仿真中使用执行器，则估计是完美估计，若不使用执行器，令一阶估计时间常数为零，_u_estimate=_u, ，此时也是完美估计。
 			}
 			else{
 				// PX4_INFO("not use actuator");
-				_u_real[i] = _u[i];//不加入模拟执行器动态
+				_u_cmd[i] = _u[i]; // 实际中，_u_cmd 为舵指令， _u_estimate 是舵实际值的估计。
 			}
-			allocation_value.u_ultimate[i] = _u_real[i];
-			_last_u[i] = _u_real[i]; // save last u for first order update
+			_last_u[i] = _u_cmd[i]; // save last u for first order update
+			allocation_value.u_ultimate[i] = _u_cmd[i];
 		}
 
 		// // 两个标志位共同使能，要使遥控器控制，参数必须使用默认值。这里，遥控器和参数都是各自更新的。
 		if(_use_dist==1 || _rc_dist_flag){
-			outputs[0+4] = (_u_real[0]+_dist_mag)/0.3491f;
-			outputs[1+4] = (_u_real[1]+_dist_mag)/0.3491f;
-			outputs[2+4] = (_u_real[2]-_dist_mag)/0.3491f;
-			outputs[3+4] = (_u_real[3]-_dist_mag)/0.3491f;
+			outputs[0+4] = (_u_cmd[0]+_dist_mag)/0.3491f;
+			outputs[1+4] = (_u_cmd[1]+_dist_mag)/0.3491f;
+			outputs[2+4] = (_u_cmd[2]-_dist_mag)/0.3491f;
+			outputs[3+4] = (_u_cmd[3]-_dist_mag)/0.3491f;
 		}
 		else{
 			for (size_t i = 0; i < 4; i++){
-				outputs[i+4] = (_u_real[i])/0.3491f;
+				outputs[i+4] = (_u_cmd[i])/0.3491f;
 			}
 		}
 
 	}
-	else{
+	else{ //PID是没有加舵扰动，也没有模型的变化。分配参数不变，仅多对比基准。
 		if (_use_alloc == 1){ //_use_alloc only use for PID
 			// when using PID, >> B_inv_PID=[-1 0 1;0 -1 1;1 0 1;0 1 1], _B_PID=pinv(B_inv_PID)
 			// _B_PID =
@@ -889,26 +904,27 @@ bool MixingOutput::update()
 				allocation_value.u[i] = _u[i];
 				allocation_value.umin[i] = _uMin_PID[i];
 				allocation_value.umax[i] = _uMax_PID[i];
+				_u_estimate[i] = first_order_update_zoh(_u[i], _last_u[i], _time_const, 1.0f/_sample_freq);
 				if(_param_use_actuator.get() == 1){
 					// PX4_INFO("use actuator");
-					_u_real[i] = first_order_update(_u[i], _last_u[i], _time_const, 1.0f/_sample_freq); //加入模拟执行器动态
+					_u_cmd[i] = _u_estimate[i];
 				}
 				else{
 					// PX4_INFO("not use actuator");
-					_u_real[i] = _u[i];//不加入模拟执行器动态
+					_u_cmd[i] = _u[i];
 				}
-				allocation_value.u_ultimate[i] = _u_real[i];
-				_last_u[i] = _u_real[i]; // save last u for first order update
+				_last_u[i] = _u_cmd[i]; // save last u for first order update
+				allocation_value.u_ultimate[i] = _u_cmd[i];
 			}
 			for (size_t i = 0; i < 4; i++){
-				outputs[i+4] = _u_real[i];
+				outputs[i+4] = _u_cmd[i];
 			}
 		}
 		else{ // origin system
 			for (size_t i = 0; i < 4; i++){
-				_u_real[i] = outputs[i+4]*0.3491f;
-				allocation_value.u[i] = _u_real[i];
-				allocation_value.u_ultimate[i] = _u_real[i];
+				_u_cmd[i] = outputs[i+4]*0.3491f;
+				allocation_value.u[i] = _u_cmd[i];
+				allocation_value.u_ultimate[i] = _u_cmd[i];
 
 			}
 		}
@@ -981,7 +997,7 @@ MixingOutput::setAndPublishActuatorOutputs(unsigned num_outputs, actuator_output
 	// publish cs delta for indi controller
 	actuator_outputs_value_s actuator_outputs_value{};
 	for (size_t i = 0; i < 4; ++i) {
-		actuator_outputs_value.delta[i] = math::constrain(_lp_filter_actuator[i].apply(_u_real[i]), (float) (_uMin[i]), (float) (_uMax[i]));//
+		actuator_outputs_value.delta[i] = math::constrain(_lp_filter_actuator[i].apply(_u_estimate[i]), (float) (_uMin[i]), (float) (_uMax[i]));// indi使用的u总是基于估计值，仿真中即为真值，实际中是执行器位置的估计值。
 		_delta_prev[i] = actuator_outputs_value.delta[i];
 	}
 	actuator_outputs_value.timestamp = hrt_absolute_time();
