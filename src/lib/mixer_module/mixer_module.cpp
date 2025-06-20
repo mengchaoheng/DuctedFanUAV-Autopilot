@@ -917,7 +917,7 @@ bool MixingOutput::update()
 				allocation_value.u_ultimate[i] = _u_cmd[i];
 			}
 			for (size_t i = 0; i < 4; i++){
-				outputs[i+4] = _u_cmd[i];
+				outputs[i+4] = _u_cmd[i];//单位要对齐
 			}
 		}
 		else{ // origin system
