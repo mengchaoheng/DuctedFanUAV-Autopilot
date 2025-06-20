@@ -77,10 +77,12 @@ MulticopterRateControl::parameters_updated()
 	// rate control parameters
 	// The controller gain K is used to convert the parallel (P + I/s + sD) form
 	// to the ideal (K * [1 + 1/sTi + sTd]) form
-	// const Vector3f torque_convert_acc=Vector3f(0.3491f*92.4509f, 0.3491f*92.1649f, 0.3491f*186.9643f); // 92.4509f since B_inv, 0.3491f since unit (outputs[i+4] = (_u[i])/0.3491f;).
-	//0.3491*92.4509*0.4=12.9 = _param_mc_indiroll_p
+	// const Vector3f torque_convert_acc=Vector3f(0.3491f*2*43.6031, 0.3491f*2*43.4519, 0.3491f*4*42.5051); // 92.4509f since B_inv, 0.3491f since unit (outputs[i+4] = (_u[i])/0.3491f;).
 
-	// for example, for default PID, control=_param_mc_indiroll_p*error= B'*delta' = 92.4509\B*delta/0.3491=92.4509\INDI_control/0.3491, where B*delta=INDI_control. such that, INDI_p=PID_rate_p*0.3491f*92.4509f
+	// for example, for default PID in roll channel, INDI_roll_p=PID_rollrate_p*0.3491f* 2*43.6031=PID_rollrate_p*30.44. ntrol=_param_mc_rollrate_p*error= B'*delta' = 2*43.6031\B*delta/0.3491=92.4509\INDI_control/0.3491, where B*delta=INDI_control. such that,
+	// INDI_roll_p=_param_mc_rollrate_p*0.3491f* 2*43.6031=_param_mc_rollrate_p*30.44.
+	// INDI_pitch_p=_param_mc_pitchrate_p*0.3491f*2*43.4519=_param_mc_pitchrate_p*30.33.
+	// INDI_yaw_p=_param_mc_yawrate_p*0.3491f*4*42.5051=_param_mc_yawrate_p*59.35.
 	const Vector3f rate_k = Vector3f(_param_mc_rollrate_k.get(), _param_mc_pitchrate_k.get(), _param_mc_yawrate_k.get());
 
 	_indi_control.setParams(Vector3f(_param_mc_indiroll_p.get(), _param_mc_indipitch_p.get(), _param_mc_indiyaw_p.get()),  _param_omega_2_force.get());
