@@ -820,7 +820,7 @@ bool MixingOutput::update()
 			allocation_value.umin[i] = _uMin[i];
 			allocation_value.umax[i] = _uMax[i];
 			//实际系统不使用额外执行器模拟。仿真中均可（默认使用，不使用时，为了估计值准确，时间常数置0）。
-			_u_estimate[i] = first_order_update_zoh(_u[i], _last_u[i], _time_const, 1.0f/_sample_freq);
+			_u_estimate[i] = _u[i];// first_order_update_zoh(_u[i], _last_u[i], _time_const, 1.0f/_sample_freq);
 			if(_param_use_actuator.get() == 1){
 				// PX4_INFO("use actuator");
 				_u_cmd[i] = _u_estimate[i]; //仿真中执行器是即时的，观测值直接作为舵指令，也即为舵实际位置。仿真中使用执行器，则估计是完美估计，若不使用执行器，令一阶估计时间常数为零，_u_estimate=_u, ，此时也是完美估计。
@@ -904,7 +904,7 @@ bool MixingOutput::update()
 				allocation_value.u[i] = _u[i];
 				allocation_value.umin[i] = _uMin_PID[i];
 				allocation_value.umax[i] = _uMax_PID[i];
-				_u_estimate[i] = first_order_update_zoh(_u[i], _last_u[i], _time_const, 1.0f/_sample_freq);
+				_u_estimate[i] = _u[i];//first_order_update_zoh(_u[i], _last_u[i], _time_const, 1.0f/_sample_freq);
 				if(_param_use_actuator.get() == 1){
 					// PX4_INFO("use actuator");
 					_u_cmd[i] = _u_estimate[i];
@@ -917,7 +917,7 @@ bool MixingOutput::update()
 				allocation_value.u_ultimate[i] = _u_cmd[i];
 			}
 			for (size_t i = 0; i < 4; i++){
-				outputs[i+4] = _u_cmd[i];//单位要对齐
+				outputs[i+4] = _u_cmd[i];//
 			}
 		}
 		else{ // origin system

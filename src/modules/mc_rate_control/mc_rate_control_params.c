@@ -406,8 +406,8 @@ PARAM_DEFINE_INT32(MC_BAT_SCALE_EN, 0);
  *
  * @min 0.0
  * @max 10
- * @decimal 2
- * @increment 0.005
+ * @decimal 3
+ * @increment 0.001
  * @group Multicopter Rate Control
  */
 PARAM_DEFINE_FLOAT(USER_OMEGA_2_F, 3.0f);//
@@ -419,7 +419,8 @@ PARAM_DEFINE_FLOAT(USER_OMEGA_2_F, 3.0f);//
  *
  * @min 0.1
  * @max 30
- * @increment 0.01
+ * @decimal 3
+ * @increment 0.001
  * @group Multicopter Rate Control
  */
 PARAM_DEFINE_FLOAT(USER_INDI_R_P, 10.f);
@@ -431,7 +432,8 @@ PARAM_DEFINE_FLOAT(USER_INDI_R_P, 10.f);
  *
  * @min 0.1
  * @max 30
- * @increment 0.01
+ * @decimal 3
+ * @increment 0.001
  * @group Multicopter Rate Control
  */
 PARAM_DEFINE_FLOAT(USER_INDI_P_P, 10.f);
@@ -443,7 +445,8 @@ PARAM_DEFINE_FLOAT(USER_INDI_P_P, 10.f);
  *
  * @min 0.0
  * @max 30
- * @increment 0.01
+ * @decimal 3
+ * @increment 0.001
  * @group Multicopter Rate Control
  */
 PARAM_DEFINE_FLOAT(USER_INDI_Y_P, 10.f);

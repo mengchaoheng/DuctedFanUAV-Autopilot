@@ -73,8 +73,8 @@ PARAM_DEFINE_INT32(USER_PID_CA, 0);
  * use priority control allocation or not.
  *
  * @value 0 inv
- * @value 1 DIR
- * @value 2 WLS
+ * @value 1 WLS
+ * @value 2 DIR
  * @value 3 PCA
  * @group Mixer Output
  */
