@@ -43,9 +43,12 @@ param set-default MC_YAWRATE_D 0
 param set-default MC_YAWRATE_FF 0
 param set-default MC_YAW_WEIGHT 1
 
-param set-default USER_INDI_R_P 13.699
-param set-default USER_INDI_P_P 13.699
-param set-default USER_INDI_Y_P 17.806
+# param set-default USER_INDI_R_P 13.699
+# param set-default USER_INDI_P_P 13.699
+# param set-default USER_INDI_Y_P 17.806
+param set-default USER_INDI_R_P 12
+param set-default USER_INDI_P_P 12
+param set-default USER_INDI_Y_P 10
 
 param set-default MPC_THR_HOVER 0.5
 param set-default RTL_RETURN_ALT 2.5
