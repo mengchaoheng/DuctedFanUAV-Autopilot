@@ -518,6 +518,7 @@ void MulticopterPositionControl::Run()
 							cmd.source_system = 1;
 							cmd.source_component = 1;
 							cmd.from_external = false;
+							cmd.test_flag=1;
 							_vehicle_command_pub.publish(cmd);
 							PX4_INFO("Switched to POSCTL mode."); // POSCTL or ALTCTL
 						}
@@ -570,7 +571,7 @@ void MulticopterPositionControl::Run()
 						cmd.source_system = 1;
 						cmd.source_component = 1;
 						cmd.from_external = false;
-
+						cmd.test_flag=2;
 						_vehicle_command_pub.publish(cmd);
 						_mode_restored = true;
 
@@ -607,7 +608,7 @@ void MulticopterPositionControl::Run()
 					cmd.source_system = 1;
 					cmd.source_component = 1;
 					cmd.from_external = false;
-
+					cmd.test_flag=0;
 					_vehicle_command_pub.publish(cmd);
 					PX4_INFO("STEP test interrupted: switched back to POSCTL mode.");
 				}
