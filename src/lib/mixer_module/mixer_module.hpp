@@ -302,7 +302,6 @@ private:
 	float _error_fb[3] = {0.0, 0.0, 0.0};
 	float _fb[3] = {0.0, 0.0, 0.0};
 	float _sample_freq{200.0f}; // update rate of MixingOutput, also sample rate of lowpass filter (Hz).
-	bool _use_indi{false};
 	bool _use_alloc{false};
 	uint16_t _alloc_method{0};
 	bool _use_dist{false};

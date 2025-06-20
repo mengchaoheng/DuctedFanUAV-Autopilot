@@ -203,7 +203,6 @@ void MixingOutput::updateParams()
 	ModuleParams::updateParams(); // only run when parameters are updated
 
 	CheckAndUpdateFilters();
-	_use_indi = _param_use_indi.get();
 	_use_alloc = _param_use_alloc.get();
 	_alloc_method = _param_alloc_method.get();
 	_use_ac_test = _param_ac_test.get();
@@ -746,7 +745,7 @@ bool MixingOutput::update()
 	// indi have to use allocator, since it use the model for control value. all this CA and INDI just for ductedfan4 since we have to set B.
 	// dt < _time_const  < epsilon^*=0.2 here. 实际上也需要大于一定值，因为噪声，这里下界是0.01，这与噪声和滤波器都有关。按照实际情况，kst0.15秒转60度，时间常数取0.03.. for CA in first order update
 	timestamp_ca_start = hrt_absolute_time();
-	if(_use_indi == 1){
+	if(_controls[0].control_flag == 1){ //using INDI
 		_fb[0] = _controls[0].control[actuator_controls_s::INDEX_ROLL];
 		_fb[1] = _controls[0].control[actuator_controls_s::INDEX_PITCH];
 		_fb[2] = _controls[0].control[actuator_controls_s::INDEX_YAW];
@@ -806,6 +805,7 @@ bool MixingOutput::update()
 				_u[i] =  math::constrain( u_inv(i,0), _uMin[i], _uMax[i]);
 			}
 			allocation_value.flag=0;
+			// PX4_INFO("indi: u_inv: %f, u2: %f, u3: %f, u4: %f. \n",(double) u_inv(0,0),(double) u_inv(1,0),(double) u_inv(2,0),(double) u_inv(3,0));
 		}
 		for (size_t i = 0; i < 3; i++){
 			float  temp = 0.0f;
@@ -891,6 +891,7 @@ bool MixingOutput::update()
 					_u[i] =  math::constrain( u_inv(i,0), _uMin_PID[i], _uMax_PID[i]);
 				}
 				allocation_value.flag=0;
+				// PX4_INFO("pid: u_inv: %f, u2: %f, u3: %f, u4: %f. \n",(double) u_inv(0,0),(double) u_inv(1,0),(double) u_inv(2,0),(double) u_inv(3,0));
 			}
 			for (size_t i = 0; i < 3; i++){
 				float  temp = 0.0f;

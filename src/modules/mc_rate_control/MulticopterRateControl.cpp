@@ -268,6 +268,7 @@ MulticopterRateControl::Run()
 			Vector3f error_fb(0.f,0.f,0.f);
 			_actuator_outputs_value_sub.update(&_actuator_outputs_value);
 			float indi_dt=0.0f;
+			bool control_flag=false;
 			// run rate controller
 			// 两个标志位共同使能，要使遥控器控制，参数必须使用默认值。
 			if (_use_indi == 1 || _rc_indi_flag)// ang_acc, have to be use with AC
@@ -290,12 +291,14 @@ MulticopterRateControl::Run()
 					// 	att_control = error_fb;
 					// PX4_INFO("INDI");
 				// }
+				control_flag=true;
 			}
 			else
 			{
 				att_control = _rate_control.update(rates, _rates_sp, angular_accel, dt, _maybe_landed || _landed);
 
 				// PX4_INFO("PID");
+				control_flag=false;
 			}
 
 			// publish rate controller status
@@ -307,6 +310,7 @@ MulticopterRateControl::Run()
 			// publish actuator controls
 			actuator_controls_s actuators{};
 
+			actuators.control_flag=control_flag;
 			actuators.indi_fb[actuator_controls_s::INDEX_ROLL] = PX4_ISFINITE(indi_fb(0)) ? indi_fb(0) : 0.0f;
 			actuators.indi_fb[actuator_controls_s::INDEX_PITCH] = PX4_ISFINITE(indi_fb(1)) ? indi_fb(1) : 0.0f;
 			actuators.indi_fb[actuator_controls_s::INDEX_YAW] = PX4_ISFINITE(indi_fb(2)) ? indi_fb(2) : 0.0f;
