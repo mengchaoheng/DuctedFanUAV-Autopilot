@@ -834,10 +834,11 @@ bool MixingOutput::update()
 		}
 
 		// // 两个标志位共同使能，要使遥控器控制，参数必须使用默认值。这里，遥控器和参数都是各自更新的。
+		// 实际飞行中，飞机实际配置总是使得滚转-10，俯仰+10.为了对照，调整1-4的舵扰动由++--为-++-。此时相当于有了6deg的舵扰动，只需要加2
 		if(_use_dist==1 || _rc_dist_flag){
-			outputs[0+4] = (_u_cmd[0]+_dist_mag)/0.3491f;
+			outputs[0+4] = (_u_cmd[0]-_dist_mag)/0.3491f;
 			outputs[1+4] = (_u_cmd[1]+_dist_mag)/0.3491f;
-			outputs[2+4] = (_u_cmd[2]-_dist_mag)/0.3491f;
+			outputs[2+4] = (_u_cmd[2]+_dist_mag)/0.3491f;
 			outputs[3+4] = (_u_cmd[3]-_dist_mag)/0.3491f;
 		}
 		else{
