@@ -194,6 +194,7 @@ void LoggedTopics::add_default_topics()
 void LoggedTopics::add_high_rate_topics()
 {
 	// maximum rate to analyze fast maneuvers (e.g. for racing)
+	add_topic("input_rc");
 	add_topic("actuator_controls_0");
 	add_topic("actuator_outputs");
 	add_topic("actuator_outputs_value");
