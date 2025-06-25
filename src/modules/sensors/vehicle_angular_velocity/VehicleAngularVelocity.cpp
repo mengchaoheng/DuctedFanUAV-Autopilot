@@ -788,6 +788,8 @@ void VehicleAngularVelocity::PrintStatus()
 		 _selected_sensor_device_id, (double)_filter_sample_rate_hz, _fifo_available ? "FIFO" : "");
 	PX4_INFO("estimated bias: [%.4f %.4f %.4f]", (double)_bias(0), (double)_bias(1), (double)_bias(2));
 
+	PX4_INFO("_publish_interval_min_us: %" PRIu64 "us \n", _publish_interval_min_us);
+
 	_calibration.PrintStatus();
 }
 
