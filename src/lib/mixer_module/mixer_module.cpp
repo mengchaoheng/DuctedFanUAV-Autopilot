@@ -174,6 +174,7 @@ void MixingOutput::printStatus() const
 	PX4_INFO("DPscaled_LPCA test running time: %" PRIu64 "us \n", _allocation_test_runing_time_us3);
 	PX4_INFO("DP_LPCA_prio test running time: %" PRIu64 "us \n", _allocation_test_runing_time_us4);
 	PX4_INFO("WLS test running time: %" PRIu64 "us \n", _allocation_test_runing_time_us5);
+	PX4_INFO("INV test running time: %" PRIu64 "us \n", _allocation_test_runing_time_us6);
 
 	PX4_INFO("Channel Configuration:");
 
@@ -736,6 +737,19 @@ bool MixingOutput::update()
 		wls_alloc_gen(_B_array, input, _uMin, _uMax, _I3_array, _I4_array, u_d, gam, u6, W0, 100, 4);
 		timestamp_ca_end = hrt_absolute_time();
 		_allocation_test_runing_time_us5=timestamp_ca_end - timestamp_ca_start;
+		// PX4_INFO("wls_alloc_gen: u1: %f, u2: %f, u3: %f, u4: %f. \n",(double) u6[0],(double) u6[1],(double) u6[2],(double) u6[3]);
+		// PX4_INFO("wls_alloc_gen time: %lld \n", (timestamp_ca_end - timestamp_ca_start) ); //nuttx
+
+		//=========================inv ===========================
+		float u7[4];
+		timestamp_ca_start = hrt_absolute_time();
+		matrix::Matrix<float, 3, 1> desire (input);
+		matrix::Matrix<float, 4, 1> u_i = B_inv * desire;
+		for (size_t i = 0; i < 4; i++){
+			u7[i] =  math::constrain( u_i(i,0), _uMin[i], _uMax[i]);
+		}
+		timestamp_ca_end = hrt_absolute_time();
+		_allocation_test_runing_time_us6=timestamp_ca_end - timestamp_ca_start;
 		// PX4_INFO("wls_alloc_gen: u1: %f, u2: %f, u3: %f, u4: %f. \n",(double) u6[0],(double) u6[1],(double) u6[2],(double) u6[3]);
 		// PX4_INFO("wls_alloc_gen time: %lld \n", (timestamp_ca_end - timestamp_ca_start) ); //nuttx
 

@@ -372,6 +372,7 @@ private:
 	hrt_abstime _allocation_test_runing_time_us3{0};
 	hrt_abstime _allocation_test_runing_time_us4{0};
 	hrt_abstime _allocation_test_runing_time_us5{0};
+	hrt_abstime _allocation_test_runing_time_us6{0};
 	float first_order_update(float u, float u_pre, float T, float dt);
 	float first_order_update_zoh(float u_pre, float y_pre, float T, float dt);
 	float _time_const{0.01f};

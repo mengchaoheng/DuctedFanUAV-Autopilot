@@ -1757,16 +1757,13 @@ public:
         }
         float K_max=FLT_MAX; // 1.0/FLT_EPSILON; or FLT_MAX
         for(int i=0;i<EffectorSize;++i){
+            if(fabs(u_null(i))<FLT_EPSILON){
+                continue; // if u_null(i) is zero, then skip;
+            }
             float tmpu=0.0f;
             if(u_null(i)>0){
-                if(fabs(u_null(i))<FLT_EPSILON){
-                    u_null(i)=FLT_EPSILON;
-                }
                 tmpu=uMax_new[i]/u_null(i);
             }else{
-                if(fabs(u_null(i))<FLT_EPSILON){
-                    u_null(i)=-FLT_EPSILON;
-                }
                 tmpu=uMin_new[i]/u_null(i);
             }
             if(tmpu<K_max){ // find smaller
