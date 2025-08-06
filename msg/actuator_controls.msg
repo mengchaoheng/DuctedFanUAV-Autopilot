@@ -25,6 +25,7 @@ float32[8] control
 float32[3] indi_fb
 float32[3] error_fb
 float32 indi_dt
+float32 rate_control_running_time
 bool control_flag
 # TOPICS actuator_controls actuator_controls_0 actuator_controls_1 actuator_controls_2 actuator_controls_3
 # TOPICS actuator_controls_4 actuator_controls_5

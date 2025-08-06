@@ -117,7 +117,8 @@ private:
 	bool _actuators_0_circuit_breaker_enabled{false};	/**< circuit breaker to suppress output */
 	bool _landed{true};
 	bool _maybe_landed{true};
-	hrt_abstime _time_last_dt_update_multicopter{0};;
+	hrt_abstime _time_last_dt_update_multicopter{0};
+	hrt_abstime _rate_control_running_time_us{0};
 	actuator_outputs_value_s _actuator_outputs_value{};
 	// bool _actuator_outputs_sub_flag{false};
 	bool _use_indi{false};

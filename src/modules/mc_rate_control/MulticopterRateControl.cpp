@@ -272,6 +272,7 @@ MulticopterRateControl::Run()
 			float indi_dt=0.0f;
 			bool control_flag=false;
 			// run rate controller
+			hrt_abstime timestamp_ca_start = hrt_absolute_time();
 			// 两个标志位共同使能，要使遥控器控制，参数必须使用默认值。
 			if (_use_indi == 1 || _rc_indi_flag)// ang_acc, have to be use with AC
 			{
@@ -302,6 +303,8 @@ MulticopterRateControl::Run()
 				// PX4_INFO("PID");
 				control_flag=false;
 			}
+			hrt_abstime timestamp_ca_end = hrt_absolute_time();
+			_rate_control_running_time_us = (timestamp_ca_end - timestamp_ca_start); //us
 
 			// publish rate controller status
 			rate_ctrl_status_s rate_ctrl_status{};
@@ -328,6 +331,7 @@ MulticopterRateControl::Run()
 			actuators.control[actuator_controls_s::INDEX_LANDING_GEAR] = _landing_gear;
 			actuators.timestamp_sample = angular_velocity.timestamp_sample;
 			actuators.indi_dt=indi_dt;
+			actuators.rate_control_running_time=_rate_control_running_time_us;
 
 			// scale effort by battery status if enabled
 			if (_param_mc_bat_scale_en.get()) {
