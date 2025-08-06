@@ -20,7 +20,7 @@ Our development work is now mainly concentrated on the df-1.12.3 branch, based o
 <img src="flight_test.png" width="30%" />
 
 ## Installation
-Before running this project, you need to deploy the development environment. Please refer to the [PX4 official website](https://docs.px4.io/v1.12/en/) (v1.12) to ensure that your computer (macOS/Linux) can open the default model simulation by executing the `make px4_sitl gazebo` or `make px4_sitl gazebo-classic` command and take off through QGC or terminal commands. It's recommended to use Ubuntu 20.04.
+Before running this project, you need to deploy the development environment. Please refer to the [PX4 official website](https://docs.px4.io/v1.12/en/) (v1.12) to ensure that your computer (macOS/Linux) can open the default model simulation by executing the `make px4_sitl gazebo` or `make px4_sitl gazebo-classic` command and take off through QGC or terminal commands. It's recommended to use Ubuntu 20.04 and QGC 4.2.9.
 
 > It's easy to upgrade this project to the latest version of px4, just make sure that the [Gazebo Classic environment](https://docs.px4.io/main/en/sim_gazebo_classic/#installation) is deployed in a supported ubuntu version, but we need a lot of testing before doing so.
 
@@ -45,7 +45,7 @@ git clone https://github.com/mengchaoheng/DuctedFanUAV-Autopilot --recursive
 3. Go to the path of the code:
 
 ```bash
-cd DuctedFanUAV-Autopilot 
+cd DuctedFanUAV-Autopilot
 ```
 
 4. Run the ubuntu.sh with no arguments (in a bash shell) to install everything:
@@ -55,7 +55,7 @@ cd DuctedFanUAV-Autopilot
 bash ./Tools/setup/ubuntu.sh
 ```
 
-Or download the development environment deployment script from the official website. 
+Or download the development environment deployment script from the official website.
 
 ```bash
 wget https://raw.githubusercontent.com/PX4/PX4-Autopilot/main/Tools/setup/ubuntu.sh
@@ -69,11 +69,11 @@ bash ubuntu.sh
 5.1 Test the built-in quadcopter simulation:
 
 ```bash
-make px4_sitl gazebo 
+make px4_sitl gazebo
 ```
 5.2 Test the simulation of this project:
 ```bash
-make px4_sitl gazebo_ductedfan4 
+make px4_sitl gazebo_ductedfan4
 ```
 
 > **Note:**  In Ubuntu 22.04 and higher versions, Gazebo Classic is no longer supported on arm64 Ubuntu. If Gazebo was installed using a script on amd64 Ubuntu, it needs to be uninstalled and reinstalled：
@@ -88,7 +88,7 @@ Clone this repository:
 ```
 git clone https://github.com/mengchaoheng/DuctedFanUAV-Autopilot.git
 
-cd DuctedFanUAV-Autopilot 
+cd DuctedFanUAV-Autopilot
 ```
 
 Make sure you're on the `df-1.12.3` branch. You can use `git status` to check it.
@@ -101,7 +101,7 @@ Ensure that the required submodules for loading the df-1.12.3 branch are loaded.
 git submodule update --init --recursive
 ```
 
-When switching branches or wishing to recompile, you can use 
+When switching branches or wishing to recompile, you can use
 ```
 make distclean
 ```
