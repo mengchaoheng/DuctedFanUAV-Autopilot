@@ -101,4 +101,5 @@ px4_add_romfs_files(
 	ductedfan4_hitl.main.mix
 	ductedfan_mini.main.mix
 	SHC09.main.mix
+	SHW09.main.mix
 )

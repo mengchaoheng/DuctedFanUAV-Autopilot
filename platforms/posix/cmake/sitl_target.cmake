@@ -137,6 +137,7 @@ set(models
 	ductedfan4
 	ductedfan6
 	SHC09
+	SHW09
 	ductedfan_mini
 )
 
