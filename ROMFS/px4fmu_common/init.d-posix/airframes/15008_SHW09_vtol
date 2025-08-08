@@ -43,7 +43,7 @@ param set-default USER_PID_CA 0
 
 param set-default VT_TYPE 0
 
-set MAV_TYPE 20
+set MAV_TYPE 23
 set PWM_OUT 1
 
 set MIXER SHW09_vtol
