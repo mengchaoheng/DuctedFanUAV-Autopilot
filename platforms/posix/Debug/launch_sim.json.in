@@ -160,7 +160,8 @@
               "ductedfan6",
               "ductedfan_mini",
               "SHC09",
-              "SHW09"
+              "SHW09",
+              "SHW09_vtol"
             ],
             "default": "iris"
           }
