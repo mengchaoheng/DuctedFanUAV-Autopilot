@@ -89,6 +89,7 @@ if(gazebo_FOUND)
 		iris_vision
 		omnicopter
 		plane
+		plane_df
 		plane_cam
 		plane_catapult
 		plane_lidar
@@ -104,6 +105,9 @@ if(gazebo_FOUND)
 		typhoon_h480
 		uuv_bluerov2_heavy
 		uuv_hippocampus
+		ductedfan4
+		SHW09_vtol
+		ductedfan6
 	)
 
 	set(worlds

@@ -47,7 +47,7 @@
         "githubPullRequests.defaultMergeMethod": "squash",
         "githubPullRequests.telemetry.enabled": false,
         "files.associations": {
-                "*.jinja": "jinja",
+                "*.jinja": "xml",
                 "algorithm": "cpp",
                 "array": "cpp",
                 "atomic": "cpp",
