@@ -108,4 +108,5 @@ px4_add_romfs_files(
 	22002_gazebo-classic_ductedfan4
 	22003_gazebo-classic_SHW09_vtol
 	22004_gazebo-classic_ductedfan6
+	22005_gazebo-classic_tailsitter_1
 )
