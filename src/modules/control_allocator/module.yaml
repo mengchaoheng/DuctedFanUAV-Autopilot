@@ -707,12 +707,12 @@ mixer:
         # No rules for control surfaces on tailsitter beside elevons.
             5: # Left Elevon (Tailsitter --> wing vertical, so affects pitch and yaw)
               - { 'hidden': True, 'default': 0.0 } # roll
-              - { 'min': 0.0, 'max': 1.0, 'default': 0.5 } # pitch
-              - { 'min': 0.0, 'max': 1.0, 'default': 0.5 } # yaw
+              - { 'min': -1.0, 'max': 1.0, 'default': 0.5 } # pitch
+              - { 'min': -1.0, 'max': 1.0, 'default': 0.5 } # yaw
             6: # Right Elevon (Tailsitter -->wing vertical, so affects pitch and yaw)
               - { 'hidden': True, 'default': 0.0 } # roll
-              - { 'min': 0.0, 'max': 1.0, 'default': 0.5 } # pitch
-              - { 'min': -1.0, 'max': 0.0, 'default': -0.5 } # yaw
+              - { 'min': -1.0, 'max': 1.0, 'default': 0.5 } # pitch
+              - { 'min': -1.0, 'max': 1.0, 'default': -0.5 } # yaw
 
     config:
         param: CA_AIRFRAME

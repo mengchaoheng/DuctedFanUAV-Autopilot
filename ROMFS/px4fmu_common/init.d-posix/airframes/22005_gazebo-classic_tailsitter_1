@@ -34,7 +34,7 @@ param set-default CA_SV_CS0_TRQ_P -0.5 #
 param set-default CA_SV_CS0_TRQ_Y 0.5 # have to be used, otherwise it will not work
 param set-default CA_SV_CS1_TYPE 0   # Cannot use 5 or 6.
 param set-default CA_SV_CS1_TRQ_P -0.5 #
-# param set-default CA_SV_CS01_TRQ_R 0.5 # can be used, but not needed
+# param set-default CA_SV_CS1_TRQ_R 0.5 # can be used, but not needed
 param set-default CA_SV_CS1_TRQ_Y -0.5 # # have to be used, otherwise it will not work
 
 param set-default PWM_MAIN_FUNC1 101
@@ -49,30 +49,50 @@ param set-default PWM_MAIN_FUNC7 202
 param set-default EKF2_MULTI_IMU 0
 param set-default SENS_IMU_MODE 1
 
-param set-default FW_P_TC 0.6
 
-param set-default FW_PR_FF 0.0
-param set-default FW_PSP_OFF 2
-param set-default FW_RR_FF 0.1
-param set-default FW_RR_I 0.2
-param set-default FW_RR_P 0.5
-param set-default FW_THR_TRIM 0.35
-param set-default FW_THR_MAX 0.8
-param set-default FW_THR_MIN 0.05
-param set-default FW_T_CLMB_MAX 6
-param set-default FW_T_HRATE_FF 0.5
-param set-default FW_T_SINK_MAX 3
-param set-default FW_T_SINK_MIN 1.6
+param set-default FW_THR_TRIM 0.7
+# param set-default FW_THR_MAX 0.8
+# param set-default FW_THR_MIN 0.05
+# param set-default FW_T_CLMB_MAX 6
+# param set-default FW_T_HRATE_FF 0.5
+# param set-default FW_T_SINK_MAX 3
+# param set-default FW_T_SINK_MIN 1.6
 
 param set-default MC_AIRMODE 1
-param set-default MC_ROLL_P 3
-param set-default MC_PITCH_P 3
+
+param set-default MC_ROLL_P 6.5
+param set-default MC_ROLLRATE_P 0.043
+param set-default MC_ROLLRATE_I 0.069
+param set-default MC_ROLLRATE_D 0.0011
+param set-default MC_ROLLRATE_FF 0
+
+param set-default MC_PITCH_P 6.5
+param set-default MC_PITCHRATE_P 0.042
+param set-default MC_PITCHRATE_I 0.071
+param set-default MC_PITCHRATE_D 0.0011
+param set-default MC_PITCHRATE_FF 0
+
+param set-default MC_YAW_P 6.5
+param set-default MC_YAWRATE_P 0.05
+param set-default MC_YAWRATE_I 0.06
+param set-default MC_YAWRATE_D 0
+param set-default MC_YAWRATE_FF 0
+
+# param set-default FW_RR_P 0.2
+# param set-default FW_RR_I 0.2
+# param set-default FW_RR_FF 1
+# param set-default FW_PR_P 0.1
+# param set-default FW_PR_I 0.1
+# param set-default FW_PR_FF 0.5
+
+# param set-default FW_P_TC 0.4
+# param set-default FW_R_TC 0.4
 
 param set-default VT_ARSP_TRANS 10
 param set-default VT_B_TRANS_DUR 5
 param set-default VT_FW_DIFTHR_EN 0 # can be used, but not needed. if don't , it will be desincreased in high
 param set-default VT_FW_DIFTHR_S_Y 1 # maybe 0.1 is better?
-param set-default VT_F_TRANS_DUR 1.5
+# param set-default VT_F_TRANS_DUR 1.5
 param set-default VT_TYPE 0
 
 param set-default WV_EN 0

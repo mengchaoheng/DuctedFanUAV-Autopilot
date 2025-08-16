@@ -154,6 +154,11 @@ void ActuatorEffectivenessControlSurfaces::updateParams()
 bool ActuatorEffectivenessControlSurfaces::addActuators(Configuration &configuration)
 {
 	for (int i = 0; i < _count; i++) {
+		// if (i<6){
+		// 	configuration.selected_matrix = 0;
+		// } else {
+		// 	configuration.selected_matrix = 1;
+		// }
 		int actuator_idx = configuration.addActuator(ActuatorType::SERVOS, _params[i].torque, Vector3f{});
 
 		if (actuator_idx >= 0) {
