@@ -81,9 +81,9 @@ param set-default MC_YAWRATE_FF 0
 # param set-default FW_RR_P 0.2
 # param set-default FW_RR_I 0.2
 # param set-default FW_RR_FF 1
-# param set-default FW_PR_P 0.1
+param set-default FW_PR_P 0.04
 # param set-default FW_PR_I 0.1
-# param set-default FW_PR_FF 0.5
+param set-default FW_PR_FF 0.1
 
 # param set-default FW_P_TC 0.4
 # param set-default FW_R_TC 0.4

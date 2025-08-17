@@ -114,7 +114,7 @@ param set-default VT_ARSP_TRANS 10
 # param set-default VT_B_TRANS_DUR 5
 param set-default VT_FW_DIFTHR_EN 0 # can be used, but not needed. if don't , it will be desincreased in high
 param set-default VT_FW_DIFTHR_S_Y 1 # maybe 0.1 is better?
-# param set-default VT_F_TRANS_DUR 1.5
+param set-default VT_F_TRANS_DUR 2
 param set-default VT_TYPE 0
 
 param set-default WV_EN 0
