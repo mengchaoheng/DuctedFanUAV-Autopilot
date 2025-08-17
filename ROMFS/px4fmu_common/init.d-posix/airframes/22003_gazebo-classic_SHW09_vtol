@@ -101,7 +101,7 @@ param set-default SENS_IMU_MODE 1
 # param set-default FW_R_TC 0.4
 
 
-param set-default FW_THR_TRIM 0.7
+param set-default FW_THR_TRIM 0.35
 # param set-default FW_THR_MAX 0.8
 # param set-default FW_THR_MIN 0.05
 # param set-default FW_T_CLMB_MAX 6
