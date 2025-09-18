@@ -109,6 +109,7 @@ if(gazebo_FOUND)
 		SHW09_vtol
 		ductedfan6
 		tailsitter_1
+		SHC09
 	)
 
 	set(worlds
