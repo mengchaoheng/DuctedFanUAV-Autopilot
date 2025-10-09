@@ -69,6 +69,7 @@ matrix::Vector3f AttitudeControl::update(const Quatf &q) const
 
 	} else {
 		// transform rotation from current to desired thrust vector into a world frame reduced desired attitude
+		// see 3.2.1 Reduced Attitude Control of Nonlinear Quadrocopter Attitude Control: Technical Report
 		qd_red *= q;
 	}
 
@@ -100,8 +101,9 @@ matrix::Vector3f AttitudeControl::update(const Quatf &q) const
 	// Vector<float, 3> rot_e = rot.axis() * sin(rot.angle());
 	// Vector<float, 3> rot_e_h = 2.0f*rot.axis() * sin(rot.angle()/2.0f); // close to rot_e
 
-	Dcmf R_e = (R.transpose()*R_sp - R_sp.transpose()*R);
-	Vector<float, 3> e_R =R_e.vee()/2; //e_R = rot_e
+	// option 0, Lee Taeyoung:  Geometric tracking control of a quadrotor UAV on SE(3)
+	// Dcmf R_e = (R.transpose()*R_sp - R_sp.transpose()*R);
+	// Vector<float, 3> e_R =R_e.vee()/2; //e_R = rot_e
 	// using sin(alpha/2) scaled rotation axis as attitude error (see quaternion definition by axis angle)
 	// also taking care of the antipodal unit quaternion ambiguity
 	// const Vector3f eq = 2.f * qe.canonical().imag(); // eq =  sign(q(0))*rot_e_h =  sign(q(0)) * 2.0f*rot.axis() * sin(rot.angle()/2.0f)
@@ -129,7 +131,31 @@ matrix::Vector3f AttitudeControl::update(const Quatf &q) const
 	// PX4_INFO("===================");
 	// PX4_INFO("e0:%8.6f\t e1:%8.6f\t e2:%8.6f\t", (double) (eq(0)-rot_e_h(0)), (double) (eq(1)-rot_e_h(1)), (double) (eq(2)-rot_e_h(2)));
 	// calculate angular rates setpoint
-	matrix::Vector3f rate_setpoint = e_R.emult(_proportional_gain);
+	// matrix::Vector3f rate_setpoint = e_R.emult(_proportional_gain);
+
+	// option 1, Is equivalent to option 2
+	// Dcmf R_e=R_sp.transpose()*R;
+	// AxisAnglef aa{R_e};
+	// matrix::Vector3f rate_setpoint = aa.emult(_proportional_gain*-1.0f);
+	// matrix::Vector3f rate_setpoint1 = aa.emult(_proportional_gain);
+	// PX4_INFO("+:%8.6f\t +:%8.6f\t +:%8.6f\t", (double) rate_setpoint1(0), (double) rate_setpoint1(1), (double) rate_setpoint1(2));
+	// PX4_INFO("rate_setpoint:%8.6f\t rate_setpoint:%8.6f\t rate_setpoint:%8.6f\t", (double) rate_setpoint(0), (double) rate_setpoint(1), (double) rate_setpoint(2));
+
+	// option 2, ours, also see:
+	// 1.A Novel Geometric Hierarchical Approach for Dynamic Visual Servoing of Quadrotors
+	// 2.Robust adaptive control for aggressive quadrotor maneuvers via SO(3) and backstepping techniques
+	// 3.Globally-Attractive Logarithmic Geometric Control of a Quadrotor for Aggressive Trajectory Tracking
+	// 4.Nonlinear Quadrocopter Attitude Control: Technical Report: q_e=q^T * q_d
+	Dcmf R_e=R.transpose()*R_sp; //
+	AxisAnglef aa{R_e};
+	matrix::Vector3f rate_setpoint = aa.emult(_proportional_gain);
+
+	// option 3 error. High performance full attitude control of a quadrotor on SO (3)
+	// Dcmf R_e=R_sp*R.transpose();
+	// AxisAnglef aa{R_e};
+	// matrix::Vector3f rate_setpoint = aa.emult(_proportional_gain*-1.0f);
+
+
 
 	// Feed forward the yaw setpoint rate.
 	// yawspeed_setpoint is the feed forward commanded rotation around the world z-axis,
