@@ -1,22 +1,21 @@
-# DuctedFanUAV Autopilot
+# DF Autopilot
 
-This repository forked from [PX4-Autopilot](https://github.com/PX4/PX4-Autopilot.git) for holds the PX4 flight control solution for DuctedFanUAV. It also contains the INDI controller, and a control allocator based on [Library of Control Allocation Algorithms](https://github.com/mengchaoheng/control_allocation.git).
+This repository forked from [PX4-Autopilot](https://github.com/PX4/PX4-Autopilot.git) for holds the PX4 flight control solution for UAV. It also contains the INDI controller, and a control allocator based on [Library of Control Allocation Algorithms](https://github.com/mengchaoheng/control_allocation.git).
 
 
 ## Featrue
 Our development work is now mainly concentrated on the df-1.12.3 branch, based on the v1.12.3 version of px4.
-* An angular velocity controller based on the [INDI control algorithm for DFUAV](https://github.com/mengchaoheng/DuctedFanUAV-Autopilot/tree/df-1.12.3/src/modules/mc_rate_control/IndiControl).
-* [Control allocator](https://github.com/mengchaoheng/DuctedFanUAV-Autopilot/blob/df-1.12.3/src/lib/mixer_module/ControlAllocation.h) based on linear programming algorithm. Currently only ductedfan4 is supported, but it can be easily changed to support other models.
+* An angular velocity controller based on the [INDI control algorithm for UAV](https://github.com/mengchaoheng/DF-Autopilot/tree/df-1.12.3/src/modules/mc_rate_control/IndiControl).
+* [Control allocator](https://github.com/mengchaoheng/DF-Autopilot/blob/df-1.12.3/src/lib/mixer_module/ControlAllocation.h) based on linear programming algorithm. Currently only ductedfan4 is supported, but it can be easily changed to support other models.
 * Supported airframes:
   * ductedfan2: DFUAV with two control surfaces and two rotors.
   * ductedfan4: DFUAV with four control surfaces and one rotor.
   * ductedfan6: DFUAV with six control surfaces and one rotor.
   * ductedfan_mini: mini DFUAV with four control surfaces and one rotor.
   * ToDo: many more experimental types based on Ducted Fan.
-* Supports gazebo-based simulation ([Gazebo Classic](https://docs.px4.io/main/en/sim_gazebo_classic/)) and can easily communicate with the ros package. We implement DuctedFanUAV simulation by modifying the gazebo model and plugins, more detail in [DF_gazebo](https://github.com/mengchaoheng/DF_gazebo.git) which forked from [PX4-SITL_gazebo-classic](https://github.com/PX4/PX4-SITL_gazebo-classic.git) (sitl_gazebo).
-* We have performed extensive flight tests with DuctedFanUAV equipped with Pixhawk.
-<img src="sitl_gazebo_df4.png" width="60%" />
-<img src="flight_test.png" width="30%" />
+* Supports gazebo-based simulation ([Gazebo Classic](https://docs.px4.io/main/en/sim_gazebo_classic/)) and can easily communicate with the ros package. We implement DF simulation by modifying the gazebo model and plugins, more detail in [DF_gazebo](https://github.com/mengchaoheng/DF_gazebo.git) which forked from [PX4-SITL_gazebo-classic](https://github.com/PX4/PX4-SITL_gazebo-classic.git) (sitl_gazebo).
+* We have performed extensive flight tests with DF equipped with Pixhawk.
+
 
 ## Installation
 Before running this project, you need to deploy the development environment. Please refer to the [PX4 official website](https://docs.px4.io/v1.12/en/) (v1.12) to ensure that your computer (macOS/Linux) can open the default model simulation by executing the `make px4_sitl gazebo` or `make px4_sitl gazebo-classic` command and take off through QGC or terminal commands. It's recommended to use Ubuntu 20.04 and QGC 4.2.9.
@@ -38,13 +37,13 @@ sudo apt install git
 2. Clone code:
 
 ```bash
-git clone https://github.com/mengchaoheng/DuctedFanUAV-Autopilot --recursive
+git clone https://github.com/mengchaoheng/DF-Autopilot --recursive
 ```
 
 3. Go to the path of the code:
 
 ```bash
-cd DuctedFanUAV-Autopilot
+cd DF-Autopilot
 ```
 
 4. Run the ubuntu.sh with no arguments (in a bash shell) to install everything:
@@ -85,9 +84,9 @@ sudo aptitude install gazebo libgazebo11 libgazebo-dev
 ## Usage
 Clone this repository:
 ```
-git clone https://github.com/mengchaoheng/DuctedFanUAV-Autopilot.git
+git clone https://github.com/mengchaoheng/DF-Autopilot.git
 
-cd DuctedFanUAV-Autopilot
+cd DF-Autopilot
 ```
 
 Make sure you're on the `df-1.12.3` branch. You can use `git status` to check it.
