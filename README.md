@@ -1,5 +1,5 @@
 # DuctedFanUAV Autopilot
-<img src="DFUAV.jpg" width="90%" />
+
 This repository forked from [PX4-Autopilot](https://github.com/PX4/PX4-Autopilot.git) for holds the PX4 flight control solution for DuctedFanUAV. It also contains the INDI controller, and a control allocator based on [Library of Control Allocation Algorithms](https://github.com/mengchaoheng/control_allocation.git).
 
 ![image](https://github.com/user-attachments/assets/3823e609-8981-4734-9921-8ac6dc98e9be)
