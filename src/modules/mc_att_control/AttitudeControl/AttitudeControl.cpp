@@ -92,7 +92,18 @@ matrix::Vector3f AttitudeControl::update(const Quatf &q) const
 	// catch numerical problems with the domain of acosf and asinf
 	q_mix(0) = math::constrain(q_mix(0), -1.f, 1.f);
 	q_mix(3) = math::constrain(q_mix(3), -1.f, 1.f);
+	// origin:
 	// qd = qd_red * Quatf(cosf(_yaw_w * acosf(q_mix(0))), 0, 0, sinf(_yaw_w * asinf(q_mix(3))));
+
+	// quaternion attitude control law, qe is rotation from q to qd
+	// const Quatf qe = q.inversed() * qd;
+
+	// using sin(alpha/2) scaled rotation axis as attitude error (see quaternion definition by axis angle)
+	// also taking care of the antipodal unit quaternion ambiguity
+	// const Vector3f eq = 2.f * qe.canonical().imag();
+
+	// calculate angular rates setpoint
+	// matrix::Vector3f rate_setpoint = eq.emult(_proportional_gain);
 
 
 	// quaternion attitude control law, qe is rotation from q to qd
@@ -154,6 +165,24 @@ matrix::Vector3f AttitudeControl::update(const Quatf &q) const
 	// Dcmf R_e=R_sp*R.transpose();
 	// AxisAnglef aa{R_e};
 	// matrix::Vector3f rate_setpoint = aa.emult(_proportional_gain*-1.0f);
+
+
+	// option 3:
+	// 1.A Comparative Study of Nonlinear MPC and Differential-Flatness-Based Control for Quadrotor Agile Flight
+	// 2.Tilt-Prioritized Quadrocopter Attitude Control
+	// const Quatf qe = qd.inversed() * q; // if qe = q.inversed() * qd; eq = 2.f * qe.canonical().imag(); then rate_setpoint = eq.emult(_proportional_gain);
+	// const Vector3f eq = 2.f * qe.canonical().imag();
+
+	// // calculate angular rates setpoint
+	// matrix::Vector3f rate_setpoint = eq.emult(-1.0f*_proportional_gain);
+
+	// or
+	// const Quatf qe = qd.inversed() * q;
+        // Vector3f eq;
+	// eq(0)=qe(0)*qe(1)-qe(2)*qe(3);
+	// eq(1)=qe(0)*qe(2)-qe(1)*qe(3);
+	// eq(2)=sign(qe(0))*qe(3);
+	// matrix::Vector3f rate_setpoint = eq.emult(-1.0f*_proportional_gain);
 
 
 
