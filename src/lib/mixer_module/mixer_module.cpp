@@ -742,12 +742,31 @@ bool MixingOutput::update()
 
 		//=========================inv ===========================
 		float u7[4];
-		timestamp_ca_start = hrt_absolute_time();
+		// calculat B_inv
+		Matrix<float, 3, 4> B_Matrix(_B_array);
+		Matrix<float, 4, 3> B_Matrix_I;
 		matrix::Matrix<float, 3, 1> desire (input);
-		matrix::Matrix<float, 4, 1> u_i = B_inv * desire;
+		Vector<float, 4> b_input(input);
+		timestamp_ca_start = hrt_absolute_time();
+		// origin: offline calc
+		// matrix::Matrix<float, 4, 1> u_i = B_inv * desire;
+		// for (size_t i = 0; i < 4; i++){
+		// 	u7[i] =  math::constrain( u_i(i,0), _uMin[i], _uMax[i]);
+		// }
+		// option 1: geninv
+		bool ret = geninv(B_Matrix, B_Matrix_I);
+		matrix::Matrix<float, 4, 1> u_i = B_Matrix_I * desire;
 		for (size_t i = 0; i < 4; i++){
 			u7[i] =  math::constrain( u_i(i,0), _uMin[i], _uMax[i]);
 		}
+
+		// option 2: LeastSquaresSolver
+		// LeastSquaresSolver<float, 4, 3> qrd = LeastSquaresSolver<float, 4, 3>(B_Matrix);
+		// Vector<float, 4> u_vector = qrd.solve(b_input);
+		// for (size_t i = 0; i < 4; i++){
+		// 	u7[i] =  math::constrain( u_vector(i), _uMin[i], _uMax[i]);
+		// }
+
 		timestamp_ca_end = hrt_absolute_time();
 		_allocation_test_runing_time_us6=timestamp_ca_end - timestamp_ca_start;
 		// PX4_INFO("wls_alloc_gen: u1: %f, u2: %f, u3: %f, u4: %f. \n",(double) u6[0],(double) u6[1],(double) u6[2],(double) u6[3]);
