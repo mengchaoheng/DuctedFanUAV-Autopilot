@@ -2,6 +2,8 @@ systemcmds/mixer:
 
 Load or append mixer files to the ESC driver.
 
+run in ROMFS/px4fmu_common/init.d/rc.interface
+
 using lib/mixer
 -------------------------------------------------------------------------------------------------------------------------------------------------
 systemcmds/pwm:
@@ -47,6 +49,8 @@ driver. Alternatively, pwm_out can be started in one of the capture modes, and t
 callback with ioctl calls.
 
 using lib/mixer_module
+
+run in ROMFS/px4fmu_common/init.d/rc.interface
 -------------------------------------------------------------------------------------------------------------------------------------------------
 
 
