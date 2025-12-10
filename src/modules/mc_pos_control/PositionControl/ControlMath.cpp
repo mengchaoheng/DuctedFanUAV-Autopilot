@@ -46,8 +46,8 @@ namespace ControlMath
 {
 void thrustToAttitude(const Vector3f &thr_sp, const float yaw_sp, vehicle_attitude_setpoint_s &att_sp)
 {
-	bodyzToAttitude(-thr_sp, yaw_sp, att_sp);
-	att_sp.thrust_body[2] = -thr_sp.length();
+	bodyzToAttitude(-thr_sp, yaw_sp, att_sp); // body_z = -thr_sp
+	att_sp.thrust_body[2] = -thr_sp.length(); // NED
 }
 
 void limitTilt(Vector3f &body_unit, const Vector3f &world_unit, const float max_angle)

@@ -211,7 +211,7 @@ void PositionControl::_velocityControl(const float dt)
 	}
 
 	// Saturate maximal vertical thrust
-	_thr_sp(2) = math::min(-_thr_sp(2), _lim_thr_max); // _thr_sp(2) have direction, and -_thr_sp(2) <= _lim_thr_max, that is _thr_sp(2) >= -_lim_thr_max or _thr_sp(2) = math::max(_thr_sp(2), -_lim_thr_max)
+	_thr_sp(2) = -math::min(-_thr_sp(2), _lim_thr_max); // _thr_sp(2) have direction, and -_thr_sp(2) <= _lim_thr_max, that is _thr_sp(2) >= -_lim_thr_max or _thr_sp(2) = math::max(_thr_sp(2), -_lim_thr_max)
 
 	// Get allowed horizontal thrust after prioritizing vertical control
 	const float thrust_max_squared = _lim_thr_max * _lim_thr_max;
