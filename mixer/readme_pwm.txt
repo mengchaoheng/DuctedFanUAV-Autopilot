@@ -16,12 +16,12 @@ and configured with `PWM_MAIN_TRIMx` and `PWM_AUX_TRIMx`).
 -------------------------------------------------------------------------------------------------------------------------------------------------
 
 
+Control Groups = actuator_group(in picture) = ORB_ID(actuator_controls_0)~ORB_ID(actuator_controls_5)
+
+Output Groups = ORB_ID(actuator_outputs)
 
 
-
-
-
-
+Control is mixed to Output
 
 
 
