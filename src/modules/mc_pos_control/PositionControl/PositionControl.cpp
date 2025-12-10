@@ -205,13 +205,13 @@ void PositionControl::_velocityControl(const float dt)
 	_accelerationControl();
 
 	// Integrator anti-windup in vertical direction
-	if ((_thr_sp(2) >= -_lim_thr_min && vel_error(2) >= 0.0f) ||
-	    (_thr_sp(2) <= -_lim_thr_max && vel_error(2) <= 0.0f)) {
+	if ((-_thr_sp(2) <= _lim_thr_min && -vel_error(2) <= 0.0f) ||
+	    (-_thr_sp(2) >= _lim_thr_max && -vel_error(2) >= 0.0f)) {
 		vel_error(2) = 0.f;
 	}
 
 	// Saturate maximal vertical thrust
-	_thr_sp(2) = math::max(_thr_sp(2), -_lim_thr_max);
+	_thr_sp(2) = math::min(-_thr_sp(2), _lim_thr_max); // _thr_sp(2) have direction, and -_thr_sp(2) <= _lim_thr_max, that is _thr_sp(2) >= -_lim_thr_max or _thr_sp(2) = math::max(_thr_sp(2), -_lim_thr_max)
 
 	// Get allowed horizontal thrust after prioritizing vertical control
 	const float thrust_max_squared = _lim_thr_max * _lim_thr_max;
@@ -249,18 +249,20 @@ void PositionControl::_velocityControl(const float dt)
 void PositionControl::_accelerationControl()
 {
 	// Assume standard acceleration due to gravity in vertical direction for attitude generation
-	Vector3f body_z = Vector3f(-_acc_sp(0), -_acc_sp(1), CONSTANTS_ONE_G).normalized();
+	Vector3f body_z = Vector3f(-_acc_sp(0), -_acc_sp(1), CONSTANTS_ONE_G).normalized(); //NED
 	// PX4_INFO("==============_accelerationControl================= \n");
 	// PX4_INFO("body_z 0: %f", (double) (body_z(0)));
 	// PX4_INFO("body_z 1: %f", (double) (body_z(1)));
 	// PX4_INFO("body_z 2: %f", (double) (body_z(2)));
 	ControlMath::limitTilt(body_z, Vector3f(0, 0, 1), _lim_tilt);
 	// Scale thrust assuming hover thrust produces standard gravity
-	float collective_thrust = _acc_sp(2) * (_hover_thrust / CONSTANTS_ONE_G) - _hover_thrust;
+	float collective_thrust = _acc_sp(2) * (_hover_thrust / -CONSTANTS_ONE_G) + _hover_thrust; // collective_thrust in [0,1] // collective_thrust/(az-g) = _hover_thrust/(-g), where _hover_thrust is in [0,1]
 	// Project thrust to planned body attitude
 	collective_thrust /= (Vector3f(0, 0, 1).dot(body_z));
-	collective_thrust = math::min(collective_thrust, -_lim_thr_min);
-	_thr_sp = body_z * collective_thrust;
+	// PX4_INFO("collective_thrust: %f", (double) (collective_thrust));
+	// PX4_INFO("_lim_thr_min: %f", (double) (_lim_thr_min));
+	collective_thrust = math::max(collective_thrust, _lim_thr_min);
+	_thr_sp = -body_z * collective_thrust; //NED, thrust direction opposite to body_z
 }
 
 bool PositionControl::_updateSuccessful()
