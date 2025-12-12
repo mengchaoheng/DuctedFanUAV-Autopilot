@@ -377,6 +377,7 @@ void FixedwingAttitudeControl::Run()
 				       || (dt > 0.02f);
 
 		/* if we are in rotary wing mode, do nothing */
+		//  The VTOL flight controller consists of both the multicopter and fixed-wing controllers, either running separately in the corresponding VTOL modes, or together during transitions.
 		if (_vehicle_status.vehicle_type == vehicle_status_s::VEHICLE_TYPE_ROTARY_WING && !_vehicle_status.is_vtol) {
 			perf_end(_loop_perf);
 			return;
@@ -512,7 +513,7 @@ void FixedwingAttitudeControl::Run()
 						_yaw_ctrl.control_attitude(dt, control_input);
 						_wheel_ctrl.reset_integrator();
 					}
-
+					// euler rate
 					/* Update input data for rate controllers */
 					control_input.roll_rate_setpoint = _roll_ctrl.get_desired_rate();
 					control_input.pitch_rate_setpoint = _pitch_ctrl.get_desired_rate();
@@ -586,7 +587,7 @@ void FixedwingAttitudeControl::Run()
 
 				_rate_sp_pub.publish(_rates_sp);
 
-			} else {
+			} else { // pqr
 				vehicle_rates_setpoint_poll();
 
 				_roll_ctrl.set_bodyrate_setpoint(_rates_sp.roll);
