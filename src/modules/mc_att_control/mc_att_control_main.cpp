@@ -98,6 +98,7 @@ MulticopterAttitudeControl::parameters_updated()
 						radians(_param_mc_yawrate_max.get())));
 
 	_man_tilt_max = math::radians(_param_mpc_man_tilt_max.get());
+	_cycle_time = _param_step_ref_time.get();
 }
 
 float
@@ -319,6 +320,148 @@ MulticopterAttitudeControl::Run()
 
 
 			Vector3f rates_sp = _attitude_control.update(q);
+
+			if (_param_user_add_rate_ref.get() == 1 ) {
+
+				// === 当前是否要启动 step 测试 ===
+				if (!_step_rate_active && !_step_rate_waiting_for_next && _step_rate_repeat_counter < _param_test_time.get()) {
+					_use_step_rate_ref = true;
+					_step_rate_active = true;
+					PX4_INFO("STEP rate #%d STARTED", _step_rate_repeat_counter + 1);
+				}
+
+				// === step 测试执行逻辑 ===
+				if (_use_step_rate_ref) {
+					if (!_use_step_rate_ref_prev) {
+						_add_step_rate_time = hrt_absolute_time();
+						// start_yaw_body = attitude_setpoint.yaw_body;
+
+						// 记录当前模式
+						vehicle_status_s status;
+						if (_vehicle_status_sub.copy(&status)) {
+							_original_main_mode = status.nav_state;
+							_mode_recorded = true;
+							_mode_restored = false;
+							PX4_INFO("Record mode.");
+
+							// 切换到 POSCTL or ALTCTL
+							vehicle_command_s cmd{};
+							cmd.timestamp = hrt_absolute_time();
+							cmd.param1 = 1.0f;
+							cmd.param2 = PX4_CUSTOM_MAIN_MODE_ALTCTL; // PX4_CUSTOM_MAIN_MODE_POSCTL or PX4_CUSTOM_MAIN_MODE_ALTCTL
+							cmd.param3 = 0.0f;
+							cmd.command = vehicle_command_s::VEHICLE_CMD_DO_SET_MODE;
+							cmd.target_system = 1;
+							cmd.target_component = 1;
+							cmd.source_system = 1;
+							cmd.source_component = 1;
+							cmd.from_external = false;
+							cmd.test_flag=1;
+							_vehicle_command_pub.publish(cmd);
+							PX4_INFO("Switched to ALTCTL mode."); // POSCTL or ALTCTL
+						}
+					}
+
+					// 计算扰动时间
+					hrt_abstime interval = hrt_elapsed_time(&_add_step_rate_time);
+					float time_sec = interval / 1e6f;
+
+					if (time_sec < 1.f * _cycle_time) {
+						rates_sp(0)=0.0f;
+						rates_sp(1)=0.0f;
+						rates_sp(2) = 0.0f;
+					} else if (time_sec < 2.f * _cycle_time) {
+						rates_sp(0)=0.0f;
+						rates_sp(1)=0.0f;
+						rates_sp(2) = M_PI_F / 2.0f;
+					} else if (time_sec < 3.0f * _cycle_time) {
+						rates_sp(0)=0.0f;
+						rates_sp(1)=0.0f;
+						rates_sp(2) = -M_PI_F / 2.0f;
+					} else if (time_sec < 4.0f * _cycle_time) {
+						rates_sp(0)=0.0f;
+						rates_sp(1)=0.0f;
+						rates_sp(2) = 0.0f;
+					}
+
+					// step 结束，恢复模式并进入等待状态
+					if (time_sec >= 5.0f * _cycle_time && !_mode_restored) {
+						vehicle_command_s cmd{};
+						cmd.timestamp = hrt_absolute_time();
+						cmd.param1 = 1.0f;
+
+						switch (_original_main_mode) {
+							// case vehicle_status_s::NAVIGATION_STATE_POSCTL:
+							// 	cmd.param2 = PX4_CUSTOM_MAIN_MODE_POSCTL;
+							// 	break;
+							// case vehicle_status_s::NAVIGATION_STATE_AUTO_LOITER:
+							// 	cmd.param2 = PX4_CUSTOM_MAIN_MODE_AUTO;
+							// 	cmd.param3 = PX4_CUSTOM_SUB_MODE_AUTO_LOITER;
+							// 	break;
+							// case vehicle_status_s::NAVIGATION_STATE_OFFBOARD:
+							// 	cmd.param2 = PX4_CUSTOM_MAIN_MODE_OFFBOARD;
+							// 	break;
+							default:
+								cmd.param2 = PX4_CUSTOM_MAIN_MODE_POSCTL;
+								break;
+						}
+
+						cmd.command = vehicle_command_s::VEHICLE_CMD_DO_SET_MODE;
+						cmd.target_system = 1;
+						cmd.target_component = 1;
+						cmd.source_system = 1;
+						cmd.source_component = 1;
+						cmd.from_external = false;
+						cmd.test_flag=2;
+						_vehicle_command_pub.publish(cmd);
+						_mode_restored = true;
+
+						// 结束step，进入等待阶段
+						_use_step_rate_ref = false;
+						_step_rate_active = false;
+						_step_rate_waiting_for_next = true;
+						_last_step_rate_end_time = hrt_absolute_time();
+						_step_rate_repeat_counter++;
+						PX4_INFO("STEP #%d DONE", _step_rate_repeat_counter);
+					}
+				}
+
+				// === 执行等待状态逻辑 ===
+				if (_step_rate_waiting_for_next) {
+					float wait_elapsed = hrt_elapsed_time(&_last_step_rate_end_time) / 1e6f;
+					if (wait_elapsed >= 2.0f * _cycle_time) {
+						_step_rate_waiting_for_next = false;  // 准备进入下一轮
+					}
+				}
+			}
+			// 如果中断
+			else {
+				if (_step_rate_active || _step_rate_waiting_for_next || _use_step_rate_ref || _step_rate_repeat_counter > 0) {
+					PX4_INFO("STEP test interrupted: param disabled or aborted at cycle #%d", _step_rate_repeat_counter);
+					// === 中断后强制切换回 POSCTL 模式 ===
+					vehicle_command_s cmd{};
+					cmd.timestamp = hrt_absolute_time();
+					cmd.param1 = 1.0f;
+					cmd.param2 = PX4_CUSTOM_MAIN_MODE_POSCTL;
+					cmd.command = vehicle_command_s::VEHICLE_CMD_DO_SET_MODE;
+					cmd.target_system = 1;
+					cmd.target_component = 1;
+					cmd.source_system = 1;
+					cmd.source_component = 1;
+					cmd.from_external = false;
+					cmd.test_flag=0;
+					_vehicle_command_pub.publish(cmd);
+					PX4_INFO("STEP test interrupted: switched back to POSCTL mode.");
+				}
+				// 参数关闭或结束：重置
+				_use_step_rate_ref = false;
+				_step_rate_active = false;
+				_step_rate_waiting_for_next = false;
+				_mode_recorded = false;
+				_mode_restored = false;
+				_step_rate_repeat_counter = 0;
+			}
+			_use_step_rate_ref_prev = _use_step_rate_ref;
 
 			// publish rate setpoint
 			vehicle_rates_setpoint_s v_rates_sp{};

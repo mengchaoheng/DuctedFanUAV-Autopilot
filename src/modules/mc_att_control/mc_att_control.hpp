@@ -55,8 +55,9 @@
 #include <uORB/topics/vehicle_land_detected.h>
 #include <vtol_att_control/vtol_type.h>
 #include <lib/ecl/AlphaFilter/AlphaFilter.hpp>
-
+#include <uORB/topics/vehicle_command.h>
 #include <AttitudeControl.hpp>
+#include <commander/px4_custom_mode.h>
 
 using namespace time_literals;
 
@@ -136,6 +137,22 @@ private:
 
 	uint8_t _quat_reset_counter{0};
 
+	int _step_rate_repeat_counter{0};
+	bool _step_rate_active{false};               // 当前是否正在step中
+	bool _step_rate_waiting_for_next{false};     // 是否处于等待期
+	hrt_abstime _last_step_rate_end_time{0};     // 上一轮结束时的时间
+	bool _use_step_rate_ref{false};
+	bool _use_step_rate_ref_prev{false};
+	hrt_abstime _add_step_rate_time;
+
+	// --- 用于飞行模式切换记录与控制 ---
+	uORB::Publication<vehicle_command_s> _vehicle_command_pub{ORB_ID(vehicle_command)};
+	// uORB::Subscription _vehicle_status_sub{ORB_ID(vehicle_status)};
+	uint8_t _original_main_mode{0};
+	bool _mode_recorded{false};
+	bool _mode_restored{false};
+	float _cycle_time;
+
 	DEFINE_PARAMETERS(
 		(ParamFloat<px4::params::MC_ROLL_P>) _param_mc_roll_p,
 		(ParamFloat<px4::params::MC_PITCH_P>) _param_mc_pitch_p,
@@ -157,7 +174,10 @@ private:
 		(ParamInt<px4::params::MPC_THR_CURVE>) _param_mpc_thr_curve,				/**< throttle curve behavior */
 
 		(ParamInt<px4::params::MC_AIRMODE>) _param_mc_airmode,
-		(ParamFloat<px4::params::MC_MAN_TILT_TAU>) _param_mc_man_tilt_tau
+		(ParamFloat<px4::params::MC_MAN_TILT_TAU>) _param_mc_man_tilt_tau,
+		(ParamInt<px4::params::USER_ADD_RATEREF>) _param_user_add_rate_ref,
+		(ParamFloat<px4::params::USER_STEP_TIME>) _param_step_ref_time,
+		(ParamInt<px4::params::USER_TEST_NUM>) _param_test_time
 	)
 };
 

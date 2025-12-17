@@ -171,6 +171,17 @@ PARAM_DEFINE_FLOAT(MC_MAN_TILT_TAU, 0.0f);
 PARAM_DEFINE_INT32(USER_ADD_REF, 0);
 
 /**
+ * USER_ADD_RATEREF
+ *
+ * add step rate ref.
+ *
+ * @value 0 without
+ * @value 1 add step rate ref
+ * @group Multicopter Rate Control
+ */
+PARAM_DEFINE_INT32(USER_ADD_RATEREF, 0);
+
+/**
  * roll step amp
  *
  * rad
