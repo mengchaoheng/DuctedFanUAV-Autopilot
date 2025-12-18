@@ -53,7 +53,7 @@ namespace uORB
 {
 
 // Base subscription wrapper class
-class  SubscriptionInterval
+class SubscriptionInterval
 {
 public:
 

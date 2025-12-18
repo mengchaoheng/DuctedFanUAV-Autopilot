@@ -338,8 +338,8 @@ private:
 	float _B[3][4]    = { {-43.6031,0.0,43.6031,0.0}, {0.0,-43.4519,0.0,43.4519},{42.5051,42.5051,42.5051,42.5051}}; // Use a larger value of tol of struct LinearProgrammingProblem
 	float lower{-0.3491f};
     	float upper{0.3491f};
-	Aircraft<3, 4> df_4; // 创建一个具有 4 个操纵向量和 3 个广义力矩的飞行器对象
-	DP_LP_ControlAllocator<3, 4> Allocator_INDI; // 创建一个控制分配器对象，用于具有 4 个操纵向量和 3 个广义力矩的飞行器(转化为线性规划问题，其维数和参数 <3, 4> 有关。)
+	Aircraft<3, 4> df_4; // Create a flight vehicle object with 4 control vectors and 3 generalized torques.
+	DP_LP_ControlAllocator<3, 4> Allocator_INDI; // Create a control allocator object for a flight vehicle with 4 control vectors and 3 generalized torques (converted to a linear programming problem, its dimension and parameters are related to <3, 4>.)
 	// for wls
 	float _B_array[12];
 	float _I4_array[16] = {
@@ -349,9 +349,9 @@ private:
 	0.0f, 0.0f, 0.0f, 1.0f
 	};
 	float _I3_array[9] = {
-	1.0f, 0.0f, 0.0f,  // 第1行
-	0.0f, 1.0f, 0.0f,  // 第2行
-	0.0f, 0.0f, 1.0f   // 第3行
+	1.0f, 0.0f, 0.0f,  // 1st row
+	0.0f, 1.0f, 0.0f,  // 2nd row
+	0.0f, 0.0f, 1.0f   // 3rd row
 	};
 
 	// for PX4 PID controller, k=1, I_x=1, I_y=1, I_z=1
@@ -362,9 +362,9 @@ private:
     	float upper_PID{1.0f};
 	float _uMin_PID[4] {};
 	float _uMax_PID[4] {};
-	Aircraft<3, 4> df_4_PID; // 创建一个具有 4 个操纵向量和 3 个广义力矩的飞行器对象
-	DP_LP_ControlAllocator<3, 4> Allocator_PID; // 创建一个控制分配器对象，用于具有 4 个操纵向量和 3 个广义力矩的飞行器(转化为线性规划问题，其维数和参数 <3, 4> 有关。)
-	// 然后可以使用飞行器对象和控制分配器对象进行操作
+	Aircraft<3, 4> df_4_PID; // Create a flight vehicle object with 4 control vectors and 3 generalized torques.
+	DP_LP_ControlAllocator<3, 4> Allocator_PID; // Create a control allocator object for a flight vehicle with 4 control vectors and 3 generalized torques (converted to a linear programming problem, its dimension and parameters are related to <3, 4>.)
+	// Then you can use the flight vehicle object and control allocator object for operations
 
 	hrt_abstime _allocation_runing_time_us{0};
 	hrt_abstime _allocation_test_runing_time_us1{0};

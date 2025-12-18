@@ -265,10 +265,10 @@ void MulticopterPositionControl::Run()
 	perf_begin(_cycle_perf);
 	vehicle_local_position_s local_pos;
 
-	// rc detection
-	// 上是-1
-	// channels[6]:  -1	0	1	= yaw step  // 7通道右上角
-	// 9-12通道在正面
+	// rc detection (FUTABA T14SG)
+	// Up is -1
+	// channels[6]:  -1	0	1	= yaw step  // channels 7 in the upper right corner
+	// Channels 9-12 are on the front
 	// channels[8]:  -1	0       1	=servo disturb
 	// channels[9]:  -1	0       1	=
 	// channels[10]: -1	0       1	=
@@ -480,25 +480,25 @@ void MulticopterPositionControl::Run()
 			attitude_setpoint.timestamp = hrt_absolute_time();
 
 			// for sitl  yaw step
-			// 自动触发逻辑控制入口
-			// 两个标志位共同使能，要使遥控器控制，参数必须使用默认值。
+			// Automatic trigger logic control entry
+			// Both parameters can control whether the test is executed. To enable remote control, the parameter _param_user_add_ref must use the default value (0).
 			if (_param_user_add_ref.get() == 1 || _rc_step_flag) {
 
-				// === 当前是否要启动 step 测试 ===
+				// === Whether to start step test currently ===
 				if (!_step_active && !_step_waiting_for_next && _step_repeat_counter < _param_test_time.get()) {
 					_use_step_ref = true;
 					_step_active = true;
 					PX4_INFO("STEP #%d STARTED", _step_repeat_counter + 1);
 				}
 
-				// === step 测试执行逻辑 ===
+				// === Step response test execution logic ===
 				if (_use_step_ref) {
 
 					if (!_use_step_ref_prev) {
 						_add_step_time = hrt_absolute_time();
 						start_yaw_body = attitude_setpoint.yaw_body;
 
-						// 记录当前模式
+						// Record current mode
 						vehicle_status_s status;
 						if (_vehicle_status_sub.copy(&status)) {
 							_original_main_mode = status.nav_state;
@@ -506,7 +506,7 @@ void MulticopterPositionControl::Run()
 							_mode_restored = false;
 							PX4_INFO("Record mode.");
 
-							// 切换到 ALTCTL
+							// Switch to POSCTL or ALTCTL
 							vehicle_command_s cmd{};
 							cmd.timestamp = hrt_absolute_time();
 							cmd.param1 = 1.0f;
@@ -524,7 +524,7 @@ void MulticopterPositionControl::Run()
 						}
 					}
 
-					// 计算扰动时间
+					// Calculate signal time
 					hrt_abstime interval = hrt_elapsed_time(&_add_step_time);
 					float time_sec = interval / 1e6f;
 
@@ -543,7 +543,7 @@ void MulticopterPositionControl::Run()
 							attitude_setpoint.yaw_body);
 					q_sp.copyTo(attitude_setpoint.q_d);
 
-					// step 结束，恢复模式并进入等待状态 (betwen 4s and 5s, do nothing)
+					// Step response test ended, restore mode and enter waiting state (between 4s and 5s, do nothing)
 					if (time_sec >= 5.0f * _cycle_time && !_mode_restored) {
 						vehicle_command_s cmd{};
 						cmd.timestamp = hrt_absolute_time();
@@ -575,7 +575,7 @@ void MulticopterPositionControl::Run()
 						_vehicle_command_pub.publish(cmd);
 						_mode_restored = true;
 
-						// 结束step，进入等待阶段
+						// Step response test ended, enter waiting stage
 						_use_step_ref = false;
 						_step_active = false;
 						_step_waiting_for_next = true;
@@ -585,19 +585,19 @@ void MulticopterPositionControl::Run()
 					}
 				}
 
-				// === 执行等待状态逻辑 ===
+				// === Execute waiting stage logic ===
 				if (_step_waiting_for_next) {
 					float wait_elapsed = hrt_elapsed_time(&_last_step_end_time) / 1e6f;
 					if (wait_elapsed >= 2.0f * _cycle_time) {
-						_step_waiting_for_next = false;  // 准备进入下一轮
+						_step_waiting_for_next = false;  // Prepare to enter next round
 					}
 				}
 			}
-			// 如果中断
+			// If the test is interrupted
 			else {
 				if (_step_active || _step_waiting_for_next || _use_step_ref || _step_repeat_counter > 0) {
 					PX4_INFO("STEP test interrupted: param disabled or aborted at cycle #%d", _step_repeat_counter);
-					// === 中断后强制切换回 POSCTL 模式 ===
+					// === Force switch back to POSCTL mode after interruption ===
 					vehicle_command_s cmd{};
 					cmd.timestamp = hrt_absolute_time();
 					cmd.param1 = 1.0f;
@@ -612,7 +612,7 @@ void MulticopterPositionControl::Run()
 					_vehicle_command_pub.publish(cmd);
 					PX4_INFO("STEP test interrupted: switched back to POSCTL mode.");
 				}
-				// 参数关闭或结束：重置
+				// Parameter disabled or ended: reset
 				_use_step_ref = false;
 				_step_active = false;
 				_step_waiting_for_next = false;

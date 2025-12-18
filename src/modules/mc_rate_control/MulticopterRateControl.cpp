@@ -141,9 +141,10 @@ MulticopterRateControl::Run()
 	/* run controller on gyro changes */
 	vehicle_angular_velocity_s angular_velocity;
 
-	// 上是-1
-	// channels[6]:  -1	0	1	= yaw step  // 7通道右上角
-	// 9-12通道在正面
+	// rc detection (FUTABA T14SG)
+	// Up is -1
+	// channels[6]:  -1	0	1	= yaw step  // channels 7 in the upper right corner
+	// Channels 9-12 are on the front
 	// channels[8]:  -1	0       1	=servo disturb
 	// channels[9]:  -1	0       1	=
 	// channels[10]: -1	0       1	=
@@ -273,7 +274,7 @@ MulticopterRateControl::Run()
 			bool control_flag=false;
 			// run rate controller
 			hrt_abstime timestamp_ca_start = hrt_absolute_time();
-			// 两个标志位共同使能，要使遥控器控制，参数必须使用默认值。
+			// Both parameters can be enabled. To allow the remote control, the parameter _use_indi must use the default value 0.
 			if (_use_indi == 1 || _rc_indi_flag)// ang_acc, have to be use with AC
 			{
 				const hrt_abstime now_temp = hrt_absolute_time();

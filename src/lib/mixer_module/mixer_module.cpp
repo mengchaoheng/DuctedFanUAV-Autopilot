@@ -164,9 +164,9 @@ void MixingOutput::printStatus() const
 	PX4_INFO("Switched to rate_ctrl work queue: %i", (int)_wq_switched);
 	PX4_INFO("Driver instance: %i", _driver_instance);
 	PX4_INFO("_mixing_output.setMaxTopicUpdateRate(update_interval_in_us) in pwmout, that is:");
-	PX4_INFO("_max_topic_update_interval_us of mixing: %i", _max_topic_update_interval_us);// 发布pwm周期，和pwm_out参数有关。
+	PX4_INFO("_max_topic_update_interval_us of mixing: %i", _max_topic_update_interval_us);// The publishing pwm cycle is related to the pwm_out parameter.
 
-	PX4_INFO("_sample_freq of mixing: %f", (double) _sample_freq);//控制器控制频率，
+	PX4_INFO("_sample_freq of mixing: %f", (double) _sample_freq);// Control frequency
 	PX4_INFO("allocation running time: %" PRIu64 "us \n", _allocation_runing_time_us);
 
 	PX4_INFO("allocator test running time: %" PRIu64 "us \n", _allocation_test_runing_time_us1);
@@ -241,7 +241,7 @@ void MixingOutput::updateParams()
 
 	}
 	_dist_mag = _param_dist_mag.get();
-	_time_const=math::constrain(_param_time_const.get(), 1.0f/_sample_freq, 0.2f);// dt < _time_const  < epsilon^*=0.2 here.  dt小于执行器时间常数这是对本程序中模拟执行器行为的要求，见matlab。保守起见取下限1.0f/_sample_freq
+	_time_const=math::constrain(_param_time_const.get(), 1.0f/_sample_freq, 0.2f);// dt < _time_const  < epsilon^*=0.2 here.  dt less than actuator time constant is a requirement for simulating actuator behavior in this program, see matlab code(https://github.com/mengchaoheng/PINDI). Conservatively take the lower limit 1.0f/_sample_freq
 	//uopdate Allocator_INDI _B  B_inv
 	float tmp_k=_param_k.get();
 	if(fabsf(tmp_k - _k) > FLT_EPSILON){
@@ -519,7 +519,7 @@ unsigned MixingOutput::motorTest()
 	return (_motor_test.in_test_mode || had_update) ? _max_num_outputs : 0;
 }
 
-// 一阶系统实时更新函数, Euler 前向差分（Forward Euler）,稳定性只在 dt/T < 1 时保持（否则不稳定）。离散化方法对比见matlab。
+// First-order system real-time update function, Euler forward difference (Forward Euler), stability is only maintained when dt/T < 1 (otherwise it is unstable). Comparison of discretization methods can be seen in matlab code(https://github.com/mengchaoheng/PINDI).
 float MixingOutput::first_order_update(float u_pre, float y_pre, float T, float dt)
 {
     float y = y_pre + (dt / T) * (u_pre - y_pre);
@@ -529,14 +529,14 @@ float MixingOutput::first_order_update(float u_pre, float y_pre, float T, float 
 float MixingOutput::first_order_update_zoh(float u_pre, float y_pre, float T, float dt)
 {
     if (T < 1e-6f) {
-        // 若 T 很小，系统响应应为 y ≈ u
+        // If T is very small, the system response should be y ≈ u
         return u_pre;
     }
 
-    float A = expf(-dt / T);           // 离散极点
-    float B = 1.0f - A;                // 输入系数
+    float A = expf(-dt / T);           // Discrete pole
+    float B = 1.0f - A;                // Input coefficient
 
-    float y = A * y_pre + B * u_pre;   // ZOH差分更新
+    float y = A * y_pre + B * u_pre;   // ZOH difference update
     return y;
 }
 bool MixingOutput::update()
@@ -613,10 +613,10 @@ bool MixingOutput::update()
 	float outputs[MAX_ACTUATORS] {};
 	const unsigned mixed_num_outputs = _mixers->mix(outputs, _max_num_outputs);
 
-	// rc detection
-	// 上是-1
-	// channels[6]:  -1	0	1	= yaw step  // 7通道右上角
-	// 9-12通道在正面
+	// rc detection (FUTABA T14SG)
+	// Up is -1
+	// channels[6]:  -1	0	1	= yaw step  // channels 7 in the upper right corner
+	// Channels 9-12 are on the front
 	// channels[8]:  -1	0       1	=servo disturb
 	// channels[9]:  -1	0       1	=
 	// channels[10]: -1	0       1	=
@@ -776,7 +776,7 @@ bool MixingOutput::update()
 	}
 
 	// indi have to use allocator, since it use the model for control value. all this CA and INDI just for ductedfan4 since we have to set B.
-	// dt < _time_const  < epsilon^*=0.2 here. 实际上也需要大于一定值，因为噪声，这里下界是0.01，这与噪声和滤波器都有关。按照实际情况，kst0.15秒转60度，时间常数取0.03.. for CA in first order update
+	// dt < _time_const  < epsilon^*=0.2 here. Actually, it also needs to be greater than a certain value because of noise. Here the lower limit is 0.01, which is related to noise and filters. According to actual conditions, KST servo can turn 60 degrees in 0.15 seconds , the time constant is taken as 0.03. for CA in first order update
 	timestamp_ca_start = hrt_absolute_time();
 	if(_controls[0].control_flag == 1){ //using INDI
 		_fb[0] = _controls[0].control[actuator_controls_s::INDEX_ROLL];
@@ -852,22 +852,22 @@ bool MixingOutput::update()
 			allocation_value.u[i] = _u[i];
 			allocation_value.umin[i] = _uMin[i];
 			allocation_value.umax[i] = _uMax[i];
-			//实际系统不使用额外执行器模拟。仿真中均可（默认使用，不使用时，为了估计值准确，时间常数置0）。
+			// The actual system does not use an additional actuator for simulation. In simulations, it can be used (default is used, if not used, in order to estimate the value accurately, the time constant is set to 0).
 			_u_estimate[i] = first_order_update_zoh(_u[i], _last_u[i], _time_const, 1.0f/_sample_freq);
 			if(_param_use_actuator.get() == 1){
 				// PX4_INFO("use actuator");
-				_u_cmd[i] = _u_estimate[i]; //仿真中执行器是即时的，观测值直接作为舵指令，也即为舵实际位置。仿真中使用执行器，则估计是完美估计，若不使用执行器，令一阶估计时间常数为零，_u_estimate=_u, ，此时也是完美估计。
+				_u_cmd[i] = _u_estimate[i]; // In simulation, the actuator is instantaneous, and the observed value is directly used as the control surface command, which is the actual position of the control surface. When using the actuator in simulation, the estimate is perfect. If the actuator is not used, set the time constant of the first-order estimate to zero, _u_estimate=_u, which is also a perfect estimate.
 			}
 			else{
 				// PX4_INFO("not use actuator");
-				_u_cmd[i] = _u[i]; // 实际中，_u_cmd 为舵指令， _u_estimate 是舵实际值的估计。
+				_u_cmd[i] = _u[i]; // In reality, _u_cmd is the control surface command, and _u_estimate is the estimate of the actual control surface value.
 			}
 			_last_u[i] = _u_cmd[i]; // save last u for first order update
 			allocation_value.u_ultimate[i] = _u_cmd[i];
 		}
 
-		// // 两个标志位共同使能，要使遥控器控制，参数必须使用默认值。这里，遥控器和参数都是各自更新的。
-		// 实际飞行中，飞机实际配置总是使得滚转-10，俯仰+10.为了对照，调整1-4的舵扰动由++--为-++-。此时相当于有了6deg的舵扰动，只需要加2
+		// // Two flag bits are enabled together, in order to control the remote control, the parameters must use the default values. Here, both the remote control and the parameters are updated individually.
+		// In actual flight, the aircraft's actual configuration always makes roll -10, pitch +10. For comparison, the control surface disturbances of 1-4 are adjusted from ++-- to -++-. At this time, it is equivalent to having a 6 deg control surface disturbance, and only 2 deg more is needed to meet the test requirements.
 		if(_use_dist==1 || _rc_dist_flag){
 			outputs[0+4] = (_u_cmd[0]-_dist_mag)/0.3491f;
 			outputs[1+4] = (_u_cmd[1]+_dist_mag)/0.3491f;
@@ -881,7 +881,7 @@ bool MixingOutput::update()
 		}
 
 	}
-	else{ //PID是没有加舵扰动，也没有模型的变化。分配参数不变，仅多对比基准。
+	else{ //PID is without control surface disturbance and no model changes. Allocation parameters remain unchanged, only for comparison baseline.
 		if (_use_alloc == 1){ //_use_alloc only use for PID
 			// when using PID, >> B_inv_PID=[-1 0 1;0 -1 1;1 0 1;0 1 1], _B_PID=pinv(B_inv_PID)
 			// _B_PID =
@@ -952,7 +952,7 @@ bool MixingOutput::update()
 				allocation_value.u_ultimate[i] = _u_cmd[i];
 			}
 			for (size_t i = 0; i < 4; i++){
-				outputs[i+4] = _u_cmd[i];// 限幅-1～+1，所以不需要改单位
+				outputs[i+4] = _u_cmd[i];// Limited to -1 to +1, so no need to change units
 			}
 		}
 		else{ // origin system
