@@ -384,8 +384,8 @@ MulticopterAttitudeControl::Run()
 						rates_sp(2) = 0.0f;
 					}
 
-					// step 结束，恢复模式并进入等待状态
-					if (time_sec >= 5.0f * _cycle_time && !_mode_restored) {
+					// step 结束，恢复模式并进入等待状态 (after 4s, reset to posctl)
+					if (time_sec >= 4.0f * _cycle_time && !_mode_restored) {
 						vehicle_command_s cmd{};
 						cmd.timestamp = hrt_absolute_time();
 						cmd.param1 = 1.0f;

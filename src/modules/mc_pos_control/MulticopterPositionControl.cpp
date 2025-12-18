@@ -543,7 +543,7 @@ void MulticopterPositionControl::Run()
 							attitude_setpoint.yaw_body);
 					q_sp.copyTo(attitude_setpoint.q_d);
 
-					// step 结束，恢复模式并进入等待状态
+					// step 结束，恢复模式并进入等待状态 (betwen 4s and 5s, do nothing)
 					if (time_sec >= 5.0f * _cycle_time && !_mode_restored) {
 						vehicle_command_s cmd{};
 						cmd.timestamp = hrt_absolute_time();
