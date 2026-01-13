@@ -41,6 +41,8 @@ param set-default IMU_DGYRO_CUTOFF  10
 param set-default USER_PID_CA 0
 
 
+pparam set-default VT_ELEV_MC_LOCK 0
+param set-default VT_MOT_COUNT 1
 param set-default VT_TYPE 0
 
 set MAV_TYPE 20
