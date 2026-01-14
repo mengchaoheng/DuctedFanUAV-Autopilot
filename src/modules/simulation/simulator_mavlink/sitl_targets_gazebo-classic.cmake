@@ -71,6 +71,7 @@ if(gazebo_FOUND)
 	)
 
 	set(models
+		advanced_tailsitter
 		advanced_plane
 		believer
 		boat
