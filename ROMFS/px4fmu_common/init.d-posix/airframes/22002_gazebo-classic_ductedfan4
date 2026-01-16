@@ -8,7 +8,7 @@
 
 . ${R}etc/init.d/rc.mc_defaults
 
-param set-default CA_AIRFRAME 9
+param set-default CA_AIRFRAME 9 # 4 or 9
 
 param set-default MC_ROLL_P 6
 param set-default MC_ROLLRATE_P 0.45

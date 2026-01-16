@@ -276,9 +276,43 @@ void Tailsitter::fill_actuator_outputs()
 	_thrust_setpoint_1->xyz[1] = 0.f;
 	_thrust_setpoint_1->xyz[2] = 0.f;
 
-	// Motors
-	if (_vtol_mode == vtol_mode::FW_MODE) {
+	switch (_vtol_mode) {
+	// In MC and TRANSITION_TO_FW mode, use MC torque setpoint, but the effectiveness matrix maybe different,
+	// VT_TS_CS_HVR_EN parameter controls which surfaces are active during MC mode via mask in ActuatorEffectivenessTailsitterVTOL.
+	case vtol_mode::MC_MODE: // Selected CS.
+	case vtol_mode::TRANSITION_FRONT_P1: // all CS
+		// Motors: Force and torque
+		_thrust_setpoint_0->xyz[2] = _vehicle_thrust_setpoint_virtual_mc->xyz[2];
 
+		_torque_setpoint_0->xyz[0] = _vehicle_torque_setpoint_virtual_mc->xyz[0];
+		_torque_setpoint_0->xyz[1] = _vehicle_torque_setpoint_virtual_mc->xyz[1];
+		_torque_setpoint_0->xyz[2] = _vehicle_torque_setpoint_virtual_mc->xyz[2];
+
+		// Control surfaces: Torque (optional)
+		if (!_param_vt_elev_mc_lock.get()) {
+			_torque_setpoint_1->xyz[0] = _vehicle_torque_setpoint_virtual_mc->xyz[0];
+			_torque_setpoint_1->xyz[1] = _vehicle_torque_setpoint_virtual_mc->xyz[1];
+			_torque_setpoint_1->xyz[2] = _vehicle_torque_setpoint_virtual_mc->xyz[2];
+		}
+		break;
+
+	case vtol_mode::TRANSITION_BACK: // all CS
+		// Motors: Force and torque, the same as in MC mode
+		_thrust_setpoint_0->xyz[2] = _vehicle_thrust_setpoint_virtual_mc->xyz[2];
+
+		_torque_setpoint_0->xyz[0] = _vehicle_torque_setpoint_virtual_mc->xyz[0];
+		_torque_setpoint_0->xyz[1] = _vehicle_torque_setpoint_virtual_mc->xyz[1];
+		_torque_setpoint_0->xyz[2] = _vehicle_torque_setpoint_virtual_mc->xyz[2];
+
+		// Control surfaces: Torque, the same as in FW mode
+		_torque_setpoint_1->xyz[0] = _vehicle_torque_setpoint_virtual_fw->xyz[0];
+		_torque_setpoint_1->xyz[1] = _vehicle_torque_setpoint_virtual_fw->xyz[1];
+		_torque_setpoint_1->xyz[2] = _vehicle_torque_setpoint_virtual_fw->xyz[2];
+		break;
+
+	case vtol_mode::FW_MODE: // all CS
+
+		// Motors: Force and torque (optional)
 		_thrust_setpoint_0->xyz[2] = -_vehicle_thrust_setpoint_virtual_fw->xyz[0];
 
 		/* allow differential thrust if enabled */
@@ -294,19 +328,11 @@ void Tailsitter::fill_actuator_outputs()
 			_torque_setpoint_0->xyz[2] = _vehicle_torque_setpoint_virtual_fw->xyz[2] * _param_vt_fw_difthr_s_r.get();
 		}
 
-	} else {
-		_torque_setpoint_0->xyz[0] = _vehicle_torque_setpoint_virtual_mc->xyz[0];
-		_torque_setpoint_0->xyz[1] = _vehicle_torque_setpoint_virtual_mc->xyz[1];
-		_torque_setpoint_0->xyz[2] = _vehicle_torque_setpoint_virtual_mc->xyz[2];
-
-		_thrust_setpoint_0->xyz[2] = _vehicle_thrust_setpoint_virtual_mc->xyz[2];
-	}
-
-	// Control surfaces
-	if (!_param_vt_elev_mc_lock.get() || _vtol_mode != vtol_mode::MC_MODE) {
+		// Control surfaces: Torque
 		_torque_setpoint_1->xyz[0] = _vehicle_torque_setpoint_virtual_fw->xyz[0];
 		_torque_setpoint_1->xyz[1] = _vehicle_torque_setpoint_virtual_fw->xyz[1];
 		_torque_setpoint_1->xyz[2] = _vehicle_torque_setpoint_virtual_fw->xyz[2];
+		break;
 	}
 }
 

@@ -391,3 +391,26 @@ PARAM_DEFINE_FLOAT(VT_LND_PITCH_MIN, -5.0f);
  * @group VTOL Attitude Control
  */
 PARAM_DEFINE_FLOAT(VT_SPOILER_MC_LD, 0.f);
+
+/**
+ * Tailsitter: Enable control surfaces in hover mode
+ *
+ * Bitmask to enable specific control surfaces for torque generation in hover (MC) mode.
+ * By default all surfaces are disabled in hover. Set the corresponding bit to enable a surface:
+ * bit 0-7 correspond to CA_SV_CS0 through CA_SV_CS7.
+ *
+ * Example: 0b00000011 (3) enables control surfaces 0 and 1 in hover mode.
+ *
+ * @min 0
+ * @max 255
+ * @bit 0 Surface 0 (CA_SV_CS0)
+ * @bit 1 Surface 1 (CA_SV_CS1)
+ * @bit 2 Surface 2 (CA_SV_CS2)
+ * @bit 3 Surface 3 (CA_SV_CS3)
+ * @bit 4 Surface 4 (CA_SV_CS4)
+ * @bit 5 Surface 5 (CA_SV_CS5)
+ * @bit 6 Surface 6 (CA_SV_CS6)
+ * @bit 7 Surface 7 (CA_SV_CS7)
+ * @group VTOL Attitude Control
+ */
+PARAM_DEFINE_INT32(VT_TS_CS_HVR_EN, 0);

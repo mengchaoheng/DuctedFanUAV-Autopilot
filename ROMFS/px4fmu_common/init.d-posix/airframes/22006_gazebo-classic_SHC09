@@ -10,23 +10,14 @@
 
 param set-default CA_AIRFRAME 9
 
-param set-default MC_ROLL_P 6
-param set-default MC_ROLLRATE_P 0.45
+param set-default MC_ROLLRATE_P 0.5
 param set-default MC_ROLLRATE_I 0.3
-param set-default MC_ROLLRATE_D 0.0
-param set-default MC_ROLLRATE_FF 0
 
-param set-default MC_PITCH_P 6
-param set-default MC_PITCHRATE_P 0.45
+param set-default MC_PITCHRATE_P 0.5
 param set-default MC_PITCHRATE_I 0.3
-param set-default MC_PITCHRATE_D 0.0
-param set-default MC_PITCHRATE_FF 0
 
-param set-default MC_YAW_P 5
 param set-default MC_YAWRATE_P 0.4
 param set-default MC_YAWRATE_I 0.3
-param set-default MC_YAWRATE_D 0
-param set-default MC_YAWRATE_FF 0
 
 param set-default MPC_THR_HOVER 0.5
 param set-default RTL_RETURN_ALT 2.5
@@ -61,6 +52,8 @@ param set-default CA_SV_CS4_TRQ_Y 0.207
 param set-default CA_SV_CS5_TRQ_R -0.2505
 param set-default CA_SV_CS5_TRQ_P 0.4339
 param set-default CA_SV_CS5_TRQ_Y 0.207
+
+# param set-default VT_ELEV_MC_LOCK 0
 
 param set-default PWM_MAIN_FUNC1 101
 
