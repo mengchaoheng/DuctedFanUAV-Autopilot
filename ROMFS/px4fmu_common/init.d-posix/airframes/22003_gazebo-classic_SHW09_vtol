@@ -73,7 +73,6 @@ param set-default MC_YAWRATE_FF 0
 
 param set-default MPC_THR_HOVER 0.5
 
-
 param set-default PWM_MAIN_FUNC1 101
 
 param set-default PWM_MAIN_FUNC2 201
@@ -89,29 +88,10 @@ param set-default PWM_MAIN_FUNC9 208
 param set-default EKF2_MULTI_IMU 0
 param set-default SENS_IMU_MODE 1
 
-
-
-
-# param set-default FW_PSP_OFF 2
-
-# param set-default FW_RR_P 0.2
-# param set-default FW_RR_I 0.2
-# param set-default FW_RR_FF 1
-# param set-default FW_PR_P 0.1
-# param set-default FW_PR_I 0.1
-# param set-default FW_PR_FF 0.5
-
-# param set-default FW_P_TC 0.4
-# param set-default FW_R_TC 0.4
-
-
-param set-default FW_THR_TRIM 0.35
-# param set-default FW_THR_MAX 0.8
-# param set-default FW_THR_MIN 0.05
-# param set-default FW_T_CLMB_MAX 6
-# param set-default FW_T_HRATE_FF 0.5
-# param set-default FW_T_SINK_MAX 3
-# param set-default FW_T_SINK_MIN 1.6
+param set-default FW_PR_FF 0.0
+param set-default FW_PSP_OFF 5
+param set-default MC_AIRMODE 1
+param set-default FW_THR_TRIM 0.6
 
 
 param set-default VT_ARSP_TRANS 10

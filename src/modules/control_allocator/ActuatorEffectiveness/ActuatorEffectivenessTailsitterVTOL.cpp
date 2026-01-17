@@ -69,19 +69,17 @@ ActuatorEffectivenessTailsitterVTOL::getEffectivenessMatrix(Configuration &confi
 	_mc_rotors.enableYawByDifferentialThrust(_mc_rotors.geometry().num_rotors > 3);
 	const bool mc_rotors_added_successfully = _mc_rotors.addActuators(configuration);
 
-	// Control Surfaces - always add full matrix
+	// Control Surfaces
 	configuration.selected_matrix = 1;
 	_first_control_surface_idx = configuration.num_actuators_matrix[configuration.selected_matrix];
 	const bool surfaces_added_successfully = _control_surfaces.addActuators(configuration);
 
-	// In HOVER_FLIGHT: zero out disabled control surfaces based on VT_TS_CS_HVR_EN parameter
-	// In FORWARD_FLIGHT/TRANSITION: use all control surfaces (no zeroing)
+	// In HOVER_FLIGHT, set the column of the effect matrix corresponding to the disabled control surface to zero according to the VT_TS_CS_HVR_EN parameter.
+	// Instead of disabling the control distribution output (similar to stopMaskedMotorsWithZeroThrust), updating the distribution matrix avoids coupling between control channels.
 	if (surfaces_added_successfully && _flight_phase == FlightPhase::HOVER_FLIGHT) {
-		// Zero columns of disabled control surfaces in matrix 1
 		// Parameter VT_TS_CS_HVR_EN: bit=1 means enabled in hover, bit=0 means disabled
 		for (int i = 0; i < _control_surfaces.count(); i++) {
 			if ((_param_vt_ts_cs_hvr_en & (1 << i)) == 0) {
-				// Zero all rows of this control surface column in the effectiveness matrix
 				for (int row = 0; row < NUM_AXES; row++) {
 					configuration.effectiveness_matrices[1](row, _first_control_surface_idx + i) = 0.f;
 				}
@@ -122,7 +120,6 @@ void ActuatorEffectivenessTailsitterVTOL::updateSetpoint(const matrix::Vector<fl
 	if (matrix_index == 0) {
 		stopMaskedMotorsWithZeroThrust(_forwards_motors_mask, actuator_sp);
 	}
-	// Matrix 1 (control surfaces) handling is now done in getEffectivenessMatrix
 }
 
 void ActuatorEffectivenessTailsitterVTOL::setFlightPhase(const FlightPhase &flight_phase)
@@ -133,8 +130,7 @@ void ActuatorEffectivenessTailsitterVTOL::setFlightPhase(const FlightPhase &flig
 
 	ActuatorEffectiveness::setFlightPhase(flight_phase);
 
-	// Trigger control surfaces matrix update when transitioning between HOVER and FORWARD flight
-	// This ensures disabled surfaces are zeroed/enabled based on flight phase
+	// Trigger control surfaces matrix update when transitioning between HOVER and other flight phases.
 	_control_surfaces_updated = true;
 
 	// update stopped motors
