@@ -29,7 +29,7 @@ param set-default CA_SV_CS1_TYPE 6
 param set-default CA_SV_CS1_TRQ_P 0.5
 param set-default CA_SV_CS1_TRQ_Y -0.5
 param set-default VT_ELEV_MC_LOCK 0
-param set-default VT_TS_CS_HVR_EN 3
+param set-default VT_TS_CS_HVR_DIS 252
 
 param set-default PWM_MAIN_FUNC1 101
 param set-default PWM_MAIN_FUNC2 102

@@ -44,7 +44,8 @@ using namespace matrix;
 ActuatorEffectivenessTailsitterVTOL::ActuatorEffectivenessTailsitterVTOL(ModuleParams *parent)
 	: ModuleParams(parent), _mc_rotors(this), _control_surfaces(this)
 {
-	_param_handles.vt_ts_cs_hvr_en = param_find("VT_TS_CS_HVR_EN");
+	_param_handles.vt_elev_mc_lock = param_find("VT_ELEV_MC_LOCK");
+	_param_handles.vt_ts_cs_hvr_dis = param_find("VT_TS_CS_HVR_DIS");
 	updateParams();
 	setFlightPhase(FlightPhase::HOVER_FLIGHT);
 }
@@ -52,7 +53,8 @@ ActuatorEffectivenessTailsitterVTOL::ActuatorEffectivenessTailsitterVTOL(ModuleP
 void ActuatorEffectivenessTailsitterVTOL::updateParams()
 {
 	ModuleParams::updateParams();
-	param_get(_param_handles.vt_ts_cs_hvr_en, &_param_vt_ts_cs_hvr_en);
+	param_get(_param_handles.vt_elev_mc_lock, &_param_vt_elev_mc_lock);
+	param_get(_param_handles.vt_ts_cs_hvr_dis, &_param_vt_ts_cs_hvr_dis);
 }
 
 bool
@@ -74,12 +76,13 @@ ActuatorEffectivenessTailsitterVTOL::getEffectivenessMatrix(Configuration &confi
 	_first_control_surface_idx = configuration.num_actuators_matrix[configuration.selected_matrix];
 	const bool surfaces_added_successfully = _control_surfaces.addActuators(configuration);
 
-	// In HOVER_FLIGHT, set the column of the effect matrix corresponding to the disabled control surface to zero according to the VT_TS_CS_HVR_EN parameter.
-	// Instead of disabling the control distribution output (similar to stopMaskedMotorsWithZeroThrust), updating the distribution matrix avoids coupling between control channels.
-	if (surfaces_added_successfully && _flight_phase == FlightPhase::HOVER_FLIGHT) {
-		// Parameter VT_TS_CS_HVR_EN: bit=1 means enabled in hover, bit=0 means disabled
+	// In HOVER_FLIGHT, selectively disable control surfaces based on VT_TS_CS_HVR_DIS bitmask.
+	// This only takes effect when VT_ELEV_MC_LOCK=0 (control surfaces unlocked in hover).
+	if (surfaces_added_successfully && _flight_phase == FlightPhase::HOVER_FLIGHT && _param_vt_elev_mc_lock == 0) {
+		// VT_TS_CS_HVR_DIS: bit=1 means disabled in hover, bit=0 means enabled (default 0 = all enabled)
 		for (int i = 0; i < _control_surfaces.count(); i++) {
-			if ((_param_vt_ts_cs_hvr_en & (1 << i)) == 0) {
+			if ((_param_vt_ts_cs_hvr_dis & (1 << i)) != 0) {
+				// Set the corresponding column in effectiveness matrix to zero
 				for (int row = 0; row < NUM_AXES; row++) {
 					configuration.effectiveness_matrices[1](row, _first_control_surface_idx + i) = 0.f;
 				}

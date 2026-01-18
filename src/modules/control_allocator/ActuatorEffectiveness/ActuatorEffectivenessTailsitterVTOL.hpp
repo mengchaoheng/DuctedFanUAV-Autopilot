@@ -91,10 +91,12 @@ protected:
 	int _first_control_surface_idx{0}; ///< applies to matrix 1
 
 	struct ParamHandles {
-		param_t vt_ts_cs_hvr_en;
+		param_t vt_elev_mc_lock;
+		param_t vt_ts_cs_hvr_dis;
 	} _param_handles{};
 
-	int32_t _param_vt_ts_cs_hvr_en{0};
+	int32_t _param_vt_elev_mc_lock{1}; ///< Lock control surfaces in hover (default: locked)
+	int32_t _param_vt_ts_cs_hvr_dis{0}; ///< Bitmask to disable specific surfaces in hover (only effective when VT_ELEV_MC_LOCK=0)
 
 	bool _control_surfaces_updated{false}; ///< flag to trigger matrix update when flight phase changes
 
