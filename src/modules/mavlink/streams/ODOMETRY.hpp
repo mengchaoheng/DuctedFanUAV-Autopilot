@@ -127,7 +127,7 @@ private:
 			//  Row-major representation of a 6x6 velocity cross-covariance matrix upper right triangle
 			//  (states: vx, vy, vz, rollspeed, pitchspeed, yawspeed; first six entries are the first ROW, next five entries are the second ROW, etc.)
 			for (auto &vc : msg.velocity_covariance) {
-				vc = NAN;
+				vc = 0;
 			}
 
 			msg.velocity_covariance[0]  = odom.velocity_variance[0];   // X  row 0, col 0
