@@ -90,7 +90,6 @@ if(gazebo_FOUND)
 		iris_vision
 		omnicopter
 		plane
-		plane_df
 		plane_cam
 		plane_catapult
 		plane_lidar
@@ -109,7 +108,6 @@ if(gazebo_FOUND)
 		ductedfan4
 		SHW09_vtol
 		ductedfan6
-		tailsitter_1
 		SHC09
 	)
 
