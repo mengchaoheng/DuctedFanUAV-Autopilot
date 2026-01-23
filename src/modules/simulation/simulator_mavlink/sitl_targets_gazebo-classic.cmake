@@ -79,6 +79,7 @@ if(gazebo_FOUND)
 	)
 
 	set(models
+		advanced_tailsitter
 		advanced_plane
 		believer
 		boat
@@ -109,6 +110,10 @@ if(gazebo_FOUND)
 		typhoon_h480
 		uuv_bluerov2_heavy
 		uuv_hippocampus
+		ductedfan4
+		SHW09_vtol
+		ductedfan6
+		SHC09
 	)
 
 	set(worlds
