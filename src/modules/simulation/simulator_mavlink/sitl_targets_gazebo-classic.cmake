@@ -105,10 +105,12 @@ if(gazebo_FOUND)
 		typhoon_h480
 		uuv_bluerov2_heavy
 		uuv_hippocampus
+		ductedfan2
 		ductedfan4
-		SHW09_vtol
 		ductedfan6
+		ductedfan_mini
 		SHC09
+		SHW09_vtol
 	)
 
 	set(worlds
