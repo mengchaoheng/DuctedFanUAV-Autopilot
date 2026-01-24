@@ -1,0 +1,5 @@
+mems FIFORead -> ProcessGyro or ProcessAccel -> 
+PX4Geroscop's updateFIFO or PX4Accelerometer's updateFIFO ->
+publish sensor_gyro_fifo and sensor_gyro
+
+src/drivers, which used in the rc.board_sensors -> src/lib/drivers -> src/modules/sensors
