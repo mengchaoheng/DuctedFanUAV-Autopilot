@@ -14,7 +14,7 @@ Our development work is now mainly concentrated on the df-1.15.4 branch, which i
   * ductedfan6: DFUAV with six control surfaces and one rotor.
   * ductedfan_mini: mini DFUAV with four control surfaces and one rotor.
   * SHC09
-  * SHW09_VTOL
+  * SHW09_VTOL (from df-1.15.4)
   * ToDo: many more experimental types based on Ducted Fan.
 * Supports gazebo-based simulation ([Gazebo Classic](https://docs.px4.io/main/en/sim_gazebo_classic/)) and can easily communicate with the ros package. We implement DuctedFanUAV simulation by modifying the gazebo model and plugins, more detail in [DF_gazebo](https://github.com/mengchaoheng/DF_gazebo.git) which forked from [PX4-SITL_gazebo-classic](https://github.com/PX4/PX4-SITL_gazebo-classic.git) (sitl_gazebo).
 * We have performed extensive flight tests with DuctedFanUAV equipped with Pixhawk.
@@ -102,6 +102,8 @@ Ensure that the required submodules for loading the df-1.15.4 branch are loaded.
 ```
 git submodule update --init --recursive
 ```
+
+> Note: If submodule update error, first switch to v1.15.4, then run the above command, then run make distclean, then switch back to df-1.15.4, and then run the aforementioned command to update submodules.
 
 When switching branches or wishing to recompile, you can use
 ```
