@@ -102,5 +102,4 @@ px4_add_romfs_files(
 	ductedfan_mini.main.mix
 	SHC09.main.mix
 	SHW09.main.mix
-	SHW09_vtol.main.mix
 )
