@@ -103,7 +103,7 @@ Ensure that the required submodules for loading the df-1.15.4 branch are loaded.
 git submodule update --init --recursive
 ```
 
-> Note: If submodule update error, first switch to v1.15.4, then run the above command, then run make distclean, then switch back to df-1.15.4, and then run the aforementioned command to update submodules.
+> Note: If submodule update error, first switch to v1.15.4, then run the above command, and then switch back to df-1.15.4, and then run the aforementioned command to update submodules.
 
 When switching branches or wishing to recompile, you can use
 ```
