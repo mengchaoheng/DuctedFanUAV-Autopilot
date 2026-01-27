@@ -1,0 +1,74 @@
+#!/bin/sh
+#
+# @name Generic Multirotor with tilt
+#
+# @class Copter
+# @type FlyAnt
+#
+# @output Motor1 motor 1
+# @output Motor2 motor 2
+# @output Servo1 yaw and pitch servo
+# @output Servo2 yaw and pitch servo
+#
+# @maintainer meng chaoheng <chaohengmeng@163.com>
+#
+
+. ${R}etc/init.d/rc.mc_defaults
+
+param set-default MC_ROLL_P 6.5
+param set-default MC_ROLLRATE_P 0.055
+param set-default MC_ROLLRATE_I 0.073
+param set-default MC_ROLLRATE_D 0.0012
+param set-default MC_ROLLRATE_FF 0
+
+param set-default MC_PITCH_P 4.72
+param set-default MC_PITCHRATE_P 0.202
+param set-default MC_PITCHRATE_I 0.266
+param set-default MC_PITCHRATE_D 0.0046
+param set-default MC_PITCHRATE_FF 0
+
+param set-default MC_YAW_P 6.5
+param set-default MC_YAWRATE_P 0.09
+param set-default MC_YAWRATE_I 0.09
+param set-default MC_YAWRATE_D 0.0
+param set-default MC_YAWRATE_FF 0
+
+param set-default MPC_Z_VEL_P_ACC 5.5
+param set-default MPC_Z_VEL_I_ACC 2.0
+param set-default MPC_Z_VEL_D_ACC 0.2
+param set-default MPC_Z_P 1.5
+param set-default MPC_XY_VEL_P_ACC 2.95
+param set-default MPC_XY_VEL_I_ACC 1.0
+param set-default MPC_XY_VEL_D_ACC 0.7
+param set-default MPC_XY_P 0.45
+
+param set-default CA_AIRFRAME 8
+# FlyAnt
+param set-default CA_ROTOR_COUNT 2
+param set-default CA_ROTOR0_PX 0
+param set-default CA_ROTOR0_PY -0.2
+param set-default CA_ROTOR0_PZ -0.11
+param set-default CA_ROTOR0_KM 0.05
+param set-default CA_ROTOR1_PX 0
+param set-default CA_ROTOR1_PY 0.2
+param set-default CA_ROTOR1_PZ -0.11
+param set-default CA_ROTOR1_KM -0.05
+
+param set-default CA_SV_TL_COUNT 2
+param set-default CA_ROTOR0_TILT 1
+param set-default CA_ROTOR1_TILT 2
+
+param set-default CA_SV_TL0_CT 3
+param set-default CA_SV_TL1_CT 3
+
+param set-default CA_SV_TL0_MAXA 45.0000
+param set-default CA_SV_TL0_MINA -45.0000
+param set-default CA_SV_TL0_TD 0
+param set-default CA_SV_TL1_MAXA 45.0000
+param set-default CA_SV_TL1_MINA -45.0000
+param set-default CA_SV_TL1_TD 0
+
+param set-default PWM_MAIN_FUNC1 101
+param set-default PWM_MAIN_FUNC2 102
+param set-default PWM_MAIN_FUNC3 201
+param set-default PWM_MAIN_FUNC4 202

@@ -111,4 +111,5 @@ px4_add_romfs_files(
 	22004_gazebo-classic_ductedfan6
 	22005_gazebo-classic_ductedfan_mini
 	22006_gazebo-classic_SHC09
+	22007_gazebo-classic_flyant
 )
