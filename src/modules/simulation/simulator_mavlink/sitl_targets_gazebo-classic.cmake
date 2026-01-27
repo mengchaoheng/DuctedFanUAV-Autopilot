@@ -111,7 +111,7 @@ if(gazebo_FOUND)
 		ductedfan_mini
 		SHC09
 		SHW09_vtol
-		flyant
+		tilt_multirotor
 	)
 
 	set(worlds
