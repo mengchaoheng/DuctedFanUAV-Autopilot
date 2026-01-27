@@ -10,8 +10,8 @@ This repository is forked from [PX4-Autopilot](https://github.com/PX4/PX4-Autopi
 Our development work is now mainly concentrated on the `df-1.x.x` branch, which is based on the `v1.x.x` version of PX4. The default branch `df-main`, which is based on the `main` branch of PX4 (from `df-1.15.4`).
 
 
-* An angular velocity controller based on the [INDI control algorithm for DFUAV](https://github.com/mengchaoheng/DuctedFanUAV-Autopilot/tree/df-1.12.3/src/modules/mc_rate_control/IndiControl). (only `df-1.12.3`)
-* [Control allocator](https://github.com/mengchaoheng/DuctedFanUAV-Autopilot/blob/df-1.12.3/src/lib/mixer_module/ControlAllocation.h) based on linear programming algorithm. Currently only ductedfan4 is supported, but it can be easily changed to support other models. (only `df-1.12.3`)
+* An angular velocity controller based on the [INDI control algorithm for DFUAV](https://github.com/mengchaoheng/DuctedFanUAV-Autopilot/tree/df-1.12.3/src/modules/mc_rate_control/IndiControl). (only `df-1.12.3`，more information can be found in [PINDI](https://github.com/mengchaoheng/PINDI))
+* [Control allocator](https://github.com/mengchaoheng/DuctedFanUAV-Autopilot/blob/df-1.12.3/src/lib/mixer_module/ControlAllocation.h) based on linear programming algorithm. Currently only ductedfan4 is supported, but it can be easily changed to support other models. (only `df-1.12.3`，more information can be found in [PINDI](https://github.com/mengchaoheng/PINDI))
 * Supported airframes:
   * ductedfan2: DFUAV with two control surfaces and two rotors.
   * ductedfan4: DFUAV with four control surfaces and one rotor.
