@@ -14,7 +14,8 @@ Our development work is now mainly concentrated on the df-1.15.4 branch, which i
   * ductedfan6: DFUAV with six control surfaces and one rotor.
   * ductedfan_mini: mini DFUAV with four control surfaces and one rotor.
   * SHC09
-  * SHW09_VTOL (from df-1.15.4)
+  * SHW09_vtol (from df-1.15.4)
+  * Multirotor with tilt
   * ToDo: many more experimental types based on Ducted Fan.
 * Supports gazebo-based simulation ([Gazebo Classic](https://docs.px4.io/main/en/sim_gazebo_classic/)) and can easily communicate with the ros package. We implement DuctedFanUAV simulation by modifying the gazebo model and plugins, more detail in [DF_gazebo](https://github.com/mengchaoheng/DF_gazebo.git) which forked from [PX4-SITL_gazebo-classic](https://github.com/PX4/PX4-SITL_gazebo-classic.git) (sitl_gazebo).
 * We have performed extensive flight tests with DuctedFanUAV equipped with Pixhawk.
@@ -138,9 +139,13 @@ make px4_sitl gazebo_ductedfan_mini
 ```
 make px4_sitl gazebo_SHC09
 ```
-6. SHW09
+6. SHW09_vtol
 ```
-make px4_sitl gazebo_SHW09_VTOL
+make px4_sitl gazebo_SHW09_vtol
+```
+7. Multirotor with tilt
+```
+make px4_sitl gazebo_tilt_multirotor
 ```
 ### Flight with pixhawk
 
