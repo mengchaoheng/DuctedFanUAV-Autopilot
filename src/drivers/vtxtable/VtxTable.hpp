@@ -1,6 +1,6 @@
 /****************************************************************************
  *
- *   Copyright (c) 2019-2023 PX4 Development Team. All rights reserved.
+ *   Copyright (c) 2025 PX4 Development Team. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -31,37 +31,23 @@
  *
  ****************************************************************************/
 
+#pragma once
+
+#include "config.h"
+
 /**
- * Feeds Ekf with Mag data
- * @author Kamil Ritz <ka.ritz@hotmail.com>
+ * @author Niklas Hauser <niklas@auterion.com>
  */
-#ifndef EKF_MAG_H
-#define EKF_MAG_H
 
-#include "sensor.h"
+extern vtx::Config &vtxtable();
 
-namespace sensor_simulator
-{
-namespace sensor
-{
+#ifdef CONFIG_VTXTABLE_USE_STORAGE
+extern int vtxtable_store(const char *filename);
+extern int vtxtable_load(const char *filename);
+#endif
 
-class Mag: public Sensor
-{
-public:
-	Mag(std::shared_ptr<Ekf> ekf);
-	~Mag();
-
-	void setData(const Vector3f &mag);
-	void setBias(const Vector3f &bias) { _bias = bias; }
-
-private:
-	Vector3f _mag_data;
-	Vector3f _bias;
-
-	void send(uint64_t time) override;
-
-};
-
-} // namespace sensor
-} // namespace sensor_simulator
-#endif // !EKF_MAG_H
+extern void vtxtable_print_frequencies();
+extern void vtxtable_print_power_levels();
+#ifdef CONFIG_VTXTABLE_AUX_MAP
+extern void vtxtable_print_aux_map();
+#endif
