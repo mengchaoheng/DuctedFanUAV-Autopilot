@@ -64,3 +64,5 @@ param set-default PWM_MAIN_FUNC5 204
 param set-default PWM_MAIN_FUNC6 205
 param set-default PWM_MAIN_FUNC7 206
 
+param set-default SDLOG_PROFILE 17
+param set-default SDLOG_MODE 0
