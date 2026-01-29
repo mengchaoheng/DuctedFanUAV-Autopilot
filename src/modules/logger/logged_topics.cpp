@@ -134,7 +134,7 @@ void LoggedTopics::add_default_topics()
 	add_topic("transponder_report");
 	add_topic("vehicle_acceleration", 50);
 	add_topic("vehicle_air_data", 200);
-	add_topic("vehicle_angular_velocity", 50);
+	add_topic("vehicle_angular_velocity", 20);
 	add_topic("vehicle_attitude", 50);
 	add_topic("vehicle_attitude_setpoint", 50);
 	add_topic("vehicle_command");
@@ -144,10 +144,10 @@ void LoggedTopics::add_default_topics()
 	add_topic("vehicle_global_position", 200);
 	add_topic("vehicle_gps_position", 100);
 	add_topic("vehicle_land_detected");
-	add_topic("vehicle_local_position", 50);
-	add_topic("vehicle_local_position_setpoint", 50);
+	add_topic("vehicle_local_position", 100);
+	add_topic("vehicle_local_position_setpoint", 100);
 	add_topic("vehicle_magnetometer", 200);
-	add_topic("vehicle_rates_setpoint", 50);
+	add_topic("vehicle_rates_setpoint", 20);
 	add_topic("vehicle_roi", 1000);
 	add_topic("vehicle_status");
 	add_topic("vtx");
@@ -162,7 +162,7 @@ void LoggedTopics::add_default_topics()
 	add_optional_topic("fixed_wing_runway_control", 100);
 
 	// multi topics
-	add_optional_topic_multi("actuator_outputs", 50, 3);
+	add_optional_topic_multi("actuator_outputs", 100, 3);
 	add_optional_topic_multi("airspeed_wind", 1000, 4);
 	add_optional_topic_multi("control_allocator_status", 200, 2);
 	add_optional_topic_multi("rate_ctrl_status", 200, 2);
@@ -238,7 +238,7 @@ void LoggedTopics::add_default_topics()
 	add_optional_topic("vehicle_thrust_setpoint_virtual_mc");
 	add_optional_topic("vehicle_thrust_setpoint_virtual_fw");
 	add_topic("time_offset");
-	// add_topic("vehicle_angular_velocity", 10);
+	add_topic("vehicle_angular_velocity"); // full rate is 4 ms (250 Hz)
 	add_topic("vehicle_angular_velocity_groundtruth", 10);
 	add_topic("vehicle_attitude_groundtruth", 10);
 	add_topic("vehicle_global_position_groundtruth", 100);
@@ -257,9 +257,9 @@ void LoggedTopics::add_default_topics()
 		}
 	}
 
-	// add_topic("vehicle_attitude");
-	// add_topic("vehicle_global_position");
-	// add_topic("vehicle_local_position");
+	add_topic("vehicle_attitude");
+	add_topic("vehicle_global_position");
+	add_topic("vehicle_local_position");
 	add_topic("wind");
 	add_optional_topic_multi("yaw_estimator_status");
 
@@ -280,6 +280,8 @@ void LoggedTopics::add_high_rate_topics()
 	add_topic("vehicle_attitude");
 	add_topic("vehicle_attitude_setpoint");
 	add_topic("vehicle_rates_setpoint");
+	add_topic("vehicle_local_position");
+	add_topic("vehicle_local_position_setpoint");
 
 	add_topic("esc_status", 5);
 	add_topic("actuator_motors");
