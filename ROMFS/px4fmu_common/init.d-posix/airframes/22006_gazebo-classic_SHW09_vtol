@@ -102,3 +102,5 @@ param set-default VT_TYPE 0
 
 param set-default WV_EN 0
 
+param set-default SDLOG_PROFILE 17
+param set-default SDLOG_MODE 0
