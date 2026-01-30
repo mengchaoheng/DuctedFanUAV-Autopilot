@@ -49,7 +49,7 @@ ActuatorEffectivenessCustom::getEffectivenessMatrix(Configuration &configuration
 	}
 
 	// Motors
-	_motors.enablePropellerTorque(false);
+	_motors.enablePropellerTorque(true);
 	const bool motors_added_successfully = _motors.addActuators(configuration);
 	_motors_mask = _motors.getMotors();
 
