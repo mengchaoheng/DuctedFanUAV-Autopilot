@@ -200,19 +200,16 @@ The yaw rate controller also helps to counteract [adverse yaw effects](https://y
 
 ```mermaid
 graph TD
-  subgraph Position_Control
-    MC_Pos[MC Position Controller]
-    FW_Pos[FW Position Controller]
-  end
+  MC_Pos[MC Position Controller]
+  FW_Pos[FW Position Controller]
 
   VAC[VTOL Attitude Controller]
 
-  subgraph Attitude_Rate_Loops
-    MC_Att[MC Attitude Controller]
-    FW_Att[FW Attitude Controller]
-    MC_Rate[MC Rates Controller]
-    FW_Rate[FW Rates Controller]
-  end
+  MC_Att[MC Attitude Controller]
+  FW_Att[FW Attitude Controller]
+
+  MC_Rate[MC Rates Controller]
+  FW_Rate[FW Rates Controller]
 
   Allocator[Control Allocator]
 
