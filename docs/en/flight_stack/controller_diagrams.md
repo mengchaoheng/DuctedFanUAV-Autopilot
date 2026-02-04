@@ -213,8 +213,8 @@ graph TD
 
   Allocator[Control Allocator]
 
-  MC_Pos -->|mc_virtual_att_sp| VAC
-  FW_Pos -->|fw_virtual_att_sp| VAC
+  MC_Pos -->|mc_virtual_attitude_setpoint| VAC
+  FW_Pos -->|fw_virtual_attitude_setpoint| VAC
 
   VAC -->|vehicle_attitude_setpoint| MC_Att
   VAC -->|vehicle_attitude_setpoint| FW_Att
