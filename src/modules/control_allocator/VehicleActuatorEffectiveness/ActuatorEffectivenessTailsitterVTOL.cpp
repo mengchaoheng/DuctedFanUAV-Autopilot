@@ -61,7 +61,7 @@ bool
 ActuatorEffectivenessTailsitterVTOL::getEffectivenessMatrix(Configuration &configuration,
 		EffectivenessUpdateReason external_update)
 {
-	if (!_control_surfaces_updated && external_update == EffectivenessUpdateReason::NO_EXTERNAL_UPDATE) {
+	if (!_should_update_effectiveness_matrix && external_update == EffectivenessUpdateReason::NO_EXTERNAL_UPDATE) {
 		return false;
 	}
 
@@ -76,10 +76,11 @@ ActuatorEffectivenessTailsitterVTOL::getEffectivenessMatrix(Configuration &confi
 	_first_control_surface_idx = configuration.num_actuators_matrix[configuration.selected_matrix];
 	const bool surfaces_added_successfully = _control_surfaces.addActuators(configuration);
 
-	// In HOVER_FLIGHT, selectively disable control surfaces based on VT_TS_CS_HVR_DIS bitmask.
-	// This only takes effect when VT_ELEV_MC_LOCK=0 (control surfaces unlocked in hover).
-	if (surfaces_added_successfully && _flight_phase == FlightPhase::HOVER_FLIGHT && _param_vt_elev_mc_lock == 0) {
-		// VT_TS_CS_HVR_DIS: bit=1 means disabled in hover, bit=0 means enabled (default)
+	// In HOVER_FLIGHT, selectively disable some control surfaces based on VT_TS_CS_HVR_DIS bitmask.
+	// Note: VT_ELEV_MC_LOCK=0 means control surfaces are unlocked (enabled), while VT_TS_CS_HVR_DIS can still disable specific ones.
+	if (surfaces_added_successfully && _flight_phase == FlightPhase::HOVER_FLIGHT &&
+	    _param_vt_elev_mc_lock == 0 && _param_vt_ts_cs_hvr_dis != 0) {
+		// VT_TS_CS_HVR_DIS bitmask: bit[i]=1 disables surface i, bit[i]=0 keeps it enabled
 		for (int i = 0; i < _control_surfaces.count(); i++) {
 			if ((_param_vt_ts_cs_hvr_dis & (1 << i)) != 0) {
 				// Set the corresponding column in effectiveness matrix to zero
@@ -91,7 +92,7 @@ ActuatorEffectivenessTailsitterVTOL::getEffectivenessMatrix(Configuration &confi
 	}
 
 	// Reset flag after update
-	_control_surfaces_updated = false;
+	_should_update_effectiveness_matrix = false;
 
 	return (mc_rotors_added_successfully && surfaces_added_successfully);
 }
@@ -132,8 +133,10 @@ void ActuatorEffectivenessTailsitterVTOL::setFlightPhase(const FlightPhase &flig
 
 	ActuatorEffectiveness::setFlightPhase(flight_phase);
 
-	// Trigger control surfaces matrix update when transitioning between HOVER_FLIGHT and other flight phases.
-	_control_surfaces_updated = true;
+	// On flight phase change, check whether unlocked surfaces have any per-surface disables.
+	if (_param_vt_elev_mc_lock == 0 && _param_vt_ts_cs_hvr_dis != 0) {
+		_should_update_effectiveness_matrix = true;
+	}
 
 	// update stopped motors
 	switch (flight_phase) {

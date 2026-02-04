@@ -97,7 +97,7 @@ protected:
 	int32_t _param_vt_elev_mc_lock{1}; ///< Lock control surfaces in hover (default: locked)
 	int32_t _param_vt_ts_cs_hvr_dis{0}; ///< Bitmask to disable specific surfaces in hover (only effective when VT_ELEV_MC_LOCK=0)
 
-	bool _control_surfaces_updated{false}; ///< flag to trigger matrix update when flight phase changes
+	bool _should_update_effectiveness_matrix{false}; ///< flag to trigger control effectiveness matrix update on flight phase change
 
 	uORB::Subscription _flaps_setpoint_sub{ORB_ID(flaps_setpoint)};
 	uORB::Subscription _spoilers_setpoint_sub{ORB_ID(spoilers_setpoint)};
