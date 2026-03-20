@@ -410,7 +410,7 @@ PARAM_DEFINE_INT32(MC_BAT_SCALE_EN, 0);
  * @increment 0.001
  * @group Multicopter Rate Control
  */
-PARAM_DEFINE_FLOAT(USER_OMEGA_2_F, 3.0f);//
+PARAM_DEFINE_FLOAT(USER_OMEGA_2_F, 1.0f);//
 
 /**
  * Roll rate P gain of INDI
