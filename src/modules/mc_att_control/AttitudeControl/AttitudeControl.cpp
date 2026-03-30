@@ -114,28 +114,28 @@ matrix::Vector3f AttitudeControl::update(const Quatf &q) const
 	// By definition, the delta yaw quaternion has the form (cos(angle/2), 0, 0, sin(angle/2))
 	const Quatf q_e_red_cmp = q.inversed() * qd_red;
 
-	PX4_INFO("q_e_red-bar_xi_c: [%.6f %.6f %.6f %.6f]",
-		 (double)(q_e_red_cmp(0) - bar_xi_c(0)),
-		 (double)(q_e_red_cmp(1) - bar_xi_c(1)),
-		 (double)(q_e_red_cmp(2) - bar_xi_c(2)),
-		 (double)(q_e_red_cmp(3) - bar_xi_c(3)));
-	PX4_INFO("qd_red-q_tilt: [%.6f %.6f %.6f %.6f]",
-		 (double)(qd_red(0) - q_tilt(0)),
-		 (double)(qd_red(1) - q_tilt(1)),
-		 (double)(qd_red(2) - q_tilt(2)),
-		 (double)(qd_red(3) - q_tilt(3)));
+	// PX4_INFO("q_e_red-bar_xi_c: [%.6f %.6f %.6f %.6f]",
+	// 	 (double)(q_e_red_cmp(0) - bar_xi_c(0)),
+	// 	 (double)(q_e_red_cmp(1) - bar_xi_c(1)),
+	// 	 (double)(q_e_red_cmp(2) - bar_xi_c(2)),
+	// 	 (double)(q_e_red_cmp(3) - bar_xi_c(3)));
+	// PX4_INFO("qd_red-q_tilt: [%.6f %.6f %.6f %.6f]",
+	// 	 (double)(qd_red(0) - q_tilt(0)),
+	// 	 (double)(qd_red(1) - q_tilt(1)),
+	// 	 (double)(qd_red(2) - q_tilt(2)),
+	// 	 (double)(qd_red(3) - q_tilt(3)));
 
 	Quatf qd_dyaw = qd_red.inversed() * qd;
 	qd_dyaw.canonicalize();
 
 	const Quatf q_xi_psi_delta = xi_psi.inversed() * qd_dyaw;
 	const float angle_diff_xi_psi_qd_dyaw = 2.f * atan2f(q_xi_psi_delta.imag().norm(), fabsf(q_xi_psi_delta(0)));
-	PX4_INFO("xi_psi-qd_dyaw: [%.6f %.6f %.6f %.6f], angle_diff: %.6f rad",
-		 (double)(xi_psi(0) - qd_dyaw(0)),
-		 (double)(xi_psi(1) - qd_dyaw(1)),
-		 (double)(xi_psi(2) - qd_dyaw(2)),
-		 (double)(xi_psi(3) - qd_dyaw(3)),
-		 (double)angle_diff_xi_psi_qd_dyaw);
+	// PX4_INFO("xi_psi-qd_dyaw: [%.6f %.6f %.6f %.6f], angle_diff: %.6f rad",
+	// 	 (double)(xi_psi(0) - qd_dyaw(0)),
+	// 	 (double)(xi_psi(1) - qd_dyaw(1)),
+	// 	 (double)(xi_psi(2) - qd_dyaw(2)),
+	// 	 (double)(xi_psi(3) - qd_dyaw(3)),
+	// 	 (double)angle_diff_xi_psi_qd_dyaw);
 
 
 	// catch numerical problems with the domain of acosf and asinf
