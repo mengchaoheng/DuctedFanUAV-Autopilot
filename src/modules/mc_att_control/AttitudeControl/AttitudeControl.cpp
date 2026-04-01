@@ -62,28 +62,28 @@ matrix::Vector3f AttitudeControl::update(const Quatf &q) const
 {
 	Quatf qd = _attitude_setpoint_q;
 	// Ezra Tal
-	const float yaw_ref = Eulerf(qd).psi();
+	// const float yaw_ref = Eulerf(qd).psi();
 	// Tal & Karaman (2021) Eq. (22)-(26): compute xi_c = \bar{xi}_c \circ xi_psi
-	const Vector3f i_z{0.f, 0.f, 1.f};
-	const Vector3f minus_bz_c = -qd.dcm_z();
-	const Vector3f minus_bz_c_b = Dcmf(q.inversed()) * minus_bz_c;
+	// const Vector3f i_z{0.f, 0.f, 1.f};
+	// const Vector3f minus_bz_c = -qd.dcm_z();
+	// const Vector3f minus_bz_c_b = Dcmf(q.inversed()) * minus_bz_c;
 
-	const float dot_iz = i_z.dot(minus_bz_c_b);
-	const Vector3f cross_iz = i_z.cross(minus_bz_c_b);
+	// const float dot_iz = i_z.dot(minus_bz_c_b);
+	// const Vector3f cross_iz = i_z.cross(minus_bz_c_b);
 
-	Quatf bar_xi_c{1.f - dot_iz, -cross_iz(0), -cross_iz(1), -cross_iz(2)};
-	bar_xi_c.normalize();
+	// Quatf bar_xi_c{1.f - dot_iz, -cross_iz(0), -cross_iz(1), -cross_iz(2)};
+	// bar_xi_c.normalize();
 
-	const Vector3f n_psi_ref{sinf(yaw_ref), -cosf(yaw_ref), 0.f};
-	const Quatf q_tilt = q * bar_xi_c; // qd_red
-	const Vector3f bar_n_psi_ref = Dcmf(q_tilt.inversed()) * n_psi_ref;
+	// const Vector3f n_psi_ref{sinf(yaw_ref), -cosf(yaw_ref), 0.f};
+	// const Quatf q_tilt = q * bar_xi_c; // qd_red
+	// const Vector3f bar_n_psi_ref = Dcmf(q_tilt.inversed()) * n_psi_ref;
 
-	const float n1 = bar_n_psi_ref(0);
-	const float n2 = bar_n_psi_ref(1);
-	const float kappa = (fabsf(n2) > 1e-6f) ? (-n1 / n2) : 0.f;
+	// const float n1 = bar_n_psi_ref(0);
+	// const float n2 = bar_n_psi_ref(1);
+	// const float kappa = (fabsf(n2) > 1e-6f) ? (-n1 / n2) : 0.f;
 
-	Quatf xi_psi{1.f, 0.f, 0.f, kappa/(1+sqrtf(1.f + kappa * kappa))};
-	xi_psi.normalize();
+	// Quatf xi_psi{1.f, 0.f, 0.f, kappa/(1+sqrtf(1.f + kappa * kappa))};
+	// xi_psi.normalize();
 
 	// const Quatf xi_c = bar_xi_c * xi_psi; // = qe
 
@@ -112,7 +112,7 @@ matrix::Vector3f AttitudeControl::update(const Quatf &q) const
 
 	// With a full desired attitude given by: qd = qd_red * qd_dyaw, extract the delta yaw component.
 	// By definition, the delta yaw quaternion has the form (cos(angle/2), 0, 0, sin(angle/2))
-	const Quatf q_e_red_cmp = q.inversed() * qd_red;
+	// const Quatf q_e_red_cmp = q.inversed() * qd_red;
 
 	// PX4_INFO("q_e_red-bar_xi_c: [%.6f %.6f %.6f %.6f]",
 	// 	 (double)(q_e_red_cmp(0) - bar_xi_c(0)),
@@ -128,8 +128,8 @@ matrix::Vector3f AttitudeControl::update(const Quatf &q) const
 	Quatf qd_dyaw = qd_red.inversed() * qd;
 	qd_dyaw.canonicalize();
 
-	const Quatf q_xi_psi_delta = xi_psi.inversed() * qd_dyaw;
-	const float angle_diff_xi_psi_qd_dyaw = 2.f * atan2f(q_xi_psi_delta.imag().norm(), fabsf(q_xi_psi_delta(0)));
+	// const Quatf q_xi_psi_delta = xi_psi.inversed() * qd_dyaw;
+	// const float angle_diff_xi_psi_qd_dyaw = 2.f * atan2f(q_xi_psi_delta.imag().norm(), fabsf(q_xi_psi_delta(0)));
 	// PX4_INFO("xi_psi-qd_dyaw: [%.6f %.6f %.6f %.6f], angle_diff: %.6f rad",
 	// 	 (double)(xi_psi(0) - qd_dyaw(0)),
 	// 	 (double)(xi_psi(1) - qd_dyaw(1)),
