@@ -325,15 +325,8 @@ void Tailsitter::fill_actuator_outputs()
 		_torque_setpoint_0->xyz[2] = _vehicle_torque_setpoint_virtual_mc->xyz[2];
 	}
 
-	// Control surfaces: Generating torque (optional for MC_MODE)
-	// VT_ELEV_MC_LOCK=0 enables control surfaces in hover, VT_TS_CS_HVR_DIS can still
-	// selectively disable individual surfaces (e.g., those outside propeller slipstream).
-	if (!_param_vt_elev_mc_lock.get() && _vtol_mode == vtol_mode::MC_MODE) {
-		// Specific surface masking handled in ActuatorEffectivenessTailsitterVTOL.
-		_torque_setpoint_1->xyz[0] = _vehicle_torque_setpoint_virtual_mc->xyz[0];
-		_torque_setpoint_1->xyz[1] = _vehicle_torque_setpoint_virtual_mc->xyz[1];
-		_torque_setpoint_1->xyz[2] = _vehicle_torque_setpoint_virtual_mc->xyz[2];
-	} else {
+	// Control surfaces
+	if (!_param_vt_elev_mc_lock.get() || _vtol_mode != vtol_mode::MC_MODE) {
 		_torque_setpoint_1->xyz[0] = _vehicle_torque_setpoint_virtual_fw->xyz[0];
 		_torque_setpoint_1->xyz[1] = _vehicle_torque_setpoint_virtual_fw->xyz[1];
 		_torque_setpoint_1->xyz[2] = _vehicle_torque_setpoint_virtual_fw->xyz[2];
