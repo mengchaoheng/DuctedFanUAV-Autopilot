@@ -93,18 +93,19 @@ param set-default FW_PR_FF 0.2
 param set-default FW_PR_P 1.2
 param set-default FW_RR_FF 0.2
 param set-default FW_RR_P 1.0
-param set-default FW_YR_FF 0.05
-param set-default FW_YR_P 0.2
+param set-default FW_YR_FF 0.01
+param set-default FW_YR_P 0.1
 param set-default FW_PSP_OFF 5
 param set-default FW_THR_TRIM 0.47
 param set-default FW_THR_MIN 0.1
 
-param set-default FW_GND_SPD_MIN 3.0
-param set-default FW_T_ALT_TC 2.0
-param set-default FW_T_HRATE_FF 0.5
-param set-default FW_T_I_GAIN_PIT 0.2
-param set-default FW_T_TAS_TC 3.0
-param set-default FW_T_THR_INTEG 0.1
+param set-default FW_GND_SPD_MIN 2.0
+# param set-default FW_T_RLL2THR 10
+# param set-default FW_T_ALT_TC 2.0
+# param set-default FW_T_HRATE_FF 0.5
+# param set-default FW_T_I_GAIN_PIT 0.2
+# param set-default FW_T_TAS_TC 6.0
+# param set-default FW_T_THR_INTEG 0.1
 
 
 
