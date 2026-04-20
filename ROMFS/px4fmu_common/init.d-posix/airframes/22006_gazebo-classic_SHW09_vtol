@@ -111,12 +111,11 @@ param set-default FW_THR_TRIM 0.35
 # FW Longitudinal
 param set-default FW_GND_SPD_MIN 2.0
 # param set-default FW_T_RLL2THR 10
-param set-default FW_T_ALT_TC 3.0
-param set-default FW_T_HRATE_FF 0.2
-param set-default FW_T_I_GAIN_PIT 0.2
+# param set-default FW_T_ALT_TC 3.0
+# param set-default FW_T_HRATE_FF 0.5
+# param set-default FW_T_I_GAIN_PIT 0.2
 # param set-default FW_T_TAS_TC 6.0
-param set-default FW_T_THR_DAMPING 0.02
-param set-default FW_T_THR_INTEG 0.08
+# param set-default FW_T_THR_INTEG 0.1
 
 
 
