@@ -123,7 +123,7 @@ param set-default MC_AIRMODE 1
 
 param set-default VT_ARSP_TRANS 10
 param set-default VT_B_TRANS_DUR 3
-param set-default VT_F_TRANS_DUR 2
+param set-default VT_F_TRANS_DUR 3
 param set-default VT_TYPE 0
 
 param set-default WV_EN 0
