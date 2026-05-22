@@ -59,10 +59,12 @@ PARAM_DEFINE_INT32(USER_DF_MID2, 1500);
 /**
  * USER_PID_CA
  *
- * use control allocation or not.
+ * use control allocation or not under PID.
+ * If set to 0, using mix of origin system = setup USER_AC_METHOD=0 (inv) under USER_PID_CA=1 and without actuator simulation.
+ * If set to 1, using CA for PID  (with/without actuator simulation setup by USER_ACTUATOR)
  *
  * @value 0 default mix=inv
- * @value 1 PID CA
+ * @value 1 CA for PID
  * @group Mixer Output
  */
 PARAM_DEFINE_INT32(USER_PID_CA, 0);

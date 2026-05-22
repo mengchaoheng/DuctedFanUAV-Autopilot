@@ -43,39 +43,64 @@ using namespace matrix;
 void IndiControl::setParams(const Vector3f &P, const float k)
 {
 	_gain_p = P;
-	_k=k;  // k =_k_cv*_k_v*_k_v
-	_B.setZero(); //= { {-46.2254,0.0,46.2254,0.0}, {0.0,-46.0825,0.0,46.0825},{46.7411,46.7411,46.7411,46.7411}};
-	_B(0, 0)=-_L_1*_k/_I_x;
-	_B(0, 2)=_L_1*_k/_I_x;
-	_B(1, 1)=-_L_1*_k/_I_y;
-	_B(1, 3)=_L_1*_k/_I_y;
-	_B(2, 0)=_L_2*_k/_I_z;
-	_B(2, 1)=_L_2*_k/_I_z;
-	_B(2, 2)=_L_2*_k/_I_z;
-	_B(2, 3)=_L_2*_k/_I_z;
+	_k=k;  // k_omega2force =_k_cv*_k_v*_k_v
+	_B.setZero();
+
+	_B(0, 0)= -_L_1*_k/_I_x;
+	_B(0, 1)= -0.5f*_L_1*_k/_I_x;
+	_B(0, 2)= 0.5f*_L_1*_k/_I_x;
+	_B(0, 3)= _L_1*_k/_I_x;
+	_B(0, 4)= 0.5f*_L_1*_k/_I_x;
+	_B(0, 5)= -0.5f*_L_1*_k/_I_x;
+
+	_B(1, 1)= sqrt(3)*0.5*_L_1*_k/_I_y;
+	_B(1, 2)= sqrt(3)*0.5*_L_1*_k/_I_y;
+	_B(1, 4)= -sqrt(3)*0.5*_L_1*_k/_I_y;
+	_B(1, 5)= -sqrt(3)*0.5*_L_1*_k/_I_y;
+
+	_B(2, 0)= _L_2*_k/_I_z;
+	_B(2, 1)= _L_2*_k/_I_z;
+	_B(2, 2)= _L_2*_k/_I_z;
+	_B(2, 3)= _L_2*_k/_I_z;
+	_B(2, 4)= _L_2*_k/_I_z;
+	_B(2, 5)= _L_2*_k/_I_z;
 	// PX4_INFO("INDI is updated");
 
 }
 
 void IndiControl::init()
 {
-	// l1=0.167;l2=0.0698;k=3; % k*delta=F on cs
-	// I_x=0.00967;I_y=0.0097;I_z=0.00448;
-	// I=diag([I_x;I_y;I_z]);
-	// B=I\[-l1 0 l1 0;0 -l1 0 l1;l2 l2 l2 l2]*k;
-	// % B=[-l1*k/I_x 0 l1*k/I_x 0;0 -l1*k/I_y 0 l1*k/I_y;l2*k/I_z l2*k/I_z l2*k/I_z l2*k/I_z];
-	// % B=I\diag([2*l1;2*l1;4*l2])*k*[-0.5 0 0.5 0;0 -0.5 0 0.5;0.25 0.25 0.25 0.25];
-	// % [-0.5 0 0.5 0;0 -0.5 0 0.5;0.25 0.25 0.25 0.25]= piv([-1 0 1;0 -1 1;1 0 1;0 1 1])
-	// % I\[2*l1 0 0;0 2*l1 0;0 0 4*l2]*k is the different of gain, that is diag([92.4509;92.1649;186.9643])
-	_B.setZero(); //= { {-46.2254,0.0,46.2254,0.0}, {0.0,-46.0825,0.0,46.0825},{46.7411,46.7411,46.7411,46.7411}};
-	_B(0, 0)=-_L_1*_k/_I_x;
-	_B(0, 2)=_L_1*_k/_I_x;
-	_B(1, 1)=-_L_1*_k/_I_y;
-	_B(1, 3)=_L_1*_k/_I_y;
-	_B(2, 0)=_L_2*_k/_I_z;
-	_B(2, 1)=_L_2*_k/_I_z;
-	_B(2, 2)=_L_2*_k/_I_z;
-	_B(2, 3)=_L_2*_k/_I_z;
+	// l1 = 0.292166;
+	// l2 = 0.073699;
+	// k_omega2force = 1.93;
+	// I_x = 0.0438;
+	// I_y = 0.0436;
+	// I_z = 0.005006;
+	// d = 60*pi/180;
+	// I = diag([I_x, I_y, I_z]);
+	// B = I \ [-l1, -l1*cos(d),  l1*cos(d),  l1,  l1*cos(d), -l1*cos(d);
+        //       0,   l1*sin(d),  l1*sin(d),  0,  -l1*sin(d), -l1*sin(d);
+        //       l2,  l2,         l2,         l2,  l2,         l2] * k_omega2force;
+
+	_B.setZero();
+	_B(0, 0)= -_L_1*_k/_I_x;
+	_B(0, 1)= -0.5f*_L_1*_k/_I_x;
+	_B(0, 2)= 0.5f*_L_1*_k/_I_x;
+	_B(0, 3)= _L_1*_k/_I_x;
+	_B(0, 4)= 0.5f*_L_1*_k/_I_x;
+	_B(0, 5)= -0.5f*_L_1*_k/_I_x;
+
+	_B(1, 1)= sqrt(3)*0.5*_L_1*_k/_I_y;
+	_B(1, 2)= sqrt(3)*0.5*_L_1*_k/_I_y;
+	_B(1, 4)= -sqrt(3)*0.5*_L_1*_k/_I_y;
+	_B(1, 5)= -sqrt(3)*0.5*_L_1*_k/_I_y;
+
+	_B(2, 0)= _L_2*_k/_I_z;
+	_B(2, 1)= _L_2*_k/_I_z;
+	_B(2, 2)= _L_2*_k/_I_z;
+	_B(2, 3)= _L_2*_k/_I_z;
+	_B(2, 4)= _L_2*_k/_I_z;
+	_B(2, 5)= _L_2*_k/_I_z;
 	// PX4_INFO("_B");
 	// _B.print();
 }
@@ -92,7 +117,7 @@ Vector3f IndiControl::update(const Vector3f &rate, const Vector3f &rate_sp, cons
 	}
 	else
 	{
-		Matrix<float, 4, 1> delta_0 (actuator_outputs_value.delta);
+		Matrix<float, 6, 1> delta_0 (actuator_outputs_value.delta);
 		if(use_u) {
 			Nu_i = _B * delta_0 - angular_accel;
 		}

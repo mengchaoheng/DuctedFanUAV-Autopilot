@@ -264,11 +264,11 @@ private:
 	hrt_abstime _time_last_dt_update_multicopter{0};
 	hrt_abstime _time_last_dt_update_simple_mixer{0};
 
-	float _delta_prev[4]={0.0, 0.0, 0.0, 0.0};
+	float _delta_prev[6]={0.0, 0.0, 0.0, 0.0, 0.0, 0.0};
 	bool _sample_rate_changed = false;
 
 	// angular velocity filters
-	math::LowPassFilter2p<float> _lp_filter_actuator[4]={math::LowPassFilter2p<float>{250,20.f},math::LowPassFilter2p<float>{250,20.f},math::LowPassFilter2p<float>{250,20.f},math::LowPassFilter2p<float>{250,20.f}};
+	math::LowPassFilter2p<float> _lp_filter_actuator[6]={math::LowPassFilter2p<float>{250,20.f},math::LowPassFilter2p<float>{250,20.f},math::LowPassFilter2p<float>{250,20.f},math::LowPassFilter2p<float>{250,20.f},math::LowPassFilter2p<float>{250,20.f},math::LowPassFilter2p<float>{250,20.f}};
 
 
 	unsigned _max_topic_update_interval_us{0}; ///< max _control_subs topic update interval (0=unlimited)
@@ -312,58 +312,58 @@ private:
 
 	float _dist_mag{0.0f};
 	float pert_to_cs{0.0f};
-	float _uMin[4] {};
-	float _uMax[4] {};
-	float _u[4] {0.0f, 0.0f, 0.0f, 0.0f};
-	float _u_cmd[4] {0.0f, 0.0f, 0.0f, 0.0f};
-	float _u_estimate[4] {0.0f, 0.0f, 0.0f, 0.0f};
-	float _last_u[4] {0.0f, 0.0f, 0.0f, 0.0f};
+	float _uMin[6] {};
+	float _uMax[6] {};
+	float _u[6] {0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f};
+	float _u_cmd[6] {0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f};
+	float _u_estimate[6] {0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f};
+	float _last_u[6] {0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f};
 	// for _B _B_PID B_inv B_inv_PID .
 	// If B is full raw rank, The Moore–Penrose Pseudo-inverse B^+= B^T (B B^T)^{-1},since
-	// B=K*P, K=I\diag([l1 l1 l2])k, P=[-1     0     1     0; 0    -1     0     1; 1     1     1     1];   K=diag([ k*l1/I_x  k*l1/I_y  k*l2/I_z  ])
+	// B=K*P, K=I\diag([l1 l1 l2])*k_omega2force, P=[-1 -cos(d) cos(d) 1 cos(d) -cos(d); 0 -sin(d) -sin(d) 0 sin(d) sin(d); 1 1 1 1 1 1];   K=diag([ k_omega2force*l1/I_x  k_omega2force*l1/I_y  k_omega2force*l2/I_z  ])
+
+
         // B^{\dagger} = P^\top K K^{-1} (P P^\top)^{-1} K^{-1} = P^\top (P P^\top)^{-1} K^{-1}=P^{\dagger} K^{-1}
-	// P^{\dagger}=[-0.5000   -0.0000    0.2500;0   -0.5000    0.2500;0.5000   -0.0000    0.2500;0    0.5000    0.2500]
-	// B^{\dagger}=P^{\dagger} K^{-1}=[-0.5000   -0.0000    0.2500;0   -0.5000    0.2500;0.5000   -0.0000    0.2500;0    0.5000    0.2500]*diag([ I_x/(k*l1)  I_y/(k*l1)  I_z/(k*l2)  ])
+
+	// P= [ -1.0000   -0.5000    0.5000    1.0000    0.5000   -0.5000;
+	//       0        -0.8660   -0.8660         0    0.8660    0.8660;
+	//       1.0000    1.0000    1.0000    1.0000    1.0000    1.0000;]
+	// P^{\dagger}=  [  -0.3333    0.0000    0.1667;
+			//  -0.1667   -0.2887    0.1667;
+			//   0.1667   -0.2887    0.1667;
+			//   0.3333    0.0000    0.1667;
+			//   0.1667    0.2887    0.1667;
+			//  -0.1667    0.2887    0.1667;]
+
+	// B^{\dagger}=P^{\dagger} K^{-1}
 	//
-	float _I_x{0.01149f};//setting in the .sdf
-	float _I_y{0.01153f};//setting in the .sdf
-	float _I_z{0.00487f};//setting in the .sdf
-	float _L_1{0.167f}; //setting in the .sdf
-	float _L_2{0.069f}; //setting in the .sdf
-	float _k{3.0f};	// USER_OMEGA_2_F, k  =_k_cv*_k_v*_k_v, setting k in the gazebo
+	float _I_x{0.0438f};//setting in the .sdf
+	float _I_y{0.0436f};//setting in the .sdf
+	float _I_z{0.005006f};//setting in the .sdf
+	float _L_1{0.292166f}; //setting in the .sdf
+	float _L_2{0.073699f}; //setting in the .sdf
+	float _k{1.93f};	// =USER_OMEGA_2_F, named k_omega2force  =_k_cv*_k_v*_k_v, setting k_omega2force in the gazebo
 
 
-	matrix::Matrix<float, 4, 3> B_inv;
-	// const float _B[3][4]       = { {-46.2254,0.0,46.2254,0.0}, {0.0,-46.0825,0.0,46.0825},{46.7411,46.7411,46.7411,46.7411}};
-	float _B[3][4]    = { {-43.6031,0.0,43.6031,0.0}, {0.0,-43.4519,0.0,43.4519},{42.5051,42.5051,42.5051,42.5051}}; // Use a larger value of tol of struct LinearProgrammingProblem
-	float lower{-0.3491f};
-    	float upper{0.3491f};
-	Aircraft<3, 4> df_4; // Create a flight vehicle object with 4 control vectors and 3 generalized torques.
-	DP_LP_ControlAllocator<3, 4> Allocator_INDI; // Create a control allocator object for a flight vehicle with 4 control vectors and 3 generalized torques (converted to a linear programming problem, its dimension and parameters are related to <3, 4>.)
-	// for wls
-	float _B_array[12];
-	float _I4_array[16] = {
-	1.0f, 0.0f, 0.0f, 0.0f,
-	0.0f, 1.0f, 0.0f, 0.0f,
-	0.0f, 0.0f, 1.0f, 0.0f,
-	0.0f, 0.0f, 0.0f, 1.0f
-	};
-	float _I3_array[9] = {
-	1.0f, 0.0f, 0.0f,  // 1st row
-	0.0f, 1.0f, 0.0f,  // 2nd row
-	0.0f, 0.0f, 1.0f   // 3rd row
-	};
+	matrix::Matrix<float, 6, 3> B_inv;
+	float _B[3][6]    = { {-12.8740,   -6.4370,    6.4370,   12.8740,    6.4370,   -6.4370}, {0.0,   11.2003,   11.2003,         0.0,  -11.2003,  -11.2003},{28.4137,   28.4137,   28.4137,   28.4137,   28.4137,   28.4137
+}}; // Use a larger value of tol of struct LinearProgrammingProblem
+	float lower{-0.6981f};
+	float upper{0.6981f};
+	Aircraft<3, 6> df_6; // Create a flight vehicle object with 6 control vectors and 3 generalized torques.
+	DP_LP_ControlAllocator<3, 6> Allocator_INDI; // Create a control allocator object for a flight vehicle with 6 control vectors and 3 generalized torques (converted to a linear programming problem, its dimension and parameters are related to <3, 6>.)
 
-	// for PX4 PID controller, k=1, I_x=1, I_y=1, I_z=1
-	matrix::Matrix<float, 4, 3> B_inv_PID;
-	const float _B_PID[3][4] = { {-0.5,0.0,0.5,0.0}, {0.0,-0.5,0.0,0.5},{0.25,0.25,0.25,0.25}};
-	float _B_PID_array[12];
+
+	// for PX4 PID controller, k_omega2force=1, I_x=1, I_y=1, I_z=1
+	matrix::Matrix<float, 6, 3> B_inv_PID;
+	const float _B_PID[3][6] = { {-0.1667,   -0.1667,    0.1667,    0.1667,    0.1667,   -0.1667}, {0.0,   0.2500,  0.2500,         0.0,    -0.2500,    -0.2500},{0.1667,    0.1667,    0.1667,    0.1667,    0.1667,    0.1667}};
+	float _B_PID_array[18];
 	float lower_PID{-1.0f};
     	float upper_PID{1.0f};
-	float _uMin_PID[4] {};
-	float _uMax_PID[4] {};
-	Aircraft<3, 4> df_4_PID; // Create a flight vehicle object with 4 control vectors and 3 generalized torques.
-	DP_LP_ControlAllocator<3, 4> Allocator_PID; // Create a control allocator object for a flight vehicle with 4 control vectors and 3 generalized torques (converted to a linear programming problem, its dimension and parameters are related to <3, 4>.)
+	float _uMin_PID[6] {};
+	float _uMax_PID[6] {};
+	Aircraft<3, 6> df_6_PID; // Create a flight vehicle object with 6 control vectors and 3 generalized torques.
+	DP_LP_ControlAllocator<3, 6> Allocator_PID; // Create a control allocator object for a flight vehicle with 6 control vectors and 3 generalized torques (converted to a linear programming problem, its dimension and parameters are related to <3, 6>.)
 	// Then you can use the flight vehicle object and control allocator object for operations
 
 	hrt_abstime _allocation_runing_time_us{0};

@@ -82,12 +82,12 @@ private:
 	matrix::Vector3f _gain_p; ///< rate control proportional gain for all axes x, y, z
 	//I of prop
 	float _I_prop{0.000037f};// ignore
-	float _I_x{0.01149};//setting in the .sdf
-	float _I_y{0.01153};//setting in the .sdf
-	float _I_z{0.004865};//setting in the .sdf
-	float _L_1{0.167f}; //setting in the .sdf
-	float _L_2{0.0698}; //setting in the .sdf
-	float _k{3.0f};	// USER_OMEGA_2_F, k  =_k_cv*_k_v*_k_v, setting k in the gazebo
+	float _I_x{0.0438f};//setting in the .sdf
+	float _I_y{0.0436f};//setting in the .sdf
+	float _I_z{0.005006f};//setting in the .sdf
+	float _L_1{0.292166f}; //setting in the .sdf
+	float _L_2{0.073699f}; //setting in the .sdf
+	float _k{1.93f};	// USER_OMEGA_2_F, k_omega2force  =_k_cv*_k_v*_k_v, setting k in the gazebo
 
-	matrix::Matrix<float, 3, 4> _B;
+	matrix::Matrix<float, 3, 6> _B;
 };

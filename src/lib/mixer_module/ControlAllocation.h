@@ -25,22 +25,219 @@ inline void min_user(const Matrix<Type, M, N> &x, Type &x_min, size_t &x_index)
         }
     }
 }
-// Function that computes rho, for DPscaled_LPCA
-const int SIZE_ydt = 3; // Assuming ydt is a one-dimensional array containing 5 elements.
-const int SIZE_Bt_row = 3; // Assuming Bt is a 5x5 two-dimensional array
-const int SIZE_Bt_col = 4;
+
+inline float lp_tie_tolerance_from_scale(float scale, float tie_rel_tol, float tie_abs_tol)
+{
+    if (scale < 1.0f) {
+        scale = 1.0f;
+    }
+    return tie_abs_tol + tie_rel_tol * scale;
+}
+
+inline bool lp_is_finite(float value)
+{
+    return value < INFINITY && value > -INFINITY;
+}
+
+template<typename Type, size_t M, size_t N>
+inline float lp_tie_tolerance(const Matrix<Type, M, N> &x, float tie_rel_tol, float tie_abs_tol)
+{
+    float scale = 1.0f;
+    for (size_t i = 0; i < M; ++i) {
+        for (size_t j = 0; j < N; ++j) {
+            const float value = fabs(static_cast<float>(x(i, j)));
+            if (lp_is_finite(value) && value > scale) {
+                scale = value;
+            }
+        }
+    }
+    return lp_tie_tolerance_from_scale(scale, tie_rel_tol, tie_abs_tol);
+}
+
+inline float lp_compare_tolerance(float a, float b, float tie_rel_tol, float tie_abs_tol)
+{
+    float scale = fabs(a);
+    const float scale_b = fabs(b);
+    if (scale_b > scale) {
+        scale = scale_b;
+    }
+    return lp_tie_tolerance_from_scale(scale, tie_rel_tol, tie_abs_tol);
+}
+
+template<size_t K>
+inline void select_entering_tiebreak(const Matrix<float, 1, K> &rdt, const int inD[K],
+                                     float &minr, size_t &qind,
+                                     bool use_tie_break, float tie_rel_tol, float tie_abs_tol)
+{
+    minr = rdt(0, 0);
+    qind = 0;
+    for (size_t i = 1; i < K; ++i) {
+        if (rdt(0, i) < minr) {
+            minr = rdt(0, i);
+            qind = i;
+        }
+    }
+
+    if (!use_tie_break) {
+        return;
+    }
+
+    const float raw_min = minr;
+    const float tol = lp_tie_tolerance(rdt, tie_rel_tol, tie_abs_tol);
+    int best_variable = inD[qind];
+    for (size_t i = 0; i < K; ++i) {
+        if (fabs(rdt(0, i) - raw_min) <= tol && inD[i] < best_variable) {
+            best_variable = inD[i];
+            qind = i;
+        }
+    }
+    minr = rdt(0, qind);
+}
+
+template<size_t K>
+inline bool select_bland_negative_tiebreak(const Matrix<float, 1, K> &rdt, const int inD[K],
+                                           size_t &qind)
+{
+    bool found = false;
+    int best_variable = 0;
+    for (size_t i = 0; i < K; ++i) {
+        if (rdt(0, i) < 0.0f && (!found || inD[i] < best_variable)) {
+            found = true;
+            best_variable = inD[i];
+            qind = i;
+        }
+    }
+    return found;
+}
+
+template<size_t M>
+inline void select_leaving_tiebreak(const Vector<float, M> &rat, const int inB[M],
+                                    float &minrat, size_t &p,
+                                    bool use_tie_break, float tie_rel_tol, float tie_abs_tol,
+                                    float zero_tie_abs_tol)
+{
+    minrat = rat(0);
+    p = 0;
+    for (size_t i = 1; i < M; ++i) {
+        if (rat(i) < minrat) {
+            minrat = rat(i);
+            p = i;
+        }
+    }
+
+    if (!use_tie_break) {
+        return;
+    }
+
+    float scale = 1.0f;
+    for (size_t i = 0; i < M; ++i) {
+        const float value = fabs(rat(i));
+        if (lp_is_finite(value) && value > scale) {
+            scale = value;
+        }
+    }
+    float tol = lp_tie_tolerance_from_scale(scale, tie_rel_tol, tie_abs_tol);
+    const bool zero_ratio_tie = fabs(minrat) <= zero_tie_abs_tol;
+    if (zero_ratio_tie && zero_tie_abs_tol > tol) {
+        tol = zero_tie_abs_tol;
+    }
+    int best_variable = inB[p];
+    for (size_t i = 0; i < M; ++i) {
+        const bool tied = zero_ratio_tie ? (fabs(rat(i)) <= tol) : (fabs(rat(i) - minrat) <= tol);
+        if (tied && inB[i] < best_variable) {
+            best_variable = inB[i];
+            p = i;
+        }
+    }
+    minrat = rat(p);
+}
+
+template<typename Type, size_t M>
+inline bool solveSquareLU(Matrix<Type, M, M> A, Vector<Type, M> b, Vector<Type, M> &x)
+{
+    // Dense square solve using LU with partial row pivoting.  This is used
+    // only for A(:,inB)\b style basis solves; simplex pivot selection is
+    // handled separately by the tie-break helpers above.
+    int piv[M];
+    for (size_t i = 0; i < M; ++i) {
+        piv[i] = static_cast<int>(i);
+    }
+
+    for (size_t k = 0; k + 1 < M; ++k) {
+        size_t pivot_row = k;
+        Type pivot_abs = fabs(A(k, k));
+        for (size_t i = k + 1; i < M; ++i) {
+            const Type candidate = fabs(A(i, k));
+            if (candidate > pivot_abs) {
+                pivot_abs = candidate;
+                pivot_row = i;
+            }
+        }
+
+        if (pivot_abs <= std::numeric_limits<Type>::epsilon() || !lp_is_finite(static_cast<float>(pivot_abs))) {
+            x.setZero();
+            return false;
+        }
+
+        if (pivot_row != k) {
+            for (size_t j = 0; j < M; ++j) {
+                const Type tmp = A(k, j);
+                A(k, j) = A(pivot_row, j);
+                A(pivot_row, j) = tmp;
+            }
+            const int tmp_piv = piv[k];
+            piv[k] = piv[pivot_row];
+            piv[pivot_row] = tmp_piv;
+        }
+
+        for (size_t i = k + 1; i < M; ++i) {
+            A(i, k) /= A(k, k);
+            for (size_t j = k + 1; j < M; ++j) {
+                A(i, j) -= A(i, k) * A(k, j);
+            }
+        }
+    }
+
+    if (fabs(A(M - 1, M - 1)) <= std::numeric_limits<Type>::epsilon()
+        || !lp_is_finite(static_cast<float>(A(M - 1, M - 1)))) {
+        x.setZero();
+        return false;
+    }
+
+    Vector<Type, M> y;
+    for (size_t i = 0; i < M; ++i) {
+        y(i) = b(piv[i]);
+    }
+
+    for (size_t k = 0; k < M; ++k) {
+        for (size_t i = k + 1; i < M; ++i) {
+            y(i) -= A(i, k) * y(k);
+        }
+    }
+
+    for (int k = static_cast<int>(M) - 1; k >= 0; --k) {
+        Type value = y(k);
+        for (size_t j = static_cast<size_t>(k) + 1; j < M; ++j) {
+            value -= A(k, j) * x(j);
+        }
+        x(k) = value / A(k, k);
+    }
+
+    return true;
+}
 //rho = ydt'*Bt*u/(ydt'*ydt)
-inline float calculateRho(float ydt[], float u[], float Bt[][SIZE_Bt_col], float tol) {
+template<int ControlSize, int EffectorSize>
+inline float calculateRho(float ydt[ControlSize], float u[EffectorSize], float Bt[ControlSize][EffectorSize], float tol) {
     float numerator = 0.0f;
     float denominator = 0.0f;
-    float ydt_T_Bt[SIZE_Bt_col];
-    for (int j = 0; j < SIZE_Bt_col; ++j) {
+    float ydt_T_Bt[EffectorSize];
+    for (int j = 0; j < EffectorSize; ++j) {
         ydt_T_Bt[j] = 0;
-        for (int k = 0; k < SIZE_ydt; ++k) { //or < SIZE_Bt_row
+        for (int k = 0; k < ControlSize; ++k) {
             ydt_T_Bt[j] += ydt[k] * Bt[k][j];
         }
     }
-    for (int k = 0; k < SIZE_Bt_col; ++k) {
+    for (int k = 0; k < EffectorSize; ++k) {
         numerator += ydt_T_Bt[k] * u[k];
     }
     // Calculate the 2-norm of ydt
@@ -52,7 +249,7 @@ inline float calculateRho(float ydt[], float u[], float Bt[][SIZE_Bt_col], float
     //         }
     //     }
     //     std::cout << "]" << std::endl;
-    for (int i = 0; i < SIZE_ydt; ++i) {
+    for (int i = 0; i < ControlSize; ++i) {
         denominator += ydt[i] * ydt[i];
         // std::cout <<"denominator"<< denominator<< std::endl;
     }
@@ -115,7 +312,13 @@ struct LinearProgrammingProblem {
     float h[N];
     bool e[N];
     float tol=10*FLT_EPSILON; // important value, if control surface saturation, Use a larger value
-    // Default constructor, initializes all member variables to 0
+    // Robust pivot tie-breaks matching PCA/simplxuprevsol_tiebreak.m.
+    // When enabled, near-equal reduced-cost and ratio candidates are selected
+    // deterministically instead of letting float roundoff or solver path choose.
+    bool useTieBreak=true;
+    float tie_rel_tol=1e-5f;
+    float tie_abs_tol=1e-6f;
+    float zero_tie_abs_tol=3e-5f;
     LinearProgrammingProblem() : m(M), n(N), itlim(0) {
         // Initialize array member variables to 0
         for (int i = 0; i < M; ++i) {
@@ -143,6 +346,10 @@ struct LinearProgrammingProblem {
             n = other.n;
             itlim = other.itlim;
             tol = other.tol;
+            useTieBreak = other.useTieBreak;
+            tie_rel_tol = other.tie_rel_tol;
+            tie_abs_tol = other.tie_abs_tol;
+            zero_tie_abs_tol = other.zero_tie_abs_tol;
             // Copy array member variables
             for (int i = 0; i < M; ++i) {
                 inB[i] = other.inB[i];
@@ -170,6 +377,10 @@ struct LinearProgrammingProblem {
         n = other.n;
         itlim = other.itlim;
         tol = other.tol;
+        useTieBreak = other.useTieBreak;
+        tie_rel_tol = other.tie_rel_tol;
+        tie_abs_tol = other.tie_abs_tol;
+        zero_tie_abs_tol = other.zero_tie_abs_tol;
         // Copy array member variables
         for (int i = 0; i < M; ++i) {
             inB[i] = other.inB[i];
@@ -230,6 +441,22 @@ struct LinearProgrammingResult {
 // see A.6.3 Simplex Method[1]. this function reimplement the simplxuprevsol of this book:
 // [1] W. Durham, K. A. Bordignon, and R. Beck, Aircraft control allocation. none: John Wiley & Sons, 2017.
 // and you can download the code on: https://github.com/mengchaoheng/control_allocation.git
+//
+// Current reference implementation:
+//   PCA/simplxuprevsol_tiebreak.m
+//
+// The original MATLAB reference is simplxuprevsol.m.  The C++ code follows
+// the same bounded revised simplex algorithm, but its pivot selection is now
+// aligned with simplxuprevsol_tiebreak.m rather than the platform-dependent
+// exact-min behavior of the original script.  In degenerate LPs multiple
+// bases can give the same B*u but very different actuator vectors, so the
+// tie-break rules below make the entering/leaving choices reproducible:
+//   - reduced-cost ties choose the smallest variable index in inD;
+//   - ratio ties choose the smallest current basic variable index inB;
+//   - near-zero ratio ties use zero_tie_abs_tol to avoid branch changes from
+//     floating-point roundoff.
+// Set problem.useTieBreak=false only when intentionally comparing against the
+// historical simplxuprevsol.m branch behavior.
 template<int M, int N>
 LinearProgrammingResult<M, N> BoundedRevisedSimplex(LinearProgrammingProblem<M, N> problem) {
     // Bounded Revised Simplex
@@ -267,6 +494,8 @@ LinearProgrammingResult<M, N> BoundedRevisedSimplex(LinearProgrammingProblem<M, 
     // 8/2014    Roger Beck  Update for use
     // 9/2014    Roger Beck  Added anti-cycling rule
     // 4/2024    Meng ChaoHeng
+    // 5/2026    Meng ChaoHeng  Align pivot tie-breaks with
+    //           PCA/simplxuprevsol_tiebreak.m for deterministic C++/MATLAB tests.
 
     LinearProgrammingResult<M, N> result;
     // 使用 problem.inB, problem.inD, problem.itlim, problem.A, problem.b, problem.c, problem.h, problem.e, problem.tol
@@ -340,9 +569,10 @@ LinearProgrammingResult<M, N> BoundedRevisedSimplex(LinearProgrammingProblem<M, 
     matrix::Vector<float, M> rat;
     rat.setZero();
     //==============================
-    //  %Initial Solution
-    matrix::LeastSquaresSolver<float, M,M> LSsolver0(A_inB);
-    matrix::Vector<float, M> y0 = LSsolver0.solve(b_vec);
+    //  %Initial Solution.  A(:,inB) is square in the simplex basis; use
+    // LU with partial pivoting to match MATLAB mldivide's square dense path.
+    matrix::Vector<float, M> y0;
+    solveSquareLU(A_inB, b_vec, y0);
     // Initialize Loop Termination Conditionss
     bool done = false;
     bool unbounded = false;
@@ -351,13 +581,17 @@ LinearProgrammingResult<M, N> BoundedRevisedSimplex(LinearProgrammingProblem<M, 
     {
         iters = iters+1;
         // Calculate transpose of relative cost vector based on current basis
-        matrix::LeastSquaresSolver<float, M,M> LSsolver_lamt(A_inB.transpose());
-        lamt = LSsolver_lamt.solve(c_inB).transpose();
+        matrix::Vector<float, M> lamt_col;
+        solveSquareLU(A_inB.transpose(), c_inB, lamt_col);
+        lamt = lamt_col.transpose();
         rdt = c_inD.transpose()-lamt*A_inD;
         float minr;
         size_t qind;
-        // Find minimum relative cost
-        min_user(rdt.transpose(), minr, qind);
+        // Find minimum relative cost.  If useTieBreak is enabled, follow
+        // PCA/simplxuprevsol_tiebreak.m: reduced-cost ties choose the
+        // smallest variable index qel.
+        select_entering_tiebreak<n_m>(rdt, problem.inD, minr, qind,
+                                      problem.useTieBreak, problem.tie_rel_tol, problem.tie_abs_tol);
         if(minr >=0)  // If all relative costs are positive then the solution is optimal. have to compare with 0 !
         {
             done = true;
@@ -367,8 +601,7 @@ LinearProgrammingResult<M, N> BoundedRevisedSimplex(LinearProgrammingProblem<M, 
         for(int i=0;i<problem.m;++i){
             A_qel(i)=problem.A[i][qel];
         }
-        matrix::LeastSquaresSolver<float, M,M> LSsolver1(A_inB);
-        yq = LSsolver1.solve(A_qel); // Vector to enter in terms of the current Basis vector
+        solveSquareLU(A_inB, A_qel, yq); // Vector to enter in terms of the current Basis vector
          // Check wether all the abs of yq[i] is greater than tol.
         bool flag=false;
         for(int i=0;i<M;++i){
@@ -403,30 +636,47 @@ LinearProgrammingResult<M, N> BoundedRevisedSimplex(LinearProgrammingProblem<M, 
                 rat(i)=INFINITY;
             }
         }
-         // Variable to exit is moving to its minimum value--Note that min_user returns the lowest index minimum
+        // Variable to exit is moving to its minimum value.  If useTieBreak
+        // is enabled, ratio ties choose the smallest current basic variable
+        // index inB(p), matching PCA/simplxuprevsol_tiebreak.m.
         float minrat=rat(0);
         size_t p=0;
-        min_user(rat, minrat, p);
+        select_leaving_tiebreak<M>(rat, problem.inB, minrat, p,
+                                   problem.useTieBreak, problem.tie_rel_tol, problem.tie_abs_tol,
+                                   problem.zero_tie_abs_tol);
         // If the minimum ratio is zero, then the solution is degenerate and the entering
         // variable will not change the basis---invoke Bland's selection rule to avoid
         // cycling.
-        if (fabs(minrat) <= problem.tol)
+        const float degeneracy_tol = problem.useTieBreak
+            ? problem.zero_tie_abs_tol
+            : problem.tol;
+        if (fabs(minrat) <= degeneracy_tol)
         {
-            // Find negative relative cost
-            for(int i=0;i<N-M;++i)
+            // Bland anti-cycling rule.  With tie-break enabled, choose the
+            // smallest variable index among negative reduced costs, as in
+            // PCA/simplxuprevsol_tiebreak.m.  With tie-break disabled, keep
+            // the original behavior: first negative entry in current inD order.
+            if(problem.useTieBreak)
             {
-                // indm is the index of rdt < 0, qind is the fisrt one.
-                if(rdt(0,i)<0){ // Note that since minr <0 indm is not empty
-                    qind=nind[i];
-                    qel = problem.inD[qind];// Unknown to Enter the basis is first indexed to avoid cycling
-                    break;
+                select_bland_negative_tiebreak<n_m>(rdt, problem.inD, qind);
+                qel = problem.inD[qind];
+            }
+            else
+            {
+                for(int i=0;i<N-M;++i)
+                {
+                    // indm is the index of rdt < 0, qind is the first one.
+                    if(rdt(0,i)<0){ // Note that since minr <0 indm is not empty
+                        qind=nind[i];
+                        qel = problem.inD[qind];// Unknown to Enter the basis is first indexed to avoid cycling
+                        break;
+                    }
                 }
             }
             for(int i=0;i<problem.m;++i){
                 A_qel(i)=problem.A[i][qel];
             }
-            matrix::LeastSquaresSolver<float, M,M> LSsolver2(A_inB);
-            yq = LSsolver2.solve(A_qel); // Vector to enter in terms of the current Basis vector
+            solveSquareLU(A_inB, A_qel, yq); // Vector to enter in terms of the current Basis vector
             bool flag1=false;
             for(int i=0;i<M;++i){
                 if(fabs(yq(i)) > problem.tol)
@@ -458,13 +708,18 @@ LinearProgrammingResult<M, N> BoundedRevisedSimplex(LinearProgrammingProblem<M, 
                     rat(i)=INFINITY; // If an element yq ~=0 then it doesn't change for the entering variable and shouldn't be chosen
                 }
             }
-            // Variable to exit is moving to its minimum value--Note that min_user returns the lowest index minimum
+            // Variable to exit is moving to its minimum value.
             minrat=rat(0);
             p=0;
-            min_user(rat, minrat, p);
+            select_leaving_tiebreak<M>(rat, problem.inB, minrat, p,
+                                       problem.useTieBreak, problem.tie_rel_tol, problem.tie_abs_tol,
+                                       problem.zero_tie_abs_tol);
         }
         // Maintain the bounded simplex as only having lower bounds by recasting any variable that needs to move to its opposite bound.
-        if (minrat >= problem.h[qel])
+        const float bound_tol = problem.useTieBreak
+            ? lp_compare_tolerance(minrat, problem.h[qel], problem.tie_rel_tol, problem.tie_abs_tol)
+            : 0.0f;
+        if (problem.useTieBreak ? (minrat > problem.h[qel] + bound_tol) : (minrat >= problem.h[qel]))
         {
             // Case 1: Entering variable goes to opposite bound and current basis is maintained
             problem.e[qel] =!problem.e[qel];
@@ -543,8 +798,7 @@ LinearProgrammingResult<M, N> BoundedRevisedSimplex(LinearProgrammingProblem<M, 
 
         }
         //  Compute new Basic solution;
-        matrix::LeastSquaresSolver<float, M,M> LSsolver(A_inB);
-        y0 = LSsolver.solve(b_vec);
+        solveSquareLU(A_inB, b_vec, y0);
     }
     result.errout = unbounded;
     // Set result.y0, result.inB, result.e, etc.
@@ -602,6 +856,8 @@ public:
             for (int j = 0; j < ControlSize; ++j) {
                 controlEffectMatrix[j][i] = 0.0f;
             }
+        }
+        for (int i = 0; i < ControlSize; ++i) {
             BuMin[i]=0;
         }
     }
@@ -725,8 +981,6 @@ public:
         // Use the passed aircraft object to initialize the aircraft member
     }
 
-    virtual void allocateControl(float input[ControlSize], float output[EffectorSize], int& err) = 0;
-
     // Other mathematical functions and member variable definitions
     Aircraft<ControlSize, EffectorSize> aircraft; // Constructor initialized
 
@@ -752,7 +1006,7 @@ public:
         //     }
         // }
         // upper_lam = cs_max/std::numeric_limits<float>::epsilon();
-        DP_LPCA_problem.itlim = 10;
+        DP_LPCA_problem.itlim = 100;
         for(int i=0; i<DP_LPCA_problem.n-1; ++i)
         {
             DP_LPCA_problem.c[i] = 0;
@@ -775,7 +1029,7 @@ public:
             DP_LPCA_problem.h[i] = this->aircraft.upperLimits[i]-this->aircraft.lowerLimits[i];
         }
         //==================================PreDP_LPCA_problem================================
-        Pre_DP_LPCA_problem.itlim = 10;
+        Pre_DP_LPCA_problem.itlim = 100;
 
         //ci
         for(int i=0; i<DP_LPCA_problem.n; ++i)
@@ -820,7 +1074,7 @@ public:
             Pre_DP_LPCA_problem.h[i+DP_LPCA_problem.n] = 2*fabs(DP_LPCA_problem.b[i]);
         }
         //================================== DPscaled_LPCA_problem ================================
-        DPscaled_LPCA_problem.itlim = 10;
+        DPscaled_LPCA_problem.itlim = 100;
         float yd[3]={0.1,0.2,-0.1}; // random value for inital.
         // update A b c h every time
         float my=yd[0]; // Store the maximum absolute value
@@ -917,7 +1171,7 @@ public:
             DPscaled_LPCA_problem.h[i] = this->aircraft.upperLimits[i]-this->aircraft.lowerLimits[i];
         }
         //==================================Pre_DPscaled_LPCA_problem================================
-        Pre_DPscaled_LPCA_problem.itlim = 10;
+        Pre_DPscaled_LPCA_problem.itlim = 100;
         for(int i=0; i<DPscaled_LPCA_problem.n; ++i)
         {
             Pre_DPscaled_LPCA_problem.c[i] =0;
@@ -973,91 +1227,6 @@ public:
     // Destructor
     ~DP_LP_ControlAllocator() {
         // If there are resources that need to be released, you can add code here
-    }
-    // Initially tested algorithm using this function. Due to the special nature of DP_LPCA and the 4-rudder duct, the initial basic solution can be predetermined and remains unchanged. Therefore, the first step of finding the basic initial solution can be omitted. Later, this function can be modified to switch between using DP_LPCA and DPscaled_LPCA.
-    void allocateControl(float input[ControlSize], float output[EffectorSize], int& err) override {
-        // Override control allocator function
-        // Implement control allocation algorithm
-        // DP_LPCA (generalizedMoment, aircraft)
-        // DP_LPCA function uses aircraft data to describe the allocation problem as a DP_LP problem and solves it using BoundedRevisedSimplex
-        // Use template function result = BoundedRevisedSimplex(problem);
-        //=======================
-        bool flag=false;
-        for(int i=0;i<ControlSize;++i){
-            if(fabs(input[i]) > DP_LPCA_problem.tol)
-            {
-                flag = true; // Check this condition
-                break;
-            }
-        }
-        if(!flag){
-            for(int i=0;i<EffectorSize;++i){
-                output[i]=0;
-            }
-            err=-1;
-            return;
-        }
-        //=======================
-        //===========just for df4, we alway have to calc this by a new problem================
-        // we can call BoundedRevisedSimplex direct in allocationControl
-        DP_LPCA_problem.inB[0]=0;
-        DP_LPCA_problem.inB[1]=1;
-        DP_LPCA_problem.inB[2]=3;
-        DP_LPCA_problem.e[0] = true;
-        DP_LPCA_problem.e[1] = true;
-        DP_LPCA_problem.e[2] = false;
-        DP_LPCA_problem.e[3] = true;
-        DP_LPCA_problem.e[4] = true;
-        //=======================
-        // update A b h every time
-        for(int i=0; i<DP_LPCA_problem.m; ++i)
-        {
-            float temp=0;
-            for(int j=0; j<DP_LPCA_problem.n-1; ++j)
-            {
-                DP_LPCA_problem.A[i][j] = this->aircraft.controlEffectMatrix[i][j];
-                temp += -this->aircraft.controlEffectMatrix[i][j]*this->aircraft.lowerLimits[j];
-            }
-            DP_LPCA_problem.A[i][DP_LPCA_problem.n-1] = -input[i];
-            this->generalizedMoment[i] = input[i]; // just record.
-            DP_LPCA_problem.b[i] = temp;
-        }
-        for(int i=0; i<DP_LPCA_problem.n-1; ++i)
-        {
-            DP_LPCA_problem.h[i] = this->aircraft.upperLimits[i]-this->aircraft.lowerLimits[i];
-        }
-
-        auto result = BoundedRevisedSimplex(DP_LPCA_problem);
-        // Use results
-        // result.y0, result.inB, result.e, result.errout
-        float xout[DP_LPCA_problem.n];
-        for(int i=0;i<DP_LPCA_problem.n;++i){
-            xout[i]=0;
-        }
-        for(int i=0;i<ControlSize;++i){
-            xout[result.inB[i]]=result.y0[i];
-        }
-        for(int i=0;i<DP_LPCA_problem.n;++i){
-            if(!result.e[i]){
-                xout[i]=-xout[i]+DP_LPCA_problem.h[i];
-            }
-        }
-        if(result.iters>=DP_LPCA_problem.itlim){
-            err = 3;
-        }
-        if(result.errout)
-        {
-            err = 1;
-        }
-        for(int i=0;i<EffectorSize;++i){
-            output[i]=xout[i]+this->aircraft.lowerLimits[i];
-        }
-        if(xout[EffectorSize]>1){
-            for(int i=0;i<EffectorSize;++i){
-                output[i]/=xout[EffectorSize];
-            }
-        }
-        return;
     }
     // To find an initial condition, many linear programming solvers treat the solution in two phases. Phase one solves a specially constructed problem designed to yield a basic feasible solution that is used to initialize the original problem in phase two.
     // So we have DP_LPCA and DPscaled_LPCA
@@ -1123,7 +1292,10 @@ public:
         // 8/2014    Roger Beck  Update for use in text
         // 4/2024    Meng ChaoHeng  Implement in cpp
 
-        // DP_LPCA function uses aircraft data to describe the allocation problem as a DP_LP problem and solves it using BoundedRevisedSimplex
+        err = 0;
+        rho = 0;
+
+        // DP_LPCA function uses aircraft data to describe the allocation problem as a DP_LP problem and solves it using  BoundedRevisedSimplex
         //=======================
         // Figure out how big the problem is (use standard CA definitions for m & n)
         // but in here we use [m,k] = size(B) instead of [n,m] = size(B) in matlab. just for adapt to BoundedRevisedSimplex
@@ -1249,11 +1421,6 @@ public:
         }
         // Use upper_lam to prevent control surfaces from approaching position limits
         rho = xout[EffectorSize];
-        if(rho>1){
-            for(int i=0;i<EffectorSize;++i){
-                output[i]/=rho;
-            }
-        }
         return;
     }
     void DPscaled_LPCA(float input[ControlSize], float output[EffectorSize], int& err, float & rho){
@@ -1317,6 +1484,9 @@ public:
         // 8/2014    Roger Beck  Update
         // 4/2024    Meng ChaoHeng  Implement in cpp
 
+        err = 0;
+        rho = 0;
+
         // The DPscaled_LPCA function utilizes aircraft data, formulating the allocation problem as a DP_LP problem and solving it using the BoundedRevisedSimplex method.
         //=======================
         // Figure out how big the problem is (use standard CA definitions for m & n)
@@ -1350,7 +1520,7 @@ public:
         // float yd[3]={0.1,0.1,0.2}; // random value for inital.
         //================================== DPscaled_LPCA_problem ================================
         // update A b c h every time
-        float my=input[0]; // Store the maximum absolute value
+        float my=fabs(input[0]); // Store the maximum absolute value
         int iy=0; // Store the index of the maximum absolute value
         for (int i = 0; i < ControlSize; ++i) {
             float absValue = fabs(input[i]); // Calculate the absolute value of the i-th element in yd
@@ -1548,7 +1718,7 @@ public:
         for(int i=0;i<EffectorSize;++i){
             output[i]=xout[i]+this->aircraft.lowerLimits[i];
         }
-        rho = calculateRho(ydt, output, Bt, DPscaled_LPCA_problem.tol);
+        rho = calculateRho<ControlSize, EffectorSize>(ydt, output, Bt, DPscaled_LPCA_problem.tol);
         if(rho>1){
             for(int i=0;i<EffectorSize;++i){
                 output[i]/=rho;
@@ -1556,7 +1726,7 @@ public:
         }
         return;
     }
-    void DP_LPCA_copy(float input_higher[ControlSize],float input_lower[ControlSize], float output[EffectorSize], int& err, float & rho){
+    void DP_LPCA_copy(float input_higher[ControlSize], float input_lower[ControlSize], float output[EffectorSize], int& err, float & rho){
         // yd=input_lower
         // % Prioritizing Commands by DP_LPCA
         // % Direction Preserving Control Allocation Linear Program
@@ -1589,6 +1759,9 @@ public:
         // %         simplxuprevsol = Bounded Revised Simplex solver (simplxuprevsol.m)
         // %
         // 4/2024    Meng ChaoHeng  Implement in cpp
+
+        err = 0;
+        rho = 0;
 
         // The DP_LPCA function utilizes aircraft data to describe the allocation problem as a DP_LP problem and solves it using BoundedRevisedSimplex
         //=======================
@@ -1631,7 +1804,7 @@ public:
             DP_LPCA_problem.b[i] = input_higher[i]-this->aircraft.BuMin[i]; //
 
             Pre_DP_LPCA_problem.A[i][DP_LPCA_problem.n-1] = -input_lower[i]; // the same as DP_LPCA_problem.A[i][DP_LPCA_problem.n-1]
-            Pre_DP_LPCA_problem.b[i] = input_higher[i]-this->aircraft.BuMin[i]; // the same as DP_LPCA_problem
+            Pre_DP_LPCA_problem.b[i] = DP_LPCA_problem.b[i]; // the same as DP_LPCA_problem
 
             Pre_DP_LPCA_problem.A[i][i + DP_LPCA_problem.n] = (DP_LPCA_problem.b[i] > 0) ? 1 : -1; // sb = 2*(b > 0)-1; Ai = [A diag(sb)];
             Pre_DP_LPCA_problem.h[i+DP_LPCA_problem.n] = 2*fabs(DP_LPCA_problem.b[i]);
@@ -1715,32 +1888,93 @@ public:
             output[i]=xout[i]+this->aircraft.lowerLimits[i];
         }
         rho = xout[EffectorSize];
-        if(rho>1){
-            for(int i=0;i<EffectorSize;++i){
-                output[i]/=rho;
-            }
-        }
         return;
     }
+    void DP_LPCA_prio(float input_higher[ControlSize], float input_lower[ControlSize], float output[EffectorSize], int& err, float & rho){
+        // C++ counterpart of PCA/DP_LPCA_prio.m.
+        //
+        // DP_LPCA_copy is the lower-level prioritized LP.  This wrapper keeps
+        // the public call structure aligned with MATLAB: first try to allocate
+        // the lower-priority command around input_higher; if initialization
+        // fails, fall back to allocating input_higher alone.
+        DP_LPCA_copy(input_higher, input_lower, output, err, rho);
+        if(err < 0)
+        {
+            float zero_higher[ControlSize];
+            for(int i=0; i<ControlSize; ++i)
+            {
+                zero_higher[i] = 0.0f;
+            }
+            DP_LPCA_copy(zero_higher, input_higher, output, err, rho);
+        }
+    }
     void restoring(float u[EffectorSize], float u_rest[EffectorSize]){
+        const float restoring_tol = 1e-5f;
+        const float restoring_residual_tol = 1e-5f;
         Vector<float, EffectorSize> u_current(u);
-        if(u_current.norm()<FLT_EPSILON){
+        if(u_current.norm()<restoring_tol){
             for(int i=0;i<EffectorSize;++i){
                 u_rest[i]=u[i];
             }
             return;
         }
-        // update B_aug
-        B_aug.setRow(ControlSize, u_current);
-        //u_null=pinv(B_aug)*v_aug;
-        matrix::LeastSquaresSolver<float, ControlSize+1,EffectorSize> LSsolver(B_aug);
-        u_null = LSsolver.solve(v_aug);
+
+        // Mirror the maintained MATLAB restoring_cpp.m projection form.  That
+        // MATLAB version was first checked against the original restoring
+        // variants, then this C++ implementation followed it because the target
+        // should not need null(B), SVD, or pinv([B;u']).
+        //
+        // For full-row-rank B,
+        //   u - B' * ((B*B') \ (B*u))
+        // equals N*(N'*u), the component of u in null(B).  This avoids
+        // directly inverting the often ill-conditioned augmented matrix
+        // [B;u'] and avoids needing an SVD/null-space routine on target.
+        Vector<double, EffectorSize> u_current_d;
+        Matrix<double, ControlSize, EffectorSize> B_d;
+        for(int i=0;i<EffectorSize;++i){
+            u_current_d(i)=static_cast<double>(u_current(i));
+        }
+        for(int i=0;i<ControlSize;++i){
+            for(int j=0;j<EffectorSize;++j){
+                B_d(i,j)=static_cast<double>(B(i,j));
+            }
+        }
+        Vector<double, ControlSize> achieved = B_d * u_current_d;
+        SquareMatrix<double, ControlSize> B_B_t = B_d * B_d.transpose();
+        Vector<double, ControlSize> row_solution;
+        if(!solveSquareLU(B_B_t, achieved, row_solution)){
+            for(int i=0;i<EffectorSize;++i){
+                u_rest[i]=u[i];
+            }
+            return;
+        }
+        Vector<double, EffectorSize> u_pseudo = B_d.transpose() * row_solution;
+        Vector<double, EffectorSize> null_component = u_current_d - u_pseudo;
+        const double null_component_norm_squared = null_component.norm_squared();
+        if(null_component_norm_squared < static_cast<double>(restoring_tol) * restoring_tol){
+            for(int i=0;i<EffectorSize;++i){
+                u_rest[i]=u[i];
+            }
+            return;
+        }
+        Vector<double, EffectorSize> u_null_d;
+        for(int i=0;i<EffectorSize;++i){
+            u_null_d(i)=static_cast<double>(a_constant) * null_component(i) / null_component_norm_squared;
+            u_null(i)=static_cast<float>(u_null_d(i));
+        }
+
         // % R=rank(B_aug) = k
         // % by all(abs(null(B)'*u)) < eps or norm(null(B)'*u)<100*eps or rank([B_aug v_aug]) ~= rank(B_aug)
         // % for cpp is difficult to calc null(B) but we can calc
         // % norm(B*u_null)>0.00001
-        matrix::Vector<float, ControlSize> tmp= B*u_null;
-        if(tmp.norm()> 0.001f){ // a=0
+        matrix::Vector<double, ControlSize> tmp= B_d*u_null_d;
+        if(tmp.norm() > restoring_residual_tol){ // a=0
+            for(int i=0;i<EffectorSize;++i){
+                u_rest[i]=u[i];
+            }
+            return;
+        }
+        if(u_null.norm_squared() < restoring_tol * restoring_tol){
             for(int i=0;i<EffectorSize;++i){
                 u_rest[i]=u[i];
             }
@@ -1756,7 +1990,7 @@ public:
         }
         float K_max=FLT_MAX; // 1.0/FLT_EPSILON; or FLT_MAX
         for(int i=0;i<EffectorSize;++i){
-            if(fabs(u_null(i))<FLT_EPSILON){
+            if(fabs(u_null(i))<restoring_tol){
                 continue; // if u_null(i) is zero, then skip;
             }
             float tmpu=0.0f;
