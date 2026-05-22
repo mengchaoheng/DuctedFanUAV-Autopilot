@@ -38,7 +38,7 @@ S: 0 0  -10000  -10000      0 -10000  10000
 S: 0 1  -10000  -10000      0 -10000  10000
 S: 0 2  10000  10000      0 -10000  10000
 
--control surfaces 2, roll, pitch and yaw
+-control surfaces 3, roll, pitch and yaw
 -------------
 M: 3
 S: 0 0  10000  10000      0 -10000  10000
