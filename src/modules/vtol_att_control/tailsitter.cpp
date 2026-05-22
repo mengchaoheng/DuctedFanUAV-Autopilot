@@ -293,6 +293,38 @@ void Tailsitter::fill_actuator_outputs()
 	auto &mc_out = _actuators_out_0->control;
 	auto &fw_out = _actuators_out_1->control;
 
+	if (_params->tailsitter_ductedfan_control) {
+		float surface_roll = mc_in[actuator_controls_s::INDEX_ROLL] * _mc_roll_weight;
+		float surface_pitch = mc_in[actuator_controls_s::INDEX_PITCH] * _mc_pitch_weight;
+		float surface_yaw = mc_in[actuator_controls_s::INDEX_YAW] * _mc_yaw_weight;
+		float throttle = mc_in[actuator_controls_s::INDEX_THROTTLE];
+		hrt_abstime timestamp_sample = _actuators_mc_in->timestamp_sample;
+
+		if (_vtol_schedule.flight_mode == vtol_mode::FW_MODE) {
+			surface_roll = fw_in[actuator_controls_s::INDEX_YAW];
+			surface_pitch = fw_in[actuator_controls_s::INDEX_PITCH];
+			surface_yaw = -fw_in[actuator_controls_s::INDEX_ROLL];
+			throttle = fw_in[actuator_controls_s::INDEX_THROTTLE];
+			timestamp_sample = _actuators_fw_in->timestamp_sample;
+		}
+
+		mc_out[actuator_controls_s::INDEX_ROLL] = 0.f;
+		mc_out[actuator_controls_s::INDEX_PITCH] = 0.f;
+		mc_out[actuator_controls_s::INDEX_YAW] = 0.f;
+		mc_out[actuator_controls_s::INDEX_THROTTLE] = throttle;
+
+		fw_out[actuator_controls_s::INDEX_ROLL] = surface_roll;
+		fw_out[actuator_controls_s::INDEX_PITCH] = surface_pitch;
+		fw_out[actuator_controls_s::INDEX_YAW] = surface_yaw;
+		fw_out[actuator_controls_s::INDEX_THROTTLE] = 0.f;
+
+		_actuators_out_0->timestamp_sample = timestamp_sample;
+		_actuators_out_1->timestamp_sample = timestamp_sample;
+
+		_actuators_out_0->timestamp = _actuators_out_1->timestamp = hrt_absolute_time();
+		return;
+	}
+
 	mc_out[actuator_controls_s::INDEX_ROLL]  = mc_in[actuator_controls_s::INDEX_ROLL]  * _mc_roll_weight;
 	mc_out[actuator_controls_s::INDEX_PITCH] = mc_in[actuator_controls_s::INDEX_PITCH] * _mc_pitch_weight;
 	mc_out[actuator_controls_s::INDEX_YAW]   = mc_in[actuator_controls_s::INDEX_YAW]   * _mc_yaw_weight;

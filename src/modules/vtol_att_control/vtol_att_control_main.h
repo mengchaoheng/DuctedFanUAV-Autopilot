@@ -189,6 +189,7 @@ private:
 		param_t vtol_fw_permanent_stab;
 		param_t vtol_type;
 		param_t elevons_mc_lock;
+		param_t tailsitter_ductedfan_control;
 		param_t fw_min_alt;
 		param_t fw_alt_err;
 		param_t fw_qc_max_pitch;

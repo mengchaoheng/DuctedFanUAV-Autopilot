@@ -87,6 +87,17 @@ PARAM_DEFINE_INT32(VT_TYPE, 0);
 PARAM_DEFINE_INT32(VT_ELEV_MC_LOCK, 1);
 
 /**
+ * Enable ducted-fan tailsitter control mapping
+ *
+ * If enabled, actuator group 0 carries motor throttle only and actuator
+ * group 1 carries body-frame surface moments [roll, pitch, yaw].
+ *
+ * @boolean
+ * @group VTOL Attitude Control
+ */
+PARAM_DEFINE_INT32(VT_TS_DF_CTRL, 0);
+
+/**
  * Duration of a front transition
  *
  * Time in seconds used for a transition

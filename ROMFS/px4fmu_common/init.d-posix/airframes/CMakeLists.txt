@@ -81,6 +81,7 @@ px4_add_romfs_files(
 	15005_ductedfan_mini
 	15006_SHC09
 	15007_SHW09
+	15008_SHW09_vtol
 	6012_typhoon_ctrlalloc
 	6012_typhoon_ctrlalloc.post
 )
