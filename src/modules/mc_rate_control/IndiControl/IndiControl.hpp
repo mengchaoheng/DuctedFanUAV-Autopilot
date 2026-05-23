@@ -44,7 +44,7 @@
 
 #include <lib/mixer/MultirotorMixer/MultirotorMixer.hpp>
 #include <uORB/topics/rate_ctrl_status.h>
-#include <uORB/topics/actuator_outputs_value.h>
+#include <uORB/topics/allocation_value.h>
 #include <px4_platform_common/defines.h>
 
 class IndiControl
@@ -67,27 +67,18 @@ public:
 	 * @param rate estimation of the current vehicle angular rate
 	 * @param rate_sp desired vehicle angular rate setpoint
 	 * @param dt desired vehicle angular rate setpoint
-	 * @param actuator_outputs_value current value of actuators
+	 * @param allocation_value current allocation model and virtual actuator value
 	 * @param Nu_i second term of virtual control
 	 * @param use_u use u0 or not
 	 * @param use_tau_i use Nu_i or not
 	 * @return [-1,1] normalized torque vector to apply to the vehicle //This is not a value between -1 and +1
 	 */
 	matrix::Vector3f update(const matrix::Vector3f &rate, const matrix::Vector3f &rate_sp, const matrix::Vector3f &angular_accel,
-			     const float dt, const actuator_outputs_value_s &actuator_outputs_value, matrix::Vector3f &Nu_i, const bool landed, bool use_u, bool use_tau_i);
+			     const float dt, const allocation_value_s &allocation_value, matrix::Vector3f &Nu_i, const bool landed, bool use_u, bool use_tau_i);
 
 private:
 
 	// Gains
 	matrix::Vector3f _gain_p; ///< rate control proportional gain for all axes x, y, z
-	//I of prop
-	float _I_prop{0.000037f};// ignore
-	float _I_x{0.01149};//setting in the .sdf
-	float _I_y{0.01153};//setting in the .sdf
-	float _I_z{0.004865};//setting in the .sdf
-	float _L_1{0.167f}; //setting in the .sdf
-	float _L_2{0.0698}; //setting in the .sdf
-	float _k{3.0f};	// USER_OMEGA_2_F, k  =_k_cv*_k_v*_k_v, setting k in the gazebo
-
-	matrix::Matrix<float, 3, 4> _B;
+	float _k{1.0f};	// kept for parameter compatibility; control effectiveness matrix B now comes from allocation_value
 };

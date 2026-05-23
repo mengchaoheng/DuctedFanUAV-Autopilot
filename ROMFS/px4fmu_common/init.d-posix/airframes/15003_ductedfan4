@@ -49,7 +49,10 @@ param set-default MC_YAW_WEIGHT 1
 param set-default USER_INDI_R_P 12
 param set-default USER_INDI_P_P 12
 param set-default USER_INDI_Y_P 12
-# 0.15rad
+param set-default USER_USE_INDI 1
+param set-default USER_OMEGA_2_F 1.0
+param set-default USER_AC_METHOD 0
+# 0.15rad, disabled unless USER_ADD_DIST is set during testing
 param set-default USER_DIST_MAG 0.1396
 
 param set-default MPC_THR_HOVER 0.5
@@ -61,7 +64,6 @@ param set-default SDLOG_MODE  0
 param set-default USER_CS_CUTOFF  10
 param set-default IMU_GYRO_CUTOFF  0
 param set-default IMU_DGYRO_CUTOFF  10
-param set-default USER_PID_CA 0
 
 param set-default IMU_GYRO_RATEMAX  0
 # param set-default IMU_INTEG_RATE  250

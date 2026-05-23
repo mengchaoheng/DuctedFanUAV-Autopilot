@@ -77,12 +77,13 @@ MulticopterRateControl::parameters_updated()
 	// rate control parameters
 	// The controller gain K is used to convert the parallel (P + I/s + sD) form
 	// to the ideal (K * [1 + 1/sTi + sTd]) form
-	// const Vector3f torque_convert_acc=Vector3f(0.3491f*2*43.6031, 0.3491f*2*43.4519, 0.3491f*4*42.5051); // 92.4509f since B_inv, 0.3491f since unit (outputs[i+4] = (_u[i])/0.3491f;).
+	// For the ductedfan4 physical control effectiveness matrix B with USER_OMEGA_2_F = 1:
+	// const Vector3f torque_convert_acc=Vector3f(0.3491f*2*14.5344f, 0.3491f*2*14.4840f, 0.3491f*4*14.1684f);
 
-	// for example, for default PID in roll channel, INDI_roll_p=PID_rollrate_p*0.3491f* 2*43.6031=PID_rollrate_p*30.44. ntrol=_param_mc_rollrate_p*error= B'*delta' = 2*43.6031\B*delta/0.3491=92.4509\INDI_control/0.3491, where B*delta=INDI_control. such that,
-	// INDI_roll_p=_param_mc_rollrate_p*0.3491f* 2*43.6031=_param_mc_rollrate_p*30.44.
-	// INDI_pitch_p=_param_mc_pitchrate_p*0.3491f*2*43.4519=_param_mc_pitchrate_p*30.33.
-	// INDI_yaw_p=_param_mc_yawrate_p*0.3491f*4*42.5051=_param_mc_yawrate_p*59.35.
+	// Approximate normalized-PID to physical-INDI gain scale at k=1:
+	// roll  scale: 0.3491f*2*14.5344 = 10.15
+	// pitch scale: 0.3491f*2*14.4840 = 10.11
+	// yaw   scale: 0.3491f*4*14.1684 = 19.78
 	const Vector3f rate_k = Vector3f(_param_mc_rollrate_k.get(), _param_mc_pitchrate_k.get(), _param_mc_yawrate_k.get());
 
 	_indi_control.setParams(Vector3f(_param_mc_indiroll_p.get(), _param_mc_indipitch_p.get(), _param_mc_indiyaw_p.get()),  _param_omega_2_force.get());
@@ -91,17 +92,10 @@ MulticopterRateControl::parameters_updated()
 	_use_tau_i=_param_use_tau_i.get();
 	_use_u=_param_use_u.get();
 
-	// if (_param_use_control_alloc.get() == 1)
-	// 	_rate_control.setGains(
-	// 		torque_convert_acc.emult(rate_k.emult(Vector3f(_param_mc_rollrate_p.get(), _param_mc_pitchrate_p.get(), _param_mc_yawrate_p.get()))),
-	// 		torque_convert_acc.emult(rate_k.emult(Vector3f(_param_mc_rollrate_i.get(), _param_mc_pitchrate_i.get(), _param_mc_yawrate_i.get()))),
-	// 		torque_convert_acc.emult(rate_k.emult(Vector3f(_param_mc_rollrate_d.get(), _param_mc_pitchrate_d.get(), _param_mc_yawrate_d.get()))));
-
-	// else
-		_rate_control.setGains(
-			rate_k.emult(Vector3f(_param_mc_rollrate_p.get(), _param_mc_pitchrate_p.get(), _param_mc_yawrate_p.get())),
-			rate_k.emult(Vector3f(_param_mc_rollrate_i.get(), _param_mc_pitchrate_i.get(), _param_mc_yawrate_i.get())),
-			rate_k.emult(Vector3f(_param_mc_rollrate_d.get(), _param_mc_pitchrate_d.get(), _param_mc_yawrate_d.get())));
+	_rate_control.setGains(
+		rate_k.emult(Vector3f(_param_mc_rollrate_p.get(), _param_mc_pitchrate_p.get(), _param_mc_yawrate_p.get())),
+		rate_k.emult(Vector3f(_param_mc_rollrate_i.get(), _param_mc_pitchrate_i.get(), _param_mc_yawrate_i.get())),
+		rate_k.emult(Vector3f(_param_mc_rollrate_d.get(), _param_mc_pitchrate_d.get(), _param_mc_yawrate_d.get())));
 
 	_rate_control.setIntegratorLimit(
 		Vector3f(_param_mc_rr_int_lim.get(), _param_mc_pr_int_lim.get(), _param_mc_yr_int_lim.get()));
@@ -269,7 +263,7 @@ MulticopterRateControl::Run()
 			Vector3f indi_fb(0.f,0.f,0.f);
 			Vector3f att_control(0.f,0.f,0.f);
 			Vector3f error_fb(0.f,0.f,0.f);
-			_actuator_outputs_value_sub.update(&_actuator_outputs_value);
+			_allocation_value_sub.update(&_allocation_value);
 			float indi_dt=0.0f;
 			bool control_flag=false;
 			// run rate controller
@@ -288,7 +282,7 @@ MulticopterRateControl::Run()
 				// else
 				// {
 					_rate_control.resetIntegral();
-					error_fb = _indi_control.update(rates, _rates_sp, angular_accel, dt, _actuator_outputs_value, indi_fb, _maybe_landed || _landed,  _use_u, _use_tau_i);
+					error_fb = _indi_control.update(rates, _rates_sp, angular_accel, dt, _allocation_value, indi_fb, _maybe_landed || _landed,  _use_u, _use_tau_i);
 					// if (_use_tau_i)
 						att_control = error_fb + indi_fb;
 					// else

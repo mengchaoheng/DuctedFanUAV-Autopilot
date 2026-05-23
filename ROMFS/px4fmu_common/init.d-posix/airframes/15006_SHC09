@@ -41,19 +41,25 @@ param set-default MC_YAWRATE_I 0.3
 param set-default MC_YAWRATE_D 0
 param set-default MC_YAWRATE_FF 0
 
-param set-default USER_INDI_R_P 12.0
-param set-default USER_INDI_P_P 12.0
-param set-default USER_INDI_Y_P 10.0
+param set-default USER_INDI_R_P 6.0
+param set-default USER_INDI_P_P 6.0
+param set-default USER_INDI_Y_P 6.0
+param set-default USER_USE_INDI 1
+param set-default USER_USE_U 1
+param set-default USER_USE_TAUI 1
+param set-default USER_AC_METHOD 0
+param set-default USER_OMEGA_2_F 1.93
+param set-default USER_TIME_CONST 0.01
+param set-default USER_ACTUATOR 1
 
 param set-default MPC_THR_HOVER 0.5
 param set-default RTL_RETURN_ALT 2.5
 param set-default RTL_DESCEND_ALT 2.5
-param set-default SDLOG_PROFILE  1
+param set-default SDLOG_PROFILE  17
 param set-default SDLOG_MODE  0
 
 param set-default USER_CS_CUTOFF  8
 param set-default IMU_DGYRO_CUTOFF  10
-param set-default USER_PID_CA 0
 
 set MAV_TYPE 3
 set PWM_OUT 1

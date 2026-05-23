@@ -133,7 +133,9 @@ public:
 	 *				bytes as they are consumed.
 	 * @return			Zero on successful load, nonzero otherwise.
 	 */
-	int				load_from_buf(Mixer::ControlCallback control_cb, uintptr_t cb_handle, const char *buf, unsigned &buflen);
+	int				load_from_buf(Mixer::ControlCallback control_cb, uintptr_t cb_handle, const char *buf, unsigned &buflen,
+			Mixer::ControlAllocationCallback control_allocation_cb = nullptr,
+			uintptr_t control_allocation_cb_handle = 0);
 
 	/**
 	 * @brief      Update slew rate parameter. This tells instances of the class MultirotorMixer

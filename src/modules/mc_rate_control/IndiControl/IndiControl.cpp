@@ -43,45 +43,15 @@ using namespace matrix;
 void IndiControl::setParams(const Vector3f &P, const float k)
 {
 	_gain_p = P;
-	_k=k;  // k =_k_cv*_k_v*_k_v
-	_B.setZero(); //= { {-46.2254,0.0,46.2254,0.0}, {0.0,-46.0825,0.0,46.0825},{46.7411,46.7411,46.7411,46.7411}};
-	_B(0, 0)=-_L_1*_k/_I_x;
-	_B(0, 2)=_L_1*_k/_I_x;
-	_B(1, 1)=-_L_1*_k/_I_y;
-	_B(1, 3)=_L_1*_k/_I_y;
-	_B(2, 0)=_L_2*_k/_I_z;
-	_B(2, 1)=_L_2*_k/_I_z;
-	_B(2, 2)=_L_2*_k/_I_z;
-	_B(2, 3)=_L_2*_k/_I_z;
-	// PX4_INFO("INDI is updated");
-
+	_k = k;
 }
 
 void IndiControl::init()
 {
-	// l1=0.167;l2=0.0698;k=3; % k*delta=F on cs
-	// I_x=0.00967;I_y=0.0097;I_z=0.00448;
-	// I=diag([I_x;I_y;I_z]);
-	// B=I\[-l1 0 l1 0;0 -l1 0 l1;l2 l2 l2 l2]*k;
-	// % B=[-l1*k/I_x 0 l1*k/I_x 0;0 -l1*k/I_y 0 l1*k/I_y;l2*k/I_z l2*k/I_z l2*k/I_z l2*k/I_z];
-	// % B=I\diag([2*l1;2*l1;4*l2])*k*[-0.5 0 0.5 0;0 -0.5 0 0.5;0.25 0.25 0.25 0.25];
-	// % [-0.5 0 0.5 0;0 -0.5 0 0.5;0.25 0.25 0.25 0.25]= piv([-1 0 1;0 -1 1;1 0 1;0 1 1])
-	// % I\[2*l1 0 0;0 2*l1 0;0 0 4*l2]*k is the different of gain, that is diag([92.4509;92.1649;186.9643])
-	_B.setZero(); //= { {-46.2254,0.0,46.2254,0.0}, {0.0,-46.0825,0.0,46.0825},{46.7411,46.7411,46.7411,46.7411}};
-	_B(0, 0)=-_L_1*_k/_I_x;
-	_B(0, 2)=_L_1*_k/_I_x;
-	_B(1, 1)=-_L_1*_k/_I_y;
-	_B(1, 3)=_L_1*_k/_I_y;
-	_B(2, 0)=_L_2*_k/_I_z;
-	_B(2, 1)=_L_2*_k/_I_z;
-	_B(2, 2)=_L_2*_k/_I_z;
-	_B(2, 3)=_L_2*_k/_I_z;
-	// PX4_INFO("_B");
-	// _B.print();
 }
 
 Vector3f IndiControl::update(const Vector3f &rate, const Vector3f &rate_sp, const Vector3f &angular_accel,
-			     const float dt, const actuator_outputs_value_s &actuator_outputs_value, Vector3f &Nu_i, const bool landed, bool use_u, bool use_tau_i)
+			     const float dt, const allocation_value_s &allocation_value, Vector3f &Nu_i, const bool landed, bool use_u, bool use_tau_i)
 {
 	// angular rates error
 	Vector3f rate_error = rate_sp - rate;
@@ -92,16 +62,26 @@ Vector3f IndiControl::update(const Vector3f &rate, const Vector3f &rate_sp, cons
 	}
 	else
 	{
-		Matrix<float, 4, 1> delta_0 (actuator_outputs_value.delta);
-		if(use_u) {
-			Nu_i = _B * delta_0 - angular_accel;
+		if (use_u && allocation_value.y_dim >= 3 && allocation_value.u_dim > 0 &&
+		    allocation_value.u_dim <= allocation_value_s::MAX_U) {
+			Vector3f Bu;
+			Bu.setZero();
+
+			for (unsigned row = 0; row < 3; row++) {
+				for (unsigned actuator = 0; actuator < allocation_value.u_dim; actuator++) {
+					Bu(row) += allocation_value.b[row * allocation_value_s::MAX_U + actuator] *
+						   allocation_value.u_ultimate[actuator];
+				}
+			}
+
+			Nu_i = Bu - angular_accel;
 		}
 		else {
 			Nu_i =  - angular_accel;
 		}
 
 	}
-	Vector3f K =  _gain_p; // by diag([92.4509;92.1649;186.9643]), using the same as PID param
+	Vector3f K =  _gain_p;
 	Vector3f Nu_f= K.emult(rate_error);
 	return Nu_f;
 }

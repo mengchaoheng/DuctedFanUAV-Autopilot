@@ -54,7 +54,7 @@
 #include <uORB/topics/multirotor_motor_limits.h>
 #include <uORB/topics/parameter_update.h>
 #include <uORB/topics/rate_ctrl_status.h>
-#include <uORB/topics/actuator_outputs_value.h>
+#include <uORB/topics/allocation_value.h>
 #include <uORB/topics/vehicle_angular_acceleration.h>
 #include <uORB/topics/vehicle_angular_velocity.h>
 #include <uORB/topics/vehicle_control_mode.h>
@@ -99,7 +99,7 @@ private:
 	uORB::Subscription _v_control_mode_sub{ORB_ID(vehicle_control_mode)};
 	uORB::Subscription _v_rates_sp_sub{ORB_ID(vehicle_rates_setpoint)};
 	uORB::Subscription _vehicle_angular_acceleration_sub{ORB_ID(vehicle_angular_acceleration)};
-	uORB::Subscription _actuator_outputs_value_sub{ORB_ID(actuator_outputs_value)};
+	uORB::Subscription _allocation_value_sub{ORB_ID(allocation_value)};
 	uORB::Subscription _vehicle_land_detected_sub{ORB_ID(vehicle_land_detected)};
 	uORB::Subscription _vehicle_status_sub{ORB_ID(vehicle_status)};
 
@@ -119,7 +119,7 @@ private:
 	bool _maybe_landed{true};
 	hrt_abstime _time_last_dt_update_multicopter{0};
 	hrt_abstime _rate_control_running_time_us{0};
-	actuator_outputs_value_s _actuator_outputs_value{};
+	allocation_value_s _allocation_value{};
 	// bool _actuator_outputs_sub_flag{false};
 	bool _use_indi{false};
 	bool _use_tau_i{true};
@@ -182,7 +182,6 @@ private:
 		(ParamFloat<px4::params::USER_INDI_P_P>) _param_mc_indipitch_p,
 		(ParamFloat<px4::params::USER_INDI_Y_P>) _param_mc_indiyaw_p,
 		(ParamInt<px4::params::USER_USE_INDI>) _param_use_indi,
-		(ParamInt<px4::params::USER_PID_CA>) _param_use_control_alloc,
 		(ParamInt<px4::params::USER_USE_TAUI>) _param_use_tau_i,
 		(ParamInt<px4::params::USER_USE_U>) _param_use_u
 

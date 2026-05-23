@@ -5,10 +5,12 @@
 # @type Ducted Fan
 # @class Copter
 #
-# @output MAIN1 Left swashplate servomotor, pitch axis
-# @output MAIN2 Right swashplate servomotor, roll axis
-# @output MAIN3 Upper rotor (CCW)
-# @output MAIN4 Lower rotor (CW)
+# @output MAIN1 Upper rotor (CW)
+# @output MAIN2 Lower rotor (CCW)
+# @output MAIN3 unused
+# @output MAIN4 unused
+# @output MAIN5 servomotor, roll axis
+# @output MAIN6 servomotor, pitch axis
 #
 # @maintainer Emmanuel Roussel
 #

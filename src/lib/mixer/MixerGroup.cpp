@@ -40,6 +40,7 @@
 #include "MixerGroup.hpp"
 
 #include "AllocatedActuatorMixer/AllocatedActuatorMixer.hpp"
+#include "ControlAllocationMixer/ControlAllocationMixer.hpp"
 #include "HelicopterMixer/HelicopterMixer.hpp"
 #include "MultirotorMixer/MultirotorMixer.hpp"
 #include "NullMixer/NullMixer.hpp"
@@ -171,7 +172,8 @@ MixerGroup::groups_required(uint32_t &groups)
 }
 
 int
-MixerGroup::load_from_buf(Mixer::ControlCallback control_cb, uintptr_t cb_handle, const char *buf, unsigned &buflen)
+MixerGroup::load_from_buf(Mixer::ControlCallback control_cb, uintptr_t cb_handle, const char *buf, unsigned &buflen,
+			  Mixer::ControlAllocationCallback control_allocation_cb, uintptr_t control_allocation_cb_handle)
 {
 	int ret = -1;
 	const char *end = buf + buflen;
@@ -188,6 +190,11 @@ MixerGroup::load_from_buf(Mixer::ControlCallback control_cb, uintptr_t cb_handle
 		/*
 		 * Use the next character as a hint to decide which mixer class to construct.
 		 */
+		if ((resid < 2) || (p[1] != ':')) {
+			buflen--;
+			continue;
+		}
+
 		switch (*p) {
 		case 'Z':
 			m = NullMixer::from_text(p, resid);
@@ -195,6 +202,10 @@ MixerGroup::load_from_buf(Mixer::ControlCallback control_cb, uintptr_t cb_handle
 
 		case 'A':
 			m = AllocatedActuatorMixer::from_text(control_cb, cb_handle, p, resid);
+			break;
+
+		case 'C':
+			m = ControlAllocationMixer::from_text(control_allocation_cb, control_allocation_cb_handle, p, resid);
 			break;
 
 		case 'M':

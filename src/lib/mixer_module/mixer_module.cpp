@@ -57,11 +57,7 @@ _scheduling_policy(scheduling_policy),
 _support_esc_calibration(support_esc_calibration),
 _max_num_outputs(max_num_outputs < MAX_ACTUATORS ? max_num_outputs : MAX_ACTUATORS),
 _interface(interface),
-_control_latency_perf(perf_alloc(PC_ELAPSED, "control latency")),
-df_4(_B, lower, upper),
-Allocator_INDI(df_4),
-df_4_PID(_B_PID, lower_PID, upper_PID),
-Allocator_PID(df_4_PID)
+_control_latency_perf(perf_alloc(PC_ELAPSED, "control latency"))
 {
 	output_limit_init(&_output_limit);
 	_output_limit.ramp_up = ramp_up;
@@ -82,73 +78,6 @@ Allocator_PID(df_4_PID)
 	test_motor_pub.publish(test);
 	_motor_test.test_motor_sub.subscribe();
 
-	// filter init
-	// last_delta_cmd_rad
-	for (size_t i = 0; i < 4; ++i) {
-		_lp_filter_actuator[i].set_cutoff_frequency(_sample_freq, _param_cs_cutoff.get());
-		_lp_filter_actuator[i].reset(0);
-	}
-	Allocator_INDI.aircraft.controlEffectMatrix[0][0]= -_L_1*_k/_I_x;
-	Allocator_INDI.aircraft.controlEffectMatrix[0][2]= _L_1*_k/_I_x;
-	Allocator_INDI.aircraft.controlEffectMatrix[1][1]= -_L_1*_k/_I_y;
-	Allocator_INDI.aircraft.controlEffectMatrix[1][3]= _L_1*_k/_I_y;
-	Allocator_INDI.aircraft.controlEffectMatrix[2][0]= _L_2*_k/_I_z;
-	Allocator_INDI.aircraft.controlEffectMatrix[2][1]= _L_2*_k/_I_z;
-	Allocator_INDI.aircraft.controlEffectMatrix[2][2]= _L_2*_k/_I_z;
-	Allocator_INDI.aircraft.controlEffectMatrix[2][3]= _L_2*_k/_I_z;
-	Allocator_INDI.isupdate = true;
-
-	_B[0][0]= -_L_1*_k/_I_x;
-	_B[0][2]= _L_1*_k/_I_x;
-	_B[1][1]= -_L_1*_k/_I_y;
-	_B[1][3]= _L_1*_k/_I_y;
-	_B[2][0]= _L_2*_k/_I_z;
-	_B[2][1]= _L_2*_k/_I_z;
-	_B[2][2]= _L_2*_k/_I_z;
-	_B[2][3]= _L_2*_k/_I_z;
-
-	for (int i = 0; i < 3; i++)
-	{
-		for(int j=0;j<4;j++)
-		{
-			_B_array[i+3*j] = _B[i][j];
-			_B_PID_array[i+3*j] = _B_PID[i][j];
-		}
-	}
-	// B^{\dagger}=P^{\dagger} K^{-1}=[-0.5000   -0.0000    0.2500;0   -0.5000    0.2500;0.5000   -0.0000    0.2500;0    0.5000    0.2500]*diag([ I_x/(k*l1)  I_y/(k*l1)  I_z/(k*l2)  ])
-	B_inv.setZero();
-	B_inv(0, 0)=-0.5f* _I_x/(_k*_L_1);
-	B_inv(0, 2)=0.25f* _I_z/(_k*_L_2);
-
-	B_inv(1, 1)=-0.5f* _I_y/(_k*_L_1);
-	B_inv(1, 2)=0.25f* _I_z/(_k*_L_2);
-
-	B_inv(2, 0)=0.5f* _I_x/(_k*_L_1);
-	B_inv(2, 2)=0.25f* _I_z/(_k*_L_2);
-
-	B_inv(3, 1)=0.5f* _I_y/(_k*_L_1);
-	B_inv(3, 2)=0.25f* _I_z/(_k*_L_2);
-
-	B_inv_PID.setZero(); // k=1, I_x=1, I_y=1, I_z=1
-	B_inv_PID(0, 0)=-1.0f;
-	B_inv_PID(0, 2)=1.0f;
-
-	B_inv_PID(1, 1)=-1.0f;
-	B_inv_PID(1, 2)=1.0f;
-
-	B_inv_PID(2, 0)=1.0f;
-	B_inv_PID(2, 2)=1.0f;
-
-	B_inv_PID(3, 1)=1.0f;
-	B_inv_PID(3, 2)=1.0f;
-
-	for (size_t i = 0; i < 4; i++)
-	{
-		_uMin[i] = lower;
-		_uMax[i] = upper;
-		_uMin_PID[i] = lower_PID;
-		_uMax_PID[i] = upper_PID;
-	}
 }
 
 MixingOutput::~MixingOutput()
@@ -167,14 +96,6 @@ void MixingOutput::printStatus() const
 	PX4_INFO("_max_topic_update_interval_us of mixing: %i", _max_topic_update_interval_us);// The publishing pwm cycle is related to the pwm_out parameter.
 
 	PX4_INFO("_sample_freq of mixing: %f", (double) _sample_freq);// Control frequency
-	PX4_INFO("allocation running time: %" PRIu64 "us \n", _allocation_runing_time_us);
-
-	PX4_INFO("allocator test running time: %" PRIu64 "us \n", _allocation_test_runing_time_us1);
-	PX4_INFO("DP_LPCA test running time: %" PRIu64 "us \n", _allocation_test_runing_time_us2);
-	PX4_INFO("DPscaled_LPCA test running time: %" PRIu64 "us \n", _allocation_test_runing_time_us3);
-	PX4_INFO("DP_LPCA_prio test running time: %" PRIu64 "us \n", _allocation_test_runing_time_us4);
-	PX4_INFO("WLS test running time: %" PRIu64 "us \n", _allocation_test_runing_time_us5);
-	PX4_INFO("INV test running time: %" PRIu64 "us \n", _allocation_test_runing_time_us6);
 
 	PX4_INFO("Channel Configuration:");
 
@@ -185,109 +106,9 @@ void MixingOutput::printStatus() const
 	}
 }
 
-void MixingOutput::CheckAndUpdateFilters()
-{
-	// update software low pass filters
-
-	// last_delta_cmd_rad
-	for (size_t i = 0; i < 4; ++i) {
-		if ( _sample_rate_changed || (fabsf(_lp_filter_actuator[i].get_cutoff_freq() - _param_cs_cutoff.get()) > 0.1f)) {
-			_lp_filter_actuator[i].set_cutoff_frequency(_sample_freq, _param_cs_cutoff.get());
-			_lp_filter_actuator[i].reset(_delta_prev[i]);
-		}
-	}
-	_sample_rate_changed = false;
-}
-
 void MixingOutput::updateParams()
 {
 	ModuleParams::updateParams(); // only run when parameters are updated
-
-	CheckAndUpdateFilters();
-	_use_alloc = _param_use_alloc.get();
-	_alloc_method = _param_alloc_method.get();
-	_use_ac_test = _param_ac_test.get();
-	bool tmp=  _param_use_dist.get();
-	if(_use_dist!=tmp)
-	{
-		_use_dist = tmp;
-		if(_use_dist)
-		{
-			for (size_t i = 0; i < 4; i++)
-			{
-				_uMin[i] = lower+_dist_mag;
-				_uMax[i] = upper-_dist_mag;
-			}
-			for (int i = 0; i < 4; ++i) {
-				Allocator_INDI.aircraft.upperLimits[i] = _uMax[i];
-				Allocator_INDI.aircraft.lowerLimits[i] = _uMin[i];
-				Allocator_INDI.isupdate = true;
-			}
-			// PX4_INFO("using dist");
-		}
-		else
-		{
-			for (size_t i = 0; i < 4; i++)
-			{
-				_uMin[i] = lower;
-				_uMax[i] = upper;
-			}
-			for (int i = 0; i < 4; ++i) {
-				Allocator_INDI.aircraft.upperLimits[i] = _uMax[i];
-				Allocator_INDI.aircraft.lowerLimits[i] = _uMin[i];
-				Allocator_INDI.isupdate = true;
-			}
-		}
-
-	}
-	_dist_mag = _param_dist_mag.get();
-	_time_const=math::constrain(_param_time_const.get(), 1.0f/_sample_freq, 0.2f);// dt < _time_const  < epsilon^*=0.2 here.  dt less than actuator time constant is a requirement for simulating actuator behavior in this program, see matlab code(https://github.com/mengchaoheng/PINDI). Conservatively take the lower limit 1.0f/_sample_freq
-	//uopdate Allocator_INDI _B  B_inv
-	float tmp_k=_param_k.get();
-	if(fabsf(tmp_k - _k) > FLT_EPSILON){
-		// PX4_INFO("update model");
-		_k = tmp_k;
-		Allocator_INDI.aircraft.controlEffectMatrix[0][0]= -_L_1*_k/_I_x;
-		Allocator_INDI.aircraft.controlEffectMatrix[0][2]= _L_1*_k/_I_x;
-		Allocator_INDI.aircraft.controlEffectMatrix[1][1]= -_L_1*_k/_I_y;
-		Allocator_INDI.aircraft.controlEffectMatrix[1][3]= _L_1*_k/_I_y;
-		Allocator_INDI.aircraft.controlEffectMatrix[2][0]= _L_2*_k/_I_z;
-		Allocator_INDI.aircraft.controlEffectMatrix[2][1]= _L_2*_k/_I_z;
-		Allocator_INDI.aircraft.controlEffectMatrix[2][2]= _L_2*_k/_I_z;
-		Allocator_INDI.aircraft.controlEffectMatrix[2][3]= _L_2*_k/_I_z;
-		Allocator_INDI.isupdate = true; // set to true, so that the next time we call Allocator_INDI.Update(), it will update the B matrix and B_inv matrix.
-
-		_B[0][0]= -_L_1*_k/_I_x;
-		_B[0][2]= _L_1*_k/_I_x;
-		_B[1][1]= -_L_1*_k/_I_y;
-		_B[1][3]= _L_1*_k/_I_y;
-		_B[2][0]= _L_2*_k/_I_z;
-		_B[2][1]= _L_2*_k/_I_z;
-		_B[2][2]= _L_2*_k/_I_z;
-		_B[2][3]= _L_2*_k/_I_z;
-
-		for (int i = 0; i < 3; i++)
-		{
-			for(int j=0;j<4;j++)
-			{
-				_B_array[i+3*j] = _B[i][j];
-			}
-		}
-
-		B_inv(0, 0)=-0.5f* _I_x/(_k*_L_1);
-		B_inv(0, 2)=0.25f* _I_z/(_k*_L_2);
-
-		B_inv(1, 1)=-0.5f* _I_y/(_k*_L_1);
-		B_inv(1, 2)=0.25f* _I_z/(_k*_L_2);
-
-		B_inv(2, 0)=0.5f* _I_x/(_k*_L_1);
-		B_inv(2, 2)=0.25f* _I_z/(_k*_L_2);
-
-		B_inv(3, 1)=0.5f* _I_y/(_k*_L_1);
-		B_inv(3, 2)=0.25f* _I_z/(_k*_L_2);
-	}
-
-
 
 	// update mixer if we have one
 	if (_mixers) {
@@ -448,12 +269,122 @@ void MixingOutput::updateOutputSlewrateSimplemixer()
 		// PX4_INFO("tmp: %f \n", (double)  tmp);
 		// PX4_INFO("_sample_freq: %f \n", (double)  _sample_freq);
 		_sample_freq = tmp;
-		_sample_rate_changed = true;
-		CheckAndUpdateFilters();
 	}
 
 	// set dt for slew rate limiter in SimpleMixer (is reset internally after usig it, so needs to be set on every update)
 	_mixers->set_dt_once(dt);
+}
+
+float
+MixingOutput::firstOrderUpdateZoh(float u, float y_prev, float time_constant, float dt)
+{
+	if (time_constant < 1e-6f) {
+		return u;
+	}
+
+	const float a = expf(-dt / time_constant);
+	return a * y_prev + (1.f - a) * u;
+}
+
+void
+MixingOutput::updateMixerOutputValue(const float outputs[MAX_ACTUATORS], unsigned mixed_num_outputs)
+{
+	mixer_outputs_value_s msg {};
+	msg.timestamp = hrt_absolute_time();
+	msg.noutputs = mixed_num_outputs;
+
+	for (unsigned i = 0; i < mixer_outputs_value_s::NUM_MIXER_OUTPUTS; i++) {
+		msg.actuator_type[i] = mixer_outputs_value_s::ACTUATOR_TYPE_SERVO;
+		msg.output[i] = NAN;
+		msg.output_command[i] = NAN;
+		msg.output_estimate[i] = NAN;
+	}
+
+	const float dt = 1.f / _sample_freq;
+	const float servo_time_const = math::constrain(_param_user_time_const.get(), dt, 0.2f);
+	const float motor_time_const = math::constrain(_param_user_mot_time_const.get(), dt, 0.2f);
+	const float servo_cutoff = math::max(_param_user_cs_cutoff.get(), 0.f);
+	const float motor_cutoff = math::max(_param_user_mot_cutoff.get(), 0.f);
+	const bool use_actuator = _param_user_actuator.get() == 1;
+
+	if (!PX4_ISFINITE(_last_mixer_output_servo_cutoff) || fabsf(servo_cutoff - _last_mixer_output_servo_cutoff) > 0.1f ||
+	    !PX4_ISFINITE(_last_mixer_output_motor_cutoff) || fabsf(motor_cutoff - _last_mixer_output_motor_cutoff) > 0.1f) {
+		for (unsigned i = 0; i < MAX_ACTUATORS; i++) {
+			const float cutoff = isMotorOutputType(_mixer_output_type[i]) ? motor_cutoff : servo_cutoff;
+			_mixer_output_filter[i].set_cutoff_frequency(_sample_freq, cutoff);
+			_mixer_output_filter[i].reset(_mixer_output_filtered[i]);
+		}
+
+		_last_mixer_output_servo_cutoff = servo_cutoff;
+		_last_mixer_output_motor_cutoff = motor_cutoff;
+	}
+
+	const unsigned count = math::min(static_cast<unsigned>(mixer_outputs_value_s::NUM_MIXER_OUTPUTS),
+					 math::min(mixed_num_outputs, static_cast<unsigned>(MAX_ACTUATORS)));
+
+	for (unsigned i = 0; i < count; i++) {
+		if (!PX4_ISFINITE(outputs[i])) {
+			continue;
+		}
+
+		const uint8_t actuator_type = _mixer_output_type[i];
+		const float time_const = isMotorOutputType(actuator_type) ? motor_time_const : servo_time_const;
+		_mixer_output_estimate[i] = firstOrderUpdateZoh(outputs[i], _mixer_output_last[i], time_const, dt);
+		_mixer_output_command[i] = use_actuator ? _mixer_output_estimate[i] : outputs[i];
+		_mixer_output_last[i] = _mixer_output_command[i];
+		_mixer_output_filtered[i] = _mixer_output_filter[i].apply(_mixer_output_estimate[i]);
+		msg.actuator_type[i] = actuator_type;
+		msg.output[i] = outputs[i];
+		msg.output_command[i] = _mixer_output_command[i];
+		msg.output_estimate[i] = _mixer_output_filtered[i];
+	}
+
+	_mixer_outputs_value_pub.publish(msg);
+}
+
+bool
+MixingOutput::isMotorOutputType(uint8_t actuator_type)
+{
+	return actuator_type == mixer_outputs_value_s::ACTUATOR_TYPE_MOTOR;
+}
+
+void
+MixingOutput::loadMixerOutputTypes(const char *buf, unsigned len)
+{
+	for (unsigned i = 0; i < MAX_ACTUATORS; i++) {
+		_mixer_output_type[i] = mixer_outputs_value_s::ACTUATOR_TYPE_SERVO;
+	}
+
+	_last_mixer_output_servo_cutoff = NAN;
+	_last_mixer_output_motor_cutoff = NAN;
+
+	for (unsigned offset = 0; offset + 2 < len; offset++) {
+		if (offset > 0 && buf[offset - 1] != '\n') {
+			continue;
+		}
+
+		if (buf[offset] != 'V' || buf[offset + 1] != ':') {
+			continue;
+		}
+
+		int output_slot = -1;
+		int actuator_type = mixer_outputs_value_s::ACTUATOR_TYPE_SERVO;
+
+		if (sscanf(buf + offset, "V: %d %d", &output_slot, &actuator_type) != 2) {
+			continue;
+		}
+
+		if (output_slot < 0 || output_slot >= static_cast<int>(MAX_ACTUATORS)) {
+			continue;
+		}
+
+		if (actuator_type != mixer_outputs_value_s::ACTUATOR_TYPE_SERVO &&
+		    actuator_type != mixer_outputs_value_s::ACTUATOR_TYPE_MOTOR) {
+			continue;
+		}
+
+		_mixer_output_type[output_slot] = static_cast<uint8_t>(actuator_type);
+	}
 }
 
 
@@ -519,26 +450,6 @@ unsigned MixingOutput::motorTest()
 	return (_motor_test.in_test_mode || had_update) ? _max_num_outputs : 0;
 }
 
-// First-order system real-time update function, Euler forward difference (Forward Euler), stability is only maintained when dt/T < 1 (otherwise it is unstable). Comparison of discretization methods can be seen in matlab code(https://github.com/mengchaoheng/PINDI).
-float MixingOutput::first_order_update(float u_pre, float y_pre, float T, float dt)
-{
-    float y = y_pre + (dt / T) * (u_pre - y_pre);
-    return y;
-}
-
-float MixingOutput::first_order_update_zoh(float u_pre, float y_pre, float T, float dt)
-{
-    if (T < 1e-6f) {
-        // If T is very small, the system response should be y ≈ u
-        return u_pre;
-    }
-
-    float A = expf(-dt / T);           // Discrete pole
-    float B = 1.0f - A;                // Input coefficient
-
-    float y = A * y_pre + B * u_pre;   // ZOH difference update
-    return y;
-}
 bool MixingOutput::update()
 {
 	if (!_mixers) {
@@ -612,364 +523,7 @@ bool MixingOutput::update()
 	/* do mixing */
 	float outputs[MAX_ACTUATORS] {};
 	const unsigned mixed_num_outputs = _mixers->mix(outputs, _max_num_outputs);
-
-	// rc detection (FUTABA T14SG)
-	// Up is -1
-	// channels[6]:  -1	0	1	= yaw step  // channels 7 in the upper right corner
-	// Channels 9-12 are on the front
-	// channels[8]:  -1	0       1	=servo disturb
-	// channels[9]:  -1	0       1	=
-	// channels[10]: -1	0       1	=
-	// channels[11]: -1	0       1	=pid or indi
-	if (_rc_channels_sub.update(&_rc_channels))
-	{
-		if (_rc_channels.channels[8] < 0.f)
-		{
-			_rc_dist_flag = false;
-			// PX4_INFO("no dist !");
-		}
-		else
-		{
-			_rc_dist_flag = true;
-			// PX4_INFO("dist !");
-		}
-	}
-	if(_pre_rc_dist_flag!=_rc_dist_flag)
-	{
-		_pre_rc_dist_flag = _rc_dist_flag;
-		if(_rc_dist_flag)
-		{
-			for (size_t i = 0; i < 4; i++)
-			{
-				_uMin[i] = lower+_dist_mag;
-				_uMax[i] = upper-_dist_mag;
-			}
-			for (int i = 0; i < 4; ++i) {
-				Allocator_INDI.aircraft.upperLimits[i] = _uMax[i];
-				Allocator_INDI.aircraft.lowerLimits[i] = _uMin[i];
-				Allocator_INDI.isupdate = true;
-			}
-			PX4_INFO("model update !");
-		}
-		else
-		{
-			for (size_t i = 0; i < 4; i++)
-			{
-				_uMin[i] = lower;
-				_uMax[i] = upper;
-			}
-			for (int i = 0; i < 4; ++i) {
-				Allocator_INDI.aircraft.upperLimits[i] = _uMax[i];
-				Allocator_INDI.aircraft.lowerLimits[i] = _uMin[i];
-				Allocator_INDI.isupdate = true;
-			}
-			PX4_INFO("model recover !");
-		}
-
-	}
-	// // "outputs" is the value alfter mix, range from [-1, 1]. _current_output_value is pwm value alfter output_limit_calc.
-	// // just using in ductedfan
-	// // PX4_INFO("dir_alloc_sim:\n");
-	hrt_abstime timestamp_ca_start=hrt_absolute_time();
-	hrt_abstime timestamp_ca_end=hrt_absolute_time();
-	allocation_value_s allocation_value{};
-
-	if(_use_ac_test==1){
-		// PX4_INFO("INDI test");
-		// =====================run test for allocation running time===========================================
-		float m_higher[3]={0.0,  0.0,  30.0f}; //
-		float m_lower[3]={20.0f,  10.0f,   0.0f};
-		float input[3]={m_lower[0]+m_higher[0],  m_lower[1]+m_higher[1],   m_lower[2]+m_higher[2]};
-		//==========================allocateControl===========================
-		float u1[4]; int err1=0;
-		timestamp_ca_start = hrt_absolute_time();
-		Allocator_INDI.allocateControl(input, u1, err1);
-		timestamp_ca_end = hrt_absolute_time();
-		_allocation_test_runing_time_us1=timestamp_ca_end - timestamp_ca_start;
-		// PX4_INFO("allocateControl: u1: %f, u2: %f, u3: %f, u4: %f. \n",(double) u1[0],(double) u1[1],(double) u1[2],(double) u1[3]);
-		// PX4_INFO("allocateControl time: %lld \n", (timestamp_ca_end - timestamp_ca_start) ); //nuttx
-		//========================DP_LPCA=============================
-		float u2[4];int err2=0;float rho2=0;float u2_tmp[4];
-		timestamp_ca_start = hrt_absolute_time();
-		Allocator_INDI.DP_LPCA(input, u2_tmp, err2, rho2);
-		Allocator_INDI.restoring(u2_tmp,u2);
-		timestamp_ca_end = hrt_absolute_time();
-		_allocation_test_runing_time_us2=timestamp_ca_end - timestamp_ca_start;
-		// PX4_INFO("DP_LPCA: u1: %f, u2: %f, u3: %f, u4: %f. \n",(double) u2[0],(double) u2[1],(double) u2[2],(double) u2[3]);
-		// PX4_INFO("DP_LPCA time: %lld \n", (timestamp_ca_end - timestamp_ca_start) ); //nuttx
-		//=========================DPscaled_LPCA============================INFO  [mixer_module] dir_alloc_sim time: 16
-		float u3[4];int err3=0;float rho3=0;float u3_tmp[4];
-		timestamp_ca_start = hrt_absolute_time();
-		Allocator_INDI.DPscaled_LPCA(input, u3_tmp, err3, rho3);
-		Allocator_INDI.restoring(u3_tmp,u3);
-		timestamp_ca_end = hrt_absolute_time();
-		_allocation_test_runing_time_us3=timestamp_ca_end - timestamp_ca_start;
-		// PX4_INFO("DPscaled_LPCA: u1: %f, u2: %f, u3: %f, u4: %f. \n",(double) u3[0],(double) u3[1],(double) u3[2],(double) u3[3]);
-		// PX4_INFO("DPscaled_LPCA time: %lld \n", (timestamp_ca_end - timestamp_ca_start) ); //nuttx
-		//========================DP_LPCA_prio=============================
-		float u4[4];int err4=0;float rho4=0;float u4_tmp[4];
-		// float m_lower[3]={30.0f,  0.0f,   -0.0f};
-		int err41=0;float rho41=0;float u4_tmp1[4]; float m_tmp[3]={0.0,  0.0,  0.0f};
-		timestamp_ca_start = hrt_absolute_time();
-		Allocator_INDI.DP_LPCA_copy(m_higher,m_lower, u4_tmp, err4, rho4);
-		if (err4<0){
-			Allocator_INDI.DP_LPCA_copy(m_tmp,m_higher, u4_tmp1, err41, rho41);// or (m_tmp,input, u4_tmp1, err41, rho41);
-			Allocator_INDI.restoring(u4_tmp1,u4);
-		}else{
-			Allocator_INDI.restoring(u4_tmp,u4);
-		}
-		timestamp_ca_end = hrt_absolute_time();
-		_allocation_test_runing_time_us4=timestamp_ca_end - timestamp_ca_start;
-		// PX4_INFO("DP_LPCA_prio: u1: %f, u2: %f, u3: %f, u4: %f. \n",(double) u4[0],(double) u4[1],(double) u4[2],(double) u4[3]);
-		// PX4_INFO("DP_LPCA_prio time: %lld \n", (timestamp_ca_end - timestamp_ca_start) ); //nuttx
-		// //========================allocator_dir_LPwrap_4 (generate by matlab) =============================
-		// float u5[4]={ 0.0,  0.0,   0.0,   0.0};
-		// float z_allocator_dir_LPwrap_4= 0.0;
-		// unsigned int iters_allocator_dir_LPwrap_4= 0;
-		// timestamp_ca_start = hrt_absolute_time();
-		// allocator_dir_LPwrap_4(_B_array, input, _uMin, _uMax, u5, &z_allocator_dir_LPwrap_4, &iters_allocator_dir_LPwrap_4); // allocator_dir_LPwrap_4 execution time: 7.08e-07s
-		// timestamp_ca_end = hrt_absolute_time();
-		// PX4_INFO("allocator_dir_LPwrap_4: u1: %f, u2: %f, u3: %f, u4: %f. \n",(double) u5[0],(double) u5[1],(double) u5[2],(double) u5[3]);
-		// PX4_INFO("allocator_dir_LPwrap_4 time: %lld \n", (timestamp_ca_end - timestamp_ca_start) ); //nuttx
-		//=========================WLS_alloc_gen (generate by matlab)===========================
-		float u6[4];float gam = 1e6f; float W0[4]={0.0f, 0.0f, 0.0f, 0.0f};  float u_d[4] = {0.0f, 0.0f, 0.0f, 0.0f};
-		timestamp_ca_start = hrt_absolute_time();
-		wls_alloc_gen(_B_array, input, _uMin, _uMax, _I3_array, _I4_array, u_d, gam, u6, W0, 100, 4);
-		timestamp_ca_end = hrt_absolute_time();
-		_allocation_test_runing_time_us5=timestamp_ca_end - timestamp_ca_start;
-		// PX4_INFO("wls_alloc_gen: u1: %f, u2: %f, u3: %f, u4: %f. \n",(double) u6[0],(double) u6[1],(double) u6[2],(double) u6[3]);
-		// PX4_INFO("wls_alloc_gen time: %lld \n", (timestamp_ca_end - timestamp_ca_start) ); //nuttx
-
-		//=========================inv ===========================
-		float u7[4];
-		// calculat B_inv
-		Matrix<float, 3, 4> B_Matrix(_B_array);
-		Matrix<float, 4, 3> B_Matrix_I;
-		matrix::Matrix<float, 3, 1> desire (input);
-		Vector<float, 4> b_input(input);
-		timestamp_ca_start = hrt_absolute_time();
-		// origin: offline calc
-		// matrix::Matrix<float, 4, 1> u_i = B_inv * desire;
-		// for (size_t i = 0; i < 4; i++){
-		// 	u7[i] =  math::constrain( u_i(i,0), _uMin[i], _uMax[i]);
-		// }
-		// option 1: geninv
-		bool ret = geninv(B_Matrix, B_Matrix_I);
-		matrix::Matrix<float, 4, 1> u_i = B_Matrix_I * desire;
-		for (size_t i = 0; i < 4; i++){
-			u7[i] =  math::constrain( u_i(i,0), _uMin[i], _uMax[i]);
-		}
-
-		// option 2: LeastSquaresSolver
-		// LeastSquaresSolver<float, 4, 3> qrd = LeastSquaresSolver<float, 4, 3>(B_Matrix);
-		// Vector<float, 4> u_vector = qrd.solve(b_input);
-		// for (size_t i = 0; i < 4; i++){
-		// 	u7[i] =  math::constrain( u_vector(i), _uMin[i], _uMax[i]);
-		// }
-
-		timestamp_ca_end = hrt_absolute_time();
-		_allocation_test_runing_time_us6=timestamp_ca_end - timestamp_ca_start;
-		// PX4_INFO("wls_alloc_gen: u1: %f, u2: %f, u3: %f, u4: %f. \n",(double) u6[0],(double) u6[1],(double) u6[2],(double) u6[3]);
-		// PX4_INFO("wls_alloc_gen time: %lld \n", (timestamp_ca_end - timestamp_ca_start) ); //nuttx
-
-		_use_ac_test=0;
-	}
-
-	// indi have to use allocator, since it use the model for control value. all this CA and INDI just for ductedfan4 since we have to set B.
-	// dt < _time_const  < epsilon^*=0.2 here. Actually, it also needs to be greater than a certain value because of noise. Here the lower limit is 0.01, which is related to noise and filters. According to actual conditions, KST servo can turn 60 degrees in 0.15 seconds , the time constant is taken as 0.03. for CA in first order update
-	timestamp_ca_start = hrt_absolute_time();
-	if(_controls[0].control_flag == 1){ //using INDI
-		_fb[0] = _controls[0].control[actuator_controls_s::INDEX_ROLL];
-		_fb[1] = _controls[0].control[actuator_controls_s::INDEX_PITCH];
-		_fb[2] = _controls[0].control[actuator_controls_s::INDEX_YAW];
-		if (_alloc_method==3){ // pca
-			// PX4_INFO("INDI pca");
-			_indi_fb[0] = _controls[0].indi_fb[actuator_controls_s::INDEX_ROLL];
-			_indi_fb[1] = _controls[0].indi_fb[actuator_controls_s::INDEX_PITCH];
-			_indi_fb[2] = _controls[0].indi_fb[actuator_controls_s::INDEX_YAW];
-			_error_fb[0] = _controls[0].error_fb[actuator_controls_s::INDEX_ROLL];
-			_error_fb[1] = _controls[0].error_fb[actuator_controls_s::INDEX_PITCH];
-			_error_fb[2] = _controls[0].error_fb[actuator_controls_s::INDEX_YAW];
-			float u_pca[4];int err_flag_1=0;float rho_1=0;float u_pca_tmp_1[4];
-			int err_flag_2=0;float rho_2=0;float u_pca_tmp_2[4]; float m_zero[3]={0.0,  0.0,  0.0f};
-			Allocator_INDI.DP_LPCA_copy(_indi_fb,_error_fb, u_pca_tmp_1, err_flag_1, rho_1);
-			if (err_flag_1<0){
-			    Allocator_INDI.DP_LPCA_copy(m_zero,_indi_fb, u_pca_tmp_2, err_flag_2, rho_2);
-			    Allocator_INDI.restoring(u_pca_tmp_2,u_pca);
-			    allocation_value.flag=4;
-			}else{
-			    Allocator_INDI.restoring(u_pca_tmp_1,u_pca);
-			    allocation_value.flag=3;
-			}
-			for (size_t i = 0; i < 4; i++){
-				_u[i] = math::constrain((float) (u_pca[i]), (float) (_uMin[i]), (float) (_uMax[i]));
-			}
-
-		}
-		else if(_alloc_method==2){  // dir
-			// PX4_INFO("INDI dir");
-			float u_dir[4];int err_flag=0;float rho=0;float u_dir_tmp[4];float m_zero[3]={0.0,  0.0,  0.0f};
-			Allocator_INDI.DP_LPCA_copy(m_zero, _fb, u_dir_tmp, err_flag, rho); //error,
-			Allocator_INDI.restoring(u_dir_tmp,u_dir);
-			// Allocator_INDI.DP_LPCA(_fb, u_dir_tmp, err_flag, rho);
-			// Allocator_INDI.restoring(u_dir_tmp,u_dir);
-			// Allocator_INDI.DPscaled_LPCA(_fb, u_dir_tmp, err_flag, rho);
-			// Allocator_INDI.restoring(u_dir_tmp,u_dir);
-			for (size_t i = 0; i < 4; i++){
-				_u[i] = math::constrain((float) (u_dir[i]), (float) (_uMin[i]), (float) (_uMax[i]));
-			}
-			allocation_value.flag=2;
-		}
-		else if(_alloc_method==1){ //wls
-			//=========================WLS_alloc_gen===========================
-			// Strictly speaking, restoring is not necessary because WLS itself guarantees the minimum norm.
-			// PX4_INFO("INDI wls");
-			float u_wls[4];float gam = 1e6f; float W0[4]={0.0f, 0.0f, 0.0f, 0.0f};  float u_d[4] = {0.0f, 0.0f, 0.0f, 0.0f};
-			wls_alloc_gen(_B_array, _fb, _uMin, _uMax, _I3_array, _I4_array, u_d, gam, u_wls, W0, 100, 4);
-			for (size_t i = 0; i < 4; i++){
-				_u[i] = math::constrain((float) (u_wls[i]), (float) (_uMin[i]), (float) (_uMax[i]));
-			}
-			allocation_value.flag=1;
-		}else{ //0 inv
-			// PX4_INFO("INDI inv");
-			matrix::Matrix<float, 3, 1> y_desire (_fb);
-			matrix::Matrix<float, 4, 1> u_inv = B_inv * y_desire;
-			for (size_t i = 0; i < 4; i++){
-				_u[i] =  math::constrain( u_inv(i,0), _uMin[i], _uMax[i]);
-			}
-			allocation_value.flag=0;
-			// PX4_INFO("indi: u_inv: %f, u2: %f, u3: %f, u4: %f. \n",(double) u_inv(0,0),(double) u_inv(1,0),(double) u_inv(2,0),(double) u_inv(3,0));
-		}
-		for (size_t i = 0; i < 3; i++){
-			float  temp = 0.0f;
-			for(int k = 0 ; k < 4 ; k++)
-			{
-				temp += _B[i][k] * _u[k];
-			}
-			allocation_value.error[i] =_fb[i] - temp;
-		}
-		for (size_t i = 0; i < 4; i++){
-			allocation_value.u[i] = _u[i];
-			allocation_value.umin[i] = _uMin[i];
-			allocation_value.umax[i] = _uMax[i];
-			// The actual system does not use an additional actuator for simulation. In simulations, it can be used (default is used, if not used, in order to estimate the value accurately, the time constant is set to 0).
-			_u_estimate[i] = first_order_update_zoh(_u[i], _last_u[i], _time_const, 1.0f/_sample_freq);
-			if(_param_use_actuator.get() == 1){
-				// PX4_INFO("use actuator");
-				_u_cmd[i] = _u_estimate[i]; // In simulation, the actuator is instantaneous, and the observed value is directly used as the control surface command, which is the actual position of the control surface. When using the actuator in simulation, the estimate is perfect. If the actuator is not used, set the time constant of the first-order estimate to zero, _u_estimate=_u, which is also a perfect estimate.
-			}
-			else{
-				// PX4_INFO("not use actuator");
-				_u_cmd[i] = _u[i]; // In reality, _u_cmd is the control surface command, and _u_estimate is the estimate of the actual control surface value.
-			}
-			_last_u[i] = _u_cmd[i]; // save last u for first order update
-			allocation_value.u_ultimate[i] = _u_cmd[i];
-		}
-
-		// // Two flag bits are enabled together, in order to control the remote control, the parameters must use the default values. Here, both the remote control and the parameters are updated individually.
-		// In actual flight, the aircraft's actual configuration always makes roll -10, pitch +10. For comparison, the control surface disturbances of 1-4 are adjusted from ++-- to -++-. At this time, it is equivalent to having a 6 deg control surface disturbance, and only 2 deg more is needed to meet the test requirements.
-		if(_use_dist==1 || _rc_dist_flag){
-			outputs[0+4] = (_u_cmd[0]-_dist_mag)/0.3491f;
-			outputs[1+4] = (_u_cmd[1]+_dist_mag)/0.3491f;
-			outputs[2+4] = (_u_cmd[2]+_dist_mag)/0.3491f;
-			outputs[3+4] = (_u_cmd[3]-_dist_mag)/0.3491f;
-		}
-		else{
-			for (size_t i = 0; i < 4; i++){
-				outputs[i+4] = (_u_cmd[i])/0.3491f;
-			}
-		}
-
-	}
-	else{ //PID is without control surface disturbance and no model changes. Allocation parameters remain unchanged, only for comparison baseline.
-		if (_use_alloc == 1){ //_use_alloc only use for PID
-			// when using PID, >> B_inv_PID=[-1 0 1;0 -1 1;1 0 1;0 1 1], _B_PID=pinv(B_inv_PID)
-			// _B_PID =
-			//    -0.5000         0    0.5000         0
-			//    -0.0000   -0.5000   -0.0000    0.5000
-			//     0.2500    0.2500    0.2500    0.2500
-			_fb[0] = math::constrain(_controls[0].control[actuator_controls_s::INDEX_ROLL], -1.f, 1.f);
-			_fb[1] = math::constrain(_controls[0].control[actuator_controls_s::INDEX_PITCH], -1.f, 1.f);
-			_fb[2] = math::constrain(_controls[0].control[actuator_controls_s::INDEX_YAW], -1.f, 1.f);
-			if (_alloc_method==2 || _alloc_method==3){ // dir or pca
-				float u_all[4];
-				int err = 0;
-				float rho;
-
-				// Allocator_PID.DP_LPCA(_fb,u_all,err, rho); // The message "No Initial Feasible Solution found" will appear. change tol.
-				// Allocator_PID.DPscaled_LPCA(_fb, u_all, err, rho);
-				float u_pid_tmp[4]; float m_zero[3]={0.0,  0.0,  0.0f};
-				Allocator_PID.DP_LPCA_copy(m_zero,_fb, u_pid_tmp, err, rho);
-				Allocator_PID.restoring(u_pid_tmp,u_all);
-				// = dir
-				for (size_t i = 0; i < 4; i++){
-					_u[i] =  math::constrain( u_all[i], _uMin_PID[i], _uMax_PID[i]);
-				}
-				allocation_value.flag=2;
-				// PX4_INFO("PID PCA 1 == INV since higher is zro");
-			}
-			else if(_alloc_method==1){ // wls
-				// PX4_INFO("PID wls");
-				float u_wls[4];float gam = 1e6f; float W0[4]={0.0f, 0.0f, 0.0f, 0.0f};  float u_d[4] = {0.0f, 0.0f, 0.0f, 0.0f};
-				wls_alloc_gen(_B_PID_array, _fb, _uMin_PID, _uMax_PID, _I3_array, _I4_array, u_d, gam, u_wls, W0, 100, 4);
-				for (size_t i = 0; i < 4; i++){
-					_u[i] = math::constrain((float) (u_wls[i]), (float) (_uMin_PID[i]), (float) (_uMax_PID[i]));
-				}
-				allocation_value.flag=1;
-			}else{ // inv
-				// PX4_INFO("PID inv");
-				matrix::Matrix<float, 3, 1> y_desire (_fb);
-				matrix::Matrix<float, 4, 1> u_inv = B_inv_PID * y_desire;
-				for (size_t i = 0; i < 4; i++)
-				{
-					_u[i] =  math::constrain( u_inv(i,0), _uMin_PID[i], _uMax_PID[i]);
-				}
-				allocation_value.flag=0;
-				// PX4_INFO("pid: u_inv: %f, u2: %f, u3: %f, u4: %f. \n",(double) u_inv(0,0),(double) u_inv(1,0),(double) u_inv(2,0),(double) u_inv(3,0));
-			}
-			for (size_t i = 0; i < 3; i++){
-				float  temp = 0.0f;
-				for(int k = 0 ; k < 4 ; k++)
-				{
-					temp += _B_PID[i][k] * _u[k];
-				}
-				allocation_value.error[i] =_fb[i] - temp;
-			}
-			for (size_t i = 0; i < 4; i++){
-				allocation_value.u[i] = _u[i];
-				allocation_value.umin[i] = _uMin_PID[i];
-				allocation_value.umax[i] = _uMax_PID[i];
-				_u_estimate[i] = first_order_update_zoh(_u[i], _last_u[i], _time_const, 1.0f/_sample_freq);
-				if(_param_use_actuator.get() == 1){
-					// PX4_INFO("use actuator");
-					_u_cmd[i] = _u_estimate[i];
-				}
-				else{
-					// PX4_INFO("not use actuator");
-					_u_cmd[i] = _u[i];
-				}
-				_last_u[i] = _u_cmd[i]; // save last u for first order update
-				allocation_value.u_ultimate[i] = _u_cmd[i];
-			}
-			for (size_t i = 0; i < 4; i++){
-				outputs[i+4] = _u_cmd[i];// Limited to -1 to +1, so no need to change units
-			}
-		}
-		else{ // origin system
-			for (size_t i = 0; i < 4; i++){
-				_u_cmd[i] = outputs[i+4]*0.3491f;
-				allocation_value.u[i] = _u_cmd[i];
-				allocation_value.u_ultimate[i] = _u_cmd[i];
-
-			}
-		}
-	}
-	timestamp_ca_end = hrt_absolute_time();
-	// PX4_INFO("alloc time: %lld \n", (timestamp_ca_end - timestamp_ca_start) ); //nuttx
-	_allocation_runing_time_us = (timestamp_ca_end - timestamp_ca_start); //us
-	allocation_value.timestamp = timestamp_ca_end;
-	allocation_value.timestamp_sample=_allocation_runing_time_us;
-	_allocation_value_pub.publish(allocation_value);
+	updateMixerOutputValue(outputs, mixed_num_outputs);
 
 	/* the output limit call takes care of out of band errors, NaN and constrains */ // [-1, 1] -> [min_rad, max_rad] == [min_pwm, max_pwm]
 	output_limit_calc(_throttle_armed, armNoThrottle(), mixed_num_outputs, _reverse_output_mask,
@@ -1029,15 +583,6 @@ MixingOutput::setAndPublishActuatorOutputs(unsigned num_outputs, actuator_output
 
 	actuator_outputs.timestamp = hrt_absolute_time();
 	_outputs_pub.publish(actuator_outputs);
-	// publish cs delta for indi controller
-	actuator_outputs_value_s actuator_outputs_value{};
-	for (size_t i = 0; i < 4; ++i) {
-		actuator_outputs_value.delta[i] = math::constrain(_lp_filter_actuator[i].apply(_u_estimate[i]), (float) (_uMin[i]), (float) (_uMax[i]));// The u used in INDI is always based on an estimated value, which is the true value in simulations, and the estimated value of the actuator position in reality.
-		_delta_prev[i] = actuator_outputs_value.delta[i];
-	}
-	actuator_outputs_value.timestamp = hrt_absolute_time();
-	_outputs_value_pub.publish(actuator_outputs_value);
-
 }
 
 void
@@ -1151,6 +696,44 @@ int MixingOutput::controlCallback(uintptr_t handle, uint8_t control_group, uint8
 	return 0;
 }
 
+int MixingOutput::controlAllocationCallback(uintptr_t handle, uint8_t control_group,
+		Mixer::ControlAllocationInput input_type, uint8_t control_index, float &input)
+{
+	const MixingOutput *output = (const MixingOutput *)handle;
+
+	if (control_group >= actuator_controls_s::NUM_ACTUATOR_CONTROL_GROUPS) {
+		return -1;
+	}
+
+	if (input_type == Mixer::ControlAllocationInput::ControlFlag) {
+		input = output->_controls[control_group].control_flag ? 1.f : 0.f;
+		return 0;
+	}
+
+	if (control_index >= actuator_controls_s::NUM_ACTUATOR_CONTROLS) {
+		return -1;
+	}
+
+	switch (input_type) {
+	case Mixer::ControlAllocationInput::Control:
+		input = output->_controls[control_group].control[control_index];
+		return 0;
+
+	case Mixer::ControlAllocationInput::IndiFb:
+		input = output->_controls[control_group].indi_fb[control_index];
+		return 0;
+
+	case Mixer::ControlAllocationInput::ErrorFb:
+		input = output->_controls[control_group].error_fb[control_index];
+		return 0;
+
+	case Mixer::ControlAllocationInput::ControlFlag:
+		break;
+	}
+
+	return -1;
+}
+
 void MixingOutput::resetMixer()
 {
 	if (_mixers != nullptr) {
@@ -1173,7 +756,10 @@ int MixingOutput::loadMixer(const char *buf, unsigned len)
 		return -ENOMEM;
 	}
 
-	int ret = _mixers->load_from_buf(controlCallback, (uintptr_t)this, buf, len);
+	loadMixerOutputTypes(buf, len);
+
+	int ret = _mixers->load_from_buf(controlCallback, (uintptr_t)this, buf, len,
+					 controlAllocationCallback, (uintptr_t)this);
 
 	if (ret != 0) {
 		PX4_ERR("mixer load failed with %d", ret);

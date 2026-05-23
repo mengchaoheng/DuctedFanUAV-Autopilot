@@ -7,6 +7,14 @@ thrust is range from 0 to 1,
 This mixer generates a full-range output (-1 to 1) from an input in the (0 - 1)
 range.  Inputs below zero are treated as zero.
 
+# Virtual actuator types for mixer_outputs_value:
+# V: <global_output_slot> <type>, type 0 servo/control surface, 1 motor.
+V: 0 1
+V: 4 0
+V: 5 0
+V: 6 0
+V: 7 0
+
 Upper rotor (CVW)
 just thrust
 -------------
@@ -25,30 +33,64 @@ This mixer is empty.
 -------------
 Z:
 
--control surfaces 1, roll and yaw
+-control surfaces
 -------------
-M: 2
-S: 0 0  -10000  -10000      0 -10000  10000
-S: 0 2  10000  10000      0 -10000  10000
-
--control surfaces 2, pitch and yaw
+# This allocator uses the ductedfan4 physical control effectiveness model.
+# B maps control-surface deflection in radians to angular acceleration:
+#   B * u_rad = [roll_accel pitch_accel yaw_accel]^T
+#
+# Runtime disturbance hook for testing:
+#   USER_ADD_DIST / USER_DIST_MAG update allocation limits and add the legacy
+#   fixed surface bias [-dist, +dist, +dist, -dist].
+#   USER_DIST_MAG is in radians.
+# Runtime model hook:
+#   USER_OMEGA_2_F updates both the INDI model and this physical control effectiveness matrix B.
+#   The initial B below uses k_omega2force = 1.
+# The physical mapping remains fixed:
+#   u = -0.3491 -> mixer output -1 -> PWM_MIN
+#   u = +0.3491 -> mixer output +1 -> PWM_MAX
+#
+# Original SimpleMixer settings, preserved without literal mixer tags:
+#   OLD_M 2
+#   OLD_S 0 0  -10000  -10000      0 -10000  10000
+#   OLD_S 0 2   10000   10000      0 -10000  10000
+#   OLD_M 2
+#   OLD_S 0 1  -10000  -10000      0 -10000  10000
+#   OLD_S 0 2   10000   10000      0 -10000  10000
+#   OLD_M 2
+#   OLD_S 0 0   10000   10000      0 -10000  10000
+#   OLD_S 0 2   10000   10000      0 -10000  10000
+#   OLD_M 2
+#   OLD_S 0 1   10000   10000      0 -10000  10000
+#   OLD_S 0 2   10000   10000      0 -10000  10000
+#
+# Old normalized equivalent, y = [roll pitch yaw]^T and
+# u_norm = [surface1 surface2 surface3 surface4]^T
+#   u_norm = B_inv_norm * y
+#   B_inv_norm =
+#     [ -1.0   0.0   1.0
+#        0.0  -1.0   1.0
+#        1.0   0.0   1.0
+#        0.0   1.0   1.0 ]
+#   B_norm = pinv(B_inv_norm) =
+#     [ -0.5000   0.0000   0.5000   0.0000
+#        0.0000  -0.5000   0.0000   0.5000
+#        0.2500   0.2500   0.2500   0.2500 ]
+#
+# C: <y_dim> <u_dim> <method>, method 0 INV, 1 WLS, 2 DIR, 3 PCA.
+# U: <umin> <umax> <local_output_slot> <feedback_slot> <actuator_type>
+# actuator_type 0 servo/control surface, 1 motor.
+# feedback_slot 0..3 publishes the final physical surface deflection in rad
+# to actuator_outputs_value.delta[] for INDI. Use -1 for non-surface actuators.
 -------------
-M: 2
-S: 0 1  -10000  -10000      0 -10000  10000
-S: 0 2  10000  10000      0 -10000  10000
-
--control surfaces 3, roll and yaw
--------------
-M: 2
-S: 0 0  10000  10000      0 -10000  10000
-S: 0 2  10000  10000      0 -10000  10000
-
--control surfaces 4, pitch and yaw
--------------
-M: 2
-S: 0 1  10000  10000      0 -10000  10000
-S: 0 2  10000  10000      0 -10000  10000
-
-
-
-
+C: 3 4 0
+S: 0 0
+S: 0 1
+S: 0 2
+B: -14.5344   0.0000  14.5344   0.0000
+B:   0.0000 -14.4840   0.0000  14.4840
+B:  14.1684  14.1684  14.1684  14.1684
+U: -0.3491 0.3491 0 0 0
+U: -0.3491 0.3491 1 1 0
+U: -0.3491 0.3491 2 2 0
+U: -0.3491 0.3491 3 3 0

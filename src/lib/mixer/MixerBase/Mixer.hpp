@@ -128,6 +128,7 @@
 
 #include <containers/List.hpp>
 #include <mathlib/mathlib.h>
+#include <stdint.h>
 
 /**
  * Abstract class defining a mixer mixing zero or more inputs to
@@ -142,6 +143,13 @@ public:
 		roll_pitch_yaw = 2
 	};
 
+	enum class ControlAllocationInput : uint8_t {
+		Control = 0,
+		IndiFb = 1,
+		ErrorFb = 2,
+		ControlFlag = 3
+	};
+
 	/**
 	 * Fetch a control value.
 	 *
@@ -152,6 +160,13 @@ public:
 	 * @return			Zero if the value was fetched, nonzero otherwise.
 	 */
 	typedef int	(* ControlCallback)(uintptr_t handle, uint8_t control_group, uint8_t control_index, float &control);
+
+	/**
+	 * Fetch a control allocation input value without mixer input scaling or
+	 * limiting. This is only used by ControlAllocationMixer.
+	 */
+	typedef int	(* ControlAllocationCallback)(uintptr_t handle, uint8_t control_group,
+			ControlAllocationInput input_type, uint8_t control_index, float &control);
 
 	/**
 	 * Constructor.

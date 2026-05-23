@@ -48,20 +48,14 @@
 #include <uORB/topics/actuator_armed.h>
 #include <uORB/topics/actuator_controls.h>
 #include <uORB/topics/actuator_outputs.h>
-#include <uORB/topics/actuator_outputs_value.h>
-#include <uORB/topics/allocation_value.h>
+#include <uORB/topics/mixer_outputs_value.h>
 #include <uORB/topics/multirotor_motor_limits.h>
 #include <uORB/topics/parameter_update.h>
 #include <uORB/topics/test_motor.h>
-#include <uORB/topics/rc_channels.h>
 #include <lib/mathlib/math/Limits.hpp>
-#include <lib/matrix/matrix/math.hpp>
-#include <mathlib/math/filter/LowPassFilter2p.hpp>
+#include <lib/mathlib/math/filter/LowPassFilter2p.hpp>
 #include <lib/mathlib/math/filter/NotchFilter.hpp>
 // #include <lib/ecl/EKF/RingBuffer.h>
-
-#include "ControlAllocation.h"
-#include "wls_alloc_gen.h"
 /**
  * @class OutputModuleInterface
  * Base class for an output module.
@@ -194,8 +188,6 @@ protected:
 	void updateParams() override;
 
 private:
-
-	void CheckAndUpdateFilters();
 	void handleCommands();
 
 	bool armNoThrottle() const
@@ -207,11 +199,17 @@ private:
 
 	void updateOutputSlewrateMultirotorMixer();
 	void updateOutputSlewrateSimplemixer();
+	void updateMixerOutputValue(const float outputs[MAX_ACTUATORS], unsigned mixed_num_outputs);
+	void loadMixerOutputTypes(const char *buf, unsigned len);
 	void setAndPublishActuatorOutputs(unsigned num_outputs, actuator_outputs_s &actuator_outputs);
 	void publishMixerStatus(const actuator_outputs_s &actuator_outputs);
 	void updateLatencyPerfCounter(const actuator_outputs_s &actuator_outputs);
+	static float firstOrderUpdateZoh(float u, float y_prev, float time_constant, float dt);
+	static bool isMotorOutputType(uint8_t actuator_type);
 
 	static int controlCallback(uintptr_t handle, uint8_t control_group, uint8_t control_index, float &input);
+	static int controlAllocationCallback(uintptr_t handle, uint8_t control_group,
+					     Mixer::ControlAllocationInput input_type, uint8_t control_index, float &input);
 
 	enum class MotorOrdering : int32_t {
 		PX4 = 0,
@@ -254,22 +252,14 @@ private:
 	uORB::SubscriptionCallbackWorkItem _control_subs[actuator_controls_s::NUM_ACTUATOR_CONTROL_GROUPS];
 
 	uORB::PublicationMulti<actuator_outputs_s> _outputs_pub{ORB_ID(actuator_outputs)};
-	uORB::PublicationMulti<allocation_value_s> _allocation_value_pub{ORB_ID(allocation_value)};
-	uORB::Publication<actuator_outputs_value_s> _outputs_value_pub{ORB_ID(actuator_outputs_value)};
 	uORB::PublicationMulti<multirotor_motor_limits_s> _to_mixer_status{ORB_ID(multirotor_motor_limits)}; 	///< mixer status flags
+	uORB::Publication<mixer_outputs_value_s> _mixer_outputs_value_pub{ORB_ID(mixer_outputs_value)};
 
 	actuator_controls_s _controls[actuator_controls_s::NUM_ACTUATOR_CONTROL_GROUPS] {};
 	actuator_armed_s _armed{};
 
 	hrt_abstime _time_last_dt_update_multicopter{0};
 	hrt_abstime _time_last_dt_update_simple_mixer{0};
-
-	float _delta_prev[4]={0.0, 0.0, 0.0, 0.0};
-	bool _sample_rate_changed = false;
-
-	// angular velocity filters
-	math::LowPassFilter2p<float> _lp_filter_actuator[4]={math::LowPassFilter2p<float>{250,20.f},math::LowPassFilter2p<float>{250,20.f},math::LowPassFilter2p<float>{250,20.f},math::LowPassFilter2p<float>{250,20.f}};
-
 
 	unsigned _max_topic_update_interval_us{0}; ///< max _control_subs topic update interval (0=unlimited)
 
@@ -298,101 +288,42 @@ private:
 
 	perf_counter_t _control_latency_perf;
 
-	float _indi_fb[3] = {0.0, 0.0, 0.0};
-	float _error_fb[3] = {0.0, 0.0, 0.0};
-	float _fb[3] = {0.0, 0.0, 0.0};
 	float _sample_freq{200.0f}; // update rate of MixingOutput, also sample rate of lowpass filter (Hz).
-	bool _use_alloc{false};
-	uint16_t _alloc_method{0};
-	bool _use_dist{false};
-	bool _pre_rc_dist_flag{false};
-	uORB::Subscription _rc_channels_sub{ORB_ID(rc_channels)};
-	rc_channels_s		_rc_channels{};
-	bool _rc_dist_flag{false};
-
-	float _dist_mag{0.0f};
-	float pert_to_cs{0.0f};
-	float _uMin[4] {};
-	float _uMax[4] {};
-	float _u[4] {0.0f, 0.0f, 0.0f, 0.0f};
-	float _u_cmd[4] {0.0f, 0.0f, 0.0f, 0.0f};
-	float _u_estimate[4] {0.0f, 0.0f, 0.0f, 0.0f};
-	float _last_u[4] {0.0f, 0.0f, 0.0f, 0.0f};
-	// for _B _B_PID B_inv B_inv_PID .
-	// If B is full raw rank, The Moore–Penrose Pseudo-inverse B^+= B^T (B B^T)^{-1},since
-	// B=K*P, K=I\diag([l1 l1 l2])k, P=[-1     0     1     0; 0    -1     0     1; 1     1     1     1];   K=diag([ k*l1/I_x  k*l1/I_y  k*l2/I_z  ])
-        // B^{\dagger} = P^\top K K^{-1} (P P^\top)^{-1} K^{-1} = P^\top (P P^\top)^{-1} K^{-1}=P^{\dagger} K^{-1}
-	// P^{\dagger}=[-0.5000   -0.0000    0.2500;0   -0.5000    0.2500;0.5000   -0.0000    0.2500;0    0.5000    0.2500]
-	// B^{\dagger}=P^{\dagger} K^{-1}=[-0.5000   -0.0000    0.2500;0   -0.5000    0.2500;0.5000   -0.0000    0.2500;0    0.5000    0.2500]*diag([ I_x/(k*l1)  I_y/(k*l1)  I_z/(k*l2)  ])
-	//
-	float _I_x{0.01149f};//setting in the .sdf
-	float _I_y{0.01153f};//setting in the .sdf
-	float _I_z{0.00487f};//setting in the .sdf
-	float _L_1{0.167f}; //setting in the .sdf
-	float _L_2{0.069f}; //setting in the .sdf
-	float _k{3.0f};	// USER_OMEGA_2_F, k  =_k_cv*_k_v*_k_v, setting k in the gazebo
-
-
-	matrix::Matrix<float, 4, 3> B_inv;
-	// const float _B[3][4]       = { {-46.2254,0.0,46.2254,0.0}, {0.0,-46.0825,0.0,46.0825},{46.7411,46.7411,46.7411,46.7411}};
-	float _B[3][4]    = { {-43.6031,0.0,43.6031,0.0}, {0.0,-43.4519,0.0,43.4519},{42.5051,42.5051,42.5051,42.5051}}; // Use a larger value of tol of struct LinearProgrammingProblem
-	float lower{-0.3491f};
-    	float upper{0.3491f};
-	Aircraft<3, 4> df_4; // Create a flight vehicle object with 4 control vectors and 3 generalized torques.
-	DP_LP_ControlAllocator<3, 4> Allocator_INDI; // Create a control allocator object for a flight vehicle with 4 control vectors and 3 generalized torques (converted to a linear programming problem, its dimension and parameters are related to <3, 4>.)
-	// for wls
-	float _B_array[12];
-	float _I4_array[16] = {
-	1.0f, 0.0f, 0.0f, 0.0f,
-	0.0f, 1.0f, 0.0f, 0.0f,
-	0.0f, 0.0f, 1.0f, 0.0f,
-	0.0f, 0.0f, 0.0f, 1.0f
-	};
-	float _I3_array[9] = {
-	1.0f, 0.0f, 0.0f,  // 1st row
-	0.0f, 1.0f, 0.0f,  // 2nd row
-	0.0f, 0.0f, 1.0f   // 3rd row
+	float _mixer_output_estimate[MAX_ACTUATORS] {};
+	float _mixer_output_command[MAX_ACTUATORS] {};
+	float _mixer_output_last[MAX_ACTUATORS] {};
+	float _mixer_output_filtered[MAX_ACTUATORS] {};
+	uint8_t _mixer_output_type[MAX_ACTUATORS] {};
+	float _last_mixer_output_servo_cutoff{NAN};
+	float _last_mixer_output_motor_cutoff{NAN};
+	math::LowPassFilter2p<float> _mixer_output_filter[MAX_ACTUATORS] {
+		math::LowPassFilter2p<float>{200.f, 10.f},
+		math::LowPassFilter2p<float>{200.f, 10.f},
+		math::LowPassFilter2p<float>{200.f, 10.f},
+		math::LowPassFilter2p<float>{200.f, 10.f},
+		math::LowPassFilter2p<float>{200.f, 10.f},
+		math::LowPassFilter2p<float>{200.f, 10.f},
+		math::LowPassFilter2p<float>{200.f, 10.f},
+		math::LowPassFilter2p<float>{200.f, 10.f},
+		math::LowPassFilter2p<float>{200.f, 10.f},
+		math::LowPassFilter2p<float>{200.f, 10.f},
+		math::LowPassFilter2p<float>{200.f, 10.f},
+		math::LowPassFilter2p<float>{200.f, 10.f},
+		math::LowPassFilter2p<float>{200.f, 10.f},
+		math::LowPassFilter2p<float>{200.f, 10.f},
+		math::LowPassFilter2p<float>{200.f, 10.f},
+		math::LowPassFilter2p<float>{200.f, 10.f}
 	};
 
-	// for PX4 PID controller, k=1, I_x=1, I_y=1, I_z=1
-	matrix::Matrix<float, 4, 3> B_inv_PID;
-	const float _B_PID[3][4] = { {-0.5,0.0,0.5,0.0}, {0.0,-0.5,0.0,0.5},{0.25,0.25,0.25,0.25}};
-	float _B_PID_array[12];
-	float lower_PID{-1.0f};
-    	float upper_PID{1.0f};
-	float _uMin_PID[4] {};
-	float _uMax_PID[4] {};
-	Aircraft<3, 4> df_4_PID; // Create a flight vehicle object with 4 control vectors and 3 generalized torques.
-	DP_LP_ControlAllocator<3, 4> Allocator_PID; // Create a control allocator object for a flight vehicle with 4 control vectors and 3 generalized torques (converted to a linear programming problem, its dimension and parameters are related to <3, 4>.)
-	// Then you can use the flight vehicle object and control allocator object for operations
-
-	hrt_abstime _allocation_runing_time_us{0};
-	hrt_abstime _allocation_test_runing_time_us1{0};
-	hrt_abstime _allocation_test_runing_time_us2{0};
-	hrt_abstime _allocation_test_runing_time_us3{0};
-	hrt_abstime _allocation_test_runing_time_us4{0};
-	hrt_abstime _allocation_test_runing_time_us5{0};
-	hrt_abstime _allocation_test_runing_time_us6{0};
-	float first_order_update(float u, float u_pre, float T, float dt);
-	float first_order_update_zoh(float u_pre, float y_pre, float T, float dt);
-	float _time_const{0.01f};
-	uint16_t _use_ac_test{0};
 	DEFINE_PARAMETERS(
 		(ParamInt<px4::params::MC_AIRMODE>) _param_mc_airmode,   ///< multicopter air-mode
 		(ParamFloat<px4::params::MOT_SLEW_MAX>) _param_mot_slew_max,
 		(ParamFloat<px4::params::THR_MDL_FAC>) _param_thr_mdl_fac, ///< thrust to motor control signal modelling factor
 		(ParamInt<px4::params::MOT_ORDERING>) _param_mot_ordering,
-		// (ParamInt<px4::params::USER_DF_MID1>) _param_ductedfan_mid1,
-		// (ParamInt<px4::params::USER_DF_MID2>) _param_ductedfan_mid2,
-		(ParamInt<px4::params::USER_AC_METHOD>) _param_alloc_method,
-		(ParamInt<px4::params::USER_PID_CA>) _param_use_alloc,
-		(ParamInt<px4::params::USER_USE_INDI>) _param_use_indi,
-		(ParamFloat<px4::params::USER_CS_CUTOFF>) _param_cs_cutoff,
-		(ParamInt<px4::params::USER_ADD_DIST>) _param_use_dist,
-		(ParamFloat<px4::params::USER_DIST_MAG>) _param_dist_mag,
-		(ParamFloat<px4::params::USER_TIME_CONST>) _param_time_const,
-		(ParamInt<px4::params::USER_ACTUATOR>) _param_use_actuator,
-		(ParamFloat<px4::params::USER_OMEGA_2_F>) _param_k,
-		(ParamInt<px4::params::USER_AC_TEST>) _param_ac_test
+		(ParamFloat<px4::params::USER_TIME_CONST>) _param_user_time_const,
+		(ParamFloat<px4::params::USER_CS_CUTOFF>) _param_user_cs_cutoff,
+		(ParamFloat<px4::params::USER_MOT_TCONST>) _param_user_mot_time_const,
+		(ParamFloat<px4::params::USER_MOT_CUTOFF>) _param_user_mot_cutoff,
+		(ParamInt<px4::params::USER_ACTUATOR>) _param_user_actuator
 	)
 };

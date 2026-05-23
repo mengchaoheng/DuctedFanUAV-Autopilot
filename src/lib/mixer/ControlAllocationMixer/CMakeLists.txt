@@ -1,6 +1,6 @@
 ############################################################################
 #
-#   Copyright (c) 2015-2019 PX4 Development Team. All rights reserved.
+#   Copyright (c) 2026 PX4 Development Team. All rights reserved.
 #
 # Redistribution and use in source and binary forms, with or without
 # modification, are permitted provided that the following conditions
@@ -12,9 +12,9 @@
 #    notice, this list of conditions and the following disclaimer in
 #    the documentation and/or other materials provided with the
 #    distribution.
-# 3. Neither the name PX4 nor the names of its contributors may be
-#    used to endorse or promote products derived from this software
-#    without specific prior written permission.
+# 3. Neither the name PX4 nor the names of its contributors may be used
+#    to endorse or promote products derived from this software without
+#    specific prior written permission.
 #
 # THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
 # "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
@@ -31,30 +31,17 @@
 #
 ############################################################################
 
-# required by other mixers
-add_subdirectory(MixerBase)
-
-add_subdirectory(AllocatedActuatorMixer)
-add_subdirectory(ControlAllocationMixer)
-add_subdirectory(HelicopterMixer)
-add_subdirectory(MultirotorMixer)
-add_subdirectory(NullMixer)
-add_subdirectory(SimpleMixer)
-
-add_library(mixer
-	MixerGroup.cpp
-	MixerGroup.hpp
-	load_mixer_file.cpp
-	mixer_load.h
+add_library(ControlAllocationMixer
+	ControlAllocation.h
+	ControlAllocationMixer.cpp
+	ControlAllocationMixer.hpp
+	../../mixer_module/wls_alloc_gen.c
+	../../mixer_module/wls_alloc_gen_emxutil.c
 )
 
-target_link_libraries(mixer
+target_link_libraries(ControlAllocationMixer
 	PRIVATE
-		AllocatedActuatorMixer
-		ControlAllocationMixer
-		HelicopterMixer
-		MultirotorMixer
-		NullMixer
-		SimpleMixer
-	)
-add_dependencies(mixer prebuild_targets)
+		MixerBase
+)
+
+add_dependencies(ControlAllocationMixer prebuild_targets)
