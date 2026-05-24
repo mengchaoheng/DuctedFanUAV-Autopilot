@@ -48,7 +48,6 @@
 #include <uORB/topics/actuator_armed.h>
 #include <uORB/topics/actuator_controls.h>
 #include <uORB/topics/actuator_outputs.h>
-#include <uORB/topics/mixer_outputs_value.h>
 #include <uORB/topics/multirotor_motor_limits.h>
 #include <uORB/topics/parameter_update.h>
 #include <uORB/topics/test_motor.h>
@@ -199,13 +198,9 @@ private:
 
 	void updateOutputSlewrateMultirotorMixer();
 	void updateOutputSlewrateSimplemixer();
-	void updateMixerOutputValue(const float outputs[MAX_ACTUATORS], unsigned mixed_num_outputs);
-	void loadMixerOutputTypes(const char *buf, unsigned len);
 	void setAndPublishActuatorOutputs(unsigned num_outputs, actuator_outputs_s &actuator_outputs);
 	void publishMixerStatus(const actuator_outputs_s &actuator_outputs);
 	void updateLatencyPerfCounter(const actuator_outputs_s &actuator_outputs);
-	static float firstOrderUpdateZoh(float u, float y_prev, float time_constant, float dt);
-	static bool isMotorOutputType(uint8_t actuator_type);
 
 	static int controlCallback(uintptr_t handle, uint8_t control_group, uint8_t control_index, float &input);
 	static int controlAllocationCallback(uintptr_t handle, uint8_t control_group,
@@ -253,7 +248,6 @@ private:
 
 	uORB::PublicationMulti<actuator_outputs_s> _outputs_pub{ORB_ID(actuator_outputs)};
 	uORB::PublicationMulti<multirotor_motor_limits_s> _to_mixer_status{ORB_ID(multirotor_motor_limits)}; 	///< mixer status flags
-	uORB::Publication<mixer_outputs_value_s> _mixer_outputs_value_pub{ORB_ID(mixer_outputs_value)};
 
 	actuator_controls_s _controls[actuator_controls_s::NUM_ACTUATOR_CONTROL_GROUPS] {};
 	actuator_armed_s _armed{};
@@ -289,41 +283,11 @@ private:
 	perf_counter_t _control_latency_perf;
 
 	float _sample_freq{200.0f}; // update rate of MixingOutput, also sample rate of lowpass filter (Hz).
-	float _mixer_output_estimate[MAX_ACTUATORS] {};
-	float _mixer_output_command[MAX_ACTUATORS] {};
-	float _mixer_output_last[MAX_ACTUATORS] {};
-	float _mixer_output_filtered[MAX_ACTUATORS] {};
-	uint8_t _mixer_output_type[MAX_ACTUATORS] {};
-	float _last_mixer_output_servo_cutoff{NAN};
-	float _last_mixer_output_motor_cutoff{NAN};
-	math::LowPassFilter2p<float> _mixer_output_filter[MAX_ACTUATORS] {
-		math::LowPassFilter2p<float>{200.f, 10.f},
-		math::LowPassFilter2p<float>{200.f, 10.f},
-		math::LowPassFilter2p<float>{200.f, 10.f},
-		math::LowPassFilter2p<float>{200.f, 10.f},
-		math::LowPassFilter2p<float>{200.f, 10.f},
-		math::LowPassFilter2p<float>{200.f, 10.f},
-		math::LowPassFilter2p<float>{200.f, 10.f},
-		math::LowPassFilter2p<float>{200.f, 10.f},
-		math::LowPassFilter2p<float>{200.f, 10.f},
-		math::LowPassFilter2p<float>{200.f, 10.f},
-		math::LowPassFilter2p<float>{200.f, 10.f},
-		math::LowPassFilter2p<float>{200.f, 10.f},
-		math::LowPassFilter2p<float>{200.f, 10.f},
-		math::LowPassFilter2p<float>{200.f, 10.f},
-		math::LowPassFilter2p<float>{200.f, 10.f},
-		math::LowPassFilter2p<float>{200.f, 10.f}
-	};
 
 	DEFINE_PARAMETERS(
 		(ParamInt<px4::params::MC_AIRMODE>) _param_mc_airmode,   ///< multicopter air-mode
 		(ParamFloat<px4::params::MOT_SLEW_MAX>) _param_mot_slew_max,
 		(ParamFloat<px4::params::THR_MDL_FAC>) _param_thr_mdl_fac, ///< thrust to motor control signal modelling factor
-		(ParamInt<px4::params::MOT_ORDERING>) _param_mot_ordering,
-		(ParamFloat<px4::params::USER_TIME_CONST>) _param_user_time_const,
-		(ParamFloat<px4::params::USER_CS_CUTOFF>) _param_user_cs_cutoff,
-		(ParamFloat<px4::params::USER_MOT_TCONST>) _param_user_mot_time_const,
-		(ParamFloat<px4::params::USER_MOT_CUTOFF>) _param_user_mot_cutoff,
-		(ParamInt<px4::params::USER_ACTUATOR>) _param_user_actuator
+		(ParamInt<px4::params::MOT_ORDERING>) _param_mot_ordering
 	)
 };

@@ -45,6 +45,11 @@
 
 /**
  * Control allocation mixer.
+ * Besides replacing fixed mixer matrices with allocator backends, this mixer
+ * is the common place for features tied to the allocated actuator vector:
+ * virtual actuator simulation, filtered actuator feedback publication,
+ * model-based runtime B reconstruction, active limit updates, and optional
+ * actuator disturbances.
  *
  * Text format:
  *
@@ -52,6 +57,10 @@
  * method: 0 INV, 1 WLS, 2 DIR, 3 PCA.
  * USER_AC_METHOD can override the method at runtime. Set it to -1 to use the
  * method from the C: line.
+ * D: <b_unit>
+ * b_unit: 0 normalized/unitless B, 1 physical/dimensional B. The line is
+ * optional and defaults to 0. INDI may only use allocation_value.b and
+ * allocation_value.u_ultimate when b_unit is physical.
  * S: <group> <index>
  * ...
  * B: <b_row_0_col_0> ... <b_row_0_col_n>
@@ -75,7 +84,23 @@
  * INDI feedback. Omit it, or set it to -1, for motors or effectors that should
  * not publish control-surface feedback.
  * actuator_type is optional: 0 servo/control surface, 1 motor. It selects the
- * virtual actuator time constant for allocation_value.u_ultimate.
+ * virtual actuator time constant for the outgoing command and the filtered
+ * feedback estimate published in allocation_value.u_ultimate.
+ *
+ * The C: mixer always allocates the full u vector. When b_unit is physical it
+ * also publishes the full active B matrix and full filtered u_feedback vector
+ * for model-based controllers. The current rate INDI implementation assumes
+ * B1 = B and u1 = u_feedback. Future model-specific INDI extensions can select
+ * submatrices or rebuild a different B1 from the same airframe model.
+ * This is a known limitation, not a property of the allocator itself: mixed
+ * thrust/torque allocations, outer-loop INDI, or aircraft where only a subset
+ * of actuators produces angular acceleration need a separate INDI mapping.
+ *
+ * Runtime B reconstruction, active limit shrinking, and actuator disturbance
+ * signs are also model/layout-specific hooks. The current physical hooks cover
+ * ductedfan4, SHC09, SHW09, and SHW09_vtol. ductedfan2/ductedfan6 currently
+ * use normalized B in their mix files, so they intentionally do not publish a
+ * physical INDI model or run dynamic physical-B updates yet.
  *
  * S lines define the y vector order. They do not imply normalized units:
  * B, y and U must use a consistent convention chosen by the mix file.
@@ -101,6 +126,11 @@ public:
 		enum class ActuatorType : uint8_t {
 			Servo = 0,
 			Motor = 1
+		};
+
+		enum class BUnit : uint8_t {
+			Normalized = 0,
+			Physical = 1
 		};
 
 	struct ControlSource {
@@ -129,6 +159,7 @@ public:
 		uint8_t u_dim{0};
 		uint8_t output_count{0};
 		Method method{Method::INV};
+		BUnit b_unit{BUnit::Normalized};
 		ControlSource sources[MAX_Y] {};
 		ActuatorRange ranges[MAX_U] {};
 		float B[MAX_Y][MAX_U] {};
@@ -165,8 +196,12 @@ private:
 	static bool is_ductedfan4_physical_config(const Config &config);
 	static bool is_ductedfan4_normalized_config(const Config &config);
 	static bool is_shc09_physical_config(const Config &config);
+	static bool is_shw09_physical_config(const Config &config);
+	static bool is_shw09_vtol_physical_config(const Config &config);
 	static bool build_ductedfan4_B(float k, float B[MAX_Y][MAX_U]);
 	static bool build_shc09_B(float k, float B[MAX_Y][MAX_U]);
+	static bool build_shw09_B(float k, float B[MAX_Y][MAX_U]);
+	static bool build_shw09_vtol_B(float k, float B[MAX_Y][MAX_U]);
 	static float first_order_update_zoh(float u, float y_prev, float time_constant, float dt);
 	static bool valid_actuator_type(int actuator_type);
 
@@ -181,10 +216,11 @@ private:
 	bool read_pca_inputs(const float *y, float *higher, float *lower) const;
 	float runtime_disturbance_bias(unsigned actuator_index) const;
 	float apply_actuator_model(float u, unsigned actuator_index);
+	float update_feedback_estimate(unsigned actuator_index);
 	float map_u_to_output(float u, unsigned actuator_index) const;
-	void publish_debug(const float *y, const float *u, const float *u_cmd, Method requested_method,
+	void publish_debug(const float *y, const float *u, const float *u_feedback, Method requested_method,
 			   Method actual_method, bool fallback) const;
-	void publish_actuator_feedback();
+	void publish_actuator_feedback(const float *u_feedback);
 	void report_method(Method requested_method, Method actual_method, bool fallback);
 
 	Config _config {};
@@ -194,6 +230,7 @@ private:
 	param_t _dist_enable_param{PARAM_INVALID};
 	param_t _dist_mag_param{PARAM_INVALID};
 	param_t _omega_2_force_param{PARAM_INVALID};
+	param_t _airframe_param{PARAM_INVALID};
 		param_t _cs_cutoff_param{PARAM_INVALID};
 		param_t _time_const_param{PARAM_INVALID};
 		param_t _motor_time_const_param{PARAM_INVALID};
@@ -203,21 +240,22 @@ private:
 	bool _runtime_disturbance_enabled{false};
 	float _runtime_disturbance_mag_u{0.f};
 	float _last_omega_2_force{NAN};
+	bool _model_ductedfan4_physical{false};
+	bool _model_ductedfan4_normalized{false};
+	bool _model_shc09_physical{false};
+	bool _model_shw09_physical{false};
+	bool _model_shw09_vtol_physical{false};
 	float _last_cs_cutoff{NAN};
-		float _servo_time_const{0.03f};
-		float _motor_time_const{0.01f};
+	float _last_feedback_sample_freq{NAN};
+	float _servo_time_const{0.03f};
+	float _motor_time_const{0.01f};
 	int32_t _use_actuator{0};
 	hrt_abstime _last_mix_timestamp{0};
 	float _sample_freq{200.f};
-	float _last_u[MAX_U] {};
 	float _u_estimate[MAX_U] {};
-	float _delta_prev[MAX_FEEDBACK] {};
-	math::LowPassFilter2p<float> _feedback_filter[MAX_FEEDBACK] {
-		math::LowPassFilter2p<float>{200.f, 10.f},
-		math::LowPassFilter2p<float>{200.f, 10.f},
-		math::LowPassFilter2p<float>{200.f, 10.f},
-		math::LowPassFilter2p<float>{200.f, 10.f}
-	};
+	float _u_cmd[MAX_U] {};
+	float _u_feedback[MAX_U] {};
+	math::LowPassFilter2p<float> _u_feedback_filter[MAX_U] {};
 	bool _wls_available{false};
 	DpAllocator *_dp_allocator{nullptr};
 	int8_t _last_reported_requested_method{-128};

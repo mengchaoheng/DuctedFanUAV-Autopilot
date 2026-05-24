@@ -299,6 +299,7 @@ void Tailsitter::fill_actuator_outputs()
 		float surface_yaw = mc_in[actuator_controls_s::INDEX_YAW] * _mc_yaw_weight;
 		float throttle = mc_in[actuator_controls_s::INDEX_THROTTLE];
 		hrt_abstime timestamp_sample = _actuators_mc_in->timestamp_sample;
+		const actuator_controls_s *surface_source = _actuators_mc_in;
 
 		if (_vtol_schedule.flight_mode == vtol_mode::FW_MODE) {
 			surface_roll = fw_in[actuator_controls_s::INDEX_YAW];
@@ -306,6 +307,7 @@ void Tailsitter::fill_actuator_outputs()
 			surface_yaw = -fw_in[actuator_controls_s::INDEX_ROLL];
 			throttle = fw_in[actuator_controls_s::INDEX_THROTTLE];
 			timestamp_sample = _actuators_fw_in->timestamp_sample;
+			surface_source = _actuators_fw_in;
 		}
 
 		mc_out[actuator_controls_s::INDEX_ROLL] = 0.f;
@@ -317,6 +319,13 @@ void Tailsitter::fill_actuator_outputs()
 		fw_out[actuator_controls_s::INDEX_PITCH] = surface_pitch;
 		fw_out[actuator_controls_s::INDEX_YAW] = surface_yaw;
 		fw_out[actuator_controls_s::INDEX_THROTTLE] = 0.f;
+
+		_actuators_out_1->control_flag = surface_source->control_flag;
+
+		for (unsigned i = 0; i <= actuator_controls_s::INDEX_YAW; i++) {
+			_actuators_out_1->indi_fb[i] = surface_source->indi_fb[i];
+			_actuators_out_1->error_fb[i] = surface_source->error_fb[i];
+		}
 
 		_actuators_out_0->timestamp_sample = timestamp_sample;
 		_actuators_out_1->timestamp_sample = timestamp_sample;

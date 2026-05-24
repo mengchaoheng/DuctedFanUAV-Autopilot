@@ -275,119 +275,6 @@ void MixingOutput::updateOutputSlewrateSimplemixer()
 	_mixers->set_dt_once(dt);
 }
 
-float
-MixingOutput::firstOrderUpdateZoh(float u, float y_prev, float time_constant, float dt)
-{
-	if (time_constant < 1e-6f) {
-		return u;
-	}
-
-	const float a = expf(-dt / time_constant);
-	return a * y_prev + (1.f - a) * u;
-}
-
-void
-MixingOutput::updateMixerOutputValue(const float outputs[MAX_ACTUATORS], unsigned mixed_num_outputs)
-{
-	mixer_outputs_value_s msg {};
-	msg.timestamp = hrt_absolute_time();
-	msg.noutputs = mixed_num_outputs;
-
-	for (unsigned i = 0; i < mixer_outputs_value_s::NUM_MIXER_OUTPUTS; i++) {
-		msg.actuator_type[i] = mixer_outputs_value_s::ACTUATOR_TYPE_SERVO;
-		msg.output[i] = NAN;
-		msg.output_command[i] = NAN;
-		msg.output_estimate[i] = NAN;
-	}
-
-	const float dt = 1.f / _sample_freq;
-	const float servo_time_const = math::constrain(_param_user_time_const.get(), dt, 0.2f);
-	const float motor_time_const = math::constrain(_param_user_mot_time_const.get(), dt, 0.2f);
-	const float servo_cutoff = math::max(_param_user_cs_cutoff.get(), 0.f);
-	const float motor_cutoff = math::max(_param_user_mot_cutoff.get(), 0.f);
-	const bool use_actuator = _param_user_actuator.get() == 1;
-
-	if (!PX4_ISFINITE(_last_mixer_output_servo_cutoff) || fabsf(servo_cutoff - _last_mixer_output_servo_cutoff) > 0.1f ||
-	    !PX4_ISFINITE(_last_mixer_output_motor_cutoff) || fabsf(motor_cutoff - _last_mixer_output_motor_cutoff) > 0.1f) {
-		for (unsigned i = 0; i < MAX_ACTUATORS; i++) {
-			const float cutoff = isMotorOutputType(_mixer_output_type[i]) ? motor_cutoff : servo_cutoff;
-			_mixer_output_filter[i].set_cutoff_frequency(_sample_freq, cutoff);
-			_mixer_output_filter[i].reset(_mixer_output_filtered[i]);
-		}
-
-		_last_mixer_output_servo_cutoff = servo_cutoff;
-		_last_mixer_output_motor_cutoff = motor_cutoff;
-	}
-
-	const unsigned count = math::min(static_cast<unsigned>(mixer_outputs_value_s::NUM_MIXER_OUTPUTS),
-					 math::min(mixed_num_outputs, static_cast<unsigned>(MAX_ACTUATORS)));
-
-	for (unsigned i = 0; i < count; i++) {
-		if (!PX4_ISFINITE(outputs[i])) {
-			continue;
-		}
-
-		const uint8_t actuator_type = _mixer_output_type[i];
-		const float time_const = isMotorOutputType(actuator_type) ? motor_time_const : servo_time_const;
-		_mixer_output_estimate[i] = firstOrderUpdateZoh(outputs[i], _mixer_output_last[i], time_const, dt);
-		_mixer_output_command[i] = use_actuator ? _mixer_output_estimate[i] : outputs[i];
-		_mixer_output_last[i] = _mixer_output_command[i];
-		_mixer_output_filtered[i] = _mixer_output_filter[i].apply(_mixer_output_estimate[i]);
-		msg.actuator_type[i] = actuator_type;
-		msg.output[i] = outputs[i];
-		msg.output_command[i] = _mixer_output_command[i];
-		msg.output_estimate[i] = _mixer_output_filtered[i];
-	}
-
-	_mixer_outputs_value_pub.publish(msg);
-}
-
-bool
-MixingOutput::isMotorOutputType(uint8_t actuator_type)
-{
-	return actuator_type == mixer_outputs_value_s::ACTUATOR_TYPE_MOTOR;
-}
-
-void
-MixingOutput::loadMixerOutputTypes(const char *buf, unsigned len)
-{
-	for (unsigned i = 0; i < MAX_ACTUATORS; i++) {
-		_mixer_output_type[i] = mixer_outputs_value_s::ACTUATOR_TYPE_SERVO;
-	}
-
-	_last_mixer_output_servo_cutoff = NAN;
-	_last_mixer_output_motor_cutoff = NAN;
-
-	for (unsigned offset = 0; offset + 2 < len; offset++) {
-		if (offset > 0 && buf[offset - 1] != '\n') {
-			continue;
-		}
-
-		if (buf[offset] != 'V' || buf[offset + 1] != ':') {
-			continue;
-		}
-
-		int output_slot = -1;
-		int actuator_type = mixer_outputs_value_s::ACTUATOR_TYPE_SERVO;
-
-		if (sscanf(buf + offset, "V: %d %d", &output_slot, &actuator_type) != 2) {
-			continue;
-		}
-
-		if (output_slot < 0 || output_slot >= static_cast<int>(MAX_ACTUATORS)) {
-			continue;
-		}
-
-		if (actuator_type != mixer_outputs_value_s::ACTUATOR_TYPE_SERVO &&
-		    actuator_type != mixer_outputs_value_s::ACTUATOR_TYPE_MOTOR) {
-			continue;
-		}
-
-		_mixer_output_type[output_slot] = static_cast<uint8_t>(actuator_type);
-	}
-}
-
-
 unsigned MixingOutput::motorTest()
 {
 	test_motor_s test_motor;
@@ -523,7 +410,6 @@ bool MixingOutput::update()
 	/* do mixing */
 	float outputs[MAX_ACTUATORS] {};
 	const unsigned mixed_num_outputs = _mixers->mix(outputs, _max_num_outputs);
-	updateMixerOutputValue(outputs, mixed_num_outputs);
 
 	/* the output limit call takes care of out of band errors, NaN and constrains */ // [-1, 1] -> [min_rad, max_rad] == [min_pwm, max_pwm]
 	output_limit_calc(_throttle_armed, armNoThrottle(), mixed_num_outputs, _reverse_output_mask,
@@ -755,8 +641,6 @@ int MixingOutput::loadMixer(const char *buf, unsigned len)
 		_groups_required = 0;
 		return -ENOMEM;
 	}
-
-	loadMixerOutputTypes(buf, len);
 
 	int ret = _mixers->load_from_buf(controlCallback, (uintptr_t)this, buf, len,
 					 controlAllocationCallback, (uintptr_t)this);

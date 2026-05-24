@@ -67,7 +67,10 @@ public:
 	 * @param rate estimation of the current vehicle angular rate
 	 * @param rate_sp desired vehicle angular rate setpoint
 	 * @param dt desired vehicle angular rate setpoint
-	 * @param allocation_value current allocation model and virtual actuator value
+	 * @param allocation_value current allocation model and virtual actuator value.
+	 * The current rate INDI path uses the whole physical allocation B and the
+	 * whole filtered u_feedback vector. Normalized/unitless allocation matrices
+	 * are ignored by checking allocation_value.indi_valid.
 	 * @param Nu_i second term of virtual control
 	 * @param use_u use u0 or not
 	 * @param use_tau_i use Nu_i or not

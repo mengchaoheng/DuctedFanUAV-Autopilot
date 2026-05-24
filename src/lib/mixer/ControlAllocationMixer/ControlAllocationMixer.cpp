@@ -199,6 +199,11 @@ static constexpr DpAllocatorFactory kDpAllocatorFactories[] {
 	{3, 8, create_dp_allocator_impl<3, 8>},
 };
 
+static constexpr int32_t AIRFRAME_DUCTEDFAN4 = 15003;
+static constexpr int32_t AIRFRAME_SHC09 = 15006;
+static constexpr int32_t AIRFRAME_SHW09 = 15007;
+static constexpr int32_t AIRFRAME_SHW09_VTOL = 15008;
+
 ControlAllocationMixer::ControlAllocationMixer(ControlAllocationCallback control_allocation_cb, uintptr_t cb_handle,
 		const Config &config) :
 	Mixer(nullptr, 0),
@@ -209,6 +214,7 @@ ControlAllocationMixer::ControlAllocationMixer(ControlAllocationCallback control
 	_dist_enable_param(param_find("USER_ADD_DIST")),
 	_dist_mag_param(param_find("USER_DIST_MAG")),
 	_omega_2_force_param(param_find("USER_OMEGA_2_F")),
+	_airframe_param(param_find("SYS_AUTOSTART")),
 	_cs_cutoff_param(param_find("USER_CS_CUTOFF")),
 	_time_const_param(param_find("USER_TIME_CONST")),
 	_motor_time_const_param(param_find("USER_MOT_TCONST")),
@@ -218,7 +224,36 @@ ControlAllocationMixer::ControlAllocationMixer(ControlAllocationCallback control
 {
 	update_feedback_params();
 
-	if ((is_ductedfan4_physical_config(_config) || is_shc09_physical_config(_config)) &&
+	int32_t airframe_id = 0;
+
+	if (_airframe_param != PARAM_INVALID) {
+		param_get(_airframe_param, &airframe_id);
+	}
+
+	const bool physical_b = config.b_unit == BUnit::Physical;
+	const bool normalized_b = config.b_unit == BUnit::Normalized;
+	const bool unknown_airframe = airframe_id <= 0;
+
+	// Airframe-specific runtime model hooks use SYS_AUTOSTART when available.
+	// The matrix-shape fallback keeps standalone mixer tests usable.
+	// Add new physical-B aircraft here only after defining a matching
+	// build_<airframe>_B() model and verifying that the mix file uses D: 1.
+	// ductedfan2/ductedfan6 are currently normalized/static mixes, so they stay
+	// out of the physical INDI/dynamic-B path until their physical models are
+	// designed.
+	_model_ductedfan4_physical = physical_b && (airframe_id == AIRFRAME_DUCTEDFAN4 || unknown_airframe) &&
+				     is_ductedfan4_physical_config(config);
+	_model_ductedfan4_normalized = normalized_b && (airframe_id == AIRFRAME_DUCTEDFAN4 || unknown_airframe) &&
+				       is_ductedfan4_normalized_config(config);
+	_model_shc09_physical = physical_b && (airframe_id == AIRFRAME_SHC09 || unknown_airframe) &&
+				is_shc09_physical_config(config);
+	_model_shw09_physical = physical_b && (airframe_id == AIRFRAME_SHW09 || unknown_airframe) &&
+				is_shw09_physical_config(config);
+	_model_shw09_vtol_physical = physical_b && (airframe_id == AIRFRAME_SHW09_VTOL || unknown_airframe) &&
+				     is_shw09_vtol_physical_config(config);
+
+	if ((_model_ductedfan4_physical || _model_shc09_physical ||
+	     _model_shw09_physical || _model_shw09_vtol_physical) &&
 	    _omega_2_force_param != PARAM_INVALID) {
 		float k = NAN;
 
@@ -280,6 +315,29 @@ ControlAllocationMixer::from_text(Mixer::ControlAllocationCallback control_alloc
 	if (buf == nullptr) {
 		debug("no line ending after C line");
 		return nullptr;
+	}
+
+	if (buflen >= 2 && buf[0] == 'D' && buf[1] == ':') {
+		int b_unit = static_cast<int>(BUnit::Normalized);
+
+		if (sscanf(buf, "D: %d%n", &b_unit, &used) != 1) {
+			debug("failed parsing D line '%s'", buf);
+			return nullptr;
+		}
+
+		if (b_unit < static_cast<int>(BUnit::Normalized) ||
+		    b_unit > static_cast<int>(BUnit::Physical)) {
+			debug("invalid B unit %d", b_unit);
+			return nullptr;
+		}
+
+		config.b_unit = static_cast<BUnit>(b_unit);
+		buf = skipline(buf, buflen);
+
+		if (buf == nullptr) {
+			debug("no line ending after D line");
+			return nullptr;
+		}
 	}
 
 	for (unsigned i = 0; i < config.y_dim; i++) {
@@ -503,17 +561,19 @@ ControlAllocationMixer::mix(float *outputs, unsigned space)
 	}
 
 	float u_cmd[MAX_U] {};
+	float u_feedback[MAX_U] {};
 
 	for (unsigned actuator = 0; actuator < _config.u_dim; actuator++) {
 		const float requested_u = math::constrain(u[actuator],
 					  _config.ranges[actuator].physical_min,
 					  _config.ranges[actuator].physical_max);
 		u_cmd[actuator] = apply_actuator_model(requested_u, actuator);
+		u_feedback[actuator] = update_feedback_estimate(actuator);
 	}
 
 	report_method(requested_method, actual_method, fallback);
-	publish_debug(y, u, u_cmd, requested_method, actual_method, fallback);
-	publish_actuator_feedback();
+	publish_debug(y, u, u_feedback, requested_method, actual_method, fallback);
+	publish_actuator_feedback(u_feedback);
 
 	for (unsigned actuator = 0; actuator < _config.u_dim; actuator++) {
 		const float output_u = math::constrain(u_cmd[actuator] + runtime_disturbance_bias(actuator),
@@ -762,7 +822,83 @@ ControlAllocationMixer::is_shc09_physical_config(const Config &config)
 		}
 	}
 
-	return true;
+	if (fabsf(config.B[2][0]) <= FLT_EPSILON) {
+		return false;
+	}
+
+	// SHC09 and SHW09 share output-column ordering, but not effectiveness
+	// ratios. Use a scale-free ratio so changing USER_OMEGA_2_F cannot make one
+	// model look like the other.
+	const float roll_yaw_ratio = fabsf(config.B[0][0] / config.B[2][0]);
+
+	return config.B[1][1] > 0.f && config.B[1][2] > 0.f &&
+	       config.B[1][4] < 0.f && config.B[1][5] < 0.f &&
+	       roll_yaw_ratio < 1.f;
+}
+
+bool
+ControlAllocationMixer::is_shw09_physical_config(const Config &config)
+{
+	static constexpr float shw09_min = -0.6981f;
+	static constexpr float shw09_max = 0.6981f;
+	static constexpr float tolerance = 0.01f;
+
+	if (config.y_dim != 3 || config.u_dim != 6) {
+		return false;
+	}
+
+	for (unsigned actuator = 0; actuator < config.u_dim; actuator++) {
+		if (fabsf(config.ranges[actuator].physical_min - shw09_min) > tolerance ||
+		    fabsf(config.ranges[actuator].physical_max - shw09_max) > tolerance) {
+			return false;
+		}
+	}
+
+	if (fabsf(config.B[2][0]) <= FLT_EPSILON) {
+		return false;
+	}
+
+	const float roll_yaw_ratio = fabsf(config.B[0][0] / config.B[2][0]);
+
+	return config.B[1][1] > 0.f && config.B[1][2] > 0.f &&
+	       config.B[1][4] < 0.f && config.B[1][5] < 0.f &&
+	       roll_yaw_ratio > 1.f;
+}
+
+bool
+ControlAllocationMixer::is_shw09_vtol_physical_config(const Config &config)
+{
+	static constexpr float shw09_vtol_min = -0.6981f;
+	static constexpr float shw09_vtol_max = 0.6981f;
+	static constexpr float tolerance = 0.01f;
+
+	if (config.y_dim != 3 || config.u_dim != 8) {
+		return false;
+	}
+
+	for (unsigned actuator = 0; actuator < config.u_dim; actuator++) {
+		if (fabsf(config.ranges[actuator].physical_min - shw09_vtol_min) > tolerance ||
+		    fabsf(config.ranges[actuator].physical_max - shw09_vtol_max) > tolerance) {
+			return false;
+		}
+	}
+
+	if (fabsf(config.B[2][0]) <= FLT_EPSILON) {
+		return false;
+	}
+
+	const float roll_yaw_ratio = fabsf(config.B[0][0] / config.B[2][0]);
+	const bool bottom_surfaces_match = config.B[1][1] > 0.f && config.B[1][2] > 0.f &&
+					   config.B[1][4] < 0.f && config.B[1][5] < 0.f &&
+					   roll_yaw_ratio > 1.f;
+	const bool elevons_match = fabsf(config.B[0][6]) <= tolerance &&
+				   fabsf(config.B[0][7]) <= tolerance &&
+				   fabsf(config.B[1][6]) <= tolerance &&
+				   fabsf(config.B[1][7]) <= tolerance &&
+				   fabsf(config.B[2][6] - 0.5f * config.B[2][0]) <= tolerance &&
+				   fabsf(config.B[2][7] + 0.5f * config.B[2][0]) <= tolerance;
+
+	return bottom_surfaces_match && elevons_match;
 }
 
 bool
@@ -802,6 +938,7 @@ ControlAllocationMixer::build_shc09_B(float k, float B[MAX_Y][MAX_U])
 	static constexpr float I_x = 0.0438f;
 	static constexpr float I_y = 0.0436f;
 	static constexpr float I_z = 0.005006f;
+	// Relative z-arm used by SHC09.main.mix at USER_OMEGA_2_F = 1.93.
 	static constexpr float L_1 = 0.292166f;
 	static constexpr float L_2 = 0.073699f;
 	static constexpr float cos_60 = 0.5f;
@@ -836,23 +973,119 @@ ControlAllocationMixer::build_shc09_B(float k, float B[MAX_Y][MAX_U])
 	return true;
 }
 
+bool
+ControlAllocationMixer::build_shw09_B(float k, float B[MAX_Y][MAX_U])
+{
+	static constexpr float I_x = 0.050636f;
+	static constexpr float I_y = 0.042954f;
+	static constexpr float I_z = 0.012668f;
+	// Relative z-arm from CG to the bottom control-surface cp:
+	// |cp_z - cg_z| = |-0.3 - 0.12| = 0.42 m.
+	static constexpr float L_1 = 0.42f;
+	static constexpr float L_2 = 0.073699f;
+	static constexpr float cos_60 = 0.5f;
+	static constexpr float sin_60 = 0.8660254038f;
+
+	if (!PX4_ISFINITE(k) || k <= FLT_EPSILON) {
+		return false;
+	}
+
+	for (unsigned row = 0; row < MAX_Y; row++) {
+		for (unsigned col = 0; col < MAX_U; col++) {
+			B[row][col] = 0.f;
+		}
+	}
+
+	B[0][0] = -L_1 * k / I_x;
+	B[0][1] = -cos_60 * L_1 * k / I_x;
+	B[0][2] =  cos_60 * L_1 * k / I_x;
+	B[0][3] =  L_1 * k / I_x;
+	B[0][4] =  cos_60 * L_1 * k / I_x;
+	B[0][5] = -cos_60 * L_1 * k / I_x;
+
+	B[1][1] =  sin_60 * L_1 * k / I_y;
+	B[1][2] =  sin_60 * L_1 * k / I_y;
+	B[1][4] = -sin_60 * L_1 * k / I_y;
+	B[1][5] = -sin_60 * L_1 * k / I_y;
+
+	for (unsigned actuator = 0; actuator < 6; actuator++) {
+		B[2][actuator] = L_2 * k / I_z;
+	}
+
+	return true;
+}
+
+bool
+ControlAllocationMixer::build_shw09_vtol_B(float k, float B[MAX_Y][MAX_U])
+{
+	// SHW09_vtol has its own model builder. The bottom ducted-fan surfaces use
+	// the current SHW09_vtol SDF order CS1..CS6; the final two columns are the
+	// left/right elevons. Keep this separate from SHW09 because the VTOL model
+	// can evolve independently even when some constants are currently equal.
+	static constexpr float I_x = 0.050636f;
+	static constexpr float I_y = 0.042954f;
+	static constexpr float I_z = 0.012668f;
+	// SHW09_vtol relative z-arm from CG to bottom control-surface cp:
+	// |cp_z - cg_z| = |-0.3 - 0.12| = 0.42 m in SHW09_vtol.sdf.jinja.
+	static constexpr float L_1 = 0.42f;
+	static constexpr float L_2 = 0.073699f;
+	static constexpr float cos_60 = 0.5f;
+	static constexpr float sin_60 = 0.8660254038f;
+
+	if (!PX4_ISFINITE(k) || k <= FLT_EPSILON) {
+		return false;
+	}
+
+	for (unsigned row = 0; row < MAX_Y; row++) {
+		for (unsigned col = 0; col < MAX_U; col++) {
+			B[row][col] = 0.f;
+		}
+	}
+
+	B[0][0] = -L_1 * k / I_x;
+	B[0][1] = -cos_60 * L_1 * k / I_x;
+	B[0][2] =  cos_60 * L_1 * k / I_x;
+	B[0][3] =  L_1 * k / I_x;
+	B[0][4] =  cos_60 * L_1 * k / I_x;
+	B[0][5] = -cos_60 * L_1 * k / I_x;
+
+	B[1][1] =  sin_60 * L_1 * k / I_y;
+	B[1][2] =  sin_60 * L_1 * k / I_y;
+	B[1][4] = -sin_60 * L_1 * k / I_y;
+	B[1][5] = -sin_60 * L_1 * k / I_y;
+
+	for (unsigned actuator = 0; actuator < 6; actuator++) {
+		B[2][actuator] = L_2 * k / I_z;
+	}
+
+	// The left/right elevons are modeled as body-yaw surfaces in the legacy mix.
+	// Keep the old relative authority: each wing is half of one ducted-fan yaw surface.
+	B[2][6] =  0.5f * L_2 * k / I_z;
+	B[2][7] = -0.5f * L_2 * k / I_z;
+
+	return true;
+}
+
 void
 ControlAllocationMixer::update_runtime_config()
 {
 	update_feedback_params();
 
 	static constexpr float df4_surface_limit_rad = 0.3491f;
-	const bool df4_physical = is_ductedfan4_physical_config(_config);
-	const bool df4_normalized = is_ductedfan4_normalized_config(_config);
-	const bool shc09_physical = is_shc09_physical_config(_config);
-
-	if (!df4_physical && !df4_normalized && !shc09_physical) {
+	// Runtime limit updates and dynamic B reconstruction are intentionally only
+	// enabled for model hooks we understand. Generic allocation still works for
+	// any C: mixer, but a new airframe needs an explicit physical model hook
+	// before USER_OMEGA_2_F or disturbance semantics are meaningful.
+	if (!_model_ductedfan4_physical && !_model_ductedfan4_normalized &&
+	    !_model_shc09_physical && !_model_shw09_physical && !_model_shw09_vtol_physical) {
 		return;
 	}
 
-	update_runtime_limits((df4_physical || shc09_physical) ? 1.f : (1.f / df4_surface_limit_rad));
+	update_runtime_limits((_model_ductedfan4_physical || _model_shc09_physical ||
+			       _model_shw09_physical || _model_shw09_vtol_physical) ? 1.f : (1.f / df4_surface_limit_rad));
 
-	if (!df4_physical && !shc09_physical) {
+	if (!_model_ductedfan4_physical && !_model_shc09_physical &&
+	    !_model_shw09_physical && !_model_shw09_vtol_physical) {
 		return;
 	}
 
@@ -910,11 +1143,21 @@ ControlAllocationMixer::update_physical_model_B(float k)
 	Config updated_config = _config;
 	bool updated = false;
 
-	if (is_ductedfan4_physical_config(_config)) {
+	// Model-specific dynamic control-effectiveness reconstruction. This is the
+	// place to add future physical-B support for ductedfan6 or other layouts:
+	// define the geometry/inertia based builder, gate it by SYS_AUTOSTART in
+	// the constructor, then recompute B_pinv through compute_pseudo_inverse().
+	if (_model_ductedfan4_physical) {
 		updated = build_ductedfan4_B(k, updated_config.B);
 
-	} else if (is_shc09_physical_config(_config)) {
+	} else if (_model_shc09_physical) {
 		updated = build_shc09_B(k, updated_config.B);
+
+	} else if (_model_shw09_physical) {
+		updated = build_shw09_B(k, updated_config.B);
+
+	} else if (_model_shw09_vtol_physical) {
+		updated = build_shw09_vtol_B(k, updated_config.B);
 	}
 
 	if (!updated || !compute_pseudo_inverse(updated_config)) {
@@ -957,13 +1200,17 @@ ControlAllocationMixer::update_feedback_params()
 		cutoff = 0.f;
 	}
 
-	if (!PX4_ISFINITE(_last_cs_cutoff) || fabsf(cutoff - _last_cs_cutoff) > 0.1f) {
-		for (unsigned i = 0; i < MAX_FEEDBACK; i++) {
-			_feedback_filter[i].set_cutoff_frequency(_sample_freq, cutoff);
-			_feedback_filter[i].reset(_delta_prev[i]);
+	const bool sample_freq_changed = !PX4_ISFINITE(_last_feedback_sample_freq) ||
+					 fabsf(_sample_freq - _last_feedback_sample_freq) > 0.01f * _last_feedback_sample_freq;
+
+	if (!PX4_ISFINITE(_last_cs_cutoff) || fabsf(cutoff - _last_cs_cutoff) > 0.1f || sample_freq_changed) {
+		for (unsigned i = 0; i < MAX_U; i++) {
+			_u_feedback_filter[i].set_cutoff_frequency(_sample_freq, cutoff);
+			_u_feedback_filter[i].reset(_u_feedback[i]);
 		}
 
 		_last_cs_cutoff = cutoff;
+		_last_feedback_sample_freq = _sample_freq;
 	}
 
 	float servo_time_const = 0.03f;
@@ -978,9 +1225,12 @@ ControlAllocationMixer::update_feedback_params()
 		param_get(_motor_time_const_param, &motor_time_const);
 	}
 
-	_servo_time_const = math::constrain(servo_time_const, 1.f / _sample_freq, 0.2f);
-	_motor_time_const = math::constrain(motor_time_const, 1.f / _sample_freq, 0.2f);
+	const float min_time_const = (_sample_freq > FLT_EPSILON) ? 1.f / _sample_freq : 0.0001f;
 
+	_servo_time_const = PX4_ISFINITE(servo_time_const) ? math::constrain(servo_time_const, min_time_const, 0.2f) : min_time_const;
+	_motor_time_const = PX4_ISFINITE(motor_time_const) ? math::constrain(motor_time_const, min_time_const, 0.2f) : min_time_const;
+
+#if defined(__PX4_POSIX)
 	int32_t use_actuator = 0;
 
 	if (_use_actuator_param != PARAM_INVALID) {
@@ -988,6 +1238,13 @@ ControlAllocationMixer::update_feedback_params()
 	}
 
 	_use_actuator = use_actuator;
+#else
+	// USER_ACTUATOR is a SITL-only switch for injecting virtual actuator
+	// dynamics into the output path. Real flight must send the allocated
+	// command to the physical actuator and only use the model for feedback
+	// estimation.
+	_use_actuator = 0;
+#endif
 }
 
 void
@@ -1077,6 +1334,10 @@ ControlAllocationMixer::runtime_disturbance_bias(unsigned actuator_index) const
 	static constexpr float df4_signs[4] {-1.f, 1.f, 1.f, -1.f};
 	static constexpr float shc09_signs[6] {-1.f, 1.f, 1.f, 1.f, -1.f, -1.f};
 
+	// Disturbance injection is layout-specific. The current sign tables cover
+	// df4 and the six-surface SHC09/SHW09 bottom ducted-fan order. SHW09_vtol
+	// eight-surface and future ductedfan variants should add their own sign
+	// tables here instead of reusing a coincidentally matching dimension.
 	if (!_runtime_disturbance_enabled || _config.y_dim != 3) {
 		return 0.f;
 	}
@@ -1102,12 +1363,36 @@ ControlAllocationMixer::apply_actuator_model(float u, unsigned actuator_index)
 	const ActuatorRange &range = _config.ranges[actuator_index];
 	const float time_const = (range.actuator_type == ActuatorType::Motor) ? _motor_time_const : _servo_time_const;
 
-	_u_estimate[actuator_index] = first_order_update_zoh(u, _last_u[actuator_index], time_const,
+	_u_estimate[actuator_index] = first_order_update_zoh(u, _u_estimate[actuator_index], time_const,
 					      1.f / _sample_freq);
 	const float final_u = (_use_actuator == 1) ? _u_estimate[actuator_index] : u;
-	_last_u[actuator_index] = final_u;
+	_u_cmd[actuator_index] = math::constrain(final_u, range.physical_min, range.physical_max);
 
-	return math::constrain(final_u, range.physical_min, range.physical_max);
+	return _u_cmd[actuator_index];
+}
+
+float
+ControlAllocationMixer::update_feedback_estimate(unsigned actuator_index)
+{
+	if (actuator_index >= _config.u_dim) {
+		return 0.f;
+	}
+
+	const ActuatorRange &range = _config.ranges[actuator_index];
+
+	// In SITL the value sent to Gazebo is the actuator's actual value. On real
+	// hardware the PWM command is not the measured surface position, so publish
+	// the internal first-order estimate instead.
+#if defined(__PX4_POSIX)
+	const float feedback_source = _u_cmd[actuator_index];
+#else
+	const float feedback_source = _u_estimate[actuator_index];
+#endif
+	const float feedback = math::constrain(_u_feedback_filter[actuator_index].apply(feedback_source),
+					       range.physical_min, range.physical_max);
+	_u_feedback[actuator_index] = feedback;
+
+	return feedback;
 }
 
 float
@@ -1128,7 +1413,7 @@ ControlAllocationMixer::map_u_to_output(float u, unsigned actuator_index) const
 }
 
 void
-ControlAllocationMixer::publish_actuator_feedback()
+ControlAllocationMixer::publish_actuator_feedback(const float *u_feedback)
 {
 	bool has_feedback = false;
 	actuator_outputs_value_s msg {};
@@ -1141,10 +1426,8 @@ ControlAllocationMixer::publish_actuator_feedback()
 		}
 
 		const unsigned slot = static_cast<unsigned>(range.feedback_slot);
-		const float delta = math::constrain(_feedback_filter[slot].apply(_u_estimate[actuator]),
-						    range.physical_min, range.physical_max);
+		const float delta = math::constrain(u_feedback[actuator], range.physical_min, range.physical_max);
 		msg.delta[slot] = delta;
-		_delta_prev[slot] = delta;
 		has_feedback = true;
 	}
 
@@ -1157,7 +1440,7 @@ ControlAllocationMixer::publish_actuator_feedback()
 }
 
 void
-ControlAllocationMixer::publish_debug(const float *y, const float *u, const float *u_cmd, Method requested_method,
+ControlAllocationMixer::publish_debug(const float *y, const float *u, const float *u_feedback, Method requested_method,
 				      Method actual_method, bool fallback) const
 {
 	allocation_value_s msg {};
@@ -1165,6 +1448,11 @@ ControlAllocationMixer::publish_debug(const float *y, const float *u, const floa
 	msg.flag = static_cast<int8_t>(actual_method);
 	msg.y_dim = _config.y_dim;
 	msg.u_dim = _config.u_dim;
+	msg.b_unit = static_cast<uint8_t>(_config.b_unit);
+	// The mixer publishes the whole active B and whole feedback vector. Current
+	// rate INDI consumes them directly, so only physical/dimensional B may be
+	// marked valid here; normalized B is still logged but must not drive INDI.
+	msg.indi_valid = (_config.b_unit == BUnit::Physical && _config.y_dim >= 3);
 	msg.requested_method = static_cast<int8_t>(requested_method);
 	msg.fallback = fallback ? 1 : 0;
 
@@ -1192,7 +1480,7 @@ ControlAllocationMixer::publish_debug(const float *y, const float *u, const floa
 		const float constrained_u = math::constrain(u[actuator], _config.ranges[actuator].active_min,
 					    _config.ranges[actuator].active_max);
 		msg.u[actuator] = constrained_u;
-		msg.u_ultimate[actuator] = u_cmd[actuator];
+		msg.u_ultimate[actuator] = u_feedback[actuator];
 		msg.umin[actuator] = _config.ranges[actuator].active_min;
 		msg.umax[actuator] = _config.ranges[actuator].active_max;
 	}

@@ -79,21 +79,6 @@ PARAM_DEFINE_INT32(USER_ADD_DIST, 0);
 PARAM_DEFINE_FLOAT(USER_CS_CUTOFF, 10.0f);
 
 /**
-* Low pass filter cutoff frequency for motors.
-*
-* The cutoff frequency for the 2nd order butterworth filter on virtual motor
-* feedback sent to controllers/logs.
-*
-* A value of 0 disables the filter.
-*
-* @min 0
-* @max 1000
-* @unit Hz
-* @group Mixer Output
-*/
-PARAM_DEFINE_FLOAT(USER_MOT_CUTOFF, 30.0f);
-
-/**
 * USER_DIST_MAG
 *
 * Disturbance magnitude for the C: ControlAllocationMixer. For the ductedfan4
@@ -139,10 +124,15 @@ PARAM_DEFINE_FLOAT(USER_MOT_TCONST, 0.01f);
 /**
  * USER_ACTUATOR
  *
- * use ACTUATOR simulate or not.
+ * Enable the C: ControlAllocationMixer virtual actuator in the output path.
  *
- * @value 0 without
- * @value 1 actuator simulation
+ * This parameter is only effective in SITL/POSIX builds. Set it to 1 to send
+ * the first-order actuator response to Gazebo, or 0 to send the allocated
+ * command directly. Real flight builds ignore it and always send the allocated
+ * command; controller feedback still uses the internal actuator estimate.
+ *
+ * @value 0 send allocated command directly
+ * @value 1 send first-order virtual actuator output
  * @group Mixer Output
  */
 PARAM_DEFINE_INT32(USER_ACTUATOR, 0);

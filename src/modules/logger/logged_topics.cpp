@@ -199,7 +199,6 @@ void LoggedTopics::add_high_rate_topics()
 	add_topic("actuator_outputs");
 	add_topic("actuator_outputs_value");
 	add_topic("allocation_value");
-	add_topic("mixer_outputs_value");
 	add_topic("manual_control_setpoint");
 	add_topic("rate_ctrl_status", 20);
 	add_topic("sensor_combined");

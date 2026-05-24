@@ -62,7 +62,15 @@ Vector3f IndiControl::update(const Vector3f &rate, const Vector3f &rate_sp, cons
 	}
 	else
 	{
-		if (use_u && allocation_value.y_dim >= 3 && allocation_value.u_dim > 0 &&
+		// Current limitation: rate INDI consumes the whole physical allocation
+		// model, i.e. B1 = allocation_value.b and u1 = u_feedback. This works
+		// for the ducted-fan attitude models where all allocated actuators
+		// participate in angular acceleration. Aircraft with thrust rows,
+		// mixed inner/outer-loop INDI, or actuator subsets need an explicit
+		// model-specific B1/u1 mapping before enabling use_u.
+		if (use_u && allocation_value.indi_valid &&
+		    allocation_value.b_unit == allocation_value_s::B_UNIT_PHYSICAL &&
+		    allocation_value.y_dim >= 3 && allocation_value.u_dim > 0 &&
 		    allocation_value.u_dim <= allocation_value_s::MAX_U) {
 			Vector3f Bu;
 			Bu.setZero();
