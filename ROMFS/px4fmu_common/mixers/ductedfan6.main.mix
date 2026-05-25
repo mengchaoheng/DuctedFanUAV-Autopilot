@@ -75,7 +75,7 @@ Z:
 #   The ductedfan6 control-surface effectiveness is the same as ductedfan4,
 #   with six surfaces ordered clockwise 1..6. Thus B * u = angular
 #   acceleration, u in radians, and the pitch row has the opposite sign from
-#   SHC09's counter-clockwise order. USER_OMEGA_2_F updates this B at runtime.
+#   SHC09's counter-clockwise order. USER_OMEGA2F_MC updates this B at runtime.
 -------------
 C: 3 6 1
 S: 0 0

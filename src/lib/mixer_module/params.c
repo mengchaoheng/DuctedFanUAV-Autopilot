@@ -124,6 +124,50 @@ PARAM_DEFINE_FLOAT(USER_MOT_CUTOFF, 30.0f);
 PARAM_DEFINE_FLOAT(USER_THR_CUTOFF, 30.0f);
 
 /**
+ * USER_OMEGA2F_MC
+ *
+ * Control-surface omega-to-force/effectiveness gain used by physical-B C:
+ * mixers.
+ *
+ * Most ducted-fan physical-B models use only this parameter. SHW09_vtol uses
+ * it in hover/transition and switches to USER_OMEGA2F_FW in fixed-wing mode.
+ *
+ * @min 0
+ * @decimal 4
+ * @group Mixer Output
+ */
+PARAM_DEFINE_FLOAT(USER_OMEGA2F_MC, 1.0f);
+
+/**
+ * USER_OMEGA2F_FW
+ *
+ * SHW09_vtol fixed-wing effectiveness for the bottom 1-6 ducted-fan control
+ * surfaces used by the physical-B C: mixer.
+ *
+ * This parameter is paired with USER_OMEGA2F_MC and is only used when
+ * SHW09_vtol is in fixed-wing mode.
+ *
+ * @min 0
+ * @decimal 4
+ * @group Mixer Output
+ */
+PARAM_DEFINE_FLOAT(USER_OMEGA2F_FW, 7.2f);
+
+/**
+ * USER_ELEV_2_F
+ *
+ * SHW09_vtol fixed-wing elevon effectiveness used by the physical-B C: mixer.
+ *
+ * This parameter only controls the 7/8 wing elevon columns. It is independent
+ * of USER_OMEGA2F_MC/FW, which control the bottom ducted-fan control surfaces.
+ *
+ * @min 0
+ * @decimal 4
+ * @group Mixer Output
+ */
+PARAM_DEFINE_FLOAT(USER_ELEV_2_F, 4.0f);
+
+/**
 * USER_DIST_MAG
 *
 * Disturbance magnitude for the C: ControlAllocationMixer. For the ductedfan4

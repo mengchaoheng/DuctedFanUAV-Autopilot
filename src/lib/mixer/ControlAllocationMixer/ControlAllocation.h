@@ -1910,7 +1910,11 @@ public:
     }
     void restoring(float u[EffectorSize], float u_rest[EffectorSize]){
         const float restoring_tol = 1e-5f;
-        const float restoring_residual_tol = 1e-5f;
+        // B*u_null should be zero theoretically.  With float arithmetic the
+        // projection residual can sit just above restoring_tol for SHC09, so
+        // keep this guard one order looser.  It only decides whether to reject
+        // the restoring step; it is not the allocation accuracy target.
+        const float restoring_residual_tol = 10.0f * restoring_tol;
         Vector<float, EffectorSize> u_current(u);
         if(u_current.norm()<restoring_tol){
             for(int i=0;i<EffectorSize;++i){

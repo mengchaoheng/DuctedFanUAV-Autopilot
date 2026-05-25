@@ -40,8 +40,10 @@
 #include <stdint.h>
 #include <uORB/Publication.hpp>
 #include <uORB/PublicationMulti.hpp>
+#include <uORB/Subscription.hpp>
 #include <uORB/topics/actuator_outputs_value.h>
 #include <uORB/topics/allocation_value.h>
+#include <uORB/topics/vtol_vehicle_status.h>
 
 /**
  * Control allocation mixer.
@@ -67,10 +69,13 @@
  * U: <physical_umin> <physical_umax> [output_slot] [feedback_slot] [actuator_type]
  * ...
  *
- * B is the control effectiveness matrix. The B lines in the mix file provide
- * the initial/equilibrium matrix. At runtime the mixer may update the active B
- * from parameters or vehicle state before allocation; allocation_value.b
- * publishes that active matrix so INDI and the allocator use the same model.
+ * B is the control effectiveness matrix. The B lines in the mix file are still
+ * required: they define the dimensions, provide a valid initial/equilibrium
+ * matrix for parser-time checks and B_pinv initialization, and help identify
+ * known physical airframe hooks. For supported physical-B aircraft the active B
+ * is rebuilt from model constants, parameters, or vehicle state before
+ * allocation; allocation_value.b publishes that active matrix so INDI and the
+ * allocator use the same model.
  *
  * U defines the physical actuator range corresponding to the configured PWM
  * range. physical_umin maps to mixer output -1 and physical_umax maps to
@@ -202,12 +207,14 @@ private:
 	static bool build_ductedfan6_B(float k, float B[MAX_Y][MAX_U]);
 	static bool build_shc09_B(float k, float B[MAX_Y][MAX_U]);
 	static bool build_shw09_B(float k, float B[MAX_Y][MAX_U]);
-	static bool build_shw09_vtol_B(float k, float B[MAX_Y][MAX_U]);
+	static bool build_shw09_vtol_B(float k, float elevon_k, bool elevons_enabled, float B[MAX_Y][MAX_U]);
 	static float first_order_update_zoh(float u, float y_prev, float time_constant, float dt);
 	static bool valid_actuator_type(int actuator_type);
 
 	void update_runtime_config();
 	void update_runtime_limits(float dist_to_u_scale);
+	bool update_shw09_vtol_elevon_state();
+	void apply_shw09_vtol_elevon_limits();
 	void update_physical_model_B(float k);
 	void update_sample_freq();
 	void update_feedback_params();
@@ -231,6 +238,8 @@ private:
 	param_t _dist_enable_param{PARAM_INVALID};
 	param_t _dist_mag_param{PARAM_INVALID};
 	param_t _omega_2_force_param{PARAM_INVALID};
+	param_t _omega_2_force_fw_param{PARAM_INVALID};
+	param_t _elevon_2_force_param{PARAM_INVALID};
 	param_t _airframe_param{PARAM_INVALID};
 	param_t _pinv_always_param{PARAM_INVALID};
 	param_t _cs_cutoff_param{PARAM_INVALID};
@@ -242,12 +251,14 @@ private:
 	bool _runtime_disturbance_enabled{false};
 	float _runtime_disturbance_mag_u{0.f};
 	float _last_omega_2_force{NAN};
+	float _last_elevon_2_force{NAN};
 	bool _model_ductedfan4_physical{false};
 	bool _model_ductedfan6_physical{false};
 	bool _model_ductedfan4_normalized{false};
 	bool _model_shc09_physical{false};
 	bool _model_shw09_physical{false};
 	bool _model_shw09_vtol_physical{false};
+	bool _shw09_vtol_elevons_enabled{false};
 	float _last_cs_cutoff{NAN};
 	float _last_feedback_sample_freq{NAN};
 	float _servo_time_const{0.03f};
@@ -266,4 +277,5 @@ private:
 	bool _last_reported_fallback{false};
 	mutable uORB::PublicationMulti<allocation_value_s> _allocation_value_pub{ORB_ID(allocation_value)};
 	uORB::Publication<actuator_outputs_value_s> _outputs_value_pub{ORB_ID(actuator_outputs_value)};
+	uORB::Subscription _vtol_vehicle_status_sub{ORB_ID(vtol_vehicle_status)};
 };

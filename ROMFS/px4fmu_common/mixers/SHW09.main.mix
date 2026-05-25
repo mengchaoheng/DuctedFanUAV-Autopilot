@@ -73,7 +73,7 @@ Z:
 #        0.0000   0.2500   0.2500   0.0000  -0.2500  -0.2500
 #        0.166667  0.166667  0.166667  0.166667  0.166667  0.166667 ]
 #
-# Physical control effectiveness matrix at USER_OMEGA_2_F = 4.0:
+# Physical control effectiveness matrix at USER_OMEGA2F_MC = 4.0:
 #   B * u = angular acceleration, u in radians.
 #   SHW09 output columns are aligned with the SDF/SHC09 bottom ducted-fan order:
 #   CS1, CS2, CS3, CS4, CS5, CS6.

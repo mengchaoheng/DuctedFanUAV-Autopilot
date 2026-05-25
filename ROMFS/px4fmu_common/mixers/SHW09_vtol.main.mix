@@ -80,15 +80,18 @@ Control surfaces
 #        0.0000   0.2500   0.2500   0.0000  -0.2500  -0.2500   0.0000   0.0000
 #        0.153846  0.153846  0.153846  0.153846  0.153846  0.153846  0.076923 -0.076923 ]
 #
-# Physical control effectiveness matrix at USER_OMEGA_2_F = 4.0:
+# Physical control effectiveness matrix:
 #   B * u = body angular acceleration, u in radians.
 #   The first six columns use the same SDF/SHC09 bottom ducted-fan order:
 #   CS1, CS2, CS3, CS4, CS5, CS6. The z-arm is measured from CG to cp, so
 #   L1 = abs(-0.3 - 0.12) = 0.42 m. The inertia terms use the SHW09 model:
 #   Ix=0.050636, Iy=0.042954, Iz=0.012668 kg*m^2. The last two columns are
-#   left/right elevons; the legacy mix uses them only for body yaw, so their
-#   roll/pitch entries stay zero and their yaw authority is kept at half of one
-#   ducted-fan yaw surface.
+#   left/right elevons; the legacy mix uses them only for body yaw. Their yaw
+#   authority is controlled by USER_ELEV_2_F and does not follow the bottom
+#   ducted-fan omega-to-force parameters. Runtime SHW09_vtol model handling uses
+#   USER_OMEGA2F_MC for hover/transition, USER_OMEGA2F_FW for fixed-wing, and
+#   disables the final two elevon columns in hover/transition before restoring
+#   them in fixed-wing mode.
 #   Gazebo maps output +/-1 to joint +/-0.6981 rad, therefore U is -0.6981 0.6981.
 -------------
 C: 3 8 1

@@ -400,19 +400,6 @@ PARAM_DEFINE_FLOAT(MC_ACRO_SUPEXPOY, 0.7f);
 PARAM_DEFINE_INT32(MC_BAT_SCALE_EN, 0);
 
 /**
- * k
- *
- * delta_2_force.
- *
- * @min 0.0
- * @max 10
- * @decimal 3
- * @increment 0.001
- * @group Multicopter Rate Control
- */
-PARAM_DEFINE_FLOAT(USER_OMEGA_2_F, 1.0f);//
-
-/**
  * Roll rate P gain of INDI
  *
  * Roll rate proportional gain, i.e. control output for angular speed error 1 rad/s.

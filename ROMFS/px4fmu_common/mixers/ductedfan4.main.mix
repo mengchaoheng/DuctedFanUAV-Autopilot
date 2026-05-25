@@ -36,7 +36,7 @@ Z:
 #   fixed surface bias [-dist, +dist, +dist, -dist].
 #   USER_DIST_MAG is in radians.
 # Runtime model hook:
-#   USER_OMEGA_2_F updates both the INDI model and this physical control effectiveness matrix B.
+#   USER_OMEGA2F_MC updates both the INDI model and this physical control effectiveness matrix B.
 #   The initial B below uses k_omega2force = 1.
 # The physical mapping remains fixed:
 #   u = -0.3491 -> mixer output -1 -> PWM_MIN

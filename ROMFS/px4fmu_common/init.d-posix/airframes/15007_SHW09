@@ -53,7 +53,7 @@ param set-default USER_USE_INDI 1
 param set-default USER_USE_U 1
 param set-default USER_USE_TAUI 1
 param set-default USER_AC_METHOD 0
-param set-default USER_OMEGA_2_F 4.0
+param set-default USER_OMEGA2F_MC 4.0
 param set-default USER_TIME_CONST 0.03
 param set-default USER_ACTUATOR 1
 

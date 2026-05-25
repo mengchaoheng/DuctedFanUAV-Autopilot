@@ -214,7 +214,9 @@ ControlAllocationMixer::ControlAllocationMixer(ControlAllocationCallback control
 	_method_param(param_find("USER_AC_METHOD")),
 	_dist_enable_param(param_find("USER_ADD_DIST")),
 	_dist_mag_param(param_find("USER_DIST_MAG")),
-	_omega_2_force_param(param_find("USER_OMEGA_2_F")),
+	_omega_2_force_param(param_find("USER_OMEGA2F_MC")),
+	_omega_2_force_fw_param(param_find("USER_OMEGA2F_FW")),
+	_elevon_2_force_param(param_find("USER_ELEV_2_F")),
 	_airframe_param(param_find("SYS_AUTOSTART")),
 	_pinv_always_param(param_find("USER_PINV_ALWAYS")),
 	_cs_cutoff_param(param_find("USER_CS_CUTOFF")),
@@ -255,14 +257,16 @@ ControlAllocationMixer::ControlAllocationMixer(ControlAllocationCallback control
 	_model_shw09_vtol_physical = physical_b && (airframe_id == AIRFRAME_SHW09_VTOL || unknown_airframe) &&
 				     is_shw09_vtol_physical_config(config);
 
-	if ((_model_ductedfan4_physical || _model_ductedfan6_physical || _model_shc09_physical ||
-	     _model_shw09_physical || _model_shw09_vtol_physical) &&
-	    _omega_2_force_param != PARAM_INVALID) {
+	if (_model_ductedfan4_physical || _model_ductedfan6_physical || _model_shc09_physical ||
+	    _model_shw09_physical || _model_shw09_vtol_physical) {
 		float k = NAN;
 
-		if (param_get(_omega_2_force_param, &k) == 0 && PX4_ISFINITE(k)) {
+		if (_omega_2_force_param != PARAM_INVALID) {
+			param_get(_omega_2_force_param, &k);
+		}
+
+		if (PX4_ISFINITE(k)) {
 			update_physical_model_B(k);
-			_last_omega_2_force = k;
 		}
 	}
 }
@@ -875,7 +879,7 @@ ControlAllocationMixer::is_shc09_physical_config(const Config &config)
 	}
 
 	// SHC09 and SHW09 share output-column ordering, but not effectiveness
-	// ratios. Use a scale-free ratio so changing USER_OMEGA_2_F cannot make one
+	// ratios. Use a scale-free ratio so changing USER_OMEGA2F_MC cannot make one
 	// model look like the other.
 	const float roll_yaw_ratio = fabsf(config.B[0][0] / config.B[2][0]);
 
@@ -1029,7 +1033,7 @@ ControlAllocationMixer::build_shc09_B(float k, float B[MAX_Y][MAX_U])
 	static constexpr float I_x = 0.0438f;
 	static constexpr float I_y = 0.0436f;
 	static constexpr float I_z = 0.005006f;
-	// Relative z-arm used by SHC09.main.mix at USER_OMEGA_2_F = 1.93.
+	// Relative z-arm used by SHC09.main.mix at USER_OMEGA2F_MC = 1.93.
 	static constexpr float L_1 = 0.292166f;
 	static constexpr float L_2 = 0.073699f;
 	static constexpr float cos_60 = 0.5f;
@@ -1107,7 +1111,7 @@ ControlAllocationMixer::build_shw09_B(float k, float B[MAX_Y][MAX_U])
 }
 
 bool
-ControlAllocationMixer::build_shw09_vtol_B(float k, float B[MAX_Y][MAX_U])
+ControlAllocationMixer::build_shw09_vtol_B(float k, float elevon_k, bool elevons_enabled, float B[MAX_Y][MAX_U])
 {
 	// SHW09_vtol has its own model builder. The bottom ducted-fan surfaces use
 	// the current SHW09_vtol SDF order CS1..CS6; the final two columns are the
@@ -1123,7 +1127,7 @@ ControlAllocationMixer::build_shw09_vtol_B(float k, float B[MAX_Y][MAX_U])
 	static constexpr float cos_60 = 0.5f;
 	static constexpr float sin_60 = 0.8660254038f;
 
-	if (!PX4_ISFINITE(k) || k <= FLT_EPSILON) {
+	if (!PX4_ISFINITE(k) || k <= FLT_EPSILON || !PX4_ISFINITE(elevon_k) || elevon_k <= FLT_EPSILON) {
 		return false;
 	}
 
@@ -1149,10 +1153,13 @@ ControlAllocationMixer::build_shw09_vtol_B(float k, float B[MAX_Y][MAX_U])
 		B[2][actuator] = L_2 * k / I_z;
 	}
 
-	// The left/right elevons are modeled as body-yaw surfaces in the legacy mix.
-	// Keep the old relative authority: each wing is half of one ducted-fan yaw surface.
-	B[2][6] =  0.5f * L_2 * k / I_z;
-	B[2][7] = -0.5f * L_2 * k / I_z;
+	if (elevons_enabled) {
+		// The left/right elevons are modeled as body-yaw surfaces in the legacy
+		// mix. USER_ELEV_2_F is separate from USER_OMEGA2F_MC/FW because those
+		// only represent the bottom ducted-fan surfaces.
+		B[2][6] =  0.5f * L_2 * elevon_k / I_z;
+		B[2][7] = -0.5f * L_2 * elevon_k / I_z;
+	}
 
 	return true;
 }
@@ -1161,12 +1168,13 @@ void
 ControlAllocationMixer::update_runtime_config()
 {
 	update_feedback_params();
+	const bool shw09_vtol_elevon_state_changed = update_shw09_vtol_elevon_state();
 
 	static constexpr float df4_surface_limit_rad = 0.3491f;
 	// Runtime limit updates and dynamic B reconstruction are intentionally only
 	// enabled for model hooks we understand. Generic allocation still works for
 	// any C: mixer, but a new airframe needs an explicit physical model hook
-	// before USER_OMEGA_2_F or disturbance semantics are meaningful.
+	// before USER_OMEGA2F_MC or disturbance semantics are meaningful.
 	if (!_model_ductedfan4_physical && !_model_ductedfan6_physical && !_model_ductedfan4_normalized &&
 	    !_model_shc09_physical && !_model_shw09_physical && !_model_shw09_vtol_physical) {
 		return;
@@ -1174,6 +1182,7 @@ ControlAllocationMixer::update_runtime_config()
 
 	update_runtime_limits((_model_ductedfan4_physical || _model_ductedfan6_physical || _model_shc09_physical ||
 			       _model_shw09_physical || _model_shw09_vtol_physical) ? 1.f : (1.f / df4_surface_limit_rad));
+	apply_shw09_vtol_elevon_limits();
 
 	if (!_model_ductedfan4_physical && !_model_ductedfan6_physical && !_model_shc09_physical &&
 	    !_model_shw09_physical && !_model_shw09_vtol_physical) {
@@ -1181,10 +1190,84 @@ ControlAllocationMixer::update_runtime_config()
 	}
 
 	float k = NAN;
+	float elevon_k = 4.f;
 
-	if (_omega_2_force_param != PARAM_INVALID && param_get(_omega_2_force_param, &k) == 0 &&
-	    PX4_ISFINITE(k) && (!PX4_ISFINITE(_last_omega_2_force) || fabsf(k - _last_omega_2_force) > FLT_EPSILON)) {
-		update_physical_model_B(k);
+	if (_model_shw09_vtol_physical && _elevon_2_force_param != PARAM_INVALID) {
+		param_get(_elevon_2_force_param, &elevon_k);
+	}
+
+	if (_omega_2_force_param != PARAM_INVALID) {
+		param_get(_omega_2_force_param, &k);
+	}
+
+	if (_model_shw09_vtol_physical) {
+		if (_shw09_vtol_elevons_enabled && _omega_2_force_fw_param != PARAM_INVALID) {
+			float mode_k = NAN;
+
+			if (param_get(_omega_2_force_fw_param, &mode_k) == 0 && PX4_ISFINITE(mode_k)) {
+				k = mode_k;
+			}
+		}
+	}
+
+	if (PX4_ISFINITE(k)) {
+		if (!PX4_ISFINITE(_last_omega_2_force) || fabsf(k - _last_omega_2_force) > FLT_EPSILON ||
+		    (_model_shw09_vtol_physical && PX4_ISFINITE(elevon_k) &&
+		     (!PX4_ISFINITE(_last_elevon_2_force) || fabsf(elevon_k - _last_elevon_2_force) > FLT_EPSILON)) ||
+		    shw09_vtol_elevon_state_changed) {
+			update_physical_model_B(k);
+		}
+	}
+}
+
+bool
+ControlAllocationMixer::update_shw09_vtol_elevon_state()
+{
+	if (!_model_shw09_vtol_physical) {
+		return false;
+	}
+
+	vtol_vehicle_status_s vtol_status {};
+
+	if (!_vtol_vehicle_status_sub.update(&vtol_status)) {
+		return false;
+	}
+
+	// In hover and transition the wing elevons have little useful flow for the
+	// body-rate allocator. Keep the 8-output mapping fixed, but remove their
+	// modeled authority until fixed-wing mode.
+	const bool elevons_enabled = !vtol_status.vtol_in_rw_mode && !vtol_status.vtol_in_trans_mode;
+
+	if (elevons_enabled == _shw09_vtol_elevons_enabled) {
+		return false;
+	}
+
+	_shw09_vtol_elevons_enabled = elevons_enabled;
+	PX4_INFO("SHW09_vtol elevon allocation %s", elevons_enabled ? "enabled" : "disabled");
+	return true;
+}
+
+void
+ControlAllocationMixer::apply_shw09_vtol_elevon_limits()
+{
+	if (!_model_shw09_vtol_physical || _config.u_dim < 8) {
+		return;
+	}
+
+	for (unsigned actuator = 6; actuator < 8; actuator++) {
+		ActuatorRange &range = _config.ranges[actuator];
+
+		if (!_shw09_vtol_elevons_enabled) {
+			range.active_min = 0.f;
+			range.active_max = 0.f;
+			continue;
+		}
+
+		const float half_range = 0.5f * (range.physical_max - range.physical_min);
+		const float margin = _runtime_disturbance_enabled ?
+				     math::constrain(_runtime_disturbance_mag_u, 0.f, half_range) : 0.f;
+		range.active_min = range.physical_min + margin;
+		range.active_max = range.physical_max - margin;
 	}
 }
 
@@ -1218,7 +1301,8 @@ ControlAllocationMixer::update_runtime_limits(float dist_to_u_scale)
 	for (unsigned actuator = 0; actuator < _config.u_dim; actuator++) {
 		ActuatorRange &range = _config.ranges[actuator];
 		const float half_range = 0.5f * (range.physical_max - range.physical_min);
-		const float margin = _runtime_disturbance_enabled ? math::constrain(_runtime_disturbance_mag_u, 0.f, half_range) : 0.f;
+		const float margin = _runtime_disturbance_enabled ?
+				     math::constrain(_runtime_disturbance_mag_u, 0.f, half_range) : 0.f;
 
 		range.active_min = range.physical_min + margin;
 		range.active_max = range.physical_max - margin;
@@ -1251,7 +1335,17 @@ ControlAllocationMixer::update_physical_model_B(float k)
 		updated = build_shw09_B(k, updated_config.B);
 
 	} else if (_model_shw09_vtol_physical) {
-		updated = build_shw09_vtol_B(k, updated_config.B);
+		float elevon_k = 4.f;
+
+		if (_elevon_2_force_param != PARAM_INVALID) {
+			param_get(_elevon_2_force_param, &elevon_k);
+		}
+
+		updated = build_shw09_vtol_B(k, elevon_k, _shw09_vtol_elevons_enabled, updated_config.B);
+
+		if (updated) {
+			_last_elevon_2_force = elevon_k;
+		}
 	}
 
 	if (!updated || !compute_pseudo_inverse(updated_config)) {

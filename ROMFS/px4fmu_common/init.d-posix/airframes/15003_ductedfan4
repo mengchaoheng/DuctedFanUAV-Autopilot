@@ -50,7 +50,7 @@ param set-default USER_INDI_Y_P 10
 param set-default USER_USE_INDI 1
 param set-default USER_USE_U 1
 param set-default USER_USE_TAUI 1
-param set-default USER_OMEGA_2_F 1.0
+param set-default USER_OMEGA2F_MC 1.0
 param set-default USER_TIME_CONST 0.01
 param set-default USER_AC_METHOD 0
 # 0.15rad, disabled unless USER_ADD_DIST is set during testing

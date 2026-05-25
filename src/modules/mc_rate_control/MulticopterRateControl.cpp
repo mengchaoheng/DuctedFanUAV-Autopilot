@@ -89,7 +89,7 @@ MulticopterRateControl::parameters_updated()
 	// rate control parameters
 	// The controller gain K is used to convert the parallel (P + I/s + sD) form
 	// to the ideal (K * [1 + 1/sTi + sTd]) form
-	// For the ductedfan4 physical control effectiveness matrix B with USER_OMEGA_2_F = 1:
+	// For the ductedfan4 physical control effectiveness matrix B with USER_OMEGA2F_MC = 1:
 	// const Vector3f torque_convert_acc=Vector3f(0.3491f*2*14.5344f, 0.3491f*2*14.4840f, 0.3491f*4*14.1684f);
 
 	// Approximate normalized-PID to physical-INDI gain scale at k=1:
