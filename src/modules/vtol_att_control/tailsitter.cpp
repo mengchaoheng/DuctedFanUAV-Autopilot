@@ -293,7 +293,7 @@ void Tailsitter::fill_actuator_outputs()
 	auto &mc_out = _actuators_out_0->control;
 	auto &fw_out = _actuators_out_1->control;
 
-	if (_params->tailsitter_ductedfan_control) {
+	if (_params->tailsitter_ductedfan_mapping) {
 		float surface_roll = mc_in[actuator_controls_s::INDEX_ROLL] * _mc_roll_weight;
 		float surface_pitch = mc_in[actuator_controls_s::INDEX_PITCH] * _mc_pitch_weight;
 		float surface_yaw = mc_in[actuator_controls_s::INDEX_YAW] * _mc_yaw_weight;
@@ -301,7 +301,19 @@ void Tailsitter::fill_actuator_outputs()
 		hrt_abstime timestamp_sample = _actuators_mc_in->timestamp_sample;
 		const actuator_controls_s *surface_source = _actuators_mc_in;
 
-		if (_vtol_schedule.flight_mode == vtol_mode::FW_MODE) {
+		if (_params->tailsitter_mc_rate_surfaces) {
+			// MC-rate-surface path for physical-B/INDI tests: fixed-wing
+			// attitude control publishes transformed rate setpoints, MC rate
+			// control produces body-frame surface moments, and group 1 carries
+			// those moments in every flight mode. The base FW state sets
+			// _mc_*_weight to zero, so this path intentionally bypasses them.
+			surface_roll = mc_in[actuator_controls_s::INDEX_ROLL];
+			surface_pitch = mc_in[actuator_controls_s::INDEX_PITCH];
+			surface_yaw = mc_in[actuator_controls_s::INDEX_YAW];
+
+		} else if (_vtol_schedule.flight_mode == vtol_mode::FW_MODE) {
+			// Legacy split-controller path: hover/transition surfaces use the
+			// MC controller; fixed-wing surfaces use FW actuator outputs.
 			surface_roll = fw_in[actuator_controls_s::INDEX_YAW];
 			surface_pitch = fw_in[actuator_controls_s::INDEX_PITCH];
 			surface_yaw = -fw_in[actuator_controls_s::INDEX_ROLL];

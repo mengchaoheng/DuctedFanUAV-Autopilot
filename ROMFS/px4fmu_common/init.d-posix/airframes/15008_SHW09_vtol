@@ -12,41 +12,47 @@ param set-default EKF2_FUSE_BETA 0 # side slip fusion is currently not supported
 param set-default CBRK_AIRSPD_CHK 162128
 
 param set-default VT_ELEV_MC_LOCK 1
-param set-default VT_TS_DF_CTRL 1
+param set-default VT_TS_DF_MAP 1
+param set-default VT_TS_MC_RATE 1
 
+# This airframe uses a physical control-effectiveness matrix in the C: mixer:
+# MC_*RATE_* below keep the unitless-B PID baseline. When PID is used with
+# physical B, mc_rate_control scales PID output terms by the P-gain ratio
+# USER_INDI_*_P/MC_*RATE_P. USER_INDI_*_P are the physical-B gains
+# for INDI and physical-B PID.
 # att at MC mode
 param set-default MC_ROLL_P 4
 param set-default MC_PITCH_P 4
 param set-default MC_YAW_P 0.5
 
-# rates at MC mode, but we also use the FW rates controller for it.
-param set-default MC_ROLLRATE_P 4.0
+# MC rate gains for hover/transition and the optional VT_TS_MC_RATE path.
+param set-default MC_ROLLRATE_P 0.45
 param set-default MC_ROLLRATE_I 0.3
 param set-default MC_ROLLRATE_D 0.0
 param set-default MC_ROLLRATE_FF 0
 
-param set-default MC_PITCHRATE_P 4.0
+param set-default MC_PITCHRATE_P 0.45
 param set-default MC_PITCHRATE_I 0.3
 param set-default MC_PITCHRATE_D 0.0
 param set-default MC_PITCHRATE_FF 0
 
-param set-default MC_YAWRATE_P 2.0
+param set-default MC_YAWRATE_P 0.4
 param set-default MC_YAWRATE_I 0.3
 param set-default MC_YAWRATE_D 0
 param set-default MC_YAWRATE_FF 0
 
-param set-default USER_INDI_R_P 4.0
-param set-default USER_INDI_P_P 4.0
-param set-default USER_INDI_Y_P 4.0
-param set-default USER_USE_INDI 0
+param set-default USER_INDI_R_P 15.0
+param set-default USER_INDI_P_P 15.0
+param set-default USER_INDI_Y_P 15.0
+param set-default USER_USE_INDI 1
 param set-default USER_USE_U 1
 param set-default USER_USE_TAUI 1
 param set-default USER_AC_METHOD 0
-param set-default USER_OMEGA_2_F 4.0
+param set-default USER_OMEGA_2_F 4.2
 param set-default USER_TIME_CONST 0.03
 param set-default USER_ACTUATOR 1
 
-param set-default MPC_THR_HOVER 0.5
+param set-default MPC_THR_HOVER 0.48
 param set-default MIS_TAKEOFF_ALT 2.5
 param set-default RTL_RETURN_ALT 2.5
 param set-default RTL_DESCEND_ALT 2.5
@@ -59,15 +65,36 @@ param set-default EKF2_MULTI_IMU 0
 param set-default SENS_IMU_MODE 1
 
 # att for FW mode.
-param set-default FW_ARSP_MODE 1
 param set-default FW_PSP_OFF 2
 
 param set-default FW_ARSP_SCALE_EN 0
 
+# Split-controller fixed-wing rate gains for the physical-B surface allocator
+# when VT_TS_DF_MAP=1 and VT_TS_MC_RATE=0.
+# Unlike MC rate PID, FW rate PID is not automatically scaled from normalized
+# gains to physical-B gains, so these values are already physical-B gains.
+# Prefer VT_TS_MC_RATE=1 when testing one shared rate controller in all modes.
+param set-default FW_RR_P 15.0
+param set-default FW_RR_I 0.1
+param set-default FW_RR_FF 0.5
+param set-default FW_RR_IMAX 0.2
+
+param set-default FW_PR_P 15.0
+param set-default FW_PR_I 0.1
+param set-default FW_PR_FF 0.5
+param set-default FW_PR_IMAX 0.4
+
+param set-default FW_YR_P 10.0
+param set-default FW_YR_I 0.1
+param set-default FW_YR_FF 0.3
+param set-default FW_YR_IMAX 0.2
 
 # FW performance
 param set-default FW_AIRSPD_TRIM 16
-param set-default FW_THR_CRUISE 0.35
+param set-default FW_THR_CRUISE 0.32
+param set-default NAV_LOITER_RAD 80
+param set-default FW_L1_PERIOD 25
+param set-default FW_R_LIM 35
 
 
 param set-default MC_AIRMODE 1

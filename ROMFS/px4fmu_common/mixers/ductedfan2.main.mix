@@ -47,13 +47,12 @@ Motors and control surfaces
 #   u3 pitch servo =  pitch,             output slot 5, U = [-1, 1], type servo
 # The skipped output slots 2 and 3 match the previous null placeholders and
 # the Gazebo model, where servos read input_index 4 and 5.
-# D: 0 marks this as a normalized allocation model. It allocates motor and
+# C: third field 0 marks this as a normalized allocation model. It allocates motor and
 # servo commands together, but it is not a physical angular-acceleration model
 # for rate INDI. A future df2 physical/INDI path should define which rows and
 # actuators form B1/u1 instead of assuming B1 = B.
 -------------
 C: 4 4 0
-D: 0
 S: 0 0
 S: 0 1
 S: 0 2

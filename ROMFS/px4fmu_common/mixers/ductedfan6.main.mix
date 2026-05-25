@@ -10,7 +10,7 @@ range.  Inputs below zero are treated as zero.
 Upper rotor (CVW)
 just thrust
 -------------
-M: 1
+M: 1 0
 S: 0 3       0   20000 -10000 -10000  10000
 
 This mixer is empty.
@@ -56,7 +56,7 @@ Z:
 #   OLD_S 0 1   10000   10000      0 -10000  10000
 #   OLD_S 0 2   10000   10000      0 -10000  10000
 #
-# Normalized equivalent, y = [roll pitch yaw]^T and
+# Legacy normalized equivalent, y = [roll pitch yaw]^T and
 # u_norm = [surface1 surface2 surface3 surface4 surface5 surface6]^T
 #   u_norm = B_inv_norm * y
 #   B_inv_norm =
@@ -71,22 +71,22 @@ Z:
 #        0.0000  -0.2500  -0.2500   0.0000   0.2500   0.2500
 #        0.166667  0.166667  0.166667  0.166667  0.166667  0.166667 ]
 #
-# D: 0 means this is still the legacy-equivalent normalized B. It is valid for
-# allocation tests, but it must not be used as an INDI physical model. Future
-# ductedfan6 INDI support needs a physical B, D: 1, and a model-specific
-# dynamic-B builder in ControlAllocationMixer.
+# Physical model:
+#   The ductedfan6 control-surface effectiveness is the same as ductedfan4,
+#   with six surfaces ordered clockwise 1..6. Thus B * u = angular
+#   acceleration, u in radians, and the pitch row has the opposite sign from
+#   SHC09's counter-clockwise order. USER_OMEGA_2_F updates this B at runtime.
 -------------
-C: 3 6 0
-D: 0
+C: 3 6 1
 S: 0 0
 S: 0 1
 S: 0 2
-B: -0.166667 -0.166667  0.166667  0.166667  0.166667 -0.166667
-B:  0.0000 -0.2500 -0.2500  0.0000  0.2500  0.2500
-B:  0.166667  0.166667  0.166667  0.166667  0.166667  0.166667
-U: -1.0000 1.0000 0 -1 0
-U: -1.0000 1.0000 1 -1 0
-U: -1.0000 1.0000 2 -1 0
-U: -1.0000 1.0000 3 -1 0
-U: -1.0000 1.0000 4 -1 0
-U: -1.0000 1.0000 5 -1 0
+B: -14.5344  -7.2672   7.2672  14.5344   7.2672  -7.2672
+B:   0.0000 -12.5435 -12.5435   0.0000  12.5435  12.5435
+B:  14.1684  14.1684  14.1684  14.1684  14.1684  14.1684
+U: -0.3491 0.3491 0 -1 0
+U: -0.3491 0.3491 1 -1 0
+U: -0.3491 0.3491 2 -1 0
+U: -0.3491 0.3491 3 -1 0
+U: -0.3491 0.3491 4 -1 0
+U: -0.3491 0.3491 5 -1 0

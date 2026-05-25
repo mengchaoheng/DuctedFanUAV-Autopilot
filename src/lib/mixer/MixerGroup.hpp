@@ -98,8 +98,12 @@ public:
 	 *
 	 * A simple mixer definition begins with:
 	 *
-	 *   M: <control count>
+	 *   M: <control count> [thrust_feedback_output_index]
 	 *   O: <-ve scale> <+ve scale> <offset> <lower limit> <upper limit>
+	 *
+	 * The optional thrust_feedback_output_index marks this single M output as a
+	 * normalized thrust motor and publishes actuator_thrust_value for
+	 * model-based acceleration controllers. Omit it for normal simple mixers.
 	 *
 	 * The second line O: can be omitted. In that case 'O: 10000 10000 0 -10000 10000' is used.
 	 * The definition continues with <control count> entries describing the control

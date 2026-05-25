@@ -42,6 +42,18 @@ using namespace matrix;
 using namespace time_literals;
 using math::radians;
 
+namespace
+{
+float physical_b_gain_scale(float physical_p, float normalized_p)
+{
+	if (PX4_ISFINITE(physical_p) && PX4_ISFINITE(normalized_p) && fabsf(normalized_p) > 1e-6f) {
+		return physical_p / normalized_p;
+	}
+
+	return 1.f;
+}
+}
+
 MulticopterRateControl::MulticopterRateControl(bool vtol) :
 	ModuleParams(nullptr),
 	WorkItem(MODULE_NAME, px4::wq_configurations::rate_ctrl),
@@ -84,31 +96,68 @@ MulticopterRateControl::parameters_updated()
 	// roll  scale: 0.3491f*2*14.5344 = 10.15
 	// pitch scale: 0.3491f*2*14.4840 = 10.11
 	// yaw   scale: 0.3491f*4*14.1684 = 19.78
-	const Vector3f rate_k = Vector3f(_param_mc_rollrate_k.get(), _param_mc_pitchrate_k.get(), _param_mc_yawrate_k.get());
-
 	_indi_control.setParams(Vector3f(_param_mc_indiroll_p.get(), _param_mc_indipitch_p.get(), _param_mc_indiyaw_p.get()),  _param_omega_2_force.get());
 
 	_use_indi=_param_use_indi.get();
 	_use_tau_i=_param_use_tau_i.get();
 	_use_u=_param_use_u.get();
 
-	_rate_control.setGains(
-		rate_k.emult(Vector3f(_param_mc_rollrate_p.get(), _param_mc_pitchrate_p.get(), _param_mc_yawrate_p.get())),
-		rate_k.emult(Vector3f(_param_mc_rollrate_i.get(), _param_mc_pitchrate_i.get(), _param_mc_yawrate_i.get())),
-		rate_k.emult(Vector3f(_param_mc_rollrate_d.get(), _param_mc_pitchrate_d.get(), _param_mc_yawrate_d.get())));
-
-	_rate_control.setIntegratorLimit(
-		Vector3f(_param_mc_rr_int_lim.get(), _param_mc_pr_int_lim.get(), _param_mc_yr_int_lim.get()));
-
-	_rate_control.setFeedForwardGain(
-		Vector3f(_param_mc_rollrate_ff.get(), _param_mc_pitchrate_ff.get(), _param_mc_yawrate_ff.get()));
-
+	update_rate_control_gains();
 
 	// manual rate control acro mode rate limits
 	_acro_rate_max = Vector3f(radians(_param_mc_acro_r_max.get()), radians(_param_mc_acro_p_max.get()),
 				  radians(_param_mc_acro_y_max.get()));
 
 	_actuators_0_circuit_breaker_enabled = circuit_breaker_enabled_by_val(_param_cbrk_rate_ctrl.get(), CBRK_RATE_CTRL_KEY);
+}
+
+void
+MulticopterRateControl::allocation_value_poll()
+{
+	if (_allocation_value_sub.update(&_allocation_value)) {
+		const bool physical_b = _allocation_value.indi_valid &&
+					_allocation_value.b_unit == allocation_value_s::B_UNIT_PHYSICAL;
+
+		if (_allocation_value_physical_b != physical_b) {
+			_allocation_value_physical_b = physical_b;
+			_rate_control.resetIntegral();
+			update_rate_control_gains();
+		}
+	}
+}
+
+void
+MulticopterRateControl::update_rate_control_gains()
+{
+	const Vector3f rate_k(_param_mc_rollrate_k.get(), _param_mc_pitchrate_k.get(), _param_mc_yawrate_k.get());
+
+	const Vector3f normalized_p(_param_mc_rollrate_p.get(), _param_mc_pitchrate_p.get(), _param_mc_yawrate_p.get());
+	const Vector3f physical_p(_param_mc_indiroll_p.get(), _param_mc_indipitch_p.get(), _param_mc_indiyaw_p.get());
+
+	Vector3f output_scale(1.f, 1.f, 1.f);
+
+	if (_allocation_value_physical_b) {
+		// MC_*RATE_* remains the unitless-B PID tuning. With a physical B matrix,
+		// PID outputs dimensional y, so scale all output-producing PID terms by
+		// the P-gain ratio USER_INDI_*_P / MC_*RATE_P. That keeps the original
+		// unitless PID parameters intact while giving physical-B PID the same
+		// output units as INDI.
+		output_scale = Vector3f(
+				       physical_b_gain_scale(physical_p(0), normalized_p(0)),
+				       physical_b_gain_scale(physical_p(1), normalized_p(1)),
+				       physical_b_gain_scale(physical_p(2), normalized_p(2)));
+	}
+
+	_rate_control.setGains(
+		rate_k.emult(normalized_p.emult(output_scale)),
+		rate_k.emult(Vector3f(_param_mc_rollrate_i.get(), _param_mc_pitchrate_i.get(), _param_mc_yawrate_i.get()).emult(output_scale)),
+		rate_k.emult(Vector3f(_param_mc_rollrate_d.get(), _param_mc_pitchrate_d.get(), _param_mc_yawrate_d.get()).emult(output_scale)));
+
+	_rate_control.setIntegratorLimit(
+		Vector3f(_param_mc_rr_int_lim.get(), _param_mc_pr_int_lim.get(), _param_mc_yr_int_lim.get()).emult(output_scale));
+
+	_rate_control.setFeedForwardGain(
+		Vector3f(_param_mc_rollrate_ff.get(), _param_mc_pitchrate_ff.get(), _param_mc_yawrate_ff.get()).emult(output_scale));
 }
 
 void
@@ -263,7 +312,7 @@ MulticopterRateControl::Run()
 			Vector3f indi_fb(0.f,0.f,0.f);
 			Vector3f att_control(0.f,0.f,0.f);
 			Vector3f error_fb(0.f,0.f,0.f);
-			_allocation_value_sub.update(&_allocation_value);
+			allocation_value_poll();
 			float indi_dt=0.0f;
 			bool control_flag=false;
 			// run rate controller

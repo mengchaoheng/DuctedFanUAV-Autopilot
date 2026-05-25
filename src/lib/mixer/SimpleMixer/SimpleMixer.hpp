@@ -35,6 +35,12 @@
 
 #include <mixer/MixerBase/Mixer.hpp>
 
+#include <math.h>
+#include <mathlib/math/filter/LowPassFilter2p.hpp>
+#include <parameters/param.h>
+#include <uORB/Publication.hpp>
+#include <uORB/topics/actuator_thrust_value.h>
+
 /** simple channel scaler */
 struct mixer_scaler_s {
 	float negative_scale{1.0f};
@@ -56,6 +62,7 @@ struct mixer_control_s {
 /** simple mixer */
 struct mixer_simple_s {
 	uint8_t			control_count;	/**< number of inputs */
+	int8_t			thrust_feedback_output_index{-1}; /**< publish actuator_thrust_value for this output when >= 0 */
 	mixer_scaler_s		output_scaler;	/**< scaling for the output */
 	float 			slew_rate_rise_time{0.0f}; /**< output max rise time (slew rate limit)*/
 	mixer_control_s		controls[];	/**< actual size of the array is set by control_count */
@@ -144,9 +151,22 @@ private:
 	static int parse_output_scaler(const char *buf, unsigned &buflen, mixer_scaler_s &scaler, float &slew_rate_rise_time);
 	static int parse_control_scaler(const char *buf, unsigned &buflen, mixer_scaler_s &scaler, uint8_t &control_group,
 					uint8_t &control_index);
+	static float first_order_update_zoh(float u, float y_prev, float time_constant, float dt);
+
+	void update_thrust_feedback(float &output);
 
 	float 				_output_prev{0.f};
 	float				_dt{0.f};
+	param_t				_thrust_cutoff_param{PARAM_INVALID};
+	param_t				_thrust_time_const_param{PARAM_INVALID};
+	param_t				_thrust_actuator_param{PARAM_INVALID};
+	float				_last_motor_cutoff{NAN};
+	float				_last_motor_feedback_sample_freq{NAN};
+	float				_thrust_motor_estimate{0.f};
+	float				_thrust_motor_cmd{0.f};
+	float				_thrust_motor_feedback{0.f};
+	math::LowPassFilter2p<float>	_thrust_motor_feedback_filter;
+	uORB::Publication<actuator_thrust_value_s> _actuator_thrust_value_pub{ORB_ID(actuator_thrust_value)};
 
 	mixer_simple_s			*_pinfo;
 

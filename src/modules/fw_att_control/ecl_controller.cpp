@@ -63,7 +63,8 @@ ECL_Controller::ECL_Controller() :
 	_integrator(0.0f),
 	_rate_error(0.0f),
 	_rate_setpoint(0.0f),
-	_bodyrate_setpoint(0.0f)
+	_bodyrate_setpoint(0.0f),
+	_rate_output_limited(true)
 {
 }
 
@@ -109,6 +110,11 @@ void ECL_Controller::set_bodyrate_setpoint(float rate)
 	_bodyrate_setpoint = math::constrain(rate, -_max_rate, _max_rate);
 }
 
+void ECL_Controller::set_rate_output_limited(bool limited)
+{
+	_rate_output_limited = limited;
+}
+
 float ECL_Controller::get_rate_error()
 {
 	return _rate_error;
@@ -142,4 +148,9 @@ float ECL_Controller::constrain_airspeed(float airspeed, float minspeed, float m
 	}
 
 	return airspeed_result;
+}
+
+float ECL_Controller::apply_rate_output_limit(float output) const
+{
+	return _rate_output_limited ? math::constrain(output, -1.0f, 1.0f) : output;
 }

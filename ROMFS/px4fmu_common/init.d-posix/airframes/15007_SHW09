@@ -23,6 +23,11 @@
 . ${R}etc/init.d/rc.mc_defaults
 
 
+# This airframe uses a physical control-effectiveness matrix in the C: mixer:
+# MC_*RATE_* below keep the unitless-B PID baseline. When PID is used with
+# physical B, mc_rate_control scales PID output terms by the P-gain ratio
+# USER_INDI_*_P/MC_*RATE_P. USER_INDI_*_P are the physical-B gains
+# for INDI and physical-B PID.
 param set-default MC_ROLL_P 6
 param set-default MC_ROLLRATE_P 0.45
 param set-default MC_ROLLRATE_I 0.3
@@ -41,9 +46,9 @@ param set-default MC_YAWRATE_I 0.3
 param set-default MC_YAWRATE_D 0
 param set-default MC_YAWRATE_FF 0
 
-param set-default USER_INDI_R_P 6.0
-param set-default USER_INDI_P_P 6.0
-param set-default USER_INDI_Y_P 6.0
+param set-default USER_INDI_R_P 15.0
+param set-default USER_INDI_P_P 15.0
+param set-default USER_INDI_Y_P 15.0
 param set-default USER_USE_INDI 1
 param set-default USER_USE_U 1
 param set-default USER_USE_TAUI 1

@@ -39,6 +39,10 @@
 
 #include "SimpleMixer.hpp"
 
+#include <drivers/drv_hrt.h>
+#include <float.h>
+#include <math.h>
+#include <px4_platform_common/defines.h>
 #include <stdio.h>
 #include <stdlib.h>
 
@@ -47,6 +51,9 @@
 
 SimpleMixer::SimpleMixer(ControlCallback control_cb, uintptr_t cb_handle, mixer_simple_s *mixinfo) :
 	Mixer(control_cb, cb_handle),
+	_thrust_cutoff_param(param_find("USER_THR_CUTOFF")),
+	_thrust_time_const_param(param_find("USER_THR_TCONST")),
+	_thrust_actuator_param(param_find("USER_THR_ACT")),
 	_pinfo(mixinfo)
 {
 }
@@ -162,6 +169,7 @@ SimpleMixer::from_text(Mixer::ControlCallback control_cb, uintptr_t cb_handle, c
 	SimpleMixer *sm = nullptr;
 	mixer_simple_s *mixinfo = nullptr;
 	unsigned inputs;
+	int thrust_feedback_output_index = -1;
 	int used;
 	const char *end = buf + buflen;
 	char next_tag;
@@ -172,7 +180,9 @@ SimpleMixer::from_text(Mixer::ControlCallback control_cb, uintptr_t cb_handle, c
 	}
 
 	/* get the base info for the mixer */
-	if (sscanf(buf, "M: %u%n", &inputs, &used) != 1) {
+	const int parsed = sscanf(buf, "M: %u %d%n", &inputs, &thrust_feedback_output_index, &used);
+
+	if (parsed < 1) {
 		debug("simple parse failed on '%s'", buf);
 		goto out;
 	}
@@ -198,6 +208,7 @@ SimpleMixer::from_text(Mixer::ControlCallback control_cb, uintptr_t cb_handle, c
 	}
 
 	mixinfo->control_count = inputs;
+	mixinfo->thrust_feedback_output_index = static_cast<int8_t>(thrust_feedback_output_index);
 
 	/* find the next tag */
 	next_tag = findnexttag(end - buflen, buflen);
@@ -250,6 +261,108 @@ out:
 	return sm;
 }
 
+float
+SimpleMixer::first_order_update_zoh(float u, float y_prev, float time_constant, float dt)
+{
+	if (time_constant < 1e-6f) {
+		return u;
+	}
+
+	const float a = expf(-dt / time_constant);
+	return a * y_prev + (1.f - a) * u;
+}
+
+void
+SimpleMixer::update_thrust_feedback(float &output)
+{
+	if (_pinfo == nullptr || _pinfo->thrust_feedback_output_index < 0) {
+		return;
+	}
+
+	const float dt = (_dt > FLT_EPSILON) ? _dt : 0.005f;
+	const float sample_freq = 1.f / dt;
+
+	actuator_thrust_value_s msg {};
+	msg.timestamp = hrt_absolute_time();
+	msg.output_index = static_cast<uint8_t>(_pinfo->thrust_feedback_output_index);
+	msg.thrust_umin = 0.f;
+	msg.thrust_umax = 1.f;
+
+	if (!PX4_ISFINITE(output) || sample_freq <= FLT_EPSILON) {
+		msg.valid = false;
+		_actuator_thrust_value_pub.publish(msg);
+		return;
+	}
+
+	float motor_cutoff = 30.f;
+
+	if (_thrust_cutoff_param != PARAM_INVALID) {
+		param_get(_thrust_cutoff_param, &motor_cutoff);
+	}
+
+	if (!PX4_ISFINITE(motor_cutoff) || motor_cutoff < 0.f) {
+		motor_cutoff = 0.f;
+	}
+
+	const bool sample_freq_changed = !PX4_ISFINITE(_last_motor_feedback_sample_freq) ||
+					 fabsf(sample_freq - _last_motor_feedback_sample_freq) >
+					 0.01f * _last_motor_feedback_sample_freq;
+
+	if (!PX4_ISFINITE(_last_motor_cutoff) || fabsf(motor_cutoff - _last_motor_cutoff) > 0.1f || sample_freq_changed) {
+		_thrust_motor_feedback_filter.set_cutoff_frequency(sample_freq, motor_cutoff);
+		_thrust_motor_feedback_filter.reset(_thrust_motor_feedback);
+		_last_motor_cutoff = motor_cutoff;
+	}
+
+	if (sample_freq_changed) {
+		_last_motor_feedback_sample_freq = sample_freq;
+	}
+
+	const float thrust_u = math::constrain(0.5f * (math::constrain(output, -1.f, 1.f) + 1.f), 0.f, 1.f);
+	float motor_time_const = 0.01f;
+
+	if (_thrust_time_const_param != PARAM_INVALID) {
+		param_get(_thrust_time_const_param, &motor_time_const);
+	}
+
+	if (!PX4_ISFINITE(motor_time_const)) {
+		motor_time_const = 0.01f;
+	}
+
+	motor_time_const = math::constrain(motor_time_const, 0.f, 0.2f);
+	_thrust_motor_estimate = first_order_update_zoh(thrust_u, _thrust_motor_estimate, motor_time_const, dt);
+
+#if defined(__PX4_POSIX)
+	int32_t use_actuator = 0;
+
+	if (_thrust_actuator_param != PARAM_INVALID) {
+		param_get(_thrust_actuator_param, &use_actuator);
+	}
+
+	if (use_actuator == 1) {
+		_thrust_motor_cmd = math::constrain(_thrust_motor_estimate, 0.f, 1.f);
+		output = math::constrain(2.f * _thrust_motor_cmd - 1.f, -1.f, 1.f);
+
+	} else {
+		_thrust_motor_cmd = thrust_u;
+	}
+
+	const float feedback_source = _thrust_motor_cmd;
+#else
+	// Real flight sends the mixer command to the physical motor. The
+	// first-order model is only an estimate for model-based controller feedback.
+	_thrust_motor_cmd = thrust_u;
+	const float feedback_source = _thrust_motor_estimate;
+#endif
+
+	_thrust_motor_feedback = math::constrain(_thrust_motor_feedback_filter.apply(feedback_source), 0.f, 1.f);
+
+	msg.valid = true;
+	msg.thrust_u = thrust_u;
+	msg.thrust_u_ultimate = _thrust_motor_feedback;
+	_actuator_thrust_value_pub.publish(msg);
+}
+
 unsigned
 SimpleMixer::mix(float *outputs, unsigned space)
 {
@@ -291,6 +404,8 @@ SimpleMixer::mix(float *outputs, unsigned space)
 		}
 
 	}
+
+	update_thrust_feedback(*outputs);
 
 	// this will force the caller of the mixer to always supply dt values, otherwise no slew rate limiting will happen
 	_dt = 0.f;

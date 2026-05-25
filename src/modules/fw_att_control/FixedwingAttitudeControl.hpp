@@ -53,6 +53,7 @@
 #include <uORB/Subscription.hpp>
 #include <uORB/SubscriptionCallback.hpp>
 #include <uORB/topics/actuator_controls.h>
+#include <uORB/topics/allocation_value.h>
 #include <uORB/topics/airspeed_validated.h>
 #include <uORB/topics/battery_status.h>
 #include <uORB/topics/manual_control_setpoint.h>
@@ -94,12 +95,15 @@ public:
 
 private:
 	void Run() override;
+	void allocation_value_poll();
+	void update_rate_output_limit();
 
 	uORB::SubscriptionCallbackWorkItem _att_sub{this, ORB_ID(vehicle_attitude)};	/**< vehicle attitude */
 
 	uORB::SubscriptionInterval _parameter_update_sub{ORB_ID(parameter_update), 1_s};
 
 	uORB::Subscription _att_sp_sub{ORB_ID(vehicle_attitude_setpoint)};		/**< vehicle attitude setpoint */
+	uORB::Subscription _allocation_value_sub{ORB_ID(allocation_value)};		/**< mixer allocation model status */
 	uORB::Subscription _battery_status_sub{ORB_ID(battery_status)};			/**< battery status subscription */
 	uORB::Subscription _local_pos_sub{ORB_ID(vehicle_local_position)};		/**< local position subscription */
 	uORB::Subscription _manual_control_setpoint_sub{ORB_ID(manual_control_setpoint)};		/**< notification of manual control updates */
@@ -140,6 +144,7 @@ private:
 	bool _flag_control_attitude_enabled_last{false};
 
 	bool _is_tailsitter{false};
+	bool _allocation_value_physical_b{false};
 
 	DEFINE_PARAMETERS(
 		(ParamFloat<px4::params::FW_ACRO_X_MAX>) _param_fw_acro_x_max,
@@ -207,7 +212,10 @@ private:
 
 		(ParamFloat<px4::params::TRIM_PITCH>) _param_trim_pitch,
 		(ParamFloat<px4::params::TRIM_ROLL>) _param_trim_roll,
-		(ParamFloat<px4::params::TRIM_YAW>) _param_trim_yaw
+		(ParamFloat<px4::params::TRIM_YAW>) _param_trim_yaw,
+
+		(ParamInt<px4::params::VT_TS_DF_MAP>) _param_vt_ts_df_map,
+		(ParamInt<px4::params::VT_TS_MC_RATE>) _param_vt_ts_mc_rate
 	)
 
 	ECL_RollController		_roll_ctrl;

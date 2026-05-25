@@ -37,18 +37,30 @@ PARAM_DEFINE_INT32(MOT_ORDERING, 0);
 /**
  * USER_AC_METHOD
  *
- * Runtime method override for C: ControlAllocationMixer.
+ * Runtime allocation method for C: ControlAllocationMixer.
  *
- * @value -1 Use method from mix file
  * @value 0 INV
  * @value 1 WLS
  * @value 2 DIR
  * @value 3 PCA
- * @min -1
+ * @min 0
  * @max 3
  * @group Mixer Output
  */
-PARAM_DEFINE_INT32(USER_AC_METHOD, -1);
+PARAM_DEFINE_INT32(USER_AC_METHOD, 0);
+
+/**
+ * USER_PINV_ALWAYS
+ *
+ * Force the C: ControlAllocationMixer to recompute B pseudo-inverse on every
+ * mix cycle. Leave disabled to recompute only when the mix file is loaded or
+ * the active physical B is rebuilt.
+ *
+ * @value 0 Recompute only when B changes
+ * @value 1 Recompute every mix cycle
+ * @group Mixer Output
+ */
+PARAM_DEFINE_INT32(USER_PINV_ALWAYS, 0);
 
 /**
  * USER_ADD_DIST
@@ -77,6 +89,39 @@ PARAM_DEFINE_INT32(USER_ADD_DIST, 0);
 * @group Mixer Output
 */
 PARAM_DEFINE_FLOAT(USER_CS_CUTOFF, 10.0f);
+
+/**
+* USER_MOT_CUTOFF
+*
+* Low pass filter cutoff frequency for virtual motor feedback in the C:
+* ControlAllocationMixer path.
+*
+* A value of 0 disables the filter.
+*
+* @min 0
+* @max 1000
+* @unit Hz
+* @group Mixer Output
+*/
+PARAM_DEFINE_FLOAT(USER_MOT_CUTOFF, 30.0f);
+
+/**
+* USER_THR_CUTOFF
+*
+* Low pass filter cutoff frequency for the first thrust motor feedback
+* published by marked M: SimpleMixer outputs.
+*
+* This is intentionally separate from USER_MOT_CUTOFF, which is reserved for
+* C: ControlAllocationMixer actuator feedback.
+*
+* A value of 0 disables the filter.
+*
+* @min 0
+* @max 1000
+* @unit Hz
+* @group Mixer Output
+*/
+PARAM_DEFINE_FLOAT(USER_THR_CUTOFF, 30.0f);
 
 /**
 * USER_DIST_MAG
@@ -110,7 +155,7 @@ PARAM_DEFINE_FLOAT(USER_TIME_CONST, 0.03f);
 /**
 * USER_MOT_TCONST
 *
-* Time constant of virtual motors.
+* Time constant of virtual motors in the C: ControlAllocationMixer path.
 *
 * @min 0.0001
 * @max 0.1
@@ -122,13 +167,32 @@ PARAM_DEFINE_FLOAT(USER_TIME_CONST, 0.03f);
 PARAM_DEFINE_FLOAT(USER_MOT_TCONST, 0.01f);
 
 /**
+* USER_THR_TCONST
+*
+* Time constant of the virtual first thrust motor used by marked M:
+* SimpleMixer outputs.
+*
+* This is intentionally separate from USER_MOT_TCONST, which is reserved for
+* C: ControlAllocationMixer actuator feedback.
+*
+* @min 0
+* @max 0.1
+* @unit s
+* @decimal 4
+* @increment 0.0001
+* @group Mixer Output
+*/
+PARAM_DEFINE_FLOAT(USER_THR_TCONST, 0.01f);
+
+/**
  * USER_ACTUATOR
  *
- * Enable the C: ControlAllocationMixer virtual actuator in the output path.
+ * Enable virtual actuator dynamics in the SITL output path.
  *
  * This parameter is only effective in SITL/POSIX builds. Set it to 1 to send
- * the first-order actuator response to Gazebo, or 0 to send the allocated
- * command directly. Real flight builds ignore it and always send the allocated
+ * the first-order actuator response to Gazebo, or 0 to send the mixer command
+ * directly. It applies to C: ControlAllocationMixer actuators. Real flight
+ * builds ignore it and always send the mixer
  * command; controller feedback still uses the internal actuator estimate.
  *
  * @value 0 send allocated command directly
@@ -136,3 +200,24 @@ PARAM_DEFINE_FLOAT(USER_MOT_TCONST, 0.01f);
  * @group Mixer Output
  */
 PARAM_DEFINE_INT32(USER_ACTUATOR, 0);
+
+/**
+ * USER_THR_ACT
+ *
+ * Enable virtual first thrust motor dynamics in the SITL M: SimpleMixer output
+ * path.
+ *
+ * This parameter is only effective in SITL/POSIX builds and only for marked
+ * M: outputs such as "M: 1 0". Set it to 1 to send the first-order virtual
+ * motor response to Gazebo, or 0 to send the mixer command directly. Real
+ * flight builds ignore it and always send the mixer command; controller
+ * feedback still uses the internal motor estimate.
+ *
+ * This is intentionally separate from USER_ACTUATOR, which is reserved for
+ * C: ControlAllocationMixer actuator feedback.
+ *
+ * @value 0 send mixer command directly
+ * @value 1 send first-order virtual motor output
+ * @group Mixer Output
+ */
+PARAM_DEFINE_INT32(USER_THR_ACT, 0);

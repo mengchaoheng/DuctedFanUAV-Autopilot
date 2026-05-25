@@ -87,7 +87,7 @@ PARAM_DEFINE_INT32(VT_TYPE, 0);
 PARAM_DEFINE_INT32(VT_ELEV_MC_LOCK, 1);
 
 /**
- * Enable ducted-fan tailsitter control mapping
+ * Enable ducted-fan tailsitter output mapping
  *
  * If enabled, actuator group 0 carries motor throttle only and actuator
  * group 1 carries body-frame surface moments [roll, pitch, yaw].
@@ -95,7 +95,25 @@ PARAM_DEFINE_INT32(VT_ELEV_MC_LOCK, 1);
  * @boolean
  * @group VTOL Attitude Control
  */
-PARAM_DEFINE_INT32(VT_TS_DF_CTRL, 0);
+PARAM_DEFINE_INT32(VT_TS_DF_MAP, 0);
+
+/**
+ * Route ducted-fan tailsitter surfaces through MC rate control
+ *
+ * If enabled together with VT_TS_DF_MAP, fixed-wing attitude control publishes
+ * tailsitter body-frame rate setpoints for the multicopter rate controller, and
+ * actuator group 1 is driven from actuator_controls_virtual_mc in all modes.
+ * If disabled, the ducted-fan mapping keeps the legacy split-controller path:
+ * multicopter controller in hover/transition and fixed-wing actuator outputs
+ * in fixed-wing mode. In that split-controller path, fixed-wing rate controller
+ * output is kept unlimited only when the active mixer reports a physical B
+ * matrix through allocation_value. With a unitless B matrix it remains limited
+ * to [-1, 1], and the fixed-wing rate gains must match that unitless convention.
+ *
+ * @boolean
+ * @group VTOL Attitude Control
+ */
+PARAM_DEFINE_INT32(VT_TS_MC_RATE, 0);
 
 /**
  * Duration of a front transition

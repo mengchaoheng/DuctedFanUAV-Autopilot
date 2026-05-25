@@ -91,6 +91,7 @@ public:
 	void set_integrator_max(float max);
 	void set_max_rate(float max_rate);
 	void set_bodyrate_setpoint(float rate);
+	void set_rate_output_limited(bool limited);
 
 	/* Getters */
 	float get_rate_error();
@@ -113,5 +114,7 @@ protected:
 	float _rate_error;
 	float _rate_setpoint;
 	float _bodyrate_setpoint;
+	bool _rate_output_limited;
 	float constrain_airspeed(float airspeed, float minspeed, float maxspeed);
+	float apply_rate_output_limit(float output) const;
 };

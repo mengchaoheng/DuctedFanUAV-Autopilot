@@ -67,7 +67,8 @@ VtolAttitudeControl::VtolAttitudeControl() :
 	_params_handles.vtol_fw_permanent_stab = param_find("VT_FW_PERM_STAB");
 	_params_handles.vtol_type = param_find("VT_TYPE");
 	_params_handles.elevons_mc_lock = param_find("VT_ELEV_MC_LOCK");
-	_params_handles.tailsitter_ductedfan_control = param_find("VT_TS_DF_CTRL");
+	_params_handles.tailsitter_ductedfan_mapping = param_find("VT_TS_DF_MAP");
+	_params_handles.tailsitter_mc_rate_surfaces = param_find("VT_TS_MC_RATE");
 	_params_handles.fw_min_alt = param_find("VT_FW_MIN_ALT");
 	_params_handles.fw_alt_err = param_find("VT_FW_ALT_ERR");
 	_params_handles.fw_qc_max_pitch = param_find("VT_FW_QC_P");
@@ -232,8 +233,11 @@ VtolAttitudeControl::parameters_update()
 	param_get(_params_handles.elevons_mc_lock, &l);
 	_params.elevons_mc_lock = (l == 1);
 
-	param_get(_params_handles.tailsitter_ductedfan_control, &l);
-	_params.tailsitter_ductedfan_control = (l == 1);
+	param_get(_params_handles.tailsitter_ductedfan_mapping, &l);
+	_params.tailsitter_ductedfan_mapping = (l == 1);
+
+	param_get(_params_handles.tailsitter_mc_rate_surfaces, &l);
+	_params.tailsitter_mc_rate_surfaces = (l == 1);
 
 	/* minimum relative altitude for FW mode (QuadChute) */
 	param_get(_params_handles.fw_min_alt, &v);
@@ -367,7 +371,8 @@ VtolAttitudeControl::Run()
 		break;
 
 	case mode::FIXED_WING:
-		should_run = updated_fw_in;
+		should_run = updated_fw_in || (_params.tailsitter_ductedfan_mapping &&
+					       _params.tailsitter_mc_rate_surfaces && updated_mc_in);
 		break;
 	}
 

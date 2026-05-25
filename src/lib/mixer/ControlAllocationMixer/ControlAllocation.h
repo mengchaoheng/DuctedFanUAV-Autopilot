@@ -1929,45 +1929,33 @@ public:
         // equals N*(N'*u), the component of u in null(B).  This avoids
         // directly inverting the often ill-conditioned augmented matrix
         // [B;u'] and avoids needing an SVD/null-space routine on target.
-        Vector<double, EffectorSize> u_current_d;
-        Matrix<double, ControlSize, EffectorSize> B_d;
-        for(int i=0;i<EffectorSize;++i){
-            u_current_d(i)=static_cast<double>(u_current(i));
-        }
-        for(int i=0;i<ControlSize;++i){
-            for(int j=0;j<EffectorSize;++j){
-                B_d(i,j)=static_cast<double>(B(i,j));
-            }
-        }
-        Vector<double, ControlSize> achieved = B_d * u_current_d;
-        SquareMatrix<double, ControlSize> B_B_t = B_d * B_d.transpose();
-        Vector<double, ControlSize> row_solution;
+        Vector<float, ControlSize> achieved = B * u_current;
+        SquareMatrix<float, ControlSize> B_B_t = B * B.transpose();
+        Vector<float, ControlSize> row_solution;
         if(!solveSquareLU(B_B_t, achieved, row_solution)){
             for(int i=0;i<EffectorSize;++i){
                 u_rest[i]=u[i];
             }
             return;
         }
-        Vector<double, EffectorSize> u_pseudo = B_d.transpose() * row_solution;
-        Vector<double, EffectorSize> null_component = u_current_d - u_pseudo;
-        const double null_component_norm_squared = null_component.norm_squared();
-        if(null_component_norm_squared < static_cast<double>(restoring_tol) * restoring_tol){
+        Vector<float, EffectorSize> u_pseudo = B.transpose() * row_solution;
+        Vector<float, EffectorSize> null_component = u_current - u_pseudo;
+        const float null_component_norm_squared = null_component.norm_squared();
+        if(null_component_norm_squared < restoring_tol * restoring_tol){
             for(int i=0;i<EffectorSize;++i){
                 u_rest[i]=u[i];
             }
             return;
         }
-        Vector<double, EffectorSize> u_null_d;
         for(int i=0;i<EffectorSize;++i){
-            u_null_d(i)=static_cast<double>(a_constant) * null_component(i) / null_component_norm_squared;
-            u_null(i)=static_cast<float>(u_null_d(i));
+            u_null(i)=a_constant * null_component(i) / null_component_norm_squared;
         }
 
         // % R=rank(B_aug) = k
         // % by all(abs(null(B)'*u)) < eps or norm(null(B)'*u)<100*eps or rank([B_aug v_aug]) ~= rank(B_aug)
         // % for cpp is difficult to calc null(B) but we can calc
         // % norm(B*u_null)>0.00001
-        matrix::Vector<double, ControlSize> tmp= B_d*u_null_d;
+        matrix::Vector<float, ControlSize> tmp= B*u_null;
         if(tmp.norm() > restoring_residual_tol){ // a=0
             for(int i=0;i<EffectorSize;++i){
                 u_rest[i]=u[i];

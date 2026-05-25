@@ -88,6 +88,8 @@ private:
 	 * initialize some vectors/matrices from parameters
 	 */
 	void		parameters_updated();
+	void		allocation_value_poll();
+	void		update_rate_control_gains();
 
 	RateControl _rate_control; ///< class for rate control calculations
 	IndiControl _indi_control;
@@ -121,6 +123,7 @@ private:
 	hrt_abstime _rate_control_running_time_us{0};
 	allocation_value_s _allocation_value{};
 	// bool _actuator_outputs_sub_flag{false};
+	bool _allocation_value_physical_b{false};
 	bool _use_indi{false};
 	bool _use_tau_i{true};
 	bool _use_u{true};

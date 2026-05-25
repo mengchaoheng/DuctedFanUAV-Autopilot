@@ -53,14 +53,13 @@
  *
  * Text format:
  *
- * C: <y_dim> <u_dim> <method>
- * method: 0 INV, 1 WLS, 2 DIR, 3 PCA.
- * USER_AC_METHOD can override the method at runtime. Set it to -1 to use the
- * method from the C: line.
- * D: <b_unit>
- * b_unit: 0 normalized/unitless B, 1 physical/dimensional B. The line is
- * optional and defaults to 0. INDI may only use allocation_value.b and
- * allocation_value.u_ultimate when b_unit is physical.
+ * C: <y_dim> <u_dim> <b_unit>
+ * b_unit: 0 normalized/unitless B, 1 physical/dimensional B. INDI may only use
+ * allocation_value.b and allocation_value.u_ultimate when b_unit is physical.
+ * USER_AC_METHOD selects the allocation method at runtime:
+ * 0 INV, 1 WLS, 2 DIR, 3 PCA.
+ * USER_PINV_ALWAYS can force B_pinv recomputation every mix cycle. Leave it
+ * disabled for the normal path where B_pinv updates only when B changes.
  * S: <group> <index>
  * ...
  * B: <b_row_0_col_0> ... <b_row_0_col_n>
@@ -98,8 +97,8 @@
  *
  * Runtime B reconstruction, active limit shrinking, and actuator disturbance
  * signs are also model/layout-specific hooks. The current physical hooks cover
- * ductedfan4, SHC09, SHW09, and SHW09_vtol. ductedfan2/ductedfan6 currently
- * use normalized B in their mix files, so they intentionally do not publish a
+ * ductedfan4, ductedfan6, SHC09, SHW09, and SHW09_vtol. ductedfan2 currently
+ * uses a normalized B in its mix file, so it intentionally does not publish a
  * physical INDI model or run dynamic physical-B updates yet.
  *
  * S lines define the y vector order. They do not imply normalized units:
@@ -194,11 +193,13 @@ private:
 	static void debug_b_pinv(const Config &config);
 	static bool control_axis_from_index(uint8_t index, uint8_t &axis);
 	static bool is_ductedfan4_physical_config(const Config &config);
+	static bool is_ductedfan6_physical_config(const Config &config);
 	static bool is_ductedfan4_normalized_config(const Config &config);
 	static bool is_shc09_physical_config(const Config &config);
 	static bool is_shw09_physical_config(const Config &config);
 	static bool is_shw09_vtol_physical_config(const Config &config);
 	static bool build_ductedfan4_B(float k, float B[MAX_Y][MAX_U]);
+	static bool build_ductedfan6_B(float k, float B[MAX_Y][MAX_U]);
 	static bool build_shc09_B(float k, float B[MAX_Y][MAX_U]);
 	static bool build_shw09_B(float k, float B[MAX_Y][MAX_U]);
 	static bool build_shw09_vtol_B(float k, float B[MAX_Y][MAX_U]);
@@ -231,16 +232,18 @@ private:
 	param_t _dist_mag_param{PARAM_INVALID};
 	param_t _omega_2_force_param{PARAM_INVALID};
 	param_t _airframe_param{PARAM_INVALID};
-		param_t _cs_cutoff_param{PARAM_INVALID};
-		param_t _time_const_param{PARAM_INVALID};
-		param_t _motor_time_const_param{PARAM_INVALID};
-		param_t _use_actuator_param{PARAM_INVALID};
+	param_t _pinv_always_param{PARAM_INVALID};
+	param_t _cs_cutoff_param{PARAM_INVALID};
+	param_t _time_const_param{PARAM_INVALID};
+	param_t _motor_time_const_param{PARAM_INVALID};
+	param_t _use_actuator_param{PARAM_INVALID};
 	int32_t _last_dist_enable{-1};
 	float _last_dist_mag{NAN};
 	bool _runtime_disturbance_enabled{false};
 	float _runtime_disturbance_mag_u{0.f};
 	float _last_omega_2_force{NAN};
 	bool _model_ductedfan4_physical{false};
+	bool _model_ductedfan6_physical{false};
 	bool _model_ductedfan4_normalized{false};
 	bool _model_shc09_physical{false};
 	bool _model_shw09_physical{false};

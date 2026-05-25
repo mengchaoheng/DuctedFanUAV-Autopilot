@@ -39,6 +39,7 @@ set(msg_files
 	actuator_controls.msg
 	actuator_outputs.msg
 	actuator_outputs_value.msg
+	actuator_thrust_value.msg
 	allocation_value.msg
 	adc_report.msg
 	airspeed.msg

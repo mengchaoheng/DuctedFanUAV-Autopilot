@@ -40,6 +40,21 @@ using math::constrain;
 using math::gradual;
 using math::radians;
 
+namespace
+{
+void convert_tailsitter_fw_rates_to_mc_body(vehicle_rates_setpoint_s &rates_sp)
+{
+	const float fw_roll = rates_sp.roll;
+	rates_sp.roll = rates_sp.yaw;
+	rates_sp.yaw = -fw_roll;
+
+	const float fw_thrust = rates_sp.thrust_body[0];
+	rates_sp.thrust_body[0] = 0.f;
+	rates_sp.thrust_body[1] = 0.f;
+	rates_sp.thrust_body[2] = -fw_thrust;
+}
+}
+
 FixedwingAttitudeControl::FixedwingAttitudeControl(bool vtol) :
 	ModuleParams(nullptr),
 	WorkItem(MODULE_NAME, px4::wq_configurations::nav_and_controllers),
@@ -105,6 +120,8 @@ FixedwingAttitudeControl::parameters_update()
 	_yaw_ctrl.set_k_ff(_param_fw_yr_ff.get());
 	_yaw_ctrl.set_integrator_max(_param_fw_yr_imax.get());
 
+	update_rate_output_limit();
+
 	/* wheel control parameters */
 	_wheel_ctrl.set_k_p(_param_fw_wr_p.get());
 	_wheel_ctrl.set_k_i(_param_fw_wr_i.get());
@@ -113,6 +130,39 @@ FixedwingAttitudeControl::parameters_update()
 	_wheel_ctrl.set_max_rate(radians(_param_fw_w_rmax.get()));
 
 	return PX4_OK;
+}
+
+void
+FixedwingAttitudeControl::allocation_value_poll()
+{
+	allocation_value_s allocation_value{};
+
+	if (_allocation_value_sub.update(&allocation_value)) {
+		const bool physical_b = allocation_value.indi_valid &&
+					allocation_value.b_unit == allocation_value_s::B_UNIT_PHYSICAL;
+
+		if (_allocation_value_physical_b != physical_b) {
+			_allocation_value_physical_b = physical_b;
+			update_rate_output_limit();
+		}
+	}
+}
+
+void
+FixedwingAttitudeControl::update_rate_output_limit()
+{
+	// Ducted-fan tailsitter split-controller mode sends FW rate outputs directly
+	// to the surface allocator. Only keep them unlimited when the active mixer
+	// reports a physical/dimensional B through allocation_value, matching INDI.
+	const bool split_controller_with_physical_b = _is_tailsitter &&
+			_param_vt_ts_df_map.get() == 1 &&
+			_param_vt_ts_mc_rate.get() == 0 &&
+			_allocation_value_physical_b;
+	const bool limit_rate_output = !split_controller_with_physical_b;
+
+	_roll_ctrl.set_rate_output_limited(limit_rate_output);
+	_pitch_ctrl.set_rate_output_limited(limit_rate_output);
+	_yaw_ctrl.set_rate_output_limited(limit_rate_output);
 }
 
 void
@@ -175,7 +225,13 @@ FixedwingAttitudeControl::vehicle_manual_poll()
 					_rates_sp.yaw = _manual_control_setpoint.r * radians(_param_fw_acro_z_max.get());
 					_rates_sp.thrust_body[0] = math::constrain(_manual_control_setpoint.z, 0.0f, 1.0f);
 
-					_rate_sp_pub.publish(_rates_sp);
+					vehicle_rates_setpoint_s rates_sp_pub = _rates_sp;
+
+					if (_is_tailsitter && _param_vt_ts_df_map.get() == 1 && _param_vt_ts_mc_rate.get() == 1) {
+						convert_tailsitter_fw_rates_to_mc_body(rates_sp_pub);
+					}
+
+					_rate_sp_pub.publish(rates_sp_pub);
 
 				} else {
 					/* manual/direct control */
@@ -292,6 +348,8 @@ void FixedwingAttitudeControl::Run()
 			updateParams();
 			parameters_update();
 		}
+
+		allocation_value_poll();
 
 		const float dt = math::constrain((att.timestamp - _last_run) * 1e-6f, 0.002f, 0.04f);
 		_last_run = att.timestamp;
@@ -585,7 +643,13 @@ void FixedwingAttitudeControl::Run()
 
 				_rates_sp.timestamp = hrt_absolute_time();
 
-				_rate_sp_pub.publish(_rates_sp);
+				vehicle_rates_setpoint_s rates_sp_pub = _rates_sp;
+
+				if (_is_tailsitter && _param_vt_ts_df_map.get() == 1 && _param_vt_ts_mc_rate.get() == 1) {
+					convert_tailsitter_fw_rates_to_mc_body(rates_sp_pub);
+				}
+
+				_rate_sp_pub.publish(rates_sp_pub);
 
 			} else { // pqr
 				vehicle_rates_setpoint_poll();

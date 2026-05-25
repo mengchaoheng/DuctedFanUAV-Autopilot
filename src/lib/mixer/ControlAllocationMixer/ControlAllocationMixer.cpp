@@ -200,6 +200,7 @@ static constexpr DpAllocatorFactory kDpAllocatorFactories[] {
 };
 
 static constexpr int32_t AIRFRAME_DUCTEDFAN4 = 15003;
+static constexpr int32_t AIRFRAME_DUCTEDFAN6 = 15004;
 static constexpr int32_t AIRFRAME_SHC09 = 15006;
 static constexpr int32_t AIRFRAME_SHW09 = 15007;
 static constexpr int32_t AIRFRAME_SHW09_VTOL = 15008;
@@ -215,6 +216,7 @@ ControlAllocationMixer::ControlAllocationMixer(ControlAllocationCallback control
 	_dist_mag_param(param_find("USER_DIST_MAG")),
 	_omega_2_force_param(param_find("USER_OMEGA_2_F")),
 	_airframe_param(param_find("SYS_AUTOSTART")),
+	_pinv_always_param(param_find("USER_PINV_ALWAYS")),
 	_cs_cutoff_param(param_find("USER_CS_CUTOFF")),
 	_time_const_param(param_find("USER_TIME_CONST")),
 	_motor_time_const_param(param_find("USER_MOT_TCONST")),
@@ -237,12 +239,13 @@ ControlAllocationMixer::ControlAllocationMixer(ControlAllocationCallback control
 	// Airframe-specific runtime model hooks use SYS_AUTOSTART when available.
 	// The matrix-shape fallback keeps standalone mixer tests usable.
 	// Add new physical-B aircraft here only after defining a matching
-	// build_<airframe>_B() model and verifying that the mix file uses D: 1.
-	// ductedfan2/ductedfan6 are currently normalized/static mixes, so they stay
-	// out of the physical INDI/dynamic-B path until their physical models are
-	// designed.
+	// build_<airframe>_B() model and verifying that the C: b_unit field is 1.
+	// ductedfan2 is currently a normalized/static mix, so it stays out of the
+	// physical INDI/dynamic-B path until its physical B1/u1 model is designed.
 	_model_ductedfan4_physical = physical_b && (airframe_id == AIRFRAME_DUCTEDFAN4 || unknown_airframe) &&
 				     is_ductedfan4_physical_config(config);
+	_model_ductedfan6_physical = physical_b && (airframe_id == AIRFRAME_DUCTEDFAN6 || unknown_airframe) &&
+				     is_ductedfan6_physical_config(config);
 	_model_ductedfan4_normalized = normalized_b && (airframe_id == AIRFRAME_DUCTEDFAN4 || unknown_airframe) &&
 				       is_ductedfan4_normalized_config(config);
 	_model_shc09_physical = physical_b && (airframe_id == AIRFRAME_SHC09 || unknown_airframe) &&
@@ -252,7 +255,7 @@ ControlAllocationMixer::ControlAllocationMixer(ControlAllocationCallback control
 	_model_shw09_vtol_physical = physical_b && (airframe_id == AIRFRAME_SHW09_VTOL || unknown_airframe) &&
 				     is_shw09_vtol_physical_config(config);
 
-	if ((_model_ductedfan4_physical || _model_shc09_physical ||
+	if ((_model_ductedfan4_physical || _model_ductedfan6_physical || _model_shc09_physical ||
 	     _model_shw09_physical || _model_shw09_vtol_physical) &&
 	    _omega_2_force_param != PARAM_INVALID) {
 		float k = NAN;
@@ -276,7 +279,7 @@ ControlAllocationMixer::from_text(Mixer::ControlAllocationCallback control_alloc
 	Config config {};
 	int y_dim = 0;
 	int u_dim = 0;
-	int method = 0;
+	int b_unit = static_cast<int>(BUnit::Normalized);
 	int used = 0;
 
 	if (!string_well_formed(buf, buflen)) {
@@ -287,9 +290,10 @@ ControlAllocationMixer::from_text(Mixer::ControlAllocationCallback control_alloc
 		return nullptr;
 	}
 
-	// C: <y_dim> <u_dim> <method>
-	// method: 0 INV, 1 WLS, 2 DIR, 3 PCA.
-	const int parsed_c = sscanf(buf, "C: %d %d %d%n", &y_dim, &u_dim, &method, &used);
+	// C: <y_dim> <u_dim> <b_unit>
+	// b_unit: 0 normalized/unitless B, 1 physical/dimensional B.
+	// Allocation method is selected only by USER_AC_METHOD.
+	const int parsed_c = sscanf(buf, "C: %d %d %d%n", &y_dim, &u_dim, &b_unit, &used);
 
 	if (parsed_c != 3) {
 		debug("control allocation parse failed on '%s'", buf);
@@ -301,14 +305,15 @@ ControlAllocationMixer::from_text(Mixer::ControlAllocationCallback control_alloc
 		return nullptr;
 	}
 
-	if (method < static_cast<int>(Method::INV) || method > static_cast<int>(Method::PCA)) {
-		debug("invalid control allocation method %d", method);
+	if (b_unit < static_cast<int>(BUnit::Normalized) || b_unit > static_cast<int>(BUnit::Physical)) {
+		debug("invalid B unit %d", b_unit);
 		return nullptr;
 	}
 
 	config.y_dim = static_cast<uint8_t>(y_dim);
 	config.u_dim = static_cast<uint8_t>(u_dim);
-	config.method = static_cast<Method>(method);
+	config.b_unit = static_cast<BUnit>(b_unit);
+	config.method = Method::INV;
 
 	buf = skipline(buf, buflen);
 
@@ -317,9 +322,9 @@ ControlAllocationMixer::from_text(Mixer::ControlAllocationCallback control_alloc
 		return nullptr;
 	}
 
+	// Legacy compatibility: older local C: mixers used a separate D: line for
+	// the B unit. New mix files put this value in the third C: field.
 	if (buflen >= 2 && buf[0] == 'D' && buf[1] == ':') {
-		int b_unit = static_cast<int>(BUnit::Normalized);
-
 		if (sscanf(buf, "D: %d%n", &b_unit, &used) != 1) {
 			debug("failed parsing D line '%s'", buf);
 			return nullptr;
@@ -485,6 +490,16 @@ ControlAllocationMixer::mix(float *outputs, unsigned space)
 	update_sample_freq();
 	update_runtime_config();
 	update_feedback_params();
+
+	int32_t pinv_always = 0;
+
+	if (_pinv_always_param != PARAM_INVALID) {
+		param_get(_pinv_always_param, &pinv_always);
+	}
+
+	if (pinv_always == 1 && !compute_pseudo_inverse(_config)) {
+		return 0;
+	}
 
 	for (unsigned i = 0; i < _config.output_count; i++) {
 		outputs[i] = NAN;
@@ -775,6 +790,39 @@ ControlAllocationMixer::is_ductedfan4_physical_config(const Config &config)
 }
 
 bool
+ControlAllocationMixer::is_ductedfan6_physical_config(const Config &config)
+{
+	static constexpr float df6_min = -0.3491f;
+	static constexpr float df6_max = 0.3491f;
+	static constexpr float tolerance = 0.01f;
+
+	if (config.y_dim != 3 || config.u_dim != 6) {
+		return false;
+	}
+
+	for (unsigned actuator = 0; actuator < config.u_dim; actuator++) {
+		if (fabsf(config.ranges[actuator].physical_min - df6_min) > tolerance ||
+		    fabsf(config.ranges[actuator].physical_max - df6_max) > tolerance) {
+			return false;
+		}
+	}
+
+	if (fabsf(config.B[2][0]) <= FLT_EPSILON) {
+		return false;
+	}
+
+	// ductedfan6 uses the ductedfan4 surface effectiveness constants, but the
+	// six surfaces are ordered clockwise 1..6. That keeps the normalized legacy
+	// signs: roll [- - + + + -], pitch [0 - - 0 + +], yaw all positive.
+	return config.B[0][0] < 0.f && config.B[0][1] < 0.f &&
+	       config.B[0][2] > 0.f && config.B[0][3] > 0.f &&
+	       config.B[0][4] > 0.f && config.B[0][5] < 0.f &&
+	       fabsf(config.B[1][0]) <= tolerance && config.B[1][1] < 0.f &&
+	       config.B[1][2] < 0.f && fabsf(config.B[1][3]) <= tolerance &&
+	       config.B[1][4] > 0.f && config.B[1][5] > 0.f;
+}
+
+bool
 ControlAllocationMixer::is_ductedfan4_normalized_config(const Config &config)
 {
 	static constexpr float tolerance = 0.01f;
@@ -933,6 +981,49 @@ ControlAllocationMixer::build_ductedfan4_B(float k, float B[MAX_Y][MAX_U])
 }
 
 bool
+ControlAllocationMixer::build_ductedfan6_B(float k, float B[MAX_Y][MAX_U])
+{
+	static constexpr float I_x = 0.01149f;
+	static constexpr float I_y = 0.01153f;
+	static constexpr float I_z = 0.00487f;
+	static constexpr float L_1 = 0.167f;
+	static constexpr float L_2 = 0.069f;
+	static constexpr float cos_60 = 0.5f;
+	static constexpr float sin_60 = 0.8660254038f;
+
+	if (!PX4_ISFINITE(k) || k <= FLT_EPSILON) {
+		return false;
+	}
+
+	for (unsigned row = 0; row < MAX_Y; row++) {
+		for (unsigned col = 0; col < MAX_U; col++) {
+			B[row][col] = 0.f;
+		}
+	}
+
+	// Same control-surface effectiveness model as ductedfan4, with six
+	// surfaces ordered clockwise 1..6. The sign pattern matches the legacy
+	// ductedfan6 SimpleMixer equivalent kept in the mix file comments.
+	B[0][0] = -L_1 * k / I_x;
+	B[0][1] = -cos_60 * L_1 * k / I_x;
+	B[0][2] =  cos_60 * L_1 * k / I_x;
+	B[0][3] =  L_1 * k / I_x;
+	B[0][4] =  cos_60 * L_1 * k / I_x;
+	B[0][5] = -cos_60 * L_1 * k / I_x;
+
+	B[1][1] = -sin_60 * L_1 * k / I_y;
+	B[1][2] = -sin_60 * L_1 * k / I_y;
+	B[1][4] =  sin_60 * L_1 * k / I_y;
+	B[1][5] =  sin_60 * L_1 * k / I_y;
+
+	for (unsigned actuator = 0; actuator < 6; actuator++) {
+		B[2][actuator] = L_2 * k / I_z;
+	}
+
+	return true;
+}
+
+bool
 ControlAllocationMixer::build_shc09_B(float k, float B[MAX_Y][MAX_U])
 {
 	static constexpr float I_x = 0.0438f;
@@ -1076,15 +1167,15 @@ ControlAllocationMixer::update_runtime_config()
 	// enabled for model hooks we understand. Generic allocation still works for
 	// any C: mixer, but a new airframe needs an explicit physical model hook
 	// before USER_OMEGA_2_F or disturbance semantics are meaningful.
-	if (!_model_ductedfan4_physical && !_model_ductedfan4_normalized &&
+	if (!_model_ductedfan4_physical && !_model_ductedfan6_physical && !_model_ductedfan4_normalized &&
 	    !_model_shc09_physical && !_model_shw09_physical && !_model_shw09_vtol_physical) {
 		return;
 	}
 
-	update_runtime_limits((_model_ductedfan4_physical || _model_shc09_physical ||
+	update_runtime_limits((_model_ductedfan4_physical || _model_ductedfan6_physical || _model_shc09_physical ||
 			       _model_shw09_physical || _model_shw09_vtol_physical) ? 1.f : (1.f / df4_surface_limit_rad));
 
-	if (!_model_ductedfan4_physical && !_model_shc09_physical &&
+	if (!_model_ductedfan4_physical && !_model_ductedfan6_physical && !_model_shc09_physical &&
 	    !_model_shw09_physical && !_model_shw09_vtol_physical) {
 		return;
 	}
@@ -1144,11 +1235,14 @@ ControlAllocationMixer::update_physical_model_B(float k)
 	bool updated = false;
 
 	// Model-specific dynamic control-effectiveness reconstruction. This is the
-	// place to add future physical-B support for ductedfan6 or other layouts:
+	// place to add future physical-B support for other layouts:
 	// define the geometry/inertia based builder, gate it by SYS_AUTOSTART in
 	// the constructor, then recompute B_pinv through compute_pseudo_inverse().
 	if (_model_ductedfan4_physical) {
 		updated = build_ductedfan4_B(k, updated_config.B);
+
+	} else if (_model_ductedfan6_physical) {
+		updated = build_ductedfan6_B(k, updated_config.B);
 
 	} else if (_model_shc09_physical) {
 		updated = build_shc09_B(k, updated_config.B);
@@ -1210,6 +1304,9 @@ ControlAllocationMixer::update_feedback_params()
 		}
 
 		_last_cs_cutoff = cutoff;
+	}
+
+	if (sample_freq_changed) {
 		_last_feedback_sample_freq = _sample_freq;
 	}
 
@@ -1263,7 +1360,7 @@ ControlAllocationMixer::update_sample_freq()
 ControlAllocationMixer::Method
 ControlAllocationMixer::selected_method() const
 {
-	int32_t method_override = -1;
+	int32_t method_override = static_cast<int32_t>(Method::INV);
 
 	if (_method_param != PARAM_INVALID && param_get(_method_param, &method_override) == 0 &&
 	    method_override >= static_cast<int32_t>(Method::INV) &&
@@ -1271,7 +1368,7 @@ ControlAllocationMixer::selected_method() const
 		return static_cast<Method>(method_override);
 	}
 
-	return _config.method;
+	return Method::INV;
 }
 
 bool
@@ -1332,12 +1429,13 @@ float
 ControlAllocationMixer::runtime_disturbance_bias(unsigned actuator_index) const
 {
 	static constexpr float df4_signs[4] {-1.f, 1.f, 1.f, -1.f};
+	static constexpr float df6_signs[6] {-1.f, 1.f, 1.f, 1.f, -1.f, -1.f};
 	static constexpr float shc09_signs[6] {-1.f, 1.f, 1.f, 1.f, -1.f, -1.f};
 
 	// Disturbance injection is layout-specific. The current sign tables cover
-	// df4 and the six-surface SHC09/SHW09 bottom ducted-fan order. SHW09_vtol
-	// eight-surface and future ductedfan variants should add their own sign
-	// tables here instead of reusing a coincidentally matching dimension.
+	// df4, df6, and the six-surface SHC09/SHW09 bottom ducted-fan order.
+	// SHW09_vtol eight-surface variants should add their own sign table here
+	// instead of reusing a coincidentally matching dimension.
 	if (!_runtime_disturbance_enabled || _config.y_dim != 3) {
 		return 0.f;
 	}
@@ -1346,7 +1444,11 @@ ControlAllocationMixer::runtime_disturbance_bias(unsigned actuator_index) const
 		return df4_signs[actuator_index] * _runtime_disturbance_mag_u;
 	}
 
-	if (_config.u_dim == 6 && actuator_index < 6) {
+	if (_model_ductedfan6_physical && actuator_index < 6) {
+		return df6_signs[actuator_index] * _runtime_disturbance_mag_u;
+	}
+
+	if ((_model_shc09_physical || _model_shw09_physical) && actuator_index < 6) {
 		return shc09_signs[actuator_index] * _runtime_disturbance_mag_u;
 	}
 

@@ -75,7 +75,7 @@ float ECL_PitchController::control_bodyrate(const float dt, const ECL_ControlDat
 	      PX4_ISFINITE(ctl_data.airspeed_max) &&
 	      PX4_ISFINITE(ctl_data.scaler))) {
 
-		return math::constrain(_last_output, -1.0f, 1.0f);
+		return apply_rate_output_limit(_last_output);
 	}
 
 	/* Calculate body angular rate error */
@@ -108,7 +108,7 @@ float ECL_PitchController::control_bodyrate(const float dt, const ECL_ControlDat
 		       _rate_error * _k_p * ctl_data.scaler * ctl_data.scaler
 		       + _integrator;
 
-	return math::constrain(_last_output, -1.0f, 1.0f);
+	return apply_rate_output_limit(_last_output);
 }
 
 float ECL_PitchController::control_euler_rate(const float dt, const ECL_ControlData &ctl_data)

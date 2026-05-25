@@ -11,7 +11,7 @@ range. Inputs below zero are treated as zero.
 
 Motor
 -------------
-M: 1
+M: 1 0
 S: 0 3       0   20000 -10000 -10000  10000
 
 This mixer is empty.
@@ -91,8 +91,7 @@ Control surfaces
 #   ducted-fan yaw surface.
 #   Gazebo maps output +/-1 to joint +/-0.6981 rad, therefore U is -0.6981 0.6981.
 -------------
-C: 3 8 0
-D: 1
+C: 3 8 1
 S: 1 0
 S: 1 1
 S: 1 2
