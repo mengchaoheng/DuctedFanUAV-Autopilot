@@ -51,6 +51,10 @@ enum class AllocationMethod {
 	PSEUDO_INVERSE = 0,
 	SEQUENTIAL_DESATURATION = 1,
 	AUTO = 2,
+	INV = 3,
+	DP_LPCA = 4,
+	DPSCALED_LPCA = 5,
+	PCA = 6,
 };
 
 enum class ActuatorType {

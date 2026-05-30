@@ -184,6 +184,22 @@ ControlAllocator::update_allocation_method(bool force)
 				_control_allocation[i] = new ControlAllocationSequentialDesaturation();
 				break;
 
+			case AllocationMethod::INV:
+				_control_allocation[i] = new ControlAllocationInv();
+				break;
+
+			case AllocationMethod::DP_LPCA:
+				_control_allocation[i] = new ControlAllocationDPLPCA();
+				break;
+
+			case AllocationMethod::DPSCALED_LPCA:
+				_control_allocation[i] = new ControlAllocationDPscaledLPCA();
+				break;
+
+			case AllocationMethod::PCA:
+				_control_allocation[i] = new ControlAllocationPCA();
+				break;
+
 			default:
 				PX4_ERR("Unknown allocation method");
 				break;
@@ -856,6 +872,22 @@ int ControlAllocator::print_status()
 
 	case AllocationMethod::AUTO:
 		PX4_INFO("Method: Auto");
+		break;
+
+	case AllocationMethod::INV:
+		PX4_INFO("Method: INV");
+		break;
+
+	case AllocationMethod::DP_LPCA:
+		PX4_INFO("Method: DP_LPCA");
+		break;
+
+	case AllocationMethod::DPSCALED_LPCA:
+		PX4_INFO("Method: DPscaled_LPCA");
+		break;
+
+	case AllocationMethod::PCA:
+		PX4_INFO("Method: PCA");
 		break;
 	}
 

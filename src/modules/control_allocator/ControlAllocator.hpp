@@ -56,6 +56,7 @@
 #include <ActuatorEffectivenessSpacecraft.hpp>
 
 #include <ControlAllocation.hpp>
+#include <ControlAllocationLPCA.hpp>
 #include <ControlAllocationPseudoInverse.hpp>
 #include <ControlAllocationSequentialDesaturation.hpp>
 
