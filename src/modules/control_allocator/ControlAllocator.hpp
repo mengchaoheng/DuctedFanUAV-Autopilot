@@ -50,6 +50,7 @@
 #include <ActuatorEffectivenessFixedWing.hpp>
 #include <ActuatorEffectivenessMCTilt.hpp>
 #include <ActuatorEffectivenessCustom.hpp>
+#include <ActuatorEffectivenessDuctedFan.hpp>
 #include <ActuatorEffectivenessUUV.hpp>
 #include <ActuatorEffectivenessHelicopter.hpp>
 #include <ActuatorEffectivenessHelicopterCoaxial.hpp>
@@ -61,6 +62,7 @@
 #include <ControlAllocationSequentialDesaturation.hpp>
 
 #include <lib/matrix/matrix/math.hpp>
+#include <mathlib/math/filter/LowPassFilter2p.hpp>
 #include <lib/perf/perf_counter.h>
 #include <px4_platform_common/px4_config.h>
 #include <px4_platform_common/module.h>
@@ -73,6 +75,7 @@
 #include <uORB/topics/actuator_motors.h>
 #include <uORB/topics/actuator_servos.h>
 #include <uORB/topics/actuator_servos_trim.h>
+#include <uORB/topics/allocation_value.h>
 #include <uORB/topics/control_allocator_status.h>
 #include <uORB/topics/parameter_update.h>
 #include <uORB/topics/vehicle_control_mode.h>
@@ -145,7 +148,13 @@ private:
 
 	void publish_actuator_controls();
 
+	void publish_allocation_value(int matrix_index, float dt);
+	float actuatorOutputSetpoint(int matrix_index, int actuator_index) const;
+
 	float get_ice_shedding_output(hrt_abstime now, bool any_stopped_motor_failed);
+
+	float update_allocation_feedback(int matrix_index, int actuator_index, float actuator_delta, float dt);
+	float actuatorPhysicalScale(ActuatorType actuator_type) const;
 
 	AllocationMethod _allocation_method_id{AllocationMethod::NONE};
 	ControlAllocation *_control_allocation[ActuatorEffectiveness::MAX_NUM_MATRICES] {}; 	///< class for control allocation calculations
@@ -169,6 +178,7 @@ private:
 		HELICOPTER_COAXIAL = 12,
 		SPACECRAFT_2D = 13,
 		SPACECRAFT_3D = 14,
+		DUCTED_FAN = 16,
 	};
 
 	enum class FailureMode {
@@ -195,6 +205,7 @@ private:
 	uORB::Publication<actuator_motors_s>	_actuator_motors_pub{ORB_ID(actuator_motors)};
 	uORB::Publication<actuator_servos_s>	_actuator_servos_pub{ORB_ID(actuator_servos)};
 	uORB::Publication<actuator_servos_trim_s>	_actuator_servos_trim_pub{ORB_ID(actuator_servos_trim)};
+	uORB::PublicationMulti<allocation_value_s>	_allocation_value_pub[2] {ORB_ID(allocation_value), ORB_ID(allocation_value)};
 
 	uORB::SubscriptionInterval _parameter_update_sub{ORB_ID(parameter_update), 1_s};
 
@@ -223,6 +234,18 @@ private:
 	Params _params{};
 	bool _has_slew_rate{false};
 
+	bool _allocation_actuator_is_motor[ActuatorEffectiveness::MAX_NUM_MATRICES][NUM_ACTUATORS] {};
+	float _allocation_actuator_scale[ActuatorEffectiveness::MAX_NUM_MATRICES][NUM_ACTUATORS] {};
+	bool _allocation_unit_scale_reported[ActuatorEffectiveness::MAX_NUM_MATRICES] {};
+	ActuatorEffectiveness::EffectivenessMatrix
+		_allocation_effectiveness_physical[ActuatorEffectiveness::MAX_NUM_MATRICES] {};
+	float _allocation_u_estimate[ActuatorEffectiveness::MAX_NUM_MATRICES][NUM_ACTUATORS] {};
+	float _allocation_u_cmd[ActuatorEffectiveness::MAX_NUM_MATRICES][NUM_ACTUATORS] {};
+	float _allocation_u_feedback[ActuatorEffectiveness::MAX_NUM_MATRICES][NUM_ACTUATORS] {};
+	math::LowPassFilter2p<float> _allocation_u_feedback_filter[ActuatorEffectiveness::MAX_NUM_MATRICES][NUM_ACTUATORS] {};
+	float _last_allocation_feedback_cutoff{NAN};
+	float _last_allocation_feedback_sample_freq{NAN};
+
 
 	SlewRate<float> _slew_limited_ice_shedding_output;
 	hrt_abstime _last_ice_shedding_update{};
@@ -232,7 +255,13 @@ private:
 		(ParamInt<px4::params::CA_METHOD>) _param_ca_method,
 		(ParamInt<px4::params::CA_FAILURE_MODE>) _param_ca_failure_mode,
 		(ParamInt<px4::params::CA_R_REV>) _param_r_rev,
-		(ParamFloat<px4::params::CA_ICE_PERIOD>) _param_ice_shedding_period
+		(ParamFloat<px4::params::CA_ICE_PERIOD>) _param_ice_shedding_period,
+		(ParamFloat<px4::params::DF_CS_CUTOFF>) _param_df_cs_cutoff,
+		(ParamFloat<px4::params::DF_TIME_CONST>) _param_df_time_const,
+		(ParamFloat<px4::params::DF_MOT_TCONST>) _param_df_motor_time_const,
+		(ParamFloat<px4::params::DF_CS_MAX>) _param_df_cs_max,
+		(ParamFloat<px4::params::DF_MOT_MAX>) _param_df_motor_max,
+		(ParamInt<px4::params::DF_ACTUATOR>) _param_df_actuator
 	)
 
 };

@@ -5,6 +5,7 @@ px4_add_library(VehicleActuatorEffectiveness
 	ActuatorEffectivenessControlSurfaces.hpp
 	ActuatorEffectivenessCustom.cpp
 	ActuatorEffectivenessCustom.hpp
+	ActuatorEffectivenessDuctedFan.hpp
 	ActuatorEffectivenessFixedWing.cpp
 	ActuatorEffectivenessFixedWing.hpp
 	ActuatorEffectivenessHelicopter.cpp

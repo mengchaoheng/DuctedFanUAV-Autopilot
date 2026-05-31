@@ -33,6 +33,7 @@ parameters:
                 13: Rover (Mecanum)
                 14: Spacecraft 2D
                 15: Spacecraft 3D
+                16: Ducted Fan
             default: 0
 
         CA_METHOD:
@@ -51,6 +52,78 @@ parameters:
                 5: DPscaled_LPCA
                 6: PCA
             default: 2
+
+        DF_CS_CUTOFF:
+            description:
+                short: INDI actuator feedback low-pass cutoff
+                long: |
+                  Cutoff frequency for the filtered actuator feedback published
+                  in allocation_value.u_ultimate. 0 disables the filter.
+            type: float
+            min: 0
+            unit: Hz
+            decimal: 2
+            default: 8.0
+
+        DF_TIME_CONST:
+            description:
+                short: INDI servo feedback time constant
+                long: |
+                  First-order virtual servo model time constant used for actuator feedback.
+            type: float
+            min: 0.0001
+            max: 0.2
+            unit: s
+            decimal: 4
+            default: 0.03
+
+        DF_MOT_TCONST:
+            description:
+                short: INDI motor feedback time constant
+                long: |
+                  First-order virtual motor model time constant used for actuator feedback.
+            type: float
+            min: 0.0001
+            max: 0.2
+            unit: s
+            decimal: 4
+            default: 0.01
+
+        DF_CS_MAX:
+            description:
+                short: INDI control surface maximum deflection
+                long: |
+                  Physical deflection represented by a normalized servo delta command of +1.
+                  The control allocator uses this as the servo column scale U when converting
+                  a physical B matrix into the normalized allocation problem B_norm = D B U.
+                  Keep at 1 for the default PX4 normalized actuator contract.
+            type: float
+            min: 0.0001
+            unit: rad
+            decimal: 4
+            default: 1.0
+
+        DF_MOT_MAX:
+            description:
+                short: INDI motor physical scale
+                long: |
+                  Physical motor coordinate represented by a normalized motor delta command of +1.
+                  Keep at 1 while the motor effectiveness is defined in normalized PX4 actuator
+                  coordinates. Future physical motor models can use this for max omega, max
+                  omega squared, or another explicitly chosen motor coordinate.
+            type: float
+            min: 0.0001
+            decimal: 4
+            default: 1.0
+
+        DF_ACTUATOR:
+            description:
+                short: Use virtual actuator model as SITL feedback source
+                long: |
+                  SITL-only switch. 0 uses the allocator command as feedback source,
+                  1 uses the first-order actuator estimate.
+            type: boolean
+            default: 0
 
         # Motor parameters
         CA_R_REV:

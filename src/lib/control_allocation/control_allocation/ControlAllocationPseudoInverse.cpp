@@ -51,11 +51,6 @@ ControlAllocationPseudoInverse::setEffectivenessMatrix(
 			update_normalization_scale);
 	_mix_update_needed = true;
 	_normalization_needs_update = update_normalization_scale;
-
-	if (_metric_allocation && update_normalization_scale) {
-		// adding #include <px4_platform_common/log.h> + PX4_WARN leads to failed linking on test
-		_normalization_needs_update = false;
-	}
 }
 
 void
@@ -64,15 +59,12 @@ ControlAllocationPseudoInverse::updatePseudoInverse()
 	if (_mix_update_needed) {
 		matrix::geninv(_effectiveness, _mix);
 
-		if (!_metric_allocation) {
-			if (_normalization_needs_update && !_had_actuator_failure) {
-				updateControlAllocationMatrixScale();
-				_normalization_needs_update = false;
-			}
-
-			normalizeControlAllocationMatrix();
+		if (_normalization_needs_update && !_had_actuator_failure) {
+			updateControlAllocationMatrixScale();
+			_normalization_needs_update = false;
 		}
 
+		normalizeControlAllocationMatrix();
 		_mix_update_needed = false;
 	}
 }
@@ -80,71 +72,7 @@ ControlAllocationPseudoInverse::updatePseudoInverse()
 void
 ControlAllocationPseudoInverse::updateControlAllocationMatrixScale()
 {
-	// Same scale on roll and pitch
-	if (_normalize_rpy) {
-
-		int num_non_zero_roll_torque = 0;
-		int num_non_zero_pitch_torque = 0;
-
-		for (int i = 0; i < _num_actuators; i++) {
-
-			if (fabsf(_mix(i, 0)) > 1e-3f) {
-				++num_non_zero_roll_torque;
-			}
-
-			if (fabsf(_mix(i, 1)) > 1e-3f) {
-				++num_non_zero_pitch_torque;
-			}
-		}
-
-		float roll_norm_scale = 1.f;
-
-		if (num_non_zero_roll_torque > 0) {
-			roll_norm_scale = sqrtf(_mix.col(0).norm_squared() / (num_non_zero_roll_torque / 2.f));
-		}
-
-		float pitch_norm_scale = 1.f;
-
-		if (num_non_zero_pitch_torque > 0) {
-			pitch_norm_scale = sqrtf(_mix.col(1).norm_squared() / (num_non_zero_pitch_torque / 2.f));
-		}
-
-		_control_allocation_scale(0) = fmaxf(roll_norm_scale, pitch_norm_scale);
-		_control_allocation_scale(1) = _control_allocation_scale(0);
-
-		// Scale yaw separately
-		_control_allocation_scale(2) = _mix.col(2).max();
-
-	} else {
-		_control_allocation_scale(0) = 1.f;
-		_control_allocation_scale(1) = 1.f;
-		_control_allocation_scale(2) = 1.f;
-	}
-
-	// Scale thrust by the sum of the individual thrust axes, and use the scaling for the Z axis if there's no actuators
-	// (for tilted actuators)
-	_control_allocation_scale(THRUST_Z) = 1.f;
-
-	for (int axis_idx = 2; axis_idx >= 0; --axis_idx) {
-		int num_non_zero_thrust = 0;
-		float norm_sum = 0.f;
-
-		for (int i = 0; i < _num_actuators; i++) {
-			float norm = fabsf(_mix(i, 3 + axis_idx));
-			norm_sum += norm;
-
-			if (norm > FLT_EPSILON) {
-				++num_non_zero_thrust;
-			}
-		}
-
-		if (num_non_zero_thrust > 0) {
-			_control_allocation_scale(3 + axis_idx) = norm_sum / num_non_zero_thrust;
-
-		} else {
-			_control_allocation_scale(3 + axis_idx) = _control_allocation_scale(THRUST_Z);
-		}
-	}
+	updateControlAllocationScaleFromMix(_mix);
 }
 
 void

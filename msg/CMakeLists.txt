@@ -44,6 +44,7 @@ set(msg_files
 	ActuatorServosTrim.msg
 	ActuatorTest.msg
 	AdcReport.msg
+	AllocationValue.msg
 	Airspeed.msg
 	AirspeedWind.msg
 	AutotuneAttitudeControlStatus.msg
@@ -118,6 +119,7 @@ set(msg_files
 	HealthReport.msg
 	HeaterStatus.msg
 	HoverThrustEstimate.msg
+	IndiControlStatus.msg
 	InputRc.msg
 	InternalCombustionEngineControl.msg
 	InternalCombustionEngineStatus.msg

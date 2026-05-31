@@ -3,10 +3,13 @@
 # @name SHW09_vtol
 #
 # @type VTOL Ducted Fan
+#
+# Author: Chaoheng Meng <chaohengmeng@163.com>
 
 
 
 . ${R}etc/init.d/rc.vtol_defaults
+set VEHICLE_TYPE df_vtol
 
 param set-default MAV_TYPE 19 # For MAVLink
 
@@ -57,20 +60,20 @@ param set-default MC_PITCH_P 6
 param set-default MC_YAW_P 5
 
 # rates at MC mode, but we also use the FW rates controller for it.
-param set-default MC_ROLLRATE_P 0.45
-param set-default MC_ROLLRATE_I 0.3
-param set-default MC_ROLLRATE_D 0.0
-param set-default MC_ROLLRATE_FF 0
+param set-default DF_ROLLRATE_P 0.45
+param set-default DF_ROLLRATE_I 0.3
+param set-default DF_ROLLRATE_D 0.0
+param set-default DF_ROLLRATE_FF 0
 
-param set-default MC_PITCHRATE_P 0.45
-param set-default MC_PITCHRATE_I 0.3
-param set-default MC_PITCHRATE_D 0.0
-param set-default MC_PITCHRATE_FF 0
+param set-default DF_PITCHRATE_P 0.45
+param set-default DF_PITCHRATE_I 0.3
+param set-default DF_PITCHRATE_D 0.0
+param set-default DF_PITCHRATE_FF 0
 
-param set-default MC_YAWRATE_P 0.4
-param set-default MC_YAWRATE_I 0.3
-param set-default MC_YAWRATE_D 0
-param set-default MC_YAWRATE_FF 0
+param set-default DF_YAWRATE_P 0.4
+param set-default DF_YAWRATE_I 0.3
+param set-default DF_YAWRATE_D 0
+param set-default DF_YAWRATE_FF 0
 
 param set-default MPC_THR_HOVER 0.5
 

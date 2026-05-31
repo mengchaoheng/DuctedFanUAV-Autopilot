@@ -69,6 +69,12 @@ if(CONFIG_MODULES_MC_RATE_CONTROL)
 	)
 endif()
 
+if(CONFIG_MODULES_DF_HOVER_RATE_CONTROL)
+	px4_add_romfs_files(
+		rc.df_apps
+	)
+endif()
+
 if(CONFIG_MODULES_ROVER_DIFFERENTIAL)
 	px4_add_romfs_files(
 		rc.rover_differential_apps
@@ -108,6 +114,12 @@ if(CONFIG_MODULES_VTOL_ATT_CONTROL)
 	px4_add_romfs_files(
 		rc.vtol_apps
 		rc.vtol_defaults
+	)
+endif()
+
+if(CONFIG_MODULES_DF_HOVER_RATE_CONTROL AND CONFIG_MODULES_VTOL_ATT_CONTROL)
+	px4_add_romfs_files(
+		rc.df_vtol_apps
 	)
 endif()
 

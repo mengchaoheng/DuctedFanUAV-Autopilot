@@ -3,28 +3,31 @@
 # @name ductedfan2
 #
 # @type Ducted Fan
+#
+# Author: Chaoheng Meng <chaohengmeng@163.com>
 
 
 
 . ${R}etc/init.d/rc.mc_defaults
+set VEHICLE_TYPE df
 
 param set-default CA_AIRFRAME 9
 
 param set-default MC_ROLL_P 6.5
-param set-default MC_ROLLRATE_P 0.45
-param set-default MC_ROLLRATE_I 0.1
-param set-default MC_ROLLRATE_D 0.01
-param set-default MC_ROLLRATE_FF 0
+param set-default DF_ROLLRATE_P 0.45
+param set-default DF_ROLLRATE_I 0.1
+param set-default DF_ROLLRATE_D 0.01
+param set-default DF_ROLLRATE_FF 0
 param set-default MC_PITCH_P 6.5
-param set-default MC_PITCHRATE_P 0.45
-param set-default MC_PITCHRATE_I 0.05
-param set-default MC_PITCHRATE_D 0.01
-param set-default MC_PITCHRATE_FF 0
+param set-default DF_PITCHRATE_P 0.45
+param set-default DF_PITCHRATE_I 0.05
+param set-default DF_PITCHRATE_D 0.01
+param set-default DF_PITCHRATE_FF 0
 param set-default MC_YAW_P 2
-param set-default MC_YAWRATE_P 0.3
-param set-default MC_YAWRATE_I 0.05
-param set-default MC_YAWRATE_D 0
-param set-default MC_YAWRATE_FF 0
+param set-default DF_YAWRATE_P 0.3
+param set-default DF_YAWRATE_I 0.05
+param set-default DF_YAWRATE_D 0
+param set-default DF_YAWRATE_FF 0
 
 param set-default MPC_THR_HOVER 0.5
 param set-default RTL_RETURN_ALT 2.5

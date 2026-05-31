@@ -90,6 +90,69 @@ ControlAllocation::clipActuatorSetpoint(matrix::Vector<float, ControlAllocation:
 	}
 }
 
+void
+ControlAllocation::updateControlAllocationScaleFromMix(const MixMatrix &mix)
+{
+	if (_normalize_rpy) {
+		int num_non_zero_roll_torque = 0;
+		int num_non_zero_pitch_torque = 0;
+
+		for (int i = 0; i < _num_actuators; i++) {
+			if (fabsf(mix(i, ROLL)) > 1e-3f) {
+				++num_non_zero_roll_torque;
+			}
+
+			if (fabsf(mix(i, PITCH)) > 1e-3f) {
+				++num_non_zero_pitch_torque;
+			}
+		}
+
+		float roll_norm_scale = 1.f;
+
+		if (num_non_zero_roll_torque > 0) {
+			roll_norm_scale = sqrtf(mix.col(ROLL).norm_squared() / (num_non_zero_roll_torque / 2.f));
+		}
+
+		float pitch_norm_scale = 1.f;
+
+		if (num_non_zero_pitch_torque > 0) {
+			pitch_norm_scale = sqrtf(mix.col(PITCH).norm_squared() / (num_non_zero_pitch_torque / 2.f));
+		}
+
+		_control_allocation_scale(ROLL) = fmaxf(roll_norm_scale, pitch_norm_scale);
+		_control_allocation_scale(PITCH) = _control_allocation_scale(ROLL);
+		_control_allocation_scale(YAW) = mix.col(YAW).max();
+
+	} else {
+		_control_allocation_scale(ROLL) = 1.f;
+		_control_allocation_scale(PITCH) = 1.f;
+		_control_allocation_scale(YAW) = 1.f;
+	}
+
+	_control_allocation_scale(THRUST_Z) = 1.f;
+
+	for (int axis_idx = 2; axis_idx >= 0; --axis_idx) {
+		int num_non_zero_thrust = 0;
+		float norm_sum = 0.f;
+
+		for (int i = 0; i < _num_actuators; i++) {
+			float norm = fabsf(mix(i, 3 + axis_idx));
+			norm_sum += norm;
+
+			if (norm > FLT_EPSILON) {
+				++num_non_zero_thrust;
+			}
+		}
+
+		if (num_non_zero_thrust > 0) {
+			_control_allocation_scale(3 + axis_idx) = norm_sum / num_non_zero_thrust;
+
+		} else {
+			_control_allocation_scale(3 + axis_idx) = _control_allocation_scale(THRUST_Z);
+		}
+	}
+}
+
 matrix::Vector<float, ControlAllocation::NUM_ACTUATORS>
 ControlAllocation::normalizeActuatorSetpoint(const matrix::Vector<float, ControlAllocation::NUM_ACTUATORS> &actuator)
 const

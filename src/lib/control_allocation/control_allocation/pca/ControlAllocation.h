@@ -1,3 +1,7 @@
+/**
+ * Author: Chaoheng Meng <chaohengmeng@163.com>
+ */
+
 
 #include <matrix/math.hpp>
 // #include <iostream>
