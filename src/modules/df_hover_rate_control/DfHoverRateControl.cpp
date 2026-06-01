@@ -47,6 +47,31 @@ using namespace matrix;
 using namespace time_literals;
 using math::radians;
 
+namespace
+{
+bool hasTorqueAuthority(const allocation_value_s &allocation_value)
+{
+	if (!allocation_value.indi_valid || allocation_value.u_dim == 0 || allocation_value.u_dim > allocation_value_s::MAX_U) {
+		return false;
+	}
+
+	for (int row = 0; row < 3; row++) {
+		for (unsigned actuator = 0; actuator < allocation_value.u_dim; actuator++) {
+			if (fabsf(allocation_value.b[row * allocation_value_s::MAX_U + actuator]) > 1.e-4f) {
+				return true;
+			}
+		}
+	}
+
+	return false;
+}
+
+bool isRecentAllocationValue(const allocation_value_s &allocation_value)
+{
+	return allocation_value.timestamp != 0 && hrt_elapsed_time(&allocation_value.timestamp) < 500_ms;
+}
+} // namespace
+
 DfHoverRateControl::DfHoverRateControl(bool vtol) :
 	ModuleParams(nullptr),
 	WorkItem(MODULE_NAME, px4::wq_configurations::rate_ctrl),
@@ -229,7 +254,15 @@ DfHoverRateControl::Run()
 			}
 
 			// run rate controller
-			_allocation_value_sub.update(&_allocation_value);
+			_allocation_value_sub.update(&_allocation_value0);
+			_allocation_value_sub1.update(&_allocation_value1);
+
+			if (hasTorqueAuthority(_allocation_value1) && isRecentAllocationValue(_allocation_value1)) {
+				_allocation_value = _allocation_value1;
+
+			} else if (isRecentAllocationValue(_allocation_value0)) {
+				_allocation_value = _allocation_value0;
+			}
 
 			Vector3f indi_fb;
 			Vector3f error_fb;

@@ -1,0 +1,28 @@
+/**
+ * Author: Chaoheng Meng <chaohengmeng@163.com>
+ */
+
+/**
+ * Enable ducted fan acceleration INDI
+ *
+ * When enabled, mc_pos_control keeps the PX4 position/velocity PID loop and
+ * replaces the final acceleration-to-thrust conversion with an acceleration
+ * INDI correction based on motor thrust feedback.
+ *
+ * @boolean
+ * @group Ducted Fan Acceleration INDI
+ */
+PARAM_DEFINE_INT32(DF_USE_ACC_INDI, 0);
+
+/**
+ * Vehicle mass for acceleration INDI
+ *
+ * Mass used in thrust_acc = F / mass. The thrust force is estimated with
+ * F = omega^2 * k_T.
+ *
+ * @min 0.01
+ * @unit kg
+ * @decimal 4
+ * @group Ducted Fan Acceleration INDI
+ */
+PARAM_DEFINE_FLOAT(DF_ACC_MASS, 2.1f);

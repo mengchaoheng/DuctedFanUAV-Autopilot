@@ -51,6 +51,7 @@
 #include <ActuatorEffectivenessMCTilt.hpp>
 #include <ActuatorEffectivenessCustom.hpp>
 #include <ActuatorEffectivenessDuctedFan.hpp>
+#include <ActuatorEffectivenessDuctedFanTailsitterVTOL.hpp>
 #include <ActuatorEffectivenessUUV.hpp>
 #include <ActuatorEffectivenessHelicopter.hpp>
 #include <ActuatorEffectivenessHelicopterCoaxial.hpp>
@@ -179,6 +180,7 @@ private:
 		SPACECRAFT_2D = 13,
 		SPACECRAFT_3D = 14,
 		DUCTED_FAN = 16,
+		DUCTED_FAN_TAILSITTER_VTOL = 17,
 	};
 
 	enum class FailureMode {
@@ -188,6 +190,12 @@ private:
 
 	EffectivenessSource _effectiveness_source_id{EffectivenessSource::NONE};
 	ActuatorEffectiveness *_actuator_effectiveness{nullptr}; 	///< class providing actuator effectiveness
+
+	bool ductedFanAllocationFeedbackEnabled() const
+	{
+		return _effectiveness_source_id == EffectivenessSource::DUCTED_FAN
+		       || _effectiveness_source_id == EffectivenessSource::DUCTED_FAN_TAILSITTER_VTOL;
+	}
 
 	uint8_t _control_allocation_selection_indexes[NUM_ACTUATORS * ActuatorEffectiveness::MAX_NUM_MATRICES] {};
 	int _num_actuators[(int)ActuatorType::COUNT] {};
@@ -243,7 +251,8 @@ private:
 	float _allocation_u_cmd[ActuatorEffectiveness::MAX_NUM_MATRICES][NUM_ACTUATORS] {};
 	float _allocation_u_feedback[ActuatorEffectiveness::MAX_NUM_MATRICES][NUM_ACTUATORS] {};
 	math::LowPassFilter2p<float> _allocation_u_feedback_filter[ActuatorEffectiveness::MAX_NUM_MATRICES][NUM_ACTUATORS] {};
-	float _last_allocation_feedback_cutoff{NAN};
+	float _last_allocation_feedback_servo_cutoff{NAN};
+	float _last_allocation_feedback_motor_cutoff{NAN};
 	float _last_allocation_feedback_sample_freq{NAN};
 
 
@@ -257,6 +266,7 @@ private:
 		(ParamInt<px4::params::CA_R_REV>) _param_r_rev,
 		(ParamFloat<px4::params::CA_ICE_PERIOD>) _param_ice_shedding_period,
 		(ParamFloat<px4::params::DF_CS_CUTOFF>) _param_df_cs_cutoff,
+		(ParamFloat<px4::params::DF_MOT_CUTOFF>) _param_df_motor_cutoff,
 		(ParamFloat<px4::params::DF_TIME_CONST>) _param_df_time_const,
 		(ParamFloat<px4::params::DF_MOT_TCONST>) _param_df_motor_time_const,
 		(ParamFloat<px4::params::DF_CS_MAX>) _param_df_cs_max,

@@ -147,6 +147,17 @@ public:
 	void setInputSetpoint(const trajectory_setpoint_s &setpoint);
 
 	/**
+	 * Enable acceleration-loop INDI for the next update.
+	 * acc_meas and thrust_acc_feedback are NED accelerations in m/s^2.
+	 */
+	void setAccelerationIndiFeedback(const matrix::Vector3f &acc_meas, const matrix::Vector3f &thrust_acc_feedback);
+
+	/**
+	 * Disable acceleration-loop INDI and use the original acceleration-to-thrust path.
+	 */
+	void clearAccelerationIndiFeedback();
+
+	/**
 	 * Apply P-position and PID-velocity controller that updates the member
 	 * thrust, yaw- and yawspeed-setpoints.
 	 * @see _thr_sp
@@ -225,6 +236,11 @@ private:
 	matrix::Vector3f _vel_dot; /**< velocity derivative (replacement for acceleration estimate) */
 	matrix::Vector3f _vel_int; /**< integral term of the velocity controller */
 	float _yaw{}; /**< current heading */
+
+	// Acceleration INDI feedback
+	bool _acceleration_indi_enabled{false};
+	matrix::Vector3f _acceleration_indi_meas;
+	matrix::Vector3f _acceleration_indi_thrust_acc;
 
 	// Setpoints
 	matrix::Vector3f _pos_sp; /**< desired position */

@@ -34,6 +34,7 @@ parameters:
                 14: Spacecraft 2D
                 15: Spacecraft 3D
                 16: Ducted Fan
+                17: Ducted Fan Tailsitter VTOL
             default: 0
 
         CA_METHOD:
@@ -52,78 +53,6 @@ parameters:
                 5: DPscaled_LPCA
                 6: PCA
             default: 2
-
-        DF_CS_CUTOFF:
-            description:
-                short: INDI actuator feedback low-pass cutoff
-                long: |
-                  Cutoff frequency for the filtered actuator feedback published
-                  in allocation_value.u_ultimate. 0 disables the filter.
-            type: float
-            min: 0
-            unit: Hz
-            decimal: 2
-            default: 8.0
-
-        DF_TIME_CONST:
-            description:
-                short: INDI servo feedback time constant
-                long: |
-                  First-order virtual servo model time constant used for actuator feedback.
-            type: float
-            min: 0.0001
-            max: 0.2
-            unit: s
-            decimal: 4
-            default: 0.03
-
-        DF_MOT_TCONST:
-            description:
-                short: INDI motor feedback time constant
-                long: |
-                  First-order virtual motor model time constant used for actuator feedback.
-            type: float
-            min: 0.0001
-            max: 0.2
-            unit: s
-            decimal: 4
-            default: 0.01
-
-        DF_CS_MAX:
-            description:
-                short: INDI control surface maximum deflection
-                long: |
-                  Physical deflection represented by a normalized servo delta command of +1.
-                  The control allocator uses this as the servo column scale U when converting
-                  a physical B matrix into the normalized allocation problem B_norm = D B U.
-                  Keep at 1 for the default PX4 normalized actuator contract.
-            type: float
-            min: 0.0001
-            unit: rad
-            decimal: 4
-            default: 1.0
-
-        DF_MOT_MAX:
-            description:
-                short: INDI motor physical scale
-                long: |
-                  Physical motor coordinate represented by a normalized motor delta command of +1.
-                  Keep at 1 while the motor effectiveness is defined in normalized PX4 actuator
-                  coordinates. Future physical motor models can use this for max omega, max
-                  omega squared, or another explicitly chosen motor coordinate.
-            type: float
-            min: 0.0001
-            decimal: 4
-            default: 1.0
-
-        DF_ACTUATOR:
-            description:
-                short: Use virtual actuator model as SITL feedback source
-                long: |
-                  SITL-only switch. 0 uses the allocator command as feedback source,
-                  1 uses the first-order actuator estimate.
-            type: boolean
-            default: 0
 
         # Motor parameters
         CA_R_REV:
@@ -698,6 +627,110 @@ parameters:
             min: 0.0
             default: 0.0
 
+    - group: Ducted Fan Rate INDI
+      definitions:
+        DF_CS_CUTOFF:
+            description:
+                short: INDI servo feedback low-pass cutoff
+                long: |
+                  Cutoff frequency for the filtered servo feedback published
+                  in allocation_value.u_ultimate. 0 disables the filter.
+            type: float
+            min: 0
+            unit: Hz
+            decimal: 2
+            default: 8.0
+
+        DF_TIME_CONST:
+            description:
+                short: INDI servo feedback time constant
+                long: |
+                  First-order virtual servo model time constant used for actuator feedback.
+            type: float
+            min: 0.0001
+            max: 0.2
+            unit: s
+            decimal: 4
+            default: 0.03
+
+        DF_CS_MAX:
+            description:
+                short: INDI control surface maximum deflection
+                long: |
+                  Physical deflection represented by a normalized servo delta command of +1.
+                  The control allocator uses this as the servo column scale U when converting
+                  a physical B matrix into the normalized allocation problem B_norm = D B U.
+                  Keep at 1 for the default PX4 normalized actuator contract.
+            type: float
+            min: 0.0001
+            unit: rad
+            decimal: 4
+            default: 1.0
+
+        DF_FW_CS_GAIN:
+            description:
+                short: Forward-flight ducted fan surface effectiveness gain
+                long: |
+                  Gain applied to the first six duct tail control-surface
+                  effectiveness columns in transition and forward flight.
+                  This models the higher dynamic pressure in forward flight
+                  relative to hover. It is only used by ducted fan tailsitter
+                  VTOL effectiveness.
+            type: float
+            min: 0.0
+            decimal: 4
+            default: 1.0
+
+        DF_ACTUATOR:
+            description:
+                short: Use virtual actuator model as SITL feedback source
+                long: |
+                  SITL-only switch. 0 uses the allocator command as feedback source,
+                  1 uses the first-order actuator estimate. This affects both
+                  rate INDI servo feedback and acceleration INDI motor feedback.
+            type: boolean
+            default: 0
+
+    - group: Ducted Fan Acceleration INDI
+      definitions:
+        DF_MOT_CUTOFF:
+            description:
+                short: INDI motor feedback low-pass cutoff
+                long: |
+                  Cutoff frequency for the filtered motor feedback published
+                  in allocation_value.u_ultimate. 0 disables the filter.
+            type: float
+            min: 0
+            unit: Hz
+            decimal: 2
+            default: 8.0
+
+        DF_MOT_TCONST:
+            description:
+                short: INDI motor feedback time constant
+                long: |
+                  First-order virtual motor model time constant used for actuator feedback.
+            type: float
+            min: 0.0001
+            max: 0.2
+            unit: s
+            decimal: 4
+            default: 0.01
+
+        DF_MOT_MAX:
+            description:
+                short: INDI motor physical scale
+                long: |
+                  Maximum motor thrust represented by a normalized motor command of +1.
+                  The control allocator uses this as the motor column scale U when converting
+                  a motor force-based B matrix into the normalized allocation problem
+                  B_norm = D B U. Keep at 1 for the default PX4 normalized actuator contract.
+            type: float
+            min: 0.0001
+            unit: N
+            decimal: 4
+            default: 1.0
+
 # Mixer
 mixer:
     actuator_types:
@@ -1056,6 +1089,53 @@ mixer:
 
             4: # Tailsitter VTOL
                 title: 'Tailsitter VTOL'
+                actuators:
+                  - actuator_type: 'motor'
+                    group_label: 'MC Motors'
+                    count: 'CA_ROTOR_COUNT'
+                    per_item_parameters:
+                        standard:
+                            position: [ 'CA_ROTOR${i}_PX', 'CA_ROTOR${i}_PY', 'CA_ROTOR${i}_PZ' ]
+                        extra:
+                          - name: 'CA_ROTOR${i}_KM'
+                            label: 'Direction CCW'
+                            function: 'spin-dir'
+                            show_as: 'true-if-positive'
+                  - actuator_type: 'servo'
+                    group_label: 'Control Surfaces'
+                    count: 'CA_SV_CS_COUNT'
+                    item_label_prefix: 'Surface ${i}'
+                    per_item_parameters:
+                        extra:
+                          - name: 'CA_SV_CS${i}_TYPE'
+                            label: 'Type'
+                            function: 'type'
+                            identifier: 'servo-type-tailsitter'
+                          - name: 'CA_SV_CS${i}_TRQ_R'
+                            label: 'Roll Scale'
+                            identifier: 'servo-torque-roll-tailsitter'
+                          - name: 'CA_SV_CS${i}_TRQ_P'
+                            label: 'Pitch Scale'
+                            identifier: 'servo-torque-pitch-tailsitter'
+                          - name: 'CA_SV_CS${i}_TRQ_Y'
+                            label: 'Yaw Scale'
+                            identifier: 'servo-torque-yaw-tailsitter'
+                          - name: 'CA_SV_CS${i}_TRIM'
+                            label: 'Trim'
+                          - name: 'CA_SV_CS${i}_FLAP'
+                            label: 'Flaps Scale'
+                            advanced: true
+                            identifier: 'servo-scale-flap'
+                          - name: 'CA_SV_CS${i}_SPOIL'
+                            label: 'Spoiler Scale'
+                            advanced: true
+                            identifier: 'servo-scale-spoiler'
+                    parameters:
+                      - label: 'Lock control surfaces in hover'
+                        name: VT_ELEV_MC_LOCK
+
+            17: # Ducted Fan Tailsitter VTOL
+                title: 'Ducted Fan Tailsitter VTOL'
                 actuators:
                   - actuator_type: 'motor'
                     group_label: 'MC Motors'

@@ -34,12 +34,36 @@
 #include "MulticopterPositionControl.hpp"
 
 #include <float.h>
+#include <geo/geo.h>
 #include <lib/mathlib/mathlib.h>
 #include <lib/matrix/matrix/math.hpp>
 #include <px4_platform_common/events.h>
-#include "PositionControl/ControlMath.hpp"
 
 using namespace matrix;
+
+namespace
+{
+float normalizedThrustToMotorCommand(float normalized_thrust, float thrust_factor)
+{
+	// Same inverse model as FunctionMotors:
+	// normalized_thrust = factor * x^2 + (1 - factor) * x.
+	normalized_thrust = math::constrain(normalized_thrust, 0.f, 1.f);
+	thrust_factor = math::constrain(thrust_factor, 0.f, 1.f);
+
+	if (thrust_factor > FLT_EPSILON) {
+		const float a = thrust_factor;
+		const float b = 1.f - thrust_factor;
+		const float tmp1 = b / (2.f * a);
+		const float tmp2 = b * b / (4.f * a * a);
+
+		if (normalized_thrust > FLT_EPSILON) {
+			return -tmp1 + sqrtf(tmp2 + normalized_thrust / a);
+		}
+	}
+
+	return normalized_thrust;
+}
+} // namespace
 
 MulticopterPositionControl::MulticopterPositionControl(bool vtol) :
 	ModuleParams(nullptr),
@@ -114,8 +138,6 @@ void MulticopterPositionControl::parameters_update(bool force)
 			_vel_deriv_xy_lp_filter.setAlpha(1.f);
 			_vel_deriv_z_lp_filter.setAlpha(1.f);
 		}
-
-
 
 		int num_changed = 0;
 
@@ -294,6 +316,7 @@ void MulticopterPositionControl::parameters_update(bool force)
 
 		if (!_param_mpc_use_hte.get() || !_hover_thrust_initialized) {
 			_control.setHoverThrust(_param_mpc_thr_hover.get());
+			_hover_thrust = _param_mpc_thr_hover.get();
 			_hover_thrust_initialized = true;
 		}
 
@@ -414,6 +437,8 @@ void MulticopterPositionControl::Run()
 		}
 
 		_vehicle_land_detected_sub.update(&_vehicle_land_detected);
+		_vehicle_attitude_sub.update(&_vehicle_attitude);
+		_allocation_value_sub.update(&_allocation_value);
 
 		if (_param_mpc_use_hte.get()) {
 			hover_thrust_estimate_s hte;
@@ -421,6 +446,7 @@ void MulticopterPositionControl::Run()
 			if (_hover_thrust_estimate_sub.update(&hte)) {
 				if (hte.valid) {
 					_control.updateHoverThrust(hte.hover_thrust);
+					_hover_thrust = hte.hover_thrust;
 				}
 			}
 		}
@@ -503,6 +529,7 @@ void MulticopterPositionControl::Run()
 
 			if (!flying) {
 				_control.setHoverThrust(_param_mpc_thr_hover.get());
+				_hover_thrust = _param_mpc_thr_hover.get();
 			}
 
 			// make sure takeoff ramp is not amended by acceleration feed-forward
@@ -568,6 +595,37 @@ void MulticopterPositionControl::Run()
 			}
 
 			_control.setState(states);
+			_control.clearAccelerationIndiFeedback();
+
+			if (_param_df_use_acc_indi.get() > 0 && flying && !accelerationIndiAirframeSupported()) {
+				if (!_acc_indi_unsupported_reported) {
+					PX4_WARN("acceleration INDI disabled: unsupported CA_AIRFRAME=%d", _param_ca_airframe.get());
+					_acc_indi_unsupported_reported = true;
+				}
+			}
+
+			if (_param_df_use_acc_indi.get() > 0 && flying && accelerationIndiAirframeSupported()) {
+				const Vector3f acc_meas(states.acceleration);
+				Vector3f thrust_acc_feedback;
+
+				if (acc_meas.isAllFinite() && updateThrustAccelerationFeedback(thrust_acc_feedback)) {
+					_control.setAccelerationIndiFeedback(acc_meas, thrust_acc_feedback);
+					_acc_indi_waiting_reported = false;
+
+					if (!_acc_indi_active_reported) {
+						PX4_INFO("acceleration INDI active in PositionControl::_accelerationControl: acc=states.acceleration mass=%.4g thrust_factor=%.3g",
+							 (double)_param_df_acc_mass.get(), (double)_param_thr_mdl_fac.get());
+						PX4_INFO("acceleration INDI feedback sample: acc_meas=%.3f %.3f %.3f thrust_acc=%.3f %.3f %.3f",
+							 (double)acc_meas(0), (double)acc_meas(1), (double)acc_meas(2),
+							 (double)thrust_acc_feedback(0), (double)thrust_acc_feedback(1), (double)thrust_acc_feedback(2));
+						_acc_indi_active_reported = true;
+					}
+
+				} else if (!_acc_indi_waiting_reported) {
+					PX4_WARN("acceleration INDI waiting for valid acceleration/allocation feedback");
+					_acc_indi_waiting_reported = true;
+				}
+			}
 
 			const hrt_abstime now = hrt_absolute_time();
 
@@ -603,12 +661,14 @@ void MulticopterPositionControl::Run()
 			// This message is used by other modules (such as Landdetector) to determine vehicle intention.
 			vehicle_local_position_setpoint_s local_pos_sp{};
 			_control.getLocalPositionSetpoint(local_pos_sp);
-			local_pos_sp.timestamp = hrt_absolute_time();
-			_local_pos_sp_pub.publish(local_pos_sp);
 
 			// Publish attitude setpoint output
 			vehicle_attitude_setpoint_s attitude_setpoint{};
 			_control.getAttitudeSetpoint(attitude_setpoint);
+
+			local_pos_sp.timestamp = hrt_absolute_time();
+			_local_pos_sp_pub.publish(local_pos_sp);
+
 			attitude_setpoint.timestamp = hrt_absolute_time();
 			_vehicle_attitude_setpoint_pub.publish(attitude_setpoint);
 
@@ -632,6 +692,60 @@ void MulticopterPositionControl::Run()
 	}
 
 	perf_end(_cycle_perf);
+}
+
+bool MulticopterPositionControl::updateThrustAccelerationFeedback(Vector3f &thrust_acc_feedback)
+{
+	if (_vehicle_attitude.timestamp == 0 || !_allocation_value.indi_valid) {
+		return false;
+	}
+
+	const float mass = _param_df_acc_mass.get();
+
+	if (!PX4_ISFINITE(mass) || mass <= FLT_EPSILON || _allocation_value.u_dim == 0
+	    || _allocation_value.u_dim > allocation_value_s::MAX_U) {
+		return false;
+	}
+
+	Vector3f force_body;
+	force_body.setZero();
+
+	for (unsigned axis = 0; axis < 3; axis++) {
+		const unsigned row = axis + 3; // Fx, Fy, Fz rows in the allocation matrix
+
+		for (unsigned actuator = 0; actuator < _allocation_value.u_dim; actuator++) {
+			const float b = _allocation_value.b[row * allocation_value_s::MAX_U + actuator];
+			float actuator_feedback = _allocation_value.u_ultimate_phys[actuator];
+
+			if (!PX4_ISFINITE(b) || !PX4_ISFINITE(actuator_feedback)) {
+				return false;
+			}
+
+			// allocation_value.u_ultimate is the normalized allocator signal.
+			// For non-reversible motors the final Gazebo force is quadratic in
+			// the motor command. Apply the same THR_MDL_FAC inverse used by
+			// FunctionMotors before converting back to physical thrust.
+			const bool nonreversible_motor = _allocation_value.umin[actuator] >= -FLT_EPSILON;
+
+			if (nonreversible_motor) {
+				const float normalized_thrust = _allocation_value.u_ultimate[actuator];
+				const float actuator_scale = _allocation_value.actuator_scale[actuator];
+
+				if (!PX4_ISFINITE(normalized_thrust) || !PX4_ISFINITE(actuator_scale) || actuator_scale <= FLT_EPSILON) {
+					return false;
+				}
+
+				const float motor_command = normalizedThrustToMotorCommand(normalized_thrust, _param_thr_mdl_fac.get());
+				actuator_feedback = actuator_scale * motor_command * fabsf(motor_command);
+			}
+
+			force_body(axis) += b * actuator_feedback;
+		}
+	}
+
+	Dcmf R_to_ned(Quatf(_vehicle_attitude.q));
+	thrust_acc_feedback = R_to_ned * force_body / mass;
+	return thrust_acc_feedback.isAllFinite();
 }
 
 trajectory_setpoint_s MulticopterPositionControl::generateFailsafeSetpoint(const hrt_abstime &now,

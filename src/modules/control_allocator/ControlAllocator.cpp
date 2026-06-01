@@ -294,6 +294,10 @@ ControlAllocator::update_effectiveness_source()
 			tmp = new ActuatorEffectivenessDuctedFan(this);
 			break;
 
+		case EffectivenessSource::DUCTED_FAN_TAILSITTER_VTOL:
+			tmp = new ActuatorEffectivenessDuctedFanTailsitterVTOL(this);
+			break;
+
 		case EffectivenessSource::HELICOPTER_TAIL_ESC:
 			tmp = new ActuatorEffectivenessHelicopter(this, ActuatorType::MOTORS);
 			break;
@@ -403,7 +407,13 @@ ControlAllocator::Run()
 			}
 
 			// Forward to effectiveness source
+			const ActuatorEffectiveness::FlightPhase previous_flight_phase = _actuator_effectiveness->getFlightPhase();
 			_actuator_effectiveness->setFlightPhase(flight_phase);
+
+			if (_actuator_effectiveness->effectivenessDependsOnFlightPhase()
+			    && previous_flight_phase != _actuator_effectiveness->getFlightPhase()) {
+				update_effectiveness_matrix_if_needed(EffectivenessUpdateReason::CONFIGURATION_UPDATE);
+			}
 		}
 	}
 
@@ -874,6 +884,10 @@ ControlAllocator::actuatorPhysicalScale(ActuatorType actuator_type) const
 {
 	float scale = 1.f;
 
+	if (!ductedFanAllocationFeedbackEnabled()) {
+		return scale;
+	}
+
 	if (actuator_type == ActuatorType::SERVOS) {
 		scale = _param_df_cs_max.get();
 
@@ -892,27 +906,41 @@ float
 ControlAllocator::update_allocation_feedback(int matrix_index, int actuator_index, float actuator_delta, float dt)
 {
 	const float sample_freq = 1.f / math::constrain(dt, 0.0001f, 0.02f);
-	float cutoff = _param_df_cs_cutoff.get();
+	const bool is_motor = _allocation_actuator_is_motor[matrix_index][actuator_index];
 
-	if (!PX4_ISFINITE(cutoff) || cutoff < 0.f) {
-		cutoff = 0.f;
-	}
+	auto sanitized_cutoff = [](float cutoff) {
+		return (PX4_ISFINITE(cutoff) && cutoff >= 0.f) ? cutoff : 0.f;
+	};
 
-	if (!PX4_ISFINITE(_last_allocation_feedback_cutoff)
-	    || fabsf(cutoff - _last_allocation_feedback_cutoff) > 0.1f
-	    || !PX4_ISFINITE(_last_allocation_feedback_sample_freq)) {
+	const float servo_cutoff = sanitized_cutoff(_param_df_cs_cutoff.get());
+	const float motor_cutoff = sanitized_cutoff(_param_df_motor_cutoff.get());
+
+	const bool first_filter_update = !PX4_ISFINITE(_last_allocation_feedback_servo_cutoff)
+					 || !PX4_ISFINITE(_last_allocation_feedback_motor_cutoff)
+					 || !PX4_ISFINITE(_last_allocation_feedback_sample_freq);
+	const bool cutoff_changed = fabsf(servo_cutoff - _last_allocation_feedback_servo_cutoff) > 0.1f
+				    || fabsf(motor_cutoff - _last_allocation_feedback_motor_cutoff) > 0.1f;
+	const bool sample_freq_changed = !PX4_ISFINITE(_last_allocation_feedback_sample_freq)
+					 || fabsf(sample_freq - _last_allocation_feedback_sample_freq) >
+					 fmaxf(1.f, 0.1f * _last_allocation_feedback_sample_freq);
+
+	if (first_filter_update || cutoff_changed || sample_freq_changed) {
 		for (int matrix = 0; matrix < ActuatorEffectiveness::MAX_NUM_MATRICES; matrix++) {
 			for (int actuator = 0; actuator < NUM_ACTUATORS; actuator++) {
+				const float cutoff = _allocation_actuator_is_motor[matrix][actuator] ? motor_cutoff : servo_cutoff;
 				_allocation_u_feedback_filter[matrix][actuator].set_cutoff_frequency(sample_freq, cutoff);
-				_allocation_u_feedback_filter[matrix][actuator].reset(_allocation_u_feedback[matrix][actuator]);
+
+				if (first_filter_update || cutoff_changed) {
+					_allocation_u_feedback_filter[matrix][actuator].reset(_allocation_u_feedback[matrix][actuator]);
+				}
 			}
 		}
 
-		_last_allocation_feedback_cutoff = cutoff;
+		_last_allocation_feedback_servo_cutoff = servo_cutoff;
+		_last_allocation_feedback_motor_cutoff = motor_cutoff;
 		_last_allocation_feedback_sample_freq = sample_freq;
 	}
 
-	const bool is_motor = _allocation_actuator_is_motor[matrix_index][actuator_index];
 	float time_constant = is_motor ? _param_df_motor_time_const.get() : _param_df_time_const.get();
 	const float min_time_constant = 1.f / sample_freq;
 
@@ -944,7 +972,7 @@ ControlAllocator::update_allocation_feedback(int matrix_index, int actuator_inde
 void
 ControlAllocator::publish_allocation_value(int matrix_index, float dt)
 {
-	if (!_publish_controls || matrix_index < 0 || matrix_index >= _num_control_allocation ||
+	if (!ductedFanAllocationFeedbackEnabled() || !_publish_controls || matrix_index < 0 || matrix_index >= _num_control_allocation ||
 	    _control_allocation[matrix_index] == nullptr) {
 		return;
 	}

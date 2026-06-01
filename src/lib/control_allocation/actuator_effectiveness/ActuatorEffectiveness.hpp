@@ -181,6 +181,11 @@ public:
 	}
 
 	/**
+	 * Return true if the control effectiveness matrix depends on the current flight phase.
+	 */
+	virtual bool effectivenessDependsOnFlightPhase() const { return false; }
+
+	/**
 	 * Display name
 	 */
 	virtual const char *name() const = 0;

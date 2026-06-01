@@ -39,10 +39,10 @@ px4_add_module(
 	COMPILE_FLAGS
 		${MAX_CUSTOM_OPT_LEVEL}
 	SRCS
-		IndiControl/IndiControl.cpp
-		IndiControl/IndiControl.hpp
 		DfHoverRateControl.cpp
 		DfHoverRateControl.hpp
+		IndiControl/IndiControl.cpp
+		IndiControl/IndiControl.hpp
 	DEPENDS
 		circuit_breaker
 		mathlib

@@ -108,6 +108,25 @@ void PositionControl::setInputSetpoint(const trajectory_setpoint_s &setpoint)
 	_yawspeed_sp = setpoint.yawspeed;
 }
 
+void PositionControl::setAccelerationIndiFeedback(const Vector3f &acc_meas, const Vector3f &thrust_acc_feedback)
+{
+	if (acc_meas.isAllFinite() && thrust_acc_feedback.isAllFinite()) {
+		_acceleration_indi_meas = acc_meas;
+		_acceleration_indi_thrust_acc = thrust_acc_feedback;
+		_acceleration_indi_enabled = true;
+
+	} else {
+		clearAccelerationIndiFeedback();
+	}
+}
+
+void PositionControl::clearAccelerationIndiFeedback()
+{
+	_acceleration_indi_enabled = false;
+	_acceleration_indi_meas.setZero();
+	_acceleration_indi_thrust_acc.setZero();
+}
+
 bool PositionControl::update(const float dt)
 {
 	bool valid = _inputValid();
@@ -206,6 +225,11 @@ void PositionControl::_velocityControl(const float dt)
 
 void PositionControl::_accelerationControl()
 {
+	if (_acceleration_indi_enabled && _acc_sp.isAllFinite()) {
+		const Vector3f thrust_acc_sp = _acceleration_indi_thrust_acc + (_acc_sp - _acceleration_indi_meas); // thrust_acc_sp is -T*b_z in paper._acceleration_indi_thrust_acc is (-T*b_z)_0
+		_acc_sp = thrust_acc_sp + Vector3f(0.f, 0.f, CONSTANTS_ONE_G); // reconstruct the desired acc by (1) in paper.
+	}
+
 	// Assume standard acceleration due to gravity in vertical direction for attitude generation
 	float z_specific_force = -CONSTANTS_ONE_G;
 

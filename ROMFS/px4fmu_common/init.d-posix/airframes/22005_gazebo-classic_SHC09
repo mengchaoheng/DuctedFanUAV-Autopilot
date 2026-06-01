@@ -12,8 +12,6 @@
 set VEHICLE_TYPE df
 
 param set-default CA_AIRFRAME 16
-# SHC09 stores physical effectiveness values; Ducted Fan keeps the allocator
-# contract normalized for both PID and INDI.
 
 param set-default DF_ROLLRATE_P 0.4
 param set-default DF_ROLLRATE_I 0.2
@@ -24,7 +22,33 @@ param set-default DF_PITCHRATE_I 0.2
 param set-default DF_YAWRATE_P 0.2
 param set-default DF_YAWRATE_I 0.1
 
-param set-default MPC_THR_HOVER 0.5
+param set-default MC_PITCH_P 2
+param set-default MC_ROLL_P 2
+param set-default MC_YAW_P 2
+
+param set-default MPC_XY_VEL_P_ACC 2.0
+param set-default MPC_XY_VEL_I_ACC 0.0
+param set-default MPC_XY_VEL_D_ACC 0.0
+
+param set-default MPC_Z_VEL_P_ACC 4.0
+param set-default MPC_Z_VEL_I_ACC 0.0
+param set-default MPC_Z_VEL_D_ACC 0.0
+
+# Force and motor-output contract.
+#
+# The controller publishes normalized thrust demand. The allocator solves for
+# normalized motor thrust u_T, and FunctionMotors converts u_T to a motor
+# command x using:
+#   u_T = THR_MDL_FAC * x^2 + (1 - THR_MDL_FAC) * x
+# For this Gazebo rotor the physical model is:
+#   omega = x * maxRotVelocity
+#   F = motorConstant * omega^2
+#
+# With THR_MDL_FAC=1, u_T is exactly F/Fmax.
+#   Fmax = motorConstant * maxRotVelocity^2 = 1.405e-5 * 2450^2 = 84.3351 N
+#   hover = mg/Fmax = 2.1 * 9.81 / 84.3351 = 0.2443
+param set-default MPC_THR_HOVER 0.2443
+param set-default THR_MDL_FAC 1
 param set-default RTL_RETURN_ALT 2.5
 param set-default RTL_DESCEND_ALT 2.5
 
@@ -36,16 +60,48 @@ param set-default CA_ROTOR0_AZ -1
 param set-default CA_ROTOR0_PX 0
 param set-default CA_ROTOR0_PY 0
 param set-default CA_ROTOR0_PZ -0.045
-param set-default CA_ROTOR0_CT 6.5
+# Rotor effectiveness in the allocation matrix.
+#
+# Ducted Fan uses the same B_user * U contract for motors and control surfaces:
+#   motor physical coordinate: F_motor [N] = DF_MOT_MAX * u_T
+#   servo physical coordinate: delta [rad] = DF_CS_MAX * u_servo
+#
+# PX4 constructs the motor column as:
+#   thrust = CT * axis
+#   moment = CT * (position x axis) - CT * KM * axis
+#
+# For SHC09 axis = [0, 0, -1], CT=1 means the B_user force row maps motor
+# thrust in N to body force in N:
+#   B_user,Fz = -1 N/N
+#   B_alloc,Fz = -DF_MOT_MAX = -84.3351 N at u_T=1
+#
+# The SDF rotor drag model is M_drag = F * momentConstant. The SHC09
+# control-surface rows are angular-acceleration effectiveness, so the true
+# motor drag coefficient in B_user would be yaw angular acceleration per N:
+#   KM = momentConstant / Iz = 2.35e-5 / 0.005006 = 0.00469
+#   B_user,Mz = 0.00469 rad/s^2/N
+#   B_alloc,Mz = 0.3959 rad/s^2 at u_T=1
+# It is much smaller than the control-surface yaw authority, so SHC09 ignores
+# the motor drag contribution for now and keeps KM=0.
+param set-default CA_ROTOR0_CT 1
 param set-default CA_ROTOR0_KM 0
 
 # Physical surface model from df-1.12.3 SHC09.main.mix.
-# B maps control-surface deflection in radians to angular acceleration.
-# DF_CS_MAX maps +/-0.6981 rad to normalized actuator_servos +/-1.
+# B maps control-surface deflection in radians to body angular acceleration.
+# DF_CS_MAX maps normalized actuator_servos +/-1 to +/-0.6981 rad, so the
+# allocation matrix uses B_user * DF_CS_MAX before PX4 row normalization.
 param set-default DF_CS_MAX 0.6981
+param set-default DF_MOT_MAX 84.3351
 param set-default DF_ACTUATOR 1
 param set-default DF_TIME_CONST 0.01
+param set-default DF_MOT_CUTOFF 8
 param set-default DF_CS_CUTOFF 8
+
+# Acceleration INDI uses the physical force rows in allocation_value:
+#   thrust_acc_0 = R_to_ned * (B_force * u_ultimate_phys) / DF_ACC_MASS
+# The motor model above only enters through DF_MOT_MAX and B_user,Fz=-1.
+param set-default DF_ACC_MASS 2.1
+
 param set-default CA_SV_CS_COUNT 6
 param set-default CA_SV_CS0_TRQ_R -12.8740
 param set-default CA_SV_CS0_TRQ_P 0

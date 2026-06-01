@@ -101,7 +101,8 @@ private:
 	RateControl _rate_control; ///< class for rate control calculations
 	IndiControl _indi_control; ///< INDI angular rate control
 
-	uORB::Subscription _allocation_value_sub{ORB_ID(allocation_value)};
+	uORB::Subscription _allocation_value_sub{ORB_ID(allocation_value), 0};
+	uORB::Subscription _allocation_value_sub1{ORB_ID(allocation_value), 1};
 	uORB::Subscription _battery_status_sub{ORB_ID(battery_status)};
 	uORB::Subscription _control_allocator_status_sub{ORB_ID(control_allocator_status)};
 	uORB::Subscription _manual_control_setpoint_sub{ORB_ID(manual_control_setpoint)};
@@ -135,6 +136,8 @@ private:
 	hrt_abstime _last_run{0};
 	hrt_abstime _last_indi_run{0};
 	hrt_abstime _rate_control_running_time_us{0};
+	allocation_value_s _allocation_value0{};
+	allocation_value_s _allocation_value1{};
 	allocation_value_s _allocation_value{};
 
 	perf_counter_t	_loop_perf;			/**< loop duration performance counter */

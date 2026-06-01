@@ -1,6 +1,6 @@
 #!/bin/sh
 #
-# Standard apps for ducted fan multicopters.
+# Standard apps for ducted fan UAV.
 #
 # NOTE: Script variables are declared/initialized/unset in the rcS script.
 #
@@ -16,17 +16,12 @@ control_allocator start
 df_hover_rate_control start
 
 #
-# Start Multicopter Attitude Controller.
+# Start multicopter attitude controller.
 #
 mc_att_control start
 
-if param greater -s MC_AT_EN 0
-then
-	mc_autotune_attitude_control start
-fi
-
 #
-# Start Multicopter Position Controller.
+# Start multicopter position controller.
 #
 mc_hover_thrust_estimator start
 flight_mode_manager start
@@ -37,12 +32,4 @@ mc_pos_control start
 #
 land_detector start multicopter
 
-if param compare -s MC_NN_EN 1
-then
-	mc_nn_control start
-fi
 
-if param compare -s MC_RAPTOR_ENABLE 1
-then
-	mc_raptor start
-fi

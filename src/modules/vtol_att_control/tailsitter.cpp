@@ -266,8 +266,11 @@ void Tailsitter::fill_actuator_outputs()
 	_torque_setpoint_0->xyz[1] = 0.f;
 	_torque_setpoint_0->xyz[2] = 0.f;
 
+	const vehicle_torque_setpoint_s *surface_torque_setpoint = useMcVirtualTorqueForControlSurfaces() ?
+			_vehicle_torque_setpoint_virtual_mc : _vehicle_torque_setpoint_virtual_fw;
+
 	_torque_setpoint_1->timestamp = hrt_absolute_time();
-	_torque_setpoint_1->timestamp_sample = _vehicle_torque_setpoint_virtual_fw->timestamp_sample;
+	_torque_setpoint_1->timestamp_sample = surface_torque_setpoint->timestamp_sample;
 	_torque_setpoint_1->xyz[0] = 0.f;
 	_torque_setpoint_1->xyz[1] = 0.f;
 	_torque_setpoint_1->xyz[2] = 0.f;
@@ -327,9 +330,9 @@ void Tailsitter::fill_actuator_outputs()
 
 	// Control surfaces
 	if (!_param_vt_elev_mc_lock.get() || _vtol_mode != vtol_mode::MC_MODE) {
-		_torque_setpoint_1->xyz[0] = _vehicle_torque_setpoint_virtual_fw->xyz[0];
-		_torque_setpoint_1->xyz[1] = _vehicle_torque_setpoint_virtual_fw->xyz[1];
-		_torque_setpoint_1->xyz[2] = _vehicle_torque_setpoint_virtual_fw->xyz[2];
+		_torque_setpoint_1->xyz[0] = surface_torque_setpoint->xyz[0];
+		_torque_setpoint_1->xyz[1] = surface_torque_setpoint->xyz[1];
+		_torque_setpoint_1->xyz[2] = surface_torque_setpoint->xyz[2];
 	}
 }
 
