@@ -265,10 +265,6 @@ public:
 protected:
 	friend class ControlAllocator; // for _actuator_sp
 
-	using MixMatrix = matrix::Matrix<float, NUM_ACTUATORS, NUM_AXES>;
-
-	void updateControlAllocationScaleFromMix(const MixMatrix &mix);
-
 	matrix::Matrix<float, NUM_AXES, NUM_ACTUATORS> _effectiveness;  ///< Effectiveness matrix
 	matrix::Vector<float, NUM_AXES> _control_allocation_scale;  	///< Scaling applied during allocation
 	ActuatorVector _actuator_trim; 	///< Neutral actuator values

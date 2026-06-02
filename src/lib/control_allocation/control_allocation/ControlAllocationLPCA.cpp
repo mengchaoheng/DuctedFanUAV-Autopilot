@@ -276,6 +276,10 @@ ControlAllocationLPCA::setEffectivenessMatrix(
 			update_normalization_scale);
 	_standard_problem_update_needed = true;
 	_normalization_needs_update = update_normalization_scale;
+
+	if (_metric_allocation && update_normalization_scale) {
+		_normalization_needs_update = false;
+	}
 }
 
 void
@@ -347,9 +351,11 @@ ControlAllocationLPCA::updateStandardProblem()
 	MixMatrix mix_raw;
 	matrix::geninv(_effectiveness, mix_raw);
 
-	if (_normalization_needs_update && !_had_actuator_failure) {
-		updateControlAllocationScaleFromMix(mix_raw);
-		_normalization_needs_update = false;
+	if (!_metric_allocation) {
+		if (_normalization_needs_update && !_had_actuator_failure) {
+			updateControlAllocationMatrixScale(mix_raw);
+			_normalization_needs_update = false;
+		}
 	}
 
 	buildUnitEffectiveness();
@@ -361,13 +367,77 @@ ControlAllocationLPCA::updateStandardProblem()
 }
 
 void
+ControlAllocationLPCA::updateControlAllocationMatrixScale(const MixMatrix &mix)
+{
+	if (_normalize_rpy) {
+		int num_non_zero_roll_torque = 0;
+		int num_non_zero_pitch_torque = 0;
+
+		for (int i = 0; i < _num_actuators; i++) {
+			if (fabsf(mix(i, ROLL)) > 1e-3f) {
+				++num_non_zero_roll_torque;
+			}
+
+			if (fabsf(mix(i, PITCH)) > 1e-3f) {
+				++num_non_zero_pitch_torque;
+			}
+		}
+
+		float roll_norm_scale = 1.f;
+
+		if (num_non_zero_roll_torque > 0) {
+			roll_norm_scale = sqrtf(mix.col(ROLL).norm_squared() / (num_non_zero_roll_torque / 2.f));
+		}
+
+		float pitch_norm_scale = 1.f;
+
+		if (num_non_zero_pitch_torque > 0) {
+			pitch_norm_scale = sqrtf(mix.col(PITCH).norm_squared() / (num_non_zero_pitch_torque / 2.f));
+		}
+
+		_control_allocation_scale(ROLL) = fmaxf(roll_norm_scale, pitch_norm_scale);
+		_control_allocation_scale(PITCH) = _control_allocation_scale(ROLL);
+		_control_allocation_scale(YAW) = mix.col(YAW).max();
+
+	} else {
+		_control_allocation_scale(ROLL) = 1.f;
+		_control_allocation_scale(PITCH) = 1.f;
+		_control_allocation_scale(YAW) = 1.f;
+	}
+
+	_control_allocation_scale(THRUST_Z) = 1.f;
+
+	for (int axis_idx = 2; axis_idx >= 0; --axis_idx) {
+		int num_non_zero_thrust = 0;
+		float norm_sum = 0.f;
+
+		for (int i = 0; i < _num_actuators; i++) {
+			float norm = fabsf(mix(i, 3 + axis_idx));
+			norm_sum += norm;
+
+			if (norm > FLT_EPSILON) {
+				++num_non_zero_thrust;
+			}
+		}
+
+		if (num_non_zero_thrust > 0) {
+			_control_allocation_scale(3 + axis_idx) = norm_sum / num_non_zero_thrust;
+
+		} else {
+			_control_allocation_scale(3 + axis_idx) = _control_allocation_scale(THRUST_Z);
+		}
+	}
+}
+
+void
 ControlAllocationLPCA::buildUnitEffectiveness()
 {
 	_effectiveness_unit.setZero();
 
 	for (int axis = 0; axis < NUM_AXES; ++axis) {
 		for (int actuator = 0; actuator < _num_actuators; ++actuator) {
-			_effectiveness_unit(axis, actuator) = _control_allocation_scale(axis) * _effectiveness(axis, actuator);
+			_effectiveness_unit(axis, actuator) = _metric_allocation ? _effectiveness(axis, actuator) :
+							       _control_allocation_scale(axis) * _effectiveness(axis, actuator);
 		}
 	}
 }

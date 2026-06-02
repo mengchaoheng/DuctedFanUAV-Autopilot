@@ -30,11 +30,14 @@ public:
 				    const ActuatorVector &actuator_trim, const ActuatorVector &linearization_point, int num_actuators,
 				    bool update_normalization_scale) override;
 	bool usedFallback() const override { return _used_fallback; }
+	void setMetricAllocation(bool metric_allocation) { _metric_allocation = metric_allocation; }
 
 private:
 	using EffectivenessMatrix = matrix::Matrix<float, NUM_AXES, NUM_ACTUATORS>;
+	using MixMatrix = matrix::Matrix<float, NUM_ACTUATORS, NUM_AXES>;
 
 	void updateStandardProblem();
+	void updateControlAllocationMatrixScale(const MixMatrix &mix);
 	void buildUnitEffectiveness();
 	void buildActiveRows();
 	void buildActuatorDeltaLimits();
@@ -61,6 +64,7 @@ private:
 	bool _normalization_needs_update{false};
 	bool _full_row_rank{false};
 	bool _used_fallback{false};
+	bool _metric_allocation{false};
 };
 
 class ControlAllocationInv : public ControlAllocationLPCA
