@@ -560,15 +560,16 @@ ControlAllocator::Run()
 		c[0](3) = _thrust_sp(0);
 		c[0](4) = _thrust_sp(1);
 		c[0](5) = _thrust_sp(2);
+		const Vector3f thrust_sp_priority0 = matrix::constrain(_thrust_sp, -1.f, 1.f);
 		c_higher[0](0) = _torque_sp_indi_feedback(0);
 		c_higher[0](1) = _torque_sp_indi_feedback(1);
 		c_higher[0](2) = _torque_sp_indi_feedback(2);
+		c_higher[0](3) = thrust_sp_priority0(0);
+		c_higher[0](4) = thrust_sp_priority0(1);
+		c_higher[0](5) = thrust_sp_priority0(2);
 		c_lower[0](0) = _torque_sp_rate_error_feedback(0);
 		c_lower[0](1) = _torque_sp_rate_error_feedback(1);
 		c_lower[0](2) = _torque_sp_rate_error_feedback(2);
-		c_lower[0](3) = _thrust_sp(0);
-		c_lower[0](4) = _thrust_sp(1);
-		c_lower[0](5) = _thrust_sp(2);
 		priority_split_valid[0] = _torque_sp_split_valid;
 
 		if (_num_control_allocation > 1) {
@@ -586,12 +587,14 @@ ControlAllocator::Run()
 			}
 
 			if (_vehicle_thrust_setpoint1_sub.copy(&vehicle_thrust_setpoint)) {
-				c[1](3) = vehicle_thrust_setpoint.xyz[0];
-				c[1](4) = vehicle_thrust_setpoint.xyz[1];
-				c[1](5) = vehicle_thrust_setpoint.xyz[2];
-				c_lower[1](3) = vehicle_thrust_setpoint.xyz[0];
-				c_lower[1](4) = vehicle_thrust_setpoint.xyz[1];
-				c_lower[1](5) = vehicle_thrust_setpoint.xyz[2];
+				const Vector3f thrust_sp(vehicle_thrust_setpoint.xyz);
+				const Vector3f thrust_sp_priority1 = matrix::constrain(thrust_sp, -1.f, 1.f);
+				c[1](3) = thrust_sp(0);
+				c[1](4) = thrust_sp(1);
+				c[1](5) = thrust_sp(2);
+				c_higher[1](3) = thrust_sp_priority1(0);
+				c_higher[1](4) = thrust_sp_priority1(1);
+				c_higher[1](5) = thrust_sp_priority1(2);
 			}
 		}
 
