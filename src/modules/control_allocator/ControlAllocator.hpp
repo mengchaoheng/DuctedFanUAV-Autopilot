@@ -222,7 +222,10 @@ private:
 	uORB::Subscription _failure_detector_status_sub{ORB_ID(failure_detector_status)};
 
 	matrix::Vector3f _torque_sp;
+	matrix::Vector3f _torque_sp_rate_error_feedback;
+	matrix::Vector3f _torque_sp_indi_feedback;
 	matrix::Vector3f _thrust_sp;
+	bool _torque_sp_split_valid{false};
 	bool _publish_controls{true};
 
 	// Reflects motor failures that are currently handled, not motor failures that are reported.
@@ -244,7 +247,6 @@ private:
 
 	bool _allocation_actuator_is_motor[ActuatorEffectiveness::MAX_NUM_MATRICES][NUM_ACTUATORS] {};
 	float _allocation_actuator_scale[ActuatorEffectiveness::MAX_NUM_MATRICES][NUM_ACTUATORS] {};
-	bool _allocation_unit_scale_reported[ActuatorEffectiveness::MAX_NUM_MATRICES] {};
 	ActuatorEffectiveness::EffectivenessMatrix
 		_allocation_effectiveness_physical[ActuatorEffectiveness::MAX_NUM_MATRICES] {};
 	float _allocation_u_estimate[ActuatorEffectiveness::MAX_NUM_MATRICES][NUM_ACTUATORS] {};
@@ -267,11 +269,12 @@ private:
 		(ParamFloat<px4::params::CA_ICE_PERIOD>) _param_ice_shedding_period,
 		(ParamFloat<px4::params::DF_CS_CUTOFF>) _param_df_cs_cutoff,
 		(ParamFloat<px4::params::DF_MOT_CUTOFF>) _param_df_motor_cutoff,
-		(ParamFloat<px4::params::DF_TIME_CONST>) _param_df_time_const,
+		(ParamFloat<px4::params::DF_CS_TCONST>) _param_df_cs_time_const,
 		(ParamFloat<px4::params::DF_MOT_TCONST>) _param_df_motor_time_const,
 		(ParamFloat<px4::params::DF_CS_MAX>) _param_df_cs_max,
 		(ParamFloat<px4::params::DF_MOT_MAX>) _param_df_motor_max,
-		(ParamInt<px4::params::DF_ACTUATOR>) _param_df_actuator
+		(ParamInt<px4::params::DF_CS_ACTUATOR>) _param_df_cs_actuator,
+		(ParamInt<px4::params::DF_MOT_ACTUATOR>) _param_df_motor_actuator
 	)
 
 };

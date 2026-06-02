@@ -93,6 +93,18 @@ public:
 		THRUST_Z
 	};
 
+	struct Diagnostics {
+		int8_t solver_status{0};
+		int8_t solver_err{0};
+		bool full_row_rank{false};
+		bool priority_split_valid{false};
+		uint8_t active_rows{0};
+		uint8_t active_axes_mask{0};
+		float solver_rho{0.f};
+		float solver_residual{0.f};
+		float solver_tolerance{0.f};
+	};
+
 	/**
 	 * Allocate control setpoint to actuators
 	 */
@@ -128,7 +140,25 @@ public:
 	 *
 	 * @param Control vector
 	 */
-	void setControlSetpoint(const matrix::Vector<float, NUM_AXES> &control) { _control_sp = control; }
+	void setControlSetpoint(const matrix::Vector<float, NUM_AXES> &control)
+	{
+		_control_sp = control;
+		_control_sp_priority_split_valid = false;
+	}
+
+	/**
+	 * Set optional higher/lower priority components of the desired control vector.
+	 *
+	 * The split is only used by allocators that explicitly support it. The sum of
+	 * higher and lower should match the control setpoint supplied by setControlSetpoint().
+	 */
+	void setControlSetpointPrioritySplit(const matrix::Vector<float, NUM_AXES> &higher,
+					     const matrix::Vector<float, NUM_AXES> &lower, bool valid)
+	{
+		_control_sp_priority_higher = higher;
+		_control_sp_priority_lower = lower;
+		_control_sp_priority_split_valid = valid;
+	}
 
 	/**
 	 * Get the desired control vector
@@ -228,6 +258,8 @@ public:
 
 	virtual bool usedFallback() const { return false; }
 
+	const Diagnostics &getDiagnostics() const { return _diagnostics; }
+
 	void setNormalizeRPY(bool normalize_rpy) { _normalize_rpy = normalize_rpy; }
 
 protected:
@@ -246,8 +278,12 @@ protected:
 	ActuatorVector _prev_actuator_sp;  	///< Previous actuator setpoint
 	ActuatorVector _actuator_sp;  	///< Actuator setpoint
 	matrix::Vector<float, NUM_AXES> _control_sp;   		///< Control setpoint
+	matrix::Vector<float, NUM_AXES> _control_sp_priority_higher;	///< Higher-priority control component
+	matrix::Vector<float, NUM_AXES> _control_sp_priority_lower;	///< Lower-priority control component
 	matrix::Vector<float, NUM_AXES> _control_trim; 		///< Control at trim actuator values
 	int _num_actuators{0};
+	Diagnostics _diagnostics{};
 	bool _normalize_rpy{false};				///< if true, normalize roll, pitch and yaw columns
 	bool _had_actuator_failure{false};
+	bool _control_sp_priority_split_valid{false};
 };

@@ -84,9 +84,10 @@ param set-default CA_ROTOR0_KM 0.0
 #   param set-default CA_SV_CS_COUNT 6
 #   param set-default DF_MOT_MAX 27.8
 #   param set-default DF_CS_MAX 0.3491
-#   param set-default DF_ACTUATOR 1
-#   param set-default DF_TIME_CONST 0.01
-#   param set-default DF_MOT_TCONST 0.03
+#   param set-default DF_MOT_ACTUATOR 0
+#   param set-default DF_CS_ACTUATOR 1
+#   param set-default DF_CS_TCONST 0.01
+##   param set-default DF_MOT_TCONST 0.03 #(in motor plugins)
 #   param set-default DF_MOT_CUTOFF 8
 #   param set-default DF_CS_CUTOFF 8
 #   param set-default DF_ACC_MASS 1.39

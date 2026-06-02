@@ -83,6 +83,9 @@ public:
 	/** @see ModuleBase */
 	static int custom_command(int argc, char *argv[]);
 
+	/** @see ModuleBase::print_status() */
+	int print_status() override;
+
 	/** @see ModuleBase */
 	static int print_usage(const char *reason = nullptr);
 
@@ -130,8 +133,8 @@ private:
 	bool _use_indi{false};
 	bool _use_tau_i{true};
 	bool _use_u{true};
-	bool _indi_active_reported{false};
-	bool _indi_waiting_reported{false};
+	bool _indi_waiting{false};
+	bool _last_indi_status_valid{false};
 
 	hrt_abstime _last_run{0};
 	hrt_abstime _last_indi_run{0};
@@ -145,6 +148,8 @@ private:
 	// keep setpoint values between updates
 	matrix::Vector3f _acro_rate_max;		/**< max attitude rates in acro mode */
 	matrix::Vector3f _rates_setpoint{};
+	matrix::Vector3f _last_indi_torque_physical{};
+	matrix::Vector3f _last_indi_torque_normalized{};
 
 	float _battery_status_scale{0.0f};
 	matrix::Vector3f _thrust_setpoint{};

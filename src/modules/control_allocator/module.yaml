@@ -641,7 +641,7 @@ parameters:
             decimal: 2
             default: 8.0
 
-        DF_TIME_CONST:
+        DF_CS_TCONST:
             description:
                 short: INDI servo feedback time constant
                 long: |
@@ -681,13 +681,14 @@ parameters:
             decimal: 4
             default: 1.0
 
-        DF_ACTUATOR:
+        DF_CS_ACTUATOR:
             description:
-                short: Use virtual actuator model as SITL feedback source
+                short: Use virtual control-surface model as SITL feedback source
                 long: |
                   SITL-only switch. 0 uses the allocator command as feedback source,
-                  1 uses the first-order actuator estimate. This affects both
-                  rate INDI servo feedback and acceleration INDI motor feedback.
+                  1 uses the first-order control-surface estimate. This affects
+                  rate INDI servo feedback and, on POSIX/SITL, the signal sent
+                  to actuator_servos.
             type: boolean
             default: 0
 
@@ -716,6 +717,17 @@ parameters:
             unit: s
             decimal: 4
             default: 0.01
+
+        DF_MOT_ACTUATOR:
+            description:
+                short: Use virtual motor model as SITL feedback source
+                long: |
+                  SITL-only switch. 0 uses the allocator command as feedback source,
+                  1 uses the first-order motor estimate. This affects acceleration
+                  INDI motor feedback and, on POSIX/SITL, the signal sent to
+                  actuator_motors.
+            type: boolean
+            default: 0
 
         DF_MOT_MAX:
             description:

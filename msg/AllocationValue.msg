@@ -10,6 +10,22 @@ bool indi_valid
 int8 requested_method
 uint8 fallback
 
+int8 SOLVER_STATUS_NOT_RUN = 0
+int8 SOLVER_STATUS_OK = 1
+int8 SOLVER_STATUS_ACCEPTED_WITH_ERROR = 2
+int8 SOLVER_STATUS_UNAVAILABLE = -1
+int8 SOLVER_STATUS_FAILED = -2
+
+int8 solver_status
+int8 solver_err
+bool full_row_rank
+bool priority_split_valid
+uint8 active_rows
+uint8 active_axes_mask
+float32 solver_rho
+float32 solver_residual
+float32 solver_tolerance
+
 float32[6] y
 float32[96] b
 float32[6] control_allocation_scale

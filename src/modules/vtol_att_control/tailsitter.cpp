@@ -44,6 +44,31 @@
 
 using namespace matrix;
 
+namespace
+{
+void clear_torque_setpoint(vehicle_torque_setpoint_s *setpoint)
+{
+	for (int i = 0; i < 3; i++) {
+		setpoint->xyz[i] = 0.f;
+		setpoint->xyz_rate_error_feedback[i] = 0.f;
+		setpoint->xyz_indi_feedback[i] = 0.f;
+	}
+
+	setpoint->xyz_split_valid = false;
+}
+
+void copy_torque_setpoint(vehicle_torque_setpoint_s *dst, const vehicle_torque_setpoint_s *src)
+{
+	for (int i = 0; i < 3; i++) {
+		dst->xyz[i] = src->xyz[i];
+		dst->xyz_rate_error_feedback[i] = src->xyz_rate_error_feedback[i];
+		dst->xyz_indi_feedback[i] = src->xyz_indi_feedback[i];
+	}
+
+	dst->xyz_split_valid = src->xyz_split_valid;
+}
+}
+
 Tailsitter::Tailsitter(VtolAttitudeControl *attc) :
 	VtolType(attc)
 {
@@ -262,18 +287,14 @@ void Tailsitter::fill_actuator_outputs()
 {
 	_torque_setpoint_0->timestamp = hrt_absolute_time();
 	_torque_setpoint_0->timestamp_sample = _vehicle_torque_setpoint_virtual_mc->timestamp_sample;
-	_torque_setpoint_0->xyz[0] = 0.f;
-	_torque_setpoint_0->xyz[1] = 0.f;
-	_torque_setpoint_0->xyz[2] = 0.f;
+	clear_torque_setpoint(_torque_setpoint_0);
 
 	const vehicle_torque_setpoint_s *surface_torque_setpoint = useMcVirtualTorqueForControlSurfaces() ?
 			_vehicle_torque_setpoint_virtual_mc : _vehicle_torque_setpoint_virtual_fw;
 
 	_torque_setpoint_1->timestamp = hrt_absolute_time();
 	_torque_setpoint_1->timestamp_sample = surface_torque_setpoint->timestamp_sample;
-	_torque_setpoint_1->xyz[0] = 0.f;
-	_torque_setpoint_1->xyz[1] = 0.f;
-	_torque_setpoint_1->xyz[2] = 0.f;
+	clear_torque_setpoint(_torque_setpoint_1);
 
 	_thrust_setpoint_0->timestamp = hrt_absolute_time();
 	_thrust_setpoint_0->timestamp_sample = _vehicle_thrust_setpoint_virtual_mc->timestamp_sample;
@@ -323,16 +344,12 @@ void Tailsitter::fill_actuator_outputs()
 			_thrust_setpoint_0->xyz[2] = -_last_thr_in_fw_mode;
 		}
 
-		_torque_setpoint_0->xyz[0] = _vehicle_torque_setpoint_virtual_mc->xyz[0];
-		_torque_setpoint_0->xyz[1] = _vehicle_torque_setpoint_virtual_mc->xyz[1];
-		_torque_setpoint_0->xyz[2] = _vehicle_torque_setpoint_virtual_mc->xyz[2];
+		copy_torque_setpoint(_torque_setpoint_0, _vehicle_torque_setpoint_virtual_mc);
 	}
 
 	// Control surfaces
 	if (!_param_vt_elev_mc_lock.get() || _vtol_mode != vtol_mode::MC_MODE) {
-		_torque_setpoint_1->xyz[0] = surface_torque_setpoint->xyz[0];
-		_torque_setpoint_1->xyz[1] = surface_torque_setpoint->xyz[1];
-		_torque_setpoint_1->xyz[2] = surface_torque_setpoint->xyz[2];
+		copy_torque_setpoint(_torque_setpoint_1, surface_torque_setpoint);
 	}
 }
 

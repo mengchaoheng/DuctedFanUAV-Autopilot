@@ -45,6 +45,7 @@
 #include <circuit_breaker/circuit_breaker.h>
 #include <mathlib/math/Limits.hpp>
 #include <mathlib/math/Functions.hpp>
+#include <cstdio>
 
 using namespace matrix;
 using namespace time_literals;
@@ -59,6 +60,89 @@ float first_order_update_zoh(float input, float state, float time_constant, floa
 
 	const float alpha = 1.f - expf(-dt / time_constant);
 	return state + alpha * (input - state);
+}
+
+const char *allocationAxisName(int axis)
+{
+	switch (axis) {
+	case ControlAllocation::ROLL:
+		return "Mx";
+
+	case ControlAllocation::PITCH:
+		return "My";
+
+	case ControlAllocation::YAW:
+		return "Mz";
+
+	case ControlAllocation::THRUST_X:
+		return "Fx";
+
+	case ControlAllocation::THRUST_Y:
+		return "Fy";
+
+	case ControlAllocation::THRUST_Z:
+		return "Fz";
+	}
+
+	return "?";
+}
+
+const char *allocationSolverStatusName(int8_t status)
+{
+	switch (status) {
+	case allocation_value_s::SOLVER_STATUS_OK:
+		return "ok";
+
+	case allocation_value_s::SOLVER_STATUS_ACCEPTED_WITH_ERROR:
+		return "accepted_err";
+
+	case allocation_value_s::SOLVER_STATUS_UNAVAILABLE:
+		return "unavailable";
+
+	case allocation_value_s::SOLVER_STATUS_FAILED:
+		return "failed";
+
+	case allocation_value_s::SOLVER_STATUS_NOT_RUN:
+	default:
+		return "not_run";
+	}
+}
+
+void formatAllocationAxesMask(uint8_t axes_mask, char *buffer, size_t buffer_len)
+{
+	if (buffer_len == 0) {
+		return;
+	}
+
+	size_t offset = 0;
+	bool first = true;
+	buffer[0] = '\0';
+
+	for (int axis = 0; axis < ControlAllocation::NUM_AXES; axis++) {
+		if ((axes_mask & (1u << axis)) == 0) {
+			continue;
+		}
+
+		const int written = snprintf(buffer + offset, buffer_len - offset, "%s%s", first ? "" : "/",
+					     allocationAxisName(axis));
+
+		if (written < 0) {
+			buffer[0] = '\0';
+			return;
+		}
+
+		if (static_cast<size_t>(written) >= buffer_len - offset) {
+			buffer[buffer_len - 1] = '\0';
+			return;
+		}
+
+		offset += static_cast<size_t>(written);
+		first = false;
+	}
+
+	if (first) {
+		snprintf(buffer, buffer_len, "none");
+	}
 }
 }
 
@@ -91,6 +175,8 @@ ControlAllocator::ControlAllocator() :
 	parameters_updated();
 
 	_slew_limited_ice_shedding_output.setSlewRate(ICE_SHEDDING_MAX_SLEWRATE);
+	_torque_sp_rate_error_feedback.setZero();
+	_torque_sp_indi_feedback.setZero();
 }
 
 ControlAllocator::~ControlAllocator()
@@ -436,6 +522,9 @@ ControlAllocator::Run()
 	// Run allocator on torque changes
 	if (_vehicle_torque_setpoint_sub.update(&vehicle_torque_setpoint)) {
 		_torque_sp = matrix::Vector3f(vehicle_torque_setpoint.xyz);
+		_torque_sp_rate_error_feedback = matrix::Vector3f(vehicle_torque_setpoint.xyz_rate_error_feedback);
+		_torque_sp_indi_feedback = matrix::Vector3f(vehicle_torque_setpoint.xyz_indi_feedback);
+		_torque_sp_split_valid = vehicle_torque_setpoint.xyz_split_valid;
 
 		do_update = true;
 		_timestamp_sample = vehicle_torque_setpoint.timestamp_sample;
@@ -455,30 +544,62 @@ ControlAllocator::Run()
 
 		// Set control setpoint vector(s)
 		matrix::Vector<float, NUM_AXES> c[ActuatorEffectiveness::MAX_NUM_MATRICES];
+		matrix::Vector<float, NUM_AXES> c_higher[ActuatorEffectiveness::MAX_NUM_MATRICES];
+		matrix::Vector<float, NUM_AXES> c_lower[ActuatorEffectiveness::MAX_NUM_MATRICES];
+		bool priority_split_valid[ActuatorEffectiveness::MAX_NUM_MATRICES] {};
+
+		for (int i = 0; i < ActuatorEffectiveness::MAX_NUM_MATRICES; ++i) {
+			c[i].setZero();
+			c_higher[i].setZero();
+			c_lower[i].setZero();
+		}
+
 		c[0](0) = _torque_sp(0);
 		c[0](1) = _torque_sp(1);
 		c[0](2) = _torque_sp(2);
 		c[0](3) = _thrust_sp(0);
 		c[0](4) = _thrust_sp(1);
 		c[0](5) = _thrust_sp(2);
+		c_higher[0](0) = _torque_sp_indi_feedback(0);
+		c_higher[0](1) = _torque_sp_indi_feedback(1);
+		c_higher[0](2) = _torque_sp_indi_feedback(2);
+		c_lower[0](0) = _torque_sp_rate_error_feedback(0);
+		c_lower[0](1) = _torque_sp_rate_error_feedback(1);
+		c_lower[0](2) = _torque_sp_rate_error_feedback(2);
+		c_lower[0](3) = _thrust_sp(0);
+		c_lower[0](4) = _thrust_sp(1);
+		c_lower[0](5) = _thrust_sp(2);
+		priority_split_valid[0] = _torque_sp_split_valid;
 
 		if (_num_control_allocation > 1) {
 			if (_vehicle_torque_setpoint1_sub.copy(&vehicle_torque_setpoint)) {
 				c[1](0) = vehicle_torque_setpoint.xyz[0];
 				c[1](1) = vehicle_torque_setpoint.xyz[1];
 				c[1](2) = vehicle_torque_setpoint.xyz[2];
+				c_higher[1](0) = vehicle_torque_setpoint.xyz_indi_feedback[0];
+				c_higher[1](1) = vehicle_torque_setpoint.xyz_indi_feedback[1];
+				c_higher[1](2) = vehicle_torque_setpoint.xyz_indi_feedback[2];
+				c_lower[1](0) = vehicle_torque_setpoint.xyz_rate_error_feedback[0];
+				c_lower[1](1) = vehicle_torque_setpoint.xyz_rate_error_feedback[1];
+				c_lower[1](2) = vehicle_torque_setpoint.xyz_rate_error_feedback[2];
+				priority_split_valid[1] = vehicle_torque_setpoint.xyz_split_valid;
 			}
 
 			if (_vehicle_thrust_setpoint1_sub.copy(&vehicle_thrust_setpoint)) {
 				c[1](3) = vehicle_thrust_setpoint.xyz[0];
 				c[1](4) = vehicle_thrust_setpoint.xyz[1];
 				c[1](5) = vehicle_thrust_setpoint.xyz[2];
+				c_lower[1](3) = vehicle_thrust_setpoint.xyz[0];
+				c_lower[1](4) = vehicle_thrust_setpoint.xyz[1];
+				c_lower[1](5) = vehicle_thrust_setpoint.xyz[2];
 			}
 		}
 
 		for (int i = 0; i < _num_control_allocation; ++i) {
 
 			_control_allocation[i]->setControlSetpoint(c[i]);
+			_control_allocation[i]->setControlSetpointPrioritySplit(c_higher[i],
+					priority_split_valid[i] ? c_lower[i] : c[i], priority_split_valid[i]);
 
 			// Do allocation
 			_control_allocation[i]->allocate();
@@ -540,10 +661,6 @@ ControlAllocator::update_effectiveness_matrix_if_needed(EffectivenessUpdateReaso
 		int actuator_idx_matrix[ActuatorEffectiveness::MAX_NUM_MATRICES] {};
 		memset(_allocation_actuator_is_motor, 0, sizeof(_allocation_actuator_is_motor));
 		memset(_allocation_actuator_scale, 0, sizeof(_allocation_actuator_scale));
-
-		if (reason == EffectivenessUpdateReason::CONFIGURATION_UPDATE) {
-			memset(_allocation_unit_scale_reported, 0, sizeof(_allocation_unit_scale_reported));
-		}
 
 		actuator_servos_trim_s trims{};
 		static_assert(actuator_servos_trim_s::NUM_CONTROLS == actuator_servos_s::NUM_CONTROLS, "size mismatch");
@@ -662,25 +779,6 @@ ControlAllocator::update_effectiveness_matrix_if_needed(EffectivenessUpdateReaso
 			}
 
 			_allocation_effectiveness_physical[i] = physical_matrix;
-
-			if (!_allocation_unit_scale_reported[i] && total_num_actuators > 0) {
-				bool has_actuator_scaling = false;
-
-				for (int actuator = 0; actuator < total_num_actuators; actuator++) {
-					if (fabsf(_allocation_actuator_scale[i][actuator] - 1.f) > 1.e-4f) {
-						has_actuator_scaling = true;
-						break;
-					}
-				}
-
-				if (has_actuator_scaling) {
-					PX4_INFO("Allocation actuator scaling active: B_alloc=B_user*U matrix=%d U=%.4g %.4g %.4g",
-						 i, (double)_allocation_actuator_scale[i][0],
-						 (double)(total_num_actuators > 1 ? _allocation_actuator_scale[i][1] : 0.f),
-						 (double)(total_num_actuators > 2 ? _allocation_actuator_scale[i][2] : 0.f));
-					_allocation_unit_scale_reported[i] = true;
-				}
-			}
 
 			// Assign control effectiveness matrix
 			_control_allocation[i]->setEffectivenessMatrix(allocation_matrix, config.trim[i],
@@ -866,7 +964,11 @@ ControlAllocator::actuatorOutputSetpoint(int matrix_index, int actuator_index) c
 	float actuator_sp = allocation->getActuatorSetpoint()(actuator_index);
 
 #if defined(__PX4_POSIX)
-	if (_param_df_actuator.get() == 1) {
+	const bool is_motor = _allocation_actuator_is_motor[matrix_index][actuator_index];
+	const bool use_actuator_model_for_sitl_output = is_motor ? _param_df_motor_actuator.get() == 1 :
+			_param_df_cs_actuator.get() == 1;
+
+	if (use_actuator_model_for_sitl_output) {
 		const float trim = allocation->_actuator_trim(actuator_index);
 		const float min_delta = allocation->getActuatorMin()(actuator_index) - trim;
 		const float max_delta = allocation->getActuatorMax()(actuator_index) - trim;
@@ -941,7 +1043,7 @@ ControlAllocator::update_allocation_feedback(int matrix_index, int actuator_inde
 		_last_allocation_feedback_sample_freq = sample_freq;
 	}
 
-	float time_constant = is_motor ? _param_df_motor_time_const.get() : _param_df_time_const.get();
+	float time_constant = is_motor ? _param_df_motor_time_const.get() : _param_df_cs_time_const.get();
 	const float min_time_constant = 1.f / sample_freq;
 
 	if (!PX4_ISFINITE(time_constant)) {
@@ -955,7 +1057,8 @@ ControlAllocator::update_allocation_feedback(int matrix_index, int actuator_inde
 	float feedback_source = _allocation_u_estimate[matrix_index][actuator_index];
 
 #if defined(__PX4_POSIX)
-	const bool use_actuator_model_for_sitl_output = _param_df_actuator.get() == 1;
+	const bool use_actuator_model_for_sitl_output = is_motor ? _param_df_motor_actuator.get() == 1 :
+			_param_df_cs_actuator.get() == 1;
 	_allocation_u_cmd[matrix_index][actuator_index] = use_actuator_model_for_sitl_output ?
 			_allocation_u_estimate[matrix_index][actuator_index] : actuator_delta;
 	feedback_source = _allocation_u_cmd[matrix_index][actuator_index];
@@ -988,6 +1091,17 @@ ControlAllocator::publish_allocation_value(int matrix_index, float dt)
 	msg.y_dim = allocation_value_s::MAX_Y;
 	msg.u_dim = static_cast<uint8_t>(num_actuators);
 	msg.indi_valid = num_actuators > 0;
+
+	const ControlAllocation::Diagnostics &diagnostics = allocation->getDiagnostics();
+	msg.solver_status = diagnostics.solver_status;
+	msg.solver_err = diagnostics.solver_err;
+	msg.full_row_rank = diagnostics.full_row_rank;
+	msg.priority_split_valid = diagnostics.priority_split_valid;
+	msg.active_rows = diagnostics.active_rows;
+	msg.active_axes_mask = diagnostics.active_axes_mask;
+	msg.solver_rho = diagnostics.solver_rho;
+	msg.solver_residual = diagnostics.solver_residual;
+	msg.solver_tolerance = diagnostics.solver_tolerance;
 
 	const matrix::Vector<float, NUM_AXES> &control_sp = allocation->getControlSetpoint();
 	const ActuatorEffectiveness::EffectivenessMatrix &published_effectiveness =
@@ -1162,6 +1276,9 @@ int ControlAllocator::print_status()
 
 	PX4_INFO("B Unit: User-defined");
 	PX4_INFO("Allocation Unit: Normalized");
+	PX4_INFO("DF feedback: CS cutoff=%.2fHz tconst=%.4fs actuator=%d, MOT cutoff=%.2fHz tconst=%.4fs actuator=%d",
+		 (double)_param_df_cs_cutoff.get(), (double)_param_df_cs_time_const.get(), _param_df_cs_actuator.get(),
+		 (double)_param_df_motor_cutoff.get(), (double)_param_df_motor_time_const.get(), _param_df_motor_actuator.get());
 
 	// Print current effectiveness matrix
 	for (int i = 0; i < _num_control_allocation; ++i) {
@@ -1275,6 +1392,39 @@ int ControlAllocator::print_status()
 
 		printf("\n");
 		PX4_INFO("  Configured actuators: %i", num_configured);
+
+		bool has_actuator_scaling = false;
+
+		for (int col = 0; col < num_configured; col++) {
+			const float scale = (_allocation_actuator_scale[i][col] > FLT_EPSILON) ? _allocation_actuator_scale[i][col] : 1.f;
+
+			if (fabsf(scale - 1.f) > 1.e-4f) {
+				has_actuator_scaling = true;
+				break;
+			}
+		}
+
+		if (has_actuator_scaling) {
+			PX4_INFO("  actuator scale U =");
+			printf("  |");
+
+			for (int col = 0; col < num_configured; col++) {
+				const float scale = (_allocation_actuator_scale[i][col] > FLT_EPSILON) ? _allocation_actuator_scale[i][col] : 1.f;
+				printf("% .4g ", (double)scale);
+			}
+
+			printf("\n");
+		}
+
+		const ControlAllocation::Diagnostics &diagnostics = _control_allocation[i]->getDiagnostics();
+		char axes[32];
+		formatAllocationAxesMask(diagnostics.active_axes_mask, axes, sizeof(axes));
+		PX4_INFO("  diagnostics: solver=%s(%d) err=%d fallback=%d full_rank=%d rows=%u axes=%s prio_split=%d rho=%.4g residual=%.4g tol=%.4g",
+			 allocationSolverStatusName(diagnostics.solver_status), diagnostics.solver_status,
+			 diagnostics.solver_err, (int)_control_allocation[i]->usedFallback(), (int)diagnostics.full_row_rank,
+			 (unsigned)diagnostics.active_rows, axes, (int)diagnostics.priority_split_valid,
+			 (double)diagnostics.solver_rho, (double)diagnostics.solver_residual,
+			 (double)diagnostics.solver_tolerance);
 	}
 
 	if (_handled_motor_failure_bitmask) {

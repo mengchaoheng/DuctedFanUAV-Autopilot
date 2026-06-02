@@ -39,8 +39,8 @@ private:
 	void buildActiveRows();
 	void buildActuatorDeltaLimits();
 
-	bool allocateInv(ActuatorVector &actuator_delta) const;
-	bool allocateLPCA(ActuatorVector &actuator_delta) const;
+	bool allocateInv(ActuatorVector &actuator_delta);
+	bool allocateLPCA(ActuatorVector &actuator_delta);
 	bool hasFullRowRank() const;
 
 	static int computeRowRank(float matrix[NUM_AXES][NUM_ACTUATORS], int rows, int cols);
@@ -50,6 +50,8 @@ private:
 
 	float _b_par[NUM_AXES][NUM_ACTUATORS] {};
 	float _y_par[NUM_AXES] {};
+	float _y_higher_par[NUM_AXES] {};
+	float _y_lower_par[NUM_AXES] {};
 	float _actuator_delta_min[NUM_ACTUATORS] {};
 	float _actuator_delta_max[NUM_ACTUATORS] {};
 	int _active_rows[NUM_AXES] {};
@@ -59,12 +61,6 @@ private:
 	bool _normalization_needs_update{false};
 	bool _full_row_rank{false};
 	bool _used_fallback{false};
-	mutable bool _debug_inv_printed{false};
-	mutable bool _debug_lpca_entry_printed{false};
-	mutable bool _debug_lpca_output_printed{false};
-	mutable bool _debug_lpca_fallback_printed{false};
-	mutable bool _debug_lpca_solver_fail_printed{false};
-	mutable bool _debug_lpca_solver_error_accepted_printed{false};
 };
 
 class ControlAllocationInv : public ControlAllocationLPCA

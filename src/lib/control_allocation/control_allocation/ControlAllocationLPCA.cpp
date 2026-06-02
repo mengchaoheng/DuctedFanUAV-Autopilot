@@ -12,9 +12,6 @@
 
 #include <cfloat>
 #include <cmath>
-#include <cstdio>
-#include <cstring>
-#include <px4_platform_common/log.h>
 
 #if defined(__clang__)
 # pragma clang diagnostic push
@@ -77,87 +74,31 @@ bool isFinite(float value)
 	return std::isfinite(value);
 }
 
-const char *axisName(int axis)
-{
-	switch (axis) {
-	case ControlAllocation::ROLL:
-		return "Mx";
-
-	case ControlAllocation::PITCH:
-		return "My";
-
-	case ControlAllocation::YAW:
-		return "Mz";
-
-	case ControlAllocation::THRUST_X:
-		return "Fx";
-
-	case ControlAllocation::THRUST_Y:
-		return "Fy";
-
-	case ControlAllocation::THRUST_Z:
-		return "Fz";
-	}
-
-	return "?";
-}
-
-const char *lpcaMethodName(ControlAllocationLPCA::Method method)
-{
-	switch (method) {
-	case ControlAllocationLPCA::Method::Inv:
-		return "INV";
-
-	case ControlAllocationLPCA::Method::DPLPCA:
-		return "DP_LPCA";
-
-	case ControlAllocationLPCA::Method::DPscaledLPCA:
-		return "DPscaled_LPCA";
-
-	case ControlAllocationLPCA::Method::PCA:
-		return "PCA";
-	}
-
-	return "unknown";
-}
-
-void formatActiveAxes(const int active_rows[ControlAllocation::NUM_AXES], int num_active_rows,
-		      char *buffer, size_t buffer_len)
-{
-	if (buffer_len == 0) {
-		return;
-	}
-
-	buffer[0] = '\0';
-
-	for (int i = 0; i < num_active_rows; ++i) {
-		const int written = snprintf(buffer + strlen(buffer), buffer_len - strlen(buffer), "%s%s",
-					     (i == 0) ? "" : "/", axisName(active_rows[i]));
-
-		if (written < 0 || strlen(buffer) >= buffer_len - 1) {
-			buffer[buffer_len - 1] = '\0';
-			return;
-		}
-	}
-}
-
 template<int Rows, int Cols>
 bool runLPCA(LPCAMethod method, const float b_par[ControlAllocation::NUM_AXES][ControlAllocation::NUM_ACTUATORS],
-		  const float y_par[ControlAllocation::NUM_AXES],
-		  const float actuator_min[ControlAllocation::NUM_ACTUATORS],
-		  const float actuator_max[ControlAllocation::NUM_ACTUATORS],
-		  float output[ControlAllocation::NUM_ACTUATORS],
-		  LPCADiagnostics &diagnostics)
+			  const float y_par[ControlAllocation::NUM_AXES],
+			  const float y_higher_par[ControlAllocation::NUM_AXES],
+			  const float y_lower_par[ControlAllocation::NUM_AXES],
+			  bool priority_split_valid,
+			  const float actuator_min[ControlAllocation::NUM_ACTUATORS],
+			  const float actuator_max[ControlAllocation::NUM_ACTUATORS],
+			  float output[ControlAllocation::NUM_ACTUATORS],
+			  LPCADiagnostics &diagnostics)
 {
 	float input[Rows] {};
+	float input_higher[Rows] {};
+	float input_lower[Rows] {};
 	float b[Rows][Cols] {};
 	float lower[Cols] {};
 	float upper[Cols] {};
 	float raw[Cols] {};
 	float restored[Cols] {};
+	const bool use_priority_split = method == LPCAMethod::Priority && priority_split_valid;
 
 	for (int i = 0; i < Rows; ++i) {
 		input[i] = y_par[i];
+		input_lower[i] = use_priority_split ? y_lower_par[i] : input[i];
+		input_higher[i] = use_priority_split ? y_higher_par[i] : 0.f;
 
 		for (int j = 0; j < Cols; ++j) {
 			b[i][j] = b_par[i][j];
@@ -182,8 +123,7 @@ bool runLPCA(LPCAMethod method, const float b_par[ControlAllocation::NUM_AXES][C
 		allocator.DPscaled_LPCA(input, raw, err, rho);
 
 	} else {
-		float zero_higher[Rows] {};
-		allocator.DP_LPCA_prio(zero_higher, input, raw, err, rho);
+		allocator.DP_LPCA_prio(input_higher, input_lower, raw, err, rho);
 	}
 
 	diagnostics.err = err;
@@ -229,68 +169,71 @@ bool runLPCA(LPCAMethod method, const float b_par[ControlAllocation::NUM_AXES][C
 
 template<int Rows>
 bool dispatchLPCAColumns(int cols, LPCAMethod method,
-			      const float b_par[ControlAllocation::NUM_AXES][ControlAllocation::NUM_ACTUATORS],
-			      const float y_par[ControlAllocation::NUM_AXES],
-			      const float actuator_min[ControlAllocation::NUM_ACTUATORS],
-			      const float actuator_max[ControlAllocation::NUM_ACTUATORS],
-			      float output[ControlAllocation::NUM_ACTUATORS],
+				      const float b_par[ControlAllocation::NUM_AXES][ControlAllocation::NUM_ACTUATORS],
+				      const float y_par[ControlAllocation::NUM_AXES],
+				      const float y_higher_par[ControlAllocation::NUM_AXES],
+				      const float y_lower_par[ControlAllocation::NUM_AXES],
+				      bool priority_split_valid,
+				      const float actuator_min[ControlAllocation::NUM_ACTUATORS],
+				      const float actuator_max[ControlAllocation::NUM_ACTUATORS],
+				      float output[ControlAllocation::NUM_ACTUATORS],
 			      LPCADiagnostics &diagnostics)
 {
 	switch (cols) {
 	case 3:
-		if constexpr (Rows <= 3) { return runLPCA<Rows, 3>(method, b_par, y_par, actuator_min, actuator_max, output, diagnostics); }
+		if constexpr (Rows <= 3) { return runLPCA<Rows, 3>(method, b_par, y_par, y_higher_par, y_lower_par, priority_split_valid, actuator_min, actuator_max, output, diagnostics); }
 		break;
 
 	case 4:
-		if constexpr (Rows <= 4) { return runLPCA<Rows, 4>(method, b_par, y_par, actuator_min, actuator_max, output, diagnostics); }
+		if constexpr (Rows <= 4) { return runLPCA<Rows, 4>(method, b_par, y_par, y_higher_par, y_lower_par, priority_split_valid, actuator_min, actuator_max, output, diagnostics); }
 		break;
 
 	case 5:
-		if constexpr (Rows <= 5) { return runLPCA<Rows, 5>(method, b_par, y_par, actuator_min, actuator_max, output, diagnostics); }
+		if constexpr (Rows <= 5) { return runLPCA<Rows, 5>(method, b_par, y_par, y_higher_par, y_lower_par, priority_split_valid, actuator_min, actuator_max, output, diagnostics); }
 		break;
 
 	case 6:
-		if constexpr (Rows <= 6) { return runLPCA<Rows, 6>(method, b_par, y_par, actuator_min, actuator_max, output, diagnostics); }
+		if constexpr (Rows <= 6) { return runLPCA<Rows, 6>(method, b_par, y_par, y_higher_par, y_lower_par, priority_split_valid, actuator_min, actuator_max, output, diagnostics); }
 		break;
 
 	case 7:
-		if constexpr (Rows <= 7) { return runLPCA<Rows, 7>(method, b_par, y_par, actuator_min, actuator_max, output, diagnostics); }
+		if constexpr (Rows <= 7) { return runLPCA<Rows, 7>(method, b_par, y_par, y_higher_par, y_lower_par, priority_split_valid, actuator_min, actuator_max, output, diagnostics); }
 		break;
 
 	case 8:
-		if constexpr (Rows <= 8) { return runLPCA<Rows, 8>(method, b_par, y_par, actuator_min, actuator_max, output, diagnostics); }
+		if constexpr (Rows <= 8) { return runLPCA<Rows, 8>(method, b_par, y_par, y_higher_par, y_lower_par, priority_split_valid, actuator_min, actuator_max, output, diagnostics); }
 		break;
 
 	case 9:
-		if constexpr (Rows <= 9) { return runLPCA<Rows, 9>(method, b_par, y_par, actuator_min, actuator_max, output, diagnostics); }
+		if constexpr (Rows <= 9) { return runLPCA<Rows, 9>(method, b_par, y_par, y_higher_par, y_lower_par, priority_split_valid, actuator_min, actuator_max, output, diagnostics); }
 		break;
 
 	case 10:
-		if constexpr (Rows <= 10) { return runLPCA<Rows, 10>(method, b_par, y_par, actuator_min, actuator_max, output, diagnostics); }
+		if constexpr (Rows <= 10) { return runLPCA<Rows, 10>(method, b_par, y_par, y_higher_par, y_lower_par, priority_split_valid, actuator_min, actuator_max, output, diagnostics); }
 		break;
 
 	case 11:
-		if constexpr (Rows <= 11) { return runLPCA<Rows, 11>(method, b_par, y_par, actuator_min, actuator_max, output, diagnostics); }
+		if constexpr (Rows <= 11) { return runLPCA<Rows, 11>(method, b_par, y_par, y_higher_par, y_lower_par, priority_split_valid, actuator_min, actuator_max, output, diagnostics); }
 		break;
 
 	case 12:
-		if constexpr (Rows <= 12) { return runLPCA<Rows, 12>(method, b_par, y_par, actuator_min, actuator_max, output, diagnostics); }
+		if constexpr (Rows <= 12) { return runLPCA<Rows, 12>(method, b_par, y_par, y_higher_par, y_lower_par, priority_split_valid, actuator_min, actuator_max, output, diagnostics); }
 		break;
 
 	case 13:
-		if constexpr (Rows <= 13) { return runLPCA<Rows, 13>(method, b_par, y_par, actuator_min, actuator_max, output, diagnostics); }
+		if constexpr (Rows <= 13) { return runLPCA<Rows, 13>(method, b_par, y_par, y_higher_par, y_lower_par, priority_split_valid, actuator_min, actuator_max, output, diagnostics); }
 		break;
 
 	case 14:
-		if constexpr (Rows <= 14) { return runLPCA<Rows, 14>(method, b_par, y_par, actuator_min, actuator_max, output, diagnostics); }
+		if constexpr (Rows <= 14) { return runLPCA<Rows, 14>(method, b_par, y_par, y_higher_par, y_lower_par, priority_split_valid, actuator_min, actuator_max, output, diagnostics); }
 		break;
 
 	case 15:
-		if constexpr (Rows <= 15) { return runLPCA<Rows, 15>(method, b_par, y_par, actuator_min, actuator_max, output, diagnostics); }
+		if constexpr (Rows <= 15) { return runLPCA<Rows, 15>(method, b_par, y_par, y_higher_par, y_lower_par, priority_split_valid, actuator_min, actuator_max, output, diagnostics); }
 		break;
 
 	case 16:
-		if constexpr (Rows <= 16) { return runLPCA<Rows, 16>(method, b_par, y_par, actuator_min, actuator_max, output, diagnostics); }
+		if constexpr (Rows <= 16) { return runLPCA<Rows, 16>(method, b_par, y_par, y_higher_par, y_lower_par, priority_split_valid, actuator_min, actuator_max, output, diagnostics); }
 		break;
 	}
 
@@ -298,21 +241,24 @@ bool dispatchLPCAColumns(int cols, LPCAMethod method,
 }
 
 bool dispatchLPCA(int rows, int cols, LPCAMethod method,
-		       const float b_par[ControlAllocation::NUM_AXES][ControlAllocation::NUM_ACTUATORS],
-		       const float y_par[ControlAllocation::NUM_AXES],
-		       const float actuator_min[ControlAllocation::NUM_ACTUATORS],
-		       const float actuator_max[ControlAllocation::NUM_ACTUATORS],
-		       float output[ControlAllocation::NUM_ACTUATORS],
+			       const float b_par[ControlAllocation::NUM_AXES][ControlAllocation::NUM_ACTUATORS],
+			       const float y_par[ControlAllocation::NUM_AXES],
+			       const float y_higher_par[ControlAllocation::NUM_AXES],
+			       const float y_lower_par[ControlAllocation::NUM_AXES],
+			       bool priority_split_valid,
+			       const float actuator_min[ControlAllocation::NUM_ACTUATORS],
+			       const float actuator_max[ControlAllocation::NUM_ACTUATORS],
+			       float output[ControlAllocation::NUM_ACTUATORS],
 		       LPCADiagnostics &diagnostics)
 {
 	switch (rows) {
 	case 3:
-		return dispatchLPCAColumns<3>(cols, method, b_par, y_par, actuator_min, actuator_max, output,
-						   diagnostics);
+		return dispatchLPCAColumns<3>(cols, method, b_par, y_par, y_higher_par, y_lower_par, priority_split_valid, actuator_min, actuator_max, output,
+							   diagnostics);
 
 	case 4:
-		return dispatchLPCAColumns<4>(cols, method, b_par, y_par, actuator_min, actuator_max, output,
-						   diagnostics);
+		return dispatchLPCAColumns<4>(cols, method, b_par, y_par, y_higher_par, y_lower_par, priority_split_valid, actuator_min, actuator_max, output,
+							   diagnostics);
 	}
 
 	return false;
@@ -330,12 +276,6 @@ ControlAllocationLPCA::setEffectivenessMatrix(
 			update_normalization_scale);
 	_standard_problem_update_needed = true;
 	_normalization_needs_update = update_normalization_scale;
-	_debug_inv_printed = false;
-	_debug_lpca_entry_printed = false;
-	_debug_lpca_output_printed = false;
-	_debug_lpca_fallback_printed = false;
-	_debug_lpca_solver_fail_printed = false;
-	_debug_lpca_solver_error_accepted_printed = false;
 }
 
 void
@@ -349,9 +289,29 @@ ControlAllocationLPCA::allocate()
 	actuator_delta.setZero();
 
 	const matrix::Vector<float, NUM_AXES> control = _control_sp - _control_trim;
+	matrix::Vector<float, NUM_AXES> priority_higher;
+	matrix::Vector<float, NUM_AXES> priority_lower = control;
+	priority_higher.setZero();
+
+	if (_control_sp_priority_split_valid) {
+		priority_higher = _control_sp_priority_higher;
+		priority_lower = _control_sp_priority_lower - _control_trim;
+	}
 
 	for (int i = 0; i < _num_active_rows; ++i) {
-		_y_par[i] = control(_active_rows[i]);
+		const int axis = _active_rows[i];
+		_y_par[i] = control(axis);
+		_y_higher_par[i] = priority_higher(axis);
+		_y_lower_par[i] = priority_lower(axis);
+	}
+
+	_diagnostics = {};
+	_diagnostics.active_rows = static_cast<uint8_t>(_num_active_rows);
+	_diagnostics.full_row_rank = _full_row_rank;
+	_diagnostics.priority_split_valid = _method == Method::PCA && _control_sp_priority_split_valid;
+
+	for (int i = 0; i < _num_active_rows; ++i) {
+		_diagnostics.active_axes_mask |= static_cast<uint8_t>(1u << _active_rows[i]);
 	}
 
 	bool allocated = false;
@@ -460,12 +420,10 @@ ControlAllocationLPCA::buildActuatorDeltaLimits()
 }
 
 bool
-ControlAllocationLPCA::allocateInv(ActuatorVector &actuator_delta) const
+ControlAllocationLPCA::allocateInv(ActuatorVector &actuator_delta)
 {
-	if (!_debug_inv_printed) {
-		px4_log_modulename(_PX4_LOG_LEVEL_INFO, "control_allocator", "custom allocation active: INV B=6x%d",
-				    _num_actuators);
-		_debug_inv_printed = true;
+	if (!_used_fallback) {
+		_diagnostics.solver_status = 0;
 	}
 
 	MixMatrix mix;
@@ -487,18 +445,10 @@ ControlAllocationLPCA::allocateInv(ActuatorVector &actuator_delta) const
 }
 
 bool
-ControlAllocationLPCA::allocateLPCA(ActuatorVector &actuator_delta) const
+ControlAllocationLPCA::allocateLPCA(ActuatorVector &actuator_delta)
 {
 	if (!_full_row_rank || _num_active_rows < 3 || _num_actuators < _num_active_rows) {
-		if (!_debug_lpca_fallback_printed) {
-			char axes[32];
-			formatActiveAxes(_active_rows, _num_active_rows, axes, sizeof(axes));
-			px4_log_modulename(_PX4_LOG_LEVEL_WARN, "control_allocator",
-					    "LPCA unavailable: method=%s B_par=%dx%d axes=%s full_rank=%d, fallback=INV",
-					    lpcaMethodName(_method), _num_active_rows, _num_actuators, axes, (int)_full_row_rank);
-			_debug_lpca_fallback_printed = true;
-		}
-
+		_diagnostics.solver_status = -1;
 		return false;
 	}
 
@@ -512,12 +462,14 @@ ControlAllocationLPCA::allocateLPCA(ActuatorVector &actuator_delta) const
 	}
 
 	if (!nonzero_command) {
+		_diagnostics.solver_status = 0;
 		actuator_delta.setZero();
 		return true;
 	}
 
 	float output[NUM_ACTUATORS] {};
 	LPCAMethod lpca_method = LPCAMethod::Priority;
+	const bool priority_split_valid = _method == Method::PCA && _control_sp_priority_split_valid;
 
 	if (_method == Method::DPLPCA) {
 		lpca_method = LPCAMethod::Dir;
@@ -526,53 +478,28 @@ ControlAllocationLPCA::allocateLPCA(ActuatorVector &actuator_delta) const
 		lpca_method = LPCAMethod::DPScaled;
 	}
 
-	LPCADiagnostics diagnostics;
+	LPCADiagnostics lpca_diagnostics;
 
-	if (!_debug_lpca_entry_printed) {
-		char axes[32];
-		formatActiveAxes(_active_rows, _num_active_rows, axes, sizeof(axes));
-		px4_log_modulename(_PX4_LOG_LEVEL_INFO, "control_allocator",
-				    "LPCA dispatch: %s from pca/ControlAllocation.h, B_par=%dx%d axes=%s",
-				    lpcaMethodName(_method), _num_active_rows, _num_actuators, axes);
-		_debug_lpca_entry_printed = true;
-	}
-
-	if (!dispatchLPCA(_num_active_rows, _num_actuators, lpca_method, _b_par, _y_par, _actuator_delta_min,
-			       _actuator_delta_max, output, diagnostics)) {
-		if (!_debug_lpca_solver_fail_printed) {
-			px4_log_modulename(_PX4_LOG_LEVEL_WARN, "control_allocator",
-					    "LPCA solver failed: method=%s B_par=%dx%d err=%d rho=%.4g residual=%.4g tol=%.4g, fallback=INV",
-					    lpcaMethodName(_method), _num_active_rows, _num_actuators, diagnostics.err,
-					    (double)diagnostics.rho, (double)diagnostics.max_residual,
-					    (double)diagnostics.residual_tolerance);
-			_debug_lpca_solver_fail_printed = true;
-		}
-
+	if (!dispatchLPCA(_num_active_rows, _num_actuators, lpca_method, _b_par, _y_par, _y_higher_par, _y_lower_par,
+			  priority_split_valid, _actuator_delta_min, _actuator_delta_max, output, lpca_diagnostics)) {
+		_diagnostics.solver_status = -2;
+		_diagnostics.solver_err = static_cast<int8_t>(lpca_diagnostics.err);
+		_diagnostics.solver_rho = lpca_diagnostics.rho;
+		_diagnostics.solver_residual = lpca_diagnostics.max_residual;
+		_diagnostics.solver_tolerance = lpca_diagnostics.residual_tolerance;
 		return false;
 	}
 
-	if (diagnostics.accepted_with_solver_error && !_debug_lpca_solver_error_accepted_printed) {
-		px4_log_modulename(_PX4_LOG_LEVEL_INFO, "control_allocator",
-				    "LPCA accepted solver warning: method=%s err=%d rho=%.4g residual=%.4g tol=%.4g",
-				    lpcaMethodName(_method), diagnostics.err, (double)diagnostics.rho,
-				    (double)diagnostics.max_residual, (double)diagnostics.residual_tolerance);
-		_debug_lpca_solver_error_accepted_printed = true;
-	}
+	_diagnostics.solver_status = lpca_diagnostics.accepted_with_solver_error ? 2 : 1;
+	_diagnostics.solver_err = static_cast<int8_t>(lpca_diagnostics.err);
+	_diagnostics.solver_rho = lpca_diagnostics.rho;
+	_diagnostics.solver_residual = lpca_diagnostics.max_residual;
+	_diagnostics.solver_tolerance = lpca_diagnostics.residual_tolerance;
 
 	actuator_delta.setZero();
 
 	for (int actuator = 0; actuator < _num_actuators; ++actuator) {
 		actuator_delta(actuator) = output[actuator];
-	}
-
-	if (!_debug_lpca_output_printed) {
-		px4_log_modulename(_PX4_LOG_LEVEL_INFO, "control_allocator",
-				    "LPCA output accepted: method=%s actuator_sp[0..2]=%.4f %.4f %.4f",
-				    lpcaMethodName(_method),
-				    (double)(_actuator_trim(0) + actuator_delta(0)),
-				    (double)(_num_actuators > 1 ? _actuator_trim(1) + actuator_delta(1) : 0.f),
-				    (double)(_num_actuators > 2 ? _actuator_trim(2) + actuator_delta(2) : 0.f));
-		_debug_lpca_output_printed = true;
 	}
 
 	return true;

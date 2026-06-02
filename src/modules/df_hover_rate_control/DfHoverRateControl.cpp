@@ -133,8 +133,7 @@ DfHoverRateControl::parameters_updated()
 	_use_indi = _param_df_use_indi.get() == 1;
 	_use_tau_i = _param_df_use_tau_i.get() == 1;
 	_use_u = _param_df_use_u.get() == 1;
-	_indi_active_reported = false;
-	_indi_waiting_reported = false;
+	_indi_waiting = false;
 }
 
 void
@@ -268,11 +267,15 @@ DfHoverRateControl::Run()
 			Vector3f error_fb;
 			Vector3f torque_setpoint;
 			Vector3f torque_setpoint_indi_physical;
+			Vector3f torque_setpoint_rate_error_feedback;
+			Vector3f torque_setpoint_indi_feedback;
 			matrix::Vector<float, allocation_value_s::MAX_Y> indi_output_scale;
 			indi_fb.setZero();
 			error_fb.setZero();
 			torque_setpoint.setZero();
 			torque_setpoint_indi_physical.setZero();
+			torque_setpoint_rate_error_feedback.setZero();
+			torque_setpoint_indi_feedback.setZero();
 			indi_output_scale.setAll(1.f);
 			float indi_dt = 0.f;
 			bool control_flag = false;
@@ -304,30 +307,17 @@ DfHoverRateControl::Run()
 				// Keep INDI in physical coordinates, then apply the same row scaling
 				// used by control allocation: v_norm = D * v_phys.
 				const Vector3f indi_torque_output_scale(indi_output_scale(0), indi_output_scale(1), indi_output_scale(2));
-				torque_setpoint = indi_torque_output_scale.emult(torque_setpoint);
+				torque_setpoint_rate_error_feedback = indi_torque_output_scale.emult(error_fb);
+				torque_setpoint_indi_feedback = indi_torque_output_scale.emult(indi_fb);
+				torque_setpoint = torque_setpoint_rate_error_feedback + torque_setpoint_indi_feedback;
+				_last_indi_torque_physical = torque_setpoint_indi_physical;
+				_last_indi_torque_normalized = torque_setpoint;
+				_last_indi_status_valid = true;
 				control_flag = true;
-
-				if (!_indi_active_reported) {
-					PX4_INFO("INDI rate control active: u_dim=%u D_torque=%.4g %.4g %.4g D_thrust=%.4g %.4g %.4g U=%.4g %.4g %.4g use_u=%d use_tau_i=%d",
-						 (unsigned)_allocation_value.u_dim,
-						 (double)indi_output_scale(0), (double)indi_output_scale(1), (double)indi_output_scale(2),
-						 (double)indi_output_scale(3), (double)indi_output_scale(4), (double)indi_output_scale(5),
-						 (double)_allocation_value.actuator_scale[0], (double)_allocation_value.actuator_scale[1],
-						 (double)_allocation_value.actuator_scale[2], (int)_use_u, (int)_use_tau_i);
-					PX4_INFO("INDI output sample: v_phys=%.4g %.4g %.4g v_norm=%.4g %.4g %.4g",
-						 (double)torque_setpoint_indi_physical(0), (double)torque_setpoint_indi_physical(1),
-						 (double)torque_setpoint_indi_physical(2),
-						 (double)torque_setpoint(0), (double)torque_setpoint(1), (double)torque_setpoint(2));
-					_indi_active_reported = true;
-				}
+				_indi_waiting = false;
 
 			} else {
-				if (_use_indi && !_indi_waiting_reported) {
-					PX4_WARN("INDI requested, waiting for valid allocation_value: indi_valid=%d u_dim=%u",
-						 (int)_allocation_value.indi_valid, (unsigned)_allocation_value.u_dim);
-					_indi_waiting_reported = true;
-				}
-
+				_indi_waiting = _use_indi && !allocation_value_valid;
 				torque_setpoint = _rate_control.update(rates, _rates_setpoint, angular_accel, dt, _maybe_landed || _landed);
 				torque_setpoint_indi_physical = torque_setpoint;
 				_last_indi_run = 0;
@@ -354,10 +344,23 @@ DfHoverRateControl::Run()
 			vehicle_torque_setpoint.xyz[0] = PX4_ISFINITE(torque_setpoint(0)) ? torque_setpoint(0) : 0.f;
 			vehicle_torque_setpoint.xyz[1] = PX4_ISFINITE(torque_setpoint(1)) ? torque_setpoint(1) : 0.f;
 			vehicle_torque_setpoint.xyz[2] = PX4_ISFINITE(torque_setpoint(2)) ? torque_setpoint(2) : 0.f;
+			vehicle_torque_setpoint.xyz_split_valid = control_flag;
+
+			for (int i = 0; i < 3; i++) {
+				vehicle_torque_setpoint.xyz_rate_error_feedback[i] =
+					(control_flag && PX4_ISFINITE(torque_setpoint_rate_error_feedback(i))) ?
+					torque_setpoint_rate_error_feedback(i) : 0.f;
+				vehicle_torque_setpoint.xyz_indi_feedback[i] =
+					(control_flag && PX4_ISFINITE(torque_setpoint_indi_feedback(i))) ?
+					torque_setpoint_indi_feedback(i) : 0.f;
+			}
 
 			indi_control_status_s indi_control_status{};
 			indi_control_status.timestamp_sample = angular_velocity.timestamp_sample;
 			indi_control_status.control_flag = control_flag;
+			indi_control_status.enabled = _use_indi;
+			indi_control_status.allocation_valid = allocation_value_valid;
+			indi_control_status.u_dim = _allocation_value.u_dim;
 			indi_control_status.indi_dt = indi_dt;
 			indi_control_status.rate_control_running_time = static_cast<float>(_rate_control_running_time_us);
 
@@ -382,7 +385,19 @@ DfHoverRateControl::Run()
 				if (_battery_status_scale > 0.f) {
 					for (int i = 0; i < 3; i++) {
 						vehicle_thrust_setpoint.xyz[i] = math::constrain(vehicle_thrust_setpoint.xyz[i] * _battery_status_scale, -1.f, 1.f);
-						vehicle_torque_setpoint.xyz[i] = math::constrain(vehicle_torque_setpoint.xyz[i] * _battery_status_scale, -1.f, 1.f);
+						const float torque_scaled = vehicle_torque_setpoint.xyz[i] * _battery_status_scale;
+						const float torque_limited = math::constrain(torque_scaled, -1.f, 1.f);
+						vehicle_torque_setpoint.xyz[i] = torque_limited;
+
+						if (vehicle_torque_setpoint.xyz_split_valid) {
+							const float rate_error_scaled = vehicle_torque_setpoint.xyz_rate_error_feedback[i] * _battery_status_scale;
+							const float indi_scaled = vehicle_torque_setpoint.xyz_indi_feedback[i] * _battery_status_scale;
+							const float split_sum = rate_error_scaled + indi_scaled;
+							const float split_limit_scale = (fabsf(split_sum) > FLT_EPSILON) ? torque_limited / split_sum : 1.f;
+
+							vehicle_torque_setpoint.xyz_rate_error_feedback[i] = rate_error_scaled * split_limit_scale;
+							vehicle_torque_setpoint.xyz_indi_feedback[i] = indi_scaled * split_limit_scale;
+						}
 					}
 				}
 			}
@@ -464,6 +479,38 @@ int DfHoverRateControl::task_spawn(int argc, char *argv[])
 int DfHoverRateControl::custom_command(int argc, char *argv[])
 {
 	return print_usage("unknown command");
+}
+
+int DfHoverRateControl::print_status()
+{
+	PX4_INFO("Running");
+	PX4_INFO("INDI rate control: enabled=%d active=%d waiting=%d use_u=%d use_tau_i=%d allocation_valid=%d u_dim=%u",
+		 (int)_use_indi, (int)_last_indi_status_valid, (int)_indi_waiting, (int)_use_u, (int)_use_tau_i,
+		 (int)_allocation_value.indi_valid, (unsigned)_allocation_value.u_dim);
+
+	if (_allocation_value.u_dim > 0) {
+		PX4_INFO("INDI allocation: D_torque=%.4g %.4g %.4g D_thrust=%.4g %.4g %.4g U=%.4g %.4g %.4g",
+			 (double)_allocation_value.control_allocation_scale[0],
+			 (double)_allocation_value.control_allocation_scale[1],
+			 (double)_allocation_value.control_allocation_scale[2],
+			 (double)_allocation_value.control_allocation_scale[3],
+			 (double)_allocation_value.control_allocation_scale[4],
+			 (double)_allocation_value.control_allocation_scale[5],
+			 (double)_allocation_value.actuator_scale[0],
+			 (double)(_allocation_value.u_dim > 1 ? _allocation_value.actuator_scale[1] : 0.f),
+			 (double)(_allocation_value.u_dim > 2 ? _allocation_value.actuator_scale[2] : 0.f));
+	}
+
+	if (_last_indi_status_valid) {
+		PX4_INFO("INDI last output: v_phys=%.4g %.4g %.4g v_norm=%.4g %.4g %.4g",
+			 (double)_last_indi_torque_physical(0), (double)_last_indi_torque_physical(1),
+			 (double)_last_indi_torque_physical(2),
+			 (double)_last_indi_torque_normalized(0), (double)_last_indi_torque_normalized(1),
+			 (double)_last_indi_torque_normalized(2));
+	}
+
+	perf_print_counter(_loop_perf);
+	return 0;
 }
 
 int DfHoverRateControl::print_usage(const char *reason)
