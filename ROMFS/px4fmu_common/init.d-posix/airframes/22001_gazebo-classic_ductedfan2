@@ -11,7 +11,7 @@
 . ${R}etc/init.d/rc.mc_defaults
 set VEHICLE_TYPE df
 
-param set-default CA_AIRFRAME 9
+param set-default CA_AIRFRAME 9 #  9 or 16
 
 param set-default MC_ROLL_P 6.5
 param set-default DF_ROLLRATE_P 0.45

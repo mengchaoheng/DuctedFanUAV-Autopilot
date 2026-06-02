@@ -9,6 +9,12 @@
  * replaces the final acceleration-to-thrust conversion with an acceleration
  * INDI correction based on motor thrust feedback.
  *
+ * This requires allocation_value to be published in physical units. PX4 does
+ * not validate the numerical B values; the user must ensure the motor force row
+ * uses physical thrust units with matching actuator scaling such as
+ * CA_ROTOR0_CT = 1 and DF_MOT_MAX set to the maximum thrust. Do not enable this
+ * with a normalized example allocation matrix.
+ *
  * @boolean
  * @group Ducted Fan Acceleration INDI
  */

@@ -44,6 +44,12 @@ PARAM_DEFINE_FLOAT(DF_INDI_Y_P, 10.f);
  * When enabled, df_hover_rate_control publishes the sum of INDI feedback and
  * rate-error feedback as the normalized torque setpoint.
  *
+ * This requires allocation_value to be published in physical units. PX4 does
+ * not validate the numerical B values; the user must ensure CA_SV_CS*_TRQ_*
+ * maps physical surface deflection in rad to angular acceleration in rad/s^2,
+ * and allocation_value.u_ultimate_phys uses the matching physical actuator
+ * units. Do not enable this with a normalized example allocation matrix.
+ *
  * @boolean
  * @group Ducted Fan Rate INDI
  */

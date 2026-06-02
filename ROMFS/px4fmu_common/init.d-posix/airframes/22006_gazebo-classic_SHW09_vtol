@@ -15,7 +15,15 @@ param set-default MAV_TYPE 19 # For MAVLink
 
 param set-default EKF2_FUSE_BETA 0 # side slip fusion is currently not supported for tailsitters
 
-param set-default CA_AIRFRAME 17 # Ducted Fan Tailsitter VTOL
+param set-default CA_AIRFRAME 17 # Ducted Fan Tailsitter VTOL or using 4 for FW-mode
+ # CA_AIRFRAME=4((normalize[0] = true normalize[1] = false;))
+# INDI unit contract for ducted-fan airframes:
+# DF_USE_INDI and DF_USE_ACC_INDI require CA_AIRFRAME=16/17 so allocation_value
+# is published in physical units. PX4 does not validate the numerical B values;
+# the user must ensure CA_SV_CS*_TRQ_* maps surface deflection [rad] to angular
+# acceleration [rad/s^2], CA_ROTOR*_CT/KM/axis maps motor physical thrust [N]
+# into force/moment rows, and DF_CS_MAX, DF_MOT_MAX, and DF_ACC_MASS match the
+# vehicle.
 
 param set-default CA_ROTOR_COUNT 1
 param set-default CA_ROTOR0_AX 0
