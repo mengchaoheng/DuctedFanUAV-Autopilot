@@ -35,8 +35,8 @@ PX4's built-in pseudo-inverse/sequential-desaturation allocation receives `B` in
 ```text
 B_norm = D B
 M_norm = B^+ D^{-1}
-u_norm = M_norm y
-y_hat = D B u_norm
+u_norm = M_norm v_norm_cmd
+v_norm_hat = D B u_norm
 ```
 
 The key switches are `_metric_allocation` and `_normalize_rpy`: `_normalize_rpy` decides whether roll/pitch/yaw are unitized, thrust axes are unitized by PX4's thrust logic, and `_normalization_needs_update` only controls when `D` is recomputed. `CA_AIRFRAME` selects the effectiveness backend that supplies `_normalize_rpy` through `getNormalizeRPY()`. Our ducted-fan airframes enable RPY unitization.
@@ -45,7 +45,7 @@ Our LPCA/PCA allocation keeps the same normalized PX4 contract, but applies the 
 
 ```text
 B_norm = _effectiveness_unit = D B_phys U
-find u_norm within actuator bounds so B_norm u_norm tracks y
+find u_norm within actuator bounds so B_norm u_norm tracks v_norm_cmd
 ```
 
 INDI closes the loop in physical angular-acceleration coordinates before this normalization. [DfHoverRateControl.cpp](src/modules/df_hover_rate_control/DfHoverRateControl.cpp) computes `v` from the equilibrium `B_phys`, publishes `v_norm = D v`, and splits it into lower-priority rate-error feedback plus higher-priority INDI feedback in [VehicleTorqueSetpoint](msg/VehicleTorqueSetpoint.msg). PID can survive arbitrary effectiveness magnitudes after PX4 unitization; INDI is only correct when `B_phys`, `DF_CS_MAX`, `DF_MOT_MAX`, and `DF_ACC_MASS` have the right physical units.
