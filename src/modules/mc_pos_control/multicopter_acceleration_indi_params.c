@@ -9,6 +9,10 @@
  * replaces the final acceleration-to-thrust conversion with an acceleration
  * INDI correction based on motor thrust feedback.
  *
+ * The controller only applies this correction while flying and when recent
+ * allocation_value feedback provides force authority. Otherwise mc_pos_control
+ * keeps the standard acceleration-to-thrust path.
+ *
  * This requires allocation_value to be published in physical units. PX4 does
  * not validate the numerical B values; the user must ensure the motor force row
  * uses physical thrust units with matching actuator scaling such as

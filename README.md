@@ -9,18 +9,34 @@ This repository is forked from [PX4-Autopilot](https://github.com/PX4/PX4-Autopi
 ## Feature
 Development is now centered on the `df-main` branch, which tracks PX4 `main` after the `df-1.15.4` migration. The older `df-1.x.x` branches keep the PX4-versioned history, including the early `df-1.12.3` INDI and LPCA work documented in [PINDI](https://github.com/mengchaoheng/PINDI).
 
-* Ducted-fan hover-rate control with a standard PID fallback and an optional INDI angular-rate loop in [src/modules/df_hover_rate_control](src/modules/df_hover_rate_control).
-* Unitized control allocation, with theory and reference implementation in [control_allocation](https://github.com/mengchaoheng/control_allocation), integrated into [src/modules/control_allocator](src/modules/control_allocator) and [src/lib/control_allocation](src/lib/control_allocation). The PX4 adapter is in [ControlAllocationLPCA.cpp](src/lib/control_allocation/control_allocation/ControlAllocationLPCA.cpp), while the core INV/DP_LPCA/DPscaled_LPCA/PCA solver is in [pca/ControlAllocation.h](src/lib/control_allocation/control_allocation/pca/ControlAllocation.h). It also includes priority-split torque allocation, allocator diagnostics, and INDI feedback through [AllocationValue](msg/AllocationValue.msg) and [VehicleTorqueSetpoint](msg/VehicleTorqueSetpoint.msg).
-* Ducted-fan actuator-effectiveness backends for hover and tailsitter VTOL in [ActuatorEffectivenessDuctedFan.hpp](src/modules/control_allocator/VehicleActuatorEffectiveness/ActuatorEffectivenessDuctedFan.hpp) and [ActuatorEffectivenessDuctedFanTailsitterVTOL.cpp](src/modules/control_allocator/VehicleActuatorEffectiveness/ActuatorEffectivenessDuctedFanTailsitterVTOL.cpp).
-* Supported Gazebo Classic airframes: `ductedfan2`, `ductedfan4`, `ductedfan6`, `ductedfan_mini`, `SHC09`, `SHW09_vtol`, and `tilt_multirotor`. See [airframe startup scripts](ROMFS/px4fmu_common/init.d-posix/airframes) and [SITL targets](src/modules/simulation/simulator_mavlink/sitl_targets_gazebo-classic.cmake).
-* Integrated Gazebo Classic ducted-fan dynamics in [ductedfan_plugin.cpp](Tools/simulation/gazebo-classic/sitl_gazebo-classic/src/ductedfan_plugin/ductedfan_plugin.cpp), with spline-based duct/wing aerodynamics and a control-surface moment model.
-* Extensive Pixhawk-based flight testing on DuctedFanUAV prototypes.
+Compared with the upstream PX4 baseline around commit `82e3322e0cf0afc9ad640f37a0a8b639077b3fa4`, this workspace adds three connected pieces:
+
+* Ducted-fan control: [df_hover_rate_control](src/modules/df_hover_rate_control) is derived from PX4 `mc_rate_control`. It keeps the normal angular-rate PID fallback, adds angular-rate INDI, and publishes separate force/torque setpoints for the ducted-fan dual-instance allocation layout. The INDI acceleration-to-thrust correction is integrated in [mc_pos_control](src/modules/mc_pos_control). The controller design follows **Full-Mode Flight Control Framework for a Ducted-Fan Tail-Sitter UAV**.
+* LPCA/PCA control allocation: [ControlAllocationLPCA.cpp](src/lib/control_allocation/control_allocation/ControlAllocationLPCA.cpp) adapts INV/DP_LPCA/DPscaled_LPCA/PCA to PX4, and [pca/ControlAllocation.h](src/lib/control_allocation/control_allocation/pca/ControlAllocation.h) contains the bounded LP implementation. The allocation algorithms follow **Aircraft control allocation** and the reference implementation in [control_allocation](https://github.com/mengchaoheng/control_allocation).
+* Ducted-fan effectiveness backends: [ActuatorEffectivenessDuctedFan.cpp](src/modules/control_allocator/VehicleActuatorEffectiveness/ActuatorEffectivenessDuctedFan.cpp) supports non-VTOL ducted-fan airframes, and [ActuatorEffectivenessDuctedFanTailsitterVTOL.cpp](src/modules/control_allocator/VehicleActuatorEffectiveness/ActuatorEffectivenessDuctedFanTailsitterVTOL.cpp) supports ducted-fan tailsitter VTOL. These backends provide the physical force/torque effectiveness matrices used by allocation feedback and INDI.
+
+Supported Gazebo Classic airframes include `ductedfan2`, `ductedfan4`, `ductedfan6`, `ductedfan_mini`, `SHC09`, `SHW09_vtol`, and `tilt_multirotor`. See [airframe startup scripts](ROMFS/px4fmu_common/init.d-posix/airframes) and [SITL targets](src/modules/simulation/simulator_mavlink/sitl_targets_gazebo-classic.cmake).
+
+The simulator includes Gazebo Classic ducted-fan dynamics in [ductedfan_plugin.cpp](Tools/simulation/gazebo-classic/sitl_gazebo-classic/src/ductedfan_plugin/ductedfan_plugin.cpp), with spline-based duct/wing aerodynamics and a control-surface moment model.
 
 <img src="sitl_gazebo_df4.png" width="60%" />
 <img src="flight_test.png" width="30%" />
 
-## Methodology
-Start from the physical allocation model:
+## Design Summary
+The implementation deliberately separates allocation, feedback, and INDI:
+
+* Allocation algorithms are generic. `CA_METHOD` can select INV/DP_LPCA/DPscaled_LPCA/PCA for any configured effectiveness matrix, not only ducted-fan airframes.
+* Physical allocation feedback is restricted to ducted-fan airframes. [AllocationValue](msg/AllocationValue.msg) publishes physical `B`, `u`, and filtered actuator feedback only for `CA_AIRFRAME=16/17`, because INDI needs correctly scaled physical units.
+* INDI is a ducted-fan control feature. It is enabled by `DF_USE_INDI` or `DF_USE_ACC_INDI`, then gated by recent allocation feedback with the required force or torque authority.
+
+This keeps aircraft-specific meaning out of the allocation algorithms. The controller and effectiveness backend decide what the setpoints and matrices mean; the allocator only solves the bounded allocation problem.
+
+### Allocation Methods
+PX4 upstream provides pseudo-inverse, sequential desaturation, and `AUTO`. This workspace adds `INV`, `DP_LPCA`, `DPscaled_LPCA`, and `PCA` to `CA_METHOD`.
+
+`CA_METHOD` applies to every allocation instance. If `CA_METHOD=AUTO`, the selected `CA_AIRFRAME` backend supplies its desired method per instance. Otherwise, each instance uses the same selected method.
+
+The LPCA/PCA adapter works on the normalized PX4 allocation contract:
 
 ```text
 v = B_phys u_phys
@@ -28,29 +44,117 @@ u_phys = U u_norm
 v_norm = D v = D B_phys U u_norm = B_norm u_norm
 ```
 
-Here `D = diag(_control_allocation_scale)` unitizes the control axes, and `U` converts normalized actuator commands to physical actuator units. PX4's built-in PID path already outputs `v_norm`, so its output is sent directly to allocation. INDI instead computes a physical angular-acceleration command `v`, so it must publish `v_norm = D v`.
+Here `U` maps normalized actuator commands to physical actuator units, and `D = diag(_control_allocation_scale)` unitizes the control axes. PID controllers already output normalized setpoints. INDI computes physical angular acceleration and then publishes the normalized equivalent.
 
-PX4's built-in pseudo-inverse/sequential-desaturation allocation receives `B` in `_effectiveness`, computes the mixer `M = B^+`, and then, when `_metric_allocation=false`, unitizes the model. Because the implementation stores the inverse mixer, this appears as column scaling by `D^{-1}`:
-
-```text
-B_norm = D B
-M_norm = B^+ D^{-1}
-u_norm = M_norm v_norm_cmd
-v_norm_hat = D B u_norm
-```
-
-The key switches are `_metric_allocation` and `_normalize_rpy`: `_normalize_rpy` decides whether roll/pitch/yaw are unitized, thrust axes are unitized by PX4's thrust logic, and `_normalization_needs_update` only controls when `D` is recomputed. `CA_AIRFRAME` selects the effectiveness backend that supplies `_normalize_rpy` through `getNormalizeRPY()`. Our ducted-fan airframes enable RPY unitization.
-
-Our LPCA/PCA allocation keeps the same normalized PX4 contract, but applies the scale to the forward model because the solver works on `B`, not on `B^+`. [ControlAllocator.cpp](src/modules/control_allocator/ControlAllocator.cpp) first builds `allocation_matrix = B_phys U`, with `U` from `_allocation_actuator_scale` (`DF_CS_MAX` for servos, `DF_MOT_MAX` for motors). [ControlAllocationLPCA.cpp](src/lib/control_allocation/control_allocation/ControlAllocationLPCA.cpp) has its own `_metric_allocation` and `_normalization_needs_update`, computes the same `D`, builds `_effectiveness_unit`, and sends the bounded problem to INV/DP_LPCA/DPscaled_LPCA/PCA in [pca/ControlAllocation.h](src/lib/control_allocation/control_allocation/pca/ControlAllocation.h):
+The LPCA/PCA path builds:
 
 ```text
-B_norm = _effectiveness_unit = D B_phys U
+B_norm = D B_phys U
 find u_norm within actuator bounds so B_norm u_norm tracks v_norm_cmd
 ```
 
-INDI closes the loop in physical angular-acceleration coordinates before this normalization. [DfHoverRateControl.cpp](src/modules/df_hover_rate_control/DfHoverRateControl.cpp) computes `v` from the equilibrium `B_phys`, publishes `v_norm = D v`, and splits it into lower-priority rate-error feedback plus higher-priority INDI feedback in [VehicleTorqueSetpoint](msg/VehicleTorqueSetpoint.msg). PID can survive arbitrary effectiveness magnitudes after PX4 unitization; INDI is only correct when `B_phys`, `DF_CS_MAX`, `DF_MOT_MAX`, and `DF_ACC_MASS` have the right physical units.
+Current LPCA/PCA applicability:
 
-The simulator follows the same model. [ductedfan_plugin.cpp](Tools/simulation/gazebo-classic/sitl_gazebo-classic/src/ductedfan_plugin/ductedfan_plugin.cpp) computes FRD forces and moments from rotor speed, wind-relative airspeed, angle of attack, duct/wing splines, rotor torque, gyroscopic terms, and `B_cs`, then converts frames only at the Gazebo boundary.
+* active rows: 2 to 6
+* actuators: 2 to 16
+* actuators must be at least active rows
+* active rows must be full-row-rank
+
+Fallback behavior:
+
+* `solver_status = unavailable`: matrix is unsuitable, such as rank deficient, fewer than two active rows, more active rows than actuators, or unsupported dimensions.
+* `solver_status = failed`: LPCA/PCA dispatch or solver failed for the bounded problem.
+* `fallback = 1`: the allocator then runs the internal `INV` path and still produces actuator commands.
+* `solver_status = accepted_err`: solver reported an error code, but the residual check accepted the result, so this is not the fallback path.
+
+PCA adds high/low priority semantics. The solver interface is generic, but this workspace currently defines only the three-dimensional torque split generated by angular-rate INDI:
+
+```text
+higher = INDI torque feedback
+lower  = rate-error torque feedback
+```
+
+[ControlAllocator.cpp](src/modules/control_allocator/ControlAllocator.cpp) only passes that split to PCA when the target allocation matrix is torque-only and the torque split is valid. Otherwise PCA degenerates to `higher = 0, lower = total_command`; if LPCA/PCA is unsuitable it falls back to `INV`.
+
+### Allocation Feedback
+There are two feedback layers.
+
+[ControlAllocatorStatus](msg/ControlAllocatorStatus.msg) is public allocator status for all airframes. It reports allocation success, unallocated torque/thrust, saturation state, and allocation runtime:
+
+```text
+allocation_running_time
+allocation_running_time_avg
+allocation_running_time_samples
+```
+
+[AllocationValue](msg/AllocationValue.msg) is ducted-fan physical feedback for INDI and diagnostics. It is published only when:
+
+```text
+CA_AIRFRAME is 16 or 17
+control allocation output publishing is enabled
+the allocation instance exists
+```
+
+It contains the selected method, fallback flag, solver diagnostics, physical `B`, normalized and physical actuator output, filtered actuator feedback, and per-instance allocation runtime. `feedback_valid` means the allocation instance has at least one configured actuator; it does not mean INDI is automatically valid. INDI still checks force or torque authority.
+
+### INDI Conditions And Feedback
+Angular-rate INDI lives in [df_hover_rate_control](src/modules/df_hover_rate_control) and is enabled by `DF_USE_INDI`. The module is a ducted-fan version of `mc_rate_control`: it keeps the PID rate-control fallback and adds physical INDI feedback.
+
+For non-VTOL ducted-fan aircraft, `df_hover_rate_control` publishes force and torque setpoints to separate uORB instances:
+
+```text
+instance 0: thrust / force setpoint
+instance 1: torque setpoint
+```
+
+This mirrors the two allocation matrices. For ducted-fan tailsitter VTOL, the module is started with the `vtol` argument and publishes to the VTOL virtual multicopter setpoint topics. This is intentional: MC, transition, and FW phases can keep the same ducted-fan MC-rate controller path at the actuator-control level, while the VTOL attitude layer and the effectiveness backend change the setpoints and matrix with flight phase.
+
+Angular-rate INDI reads `allocation_value` instance 1. It enters INDI only when:
+
+* `DF_USE_INDI=1`
+* instance 1 feedback is recent, with timestamp younger than 500 ms
+* `feedback_valid=true`
+* torque rows 0, 1, and 2 each have at least one finite nonzero effectiveness entry
+
+Its feedback extraction is:
+
+```text
+Bu = B_torque * u_ultimate_phys
+indi_fb = Bu - angular_accel
+error_fb = Kp * (rate_sp - rate)
+torque_phys = error_fb + indi_fb
+torque_norm = D_torque * torque_phys
+```
+
+It publishes `torque_norm` as the torque setpoint, with `error_fb` as the lower-priority component and `indi_fb` as the higher-priority component for PCA.
+
+Acceleration INDI lives in [mc_pos_control](src/modules/mc_pos_control) and is enabled by `DF_USE_ACC_INDI` while flying. It reads `allocation_value` instance 0 and enters only when that feedback is recent and has force authority in rows 3 to 5.
+
+Its feedback extraction is:
+
+```text
+force_body = B_force * actuator_feedback
+thrust_acc_feedback = R_to_ned * force_body / DF_ACC_MASS
+thrust_acc_sp = thrust_acc_feedback + (acc_sp - acc_meas)
+```
+
+For non-reversible motors it applies the same `THR_MDL_FAC` inverse used by the motor output model before reconstructing physical thrust feedback. If any required feedback is unavailable, `mc_pos_control` keeps the normal PX4 acceleration-to-thrust path.
+
+### Ducted-Fan Effectiveness
+`CA_AIRFRAME=16` uses [ActuatorEffectivenessDuctedFan.cpp](src/modules/control_allocator/VehicleActuatorEffectiveness/ActuatorEffectivenessDuctedFan.cpp). It creates two allocation matrices by design:
+
+* instance 0: motor force allocation, with propeller torque disabled
+* instance 1: control-surface torque allocation
+
+The current ducted-fan aircraft are physically decoupled this way, and PCA currently has only a torque priority split. Keeping force and torque in separate matrices makes instance 1 torque-only, so PCA can use `INDI torque > rate-error torque` without inventing a force priority policy.
+
+`CA_AIRFRAME=17` uses [ActuatorEffectivenessDuctedFanTailsitterVTOL.cpp](src/modules/control_allocator/VehicleActuatorEffectiveness/ActuatorEffectivenessDuctedFanTailsitterVTOL.cpp). It inherits PX4's tailsitter two-instance structure and adjusts the surface matrix by flight phase: hover can disable wing elevons outside the duct slipstream, while transition/FW can scale duct tail-surface authority with `DF_FW_CS_GAIN`.
+
+If a future ducted-fan geometry has motors or surfaces that both produce force and torque, the two-instance assumption is no longer valid. That future geometry should use one allocation matrix and PCA should first be extended to multi-level priorities, for example:
+
+```text
+force > INDI torque > rate-error torque
+```
 
 ## Installation
 Before running this project, you need to deploy the development environment. Please refer to the [PX4 official website](https://docs.px4.io/main/en/) (`main`) to ensure that your computer (macOS/Linux) can open the default model simulation by executing the `make px4_sitl gazebo-classic` command and take off through QGC or terminal commands. It's recommended to use Ubuntu 20.04 and QGC 5.x.

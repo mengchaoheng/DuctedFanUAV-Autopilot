@@ -869,6 +869,9 @@ ControlAllocator::publish_control_allocator_status(int matrix_index)
 {
 	control_allocator_status_s control_allocator_status{};
 	control_allocator_status.timestamp = hrt_absolute_time();
+	control_allocator_status.allocation_running_time = static_cast<float>(_allocation_running_time_us[matrix_index]);
+	control_allocator_status.allocation_running_time_avg = _allocation_running_time_avg_us[matrix_index];
+	control_allocator_status.allocation_running_time_samples = _allocation_running_time_count[matrix_index];
 
 	// TODO: disabled motors (?)
 
@@ -1149,8 +1152,7 @@ ControlAllocator::update_allocation_feedback(int matrix_index, int actuator_inde
 void
 ControlAllocator::publish_allocation_value(int matrix_index, float dt)
 {
-	if (!ductedFanAllocationFeedbackEnabled() || !_publish_controls || matrix_index < 0 || matrix_index >= _num_control_allocation ||
-	    _control_allocation[matrix_index] == nullptr) {
+	if (!ductedFanAllocationFeedbackEnabled() || !_publish_controls || _control_allocation[matrix_index] == nullptr) {
 		return;
 	}
 
@@ -1164,7 +1166,7 @@ ControlAllocator::publish_allocation_value(int matrix_index, float dt)
 	msg.fallback = allocation->usedFallback() ? 1 : 0;
 	msg.y_dim = allocation_value_s::MAX_Y;
 	msg.u_dim = static_cast<uint8_t>(num_actuators);
-	msg.indi_valid = num_actuators > 0;
+	msg.feedback_valid = num_actuators > 0;
 
 	const ControlAllocation::Diagnostics &diagnostics = allocation->getDiagnostics();
 	msg.solver_status = diagnostics.solver_status;

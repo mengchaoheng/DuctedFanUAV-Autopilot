@@ -6,7 +6,7 @@ uint8 MAX_U = 16
 
 uint8 y_dim
 uint8 u_dim
-bool indi_valid
+bool feedback_valid
 int8 requested_method
 uint8 fallback
 

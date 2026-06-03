@@ -227,7 +227,6 @@ private:
 
 	bool _hover_thrust_initialized{false};
 	bool _acc_indi_waiting{false};
-	bool _acc_indi_unsupported{false};
 	bool _last_acc_indi_feedback_valid{false};
 
 	float _hover_thrust{0.f};
@@ -236,15 +235,6 @@ private:
 
 	/** Timeout in us for trajectory data to get considered invalid */
 	static constexpr uint64_t TRAJECTORY_STREAM_TIMEOUT_US = 500_ms;
-
-	static constexpr int CA_AIRFRAME_DUCTED_FAN = 16;
-	static constexpr int CA_AIRFRAME_DUCTED_FAN_TAILSITTER_VTOL = 17;
-
-	bool accelerationIndiAirframeSupported() const
-	{
-		const int ca_airframe = _param_ca_airframe.get();
-		return ca_airframe == CA_AIRFRAME_DUCTED_FAN || ca_airframe == CA_AIRFRAME_DUCTED_FAN_TAILSITTER_VTOL;
-	}
 
 	/** During smooth-takeoff, below ALTITUDE_THRESHOLD the yaw-control is turned off and tilt is limited */
 	static constexpr float ALTITUDE_THRESHOLD = 0.3f;

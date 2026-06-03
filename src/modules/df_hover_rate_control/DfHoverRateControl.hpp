@@ -35,6 +35,20 @@
  * Author: Chaoheng Meng <chaohengmeng@163.com>
  */
 
+/*
+ * This controller is derived from PX4's mc_rate_control and keeps the same
+ * basic angular-rate control role, with ducted-fan-specific additions for INDI
+ * feedback and dual-instance control allocation.
+ *
+ * The current ducted-fan allocation uses instance 0 for force and instance 1
+ * for torque. Non-VTOL df_hover_rate_control therefore publishes thrust and
+ * torque setpoints to separate uORB instances, similar to the VTOL virtual
+ * setpoint path.
+ *
+ * When updating this module, compare relevant upstream mc_rate_control changes
+ * and keep the dual-instance force/torque setpoint mapping intact.
+ */
+
 #pragma once
 
 #include "IndiControl/IndiControl.hpp"
@@ -104,11 +118,9 @@ private:
 	RateControl _rate_control; ///< class for rate control calculations
 	IndiControl _indi_control; ///< INDI angular rate control
 
-	uORB::Subscription _allocation_value_sub{ORB_ID(allocation_value), 0};
-	uORB::Subscription _allocation_value_sub1{ORB_ID(allocation_value), 1};
+	uORB::Subscription _allocation_value_sub{ORB_ID(allocation_value), 1};
 	uORB::Subscription _battery_status_sub{ORB_ID(battery_status)};
-	uORB::Subscription _control_allocator_status_sub{ORB_ID(control_allocator_status), 0};
-	uORB::Subscription _control_allocator_status_sub1{ORB_ID(control_allocator_status), 1};
+	uORB::Subscription _control_allocator_status_sub{ORB_ID(control_allocator_status), 1};
 	uORB::Subscription _manual_control_setpoint_sub{ORB_ID(manual_control_setpoint)};
 	uORB::Subscription _vehicle_control_mode_sub{ORB_ID(vehicle_control_mode)};
 	uORB::Subscription _vehicle_land_detected_sub{ORB_ID(vehicle_land_detected)};
@@ -130,8 +142,7 @@ private:
 
 	vehicle_control_mode_s	_vehicle_control_mode{};
 	vehicle_status_s	_vehicle_status{};
-	control_allocator_status_s _control_allocator_status0{};
-	control_allocator_status_s _control_allocator_status1{};
+	control_allocator_status_s _control_allocator_status{};
 
 	bool _vtol{false};
 	bool _landed{true};
@@ -148,8 +159,6 @@ private:
 	float _rate_control_running_time_avg_us{0.f};
 	uint32_t _rate_control_running_time_count{0};
 	uint8_t _rate_control_method{0};
-	allocation_value_s _allocation_value0{};
-	allocation_value_s _allocation_value1{};
 	allocation_value_s _allocation_value{};
 
 	perf_counter_t	_loop_perf;			/**< loop duration performance counter */

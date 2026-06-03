@@ -30,8 +30,7 @@ Vector3f IndiControl::update(const Vector3f &rate, const Vector3f &rate_sp, cons
 		Vector3f Bu;
 		Bu.setZero();
 
-		if (use_u && allocation_value.indi_valid && allocation_value.y_dim >= 3 && allocation_value.u_dim > 0
-		    && allocation_value.u_dim <= allocation_value_s::MAX_U) {
+		if (use_u && allocation_value.feedback_valid) {
 
 			for (unsigned row = 0; row < 3; row++) {
 				for (unsigned actuator = 0; actuator < allocation_value.u_dim; actuator++) {

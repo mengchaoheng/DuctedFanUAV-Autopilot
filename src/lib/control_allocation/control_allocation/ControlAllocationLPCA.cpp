@@ -180,6 +180,10 @@ bool dispatchLPCAColumns(int cols, LPCAMethod method,
 			      LPCADiagnostics &diagnostics)
 {
 	switch (cols) {
+	case 2:
+		if constexpr (Rows <= 2) { return runLPCA<Rows, 2>(method, b_par, y_par, y_higher_par, y_lower_par, priority_split_valid, actuator_min, actuator_max, output, diagnostics); }
+		break;
+
 	case 3:
 		if constexpr (Rows <= 3) { return runLPCA<Rows, 3>(method, b_par, y_par, y_higher_par, y_lower_par, priority_split_valid, actuator_min, actuator_max, output, diagnostics); }
 		break;
@@ -252,12 +256,24 @@ bool dispatchLPCA(int rows, int cols, LPCAMethod method,
 		       LPCADiagnostics &diagnostics)
 {
 	switch (rows) {
+	case 2:
+		return dispatchLPCAColumns<2>(cols, method, b_par, y_par, y_higher_par, y_lower_par, priority_split_valid, actuator_min, actuator_max, output,
+							   diagnostics);
+
 	case 3:
 		return dispatchLPCAColumns<3>(cols, method, b_par, y_par, y_higher_par, y_lower_par, priority_split_valid, actuator_min, actuator_max, output,
 							   diagnostics);
 
 	case 4:
 		return dispatchLPCAColumns<4>(cols, method, b_par, y_par, y_higher_par, y_lower_par, priority_split_valid, actuator_min, actuator_max, output,
+							   diagnostics);
+
+	case 5:
+		return dispatchLPCAColumns<5>(cols, method, b_par, y_par, y_higher_par, y_lower_par, priority_split_valid, actuator_min, actuator_max, output,
+							   diagnostics);
+
+	case 6:
+		return dispatchLPCAColumns<6>(cols, method, b_par, y_par, y_higher_par, y_lower_par, priority_split_valid, actuator_min, actuator_max, output,
 							   diagnostics);
 	}
 
@@ -517,7 +533,7 @@ ControlAllocationLPCA::allocateInv(ActuatorVector &actuator_delta)
 bool
 ControlAllocationLPCA::allocateLPCA(ActuatorVector &actuator_delta)
 {
-	if (!_full_row_rank || _num_active_rows < 3 || _num_actuators < _num_active_rows) {
+	if (!_full_row_rank || _num_active_rows < 2 || _num_actuators < _num_active_rows) {
 		_diagnostics.solver_status = -1;
 		return false;
 	}

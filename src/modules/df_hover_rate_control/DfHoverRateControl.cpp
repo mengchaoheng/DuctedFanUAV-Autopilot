@@ -64,8 +64,7 @@ hrt_abstime runtimeMeasurementTimeUs()
 
 bool hasTorqueAuthority(const allocation_value_s &allocation_value)
 {
-	if (!allocation_value.indi_valid || allocation_value.y_dim < allocation_value_s::MAX_Y
-	    || allocation_value.u_dim == 0 || allocation_value.u_dim > allocation_value_s::MAX_U) {
+	if (!allocation_value.feedback_valid) {
 		return false;
 	}
 
@@ -281,31 +280,15 @@ DfHoverRateControl::Run()
 			}
 
 			// run rate controller
-			_allocation_value_sub.update(&_allocation_value0);
-			_allocation_value_sub1.update(&_allocation_value1);
-			const bool use_allocation_value1 = hasTorqueAuthority(_allocation_value1) && isRecentAllocationValue(_allocation_value1);
-			const bool use_allocation_value0 = hasTorqueAuthority(_allocation_value0) && isRecentAllocationValue(_allocation_value0);
+			_allocation_value_sub.update(&_allocation_value);
+			const bool use_allocation_value = hasTorqueAuthority(_allocation_value) && isRecentAllocationValue(_allocation_value);
 
-			if (use_allocation_value1) {
-				_allocation_value = _allocation_value1;
-
-			} else if (use_allocation_value0) {
-				_allocation_value = _allocation_value0;
-
-			} else {
-				_allocation_value = {};
-			}
-
-			// update saturation status from the allocator instance that provides torque authority
-			_control_allocator_status_sub.update(&_control_allocator_status0);
-			_control_allocator_status_sub1.update(&_control_allocator_status1);
+			// update saturation status from the torque allocation instance
+			_control_allocator_status_sub.update(&_control_allocator_status);
 			const control_allocator_status_s *control_allocator_status = nullptr;
 
-			if (use_allocation_value1 && isRecentControlAllocatorStatus(_control_allocator_status1)) {
-				control_allocator_status = &_control_allocator_status1;
-
-			} else if (use_allocation_value0 && isRecentControlAllocatorStatus(_control_allocator_status0)) {
-				control_allocator_status = &_control_allocator_status0;
+			if (use_allocation_value && isRecentControlAllocatorStatus(_control_allocator_status)) {
+				control_allocator_status = &_control_allocator_status;
 			}
 
 			if (control_allocator_status != nullptr) {
