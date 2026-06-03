@@ -225,6 +225,7 @@ void PositionControl::_velocityControl(const float dt)
 
 void PositionControl::_accelerationControl()
 {
+	// Paper: Full-Mode Flight Control Framework for a Ducted-Fan Tail-Sitter UAV
 	if (_acceleration_indi_enabled && _acc_sp.isAllFinite()) {
 		const Vector3f thrust_acc_sp = _acceleration_indi_thrust_acc + (_acc_sp - _acceleration_indi_meas); // thrust_acc_sp is -T*b_z in paper._acceleration_indi_thrust_acc is (-T*b_z)_0
 		_acc_sp = thrust_acc_sp + Vector3f(0.f, 0.f, CONSTANTS_ONE_G); // reconstruct the desired acc by (1) in paper.

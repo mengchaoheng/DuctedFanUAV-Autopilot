@@ -42,6 +42,8 @@
 #include <mathlib/math/Limits.hpp>
 #include <mathlib/math/Functions.hpp>
 #include <px4_platform_common/events.h>
+#include <inttypes.h>
+#include <time.h>
 
 using namespace matrix;
 using namespace time_literals;
@@ -49,34 +51,75 @@ using math::radians;
 
 namespace
 {
+hrt_abstime runtimeMeasurementTimeUs()
+{
+#if defined(__PX4_POSIX)
+	timespec ts {};
+	clock_gettime(CLOCK_MONOTONIC, &ts);
+	return static_cast<hrt_abstime>(ts.tv_sec) * 1000000ULL + static_cast<hrt_abstime>(ts.tv_nsec) / 1000ULL;
+#else
+	return hrt_absolute_time();
+#endif
+}
+
 bool hasTorqueAuthority(const allocation_value_s &allocation_value)
 {
-	if (!allocation_value.indi_valid || allocation_value.u_dim == 0 || allocation_value.u_dim > allocation_value_s::MAX_U) {
+	if (!allocation_value.indi_valid || allocation_value.y_dim < allocation_value_s::MAX_Y
+	    || allocation_value.u_dim == 0 || allocation_value.u_dim > allocation_value_s::MAX_U) {
 		return false;
 	}
 
 	for (int row = 0; row < 3; row++) {
+		bool axis_has_authority = false;
+
 		for (unsigned actuator = 0; actuator < allocation_value.u_dim; actuator++) {
-			if (fabsf(allocation_value.b[row * allocation_value_s::MAX_U + actuator]) > 1.e-4f) {
-				return true;
+			const float b = allocation_value.b[row * allocation_value_s::MAX_U + actuator];
+
+			if (PX4_ISFINITE(b) && fabsf(b) > 1.e-4f) {
+				axis_has_authority = true;
+				break;
 			}
+		}
+
+		if (!axis_has_authority) {
+			return false;
 		}
 	}
 
-	return false;
+	return true;
 }
 
 bool isRecentAllocationValue(const allocation_value_s &allocation_value)
 {
 	return allocation_value.timestamp != 0 && hrt_elapsed_time(&allocation_value.timestamp) < 500_ms;
 }
+
+bool isRecentControlAllocatorStatus(const control_allocator_status_s &status)
+{
+	return status.timestamp != 0 && hrt_elapsed_time(&status.timestamp) < 500_ms;
+}
+
+const char *rateControlMethodName(uint8_t method)
+{
+	switch (method) {
+	case rate_ctrl_status_s::METHOD_INDI:
+		return "INDI";
+
+	case rate_ctrl_status_s::METHOD_RATE_CONTROL:
+	default:
+		return "RateControl";
+	}
+}
 } // namespace
 
 DfHoverRateControl::DfHoverRateControl(bool vtol) :
 	ModuleParams(nullptr),
 	WorkItem(MODULE_NAME, px4::wq_configurations::rate_ctrl),
-	_vehicle_thrust_setpoint_pub(vtol ? ORB_ID(vehicle_thrust_setpoint_virtual_mc) : ORB_ID(vehicle_thrust_setpoint)),
-	_vehicle_torque_setpoint_pub(vtol ? ORB_ID(vehicle_torque_setpoint_virtual_mc) : ORB_ID(vehicle_torque_setpoint)),
+	_vehicle_thrust_setpoint0_pub(vtol ? ORB_ID(vehicle_thrust_setpoint_virtual_mc) : ORB_ID(vehicle_thrust_setpoint)),
+	_vehicle_thrust_setpoint1_pub(vtol ? ORB_ID(vehicle_thrust_setpoint_virtual_mc) : ORB_ID(vehicle_thrust_setpoint)),
+	_vehicle_torque_setpoint0_pub(vtol ? ORB_ID(vehicle_torque_setpoint_virtual_mc) : ORB_ID(vehicle_torque_setpoint)),
+	_vehicle_torque_setpoint1_pub(vtol ? ORB_ID(vehicle_torque_setpoint_virtual_mc) : ORB_ID(vehicle_torque_setpoint)),
+	_vtol(vtol),
 	_loop_perf(perf_alloc(PC_ELAPSED, MODULE_NAME": cycle"))
 {
 	_vehicle_status.vehicle_type = vehicle_status_s::VEHICLE_TYPE_ROTARY_WING;
@@ -84,6 +127,13 @@ DfHoverRateControl::DfHoverRateControl(bool vtol) :
 	parameters_updated();
 	_controller_status_pub.advertise();
 	_indi_control_status_pub.advertise();
+	_vehicle_thrust_setpoint0_pub.advertise();
+	_vehicle_torque_setpoint0_pub.advertise();
+
+	if (!_vtol) {
+		_vehicle_thrust_setpoint1_pub.advertise();
+		_vehicle_torque_setpoint1_pub.advertise();
+	}
 }
 
 DfHoverRateControl::~DfHoverRateControl()
@@ -230,19 +280,44 @@ DfHoverRateControl::Run()
 				_rate_control.resetIntegral();
 			}
 
-			// update saturation status from control allocation feedback
-			control_allocator_status_s control_allocator_status;
+			// run rate controller
+			_allocation_value_sub.update(&_allocation_value0);
+			_allocation_value_sub1.update(&_allocation_value1);
+			const bool use_allocation_value1 = hasTorqueAuthority(_allocation_value1) && isRecentAllocationValue(_allocation_value1);
+			const bool use_allocation_value0 = hasTorqueAuthority(_allocation_value0) && isRecentAllocationValue(_allocation_value0);
 
-			if (_control_allocator_status_sub.update(&control_allocator_status)) {
+			if (use_allocation_value1) {
+				_allocation_value = _allocation_value1;
+
+			} else if (use_allocation_value0) {
+				_allocation_value = _allocation_value0;
+
+			} else {
+				_allocation_value = {};
+			}
+
+			// update saturation status from the allocator instance that provides torque authority
+			_control_allocator_status_sub.update(&_control_allocator_status0);
+			_control_allocator_status_sub1.update(&_control_allocator_status1);
+			const control_allocator_status_s *control_allocator_status = nullptr;
+
+			if (use_allocation_value1 && isRecentControlAllocatorStatus(_control_allocator_status1)) {
+				control_allocator_status = &_control_allocator_status1;
+
+			} else if (use_allocation_value0 && isRecentControlAllocatorStatus(_control_allocator_status0)) {
+				control_allocator_status = &_control_allocator_status0;
+			}
+
+			if (control_allocator_status != nullptr) {
 				Vector<bool, 3> saturation_positive;
 				Vector<bool, 3> saturation_negative;
 
-				if (!control_allocator_status.torque_setpoint_achieved) {
+				if (!control_allocator_status->torque_setpoint_achieved) {
 					for (size_t i = 0; i < 3; i++) {
-						if (control_allocator_status.unallocated_torque[i] > FLT_EPSILON) {
+						if (control_allocator_status->unallocated_torque[i] > FLT_EPSILON) {
 							saturation_positive(i) = true;
 
-						} else if (control_allocator_status.unallocated_torque[i] < -FLT_EPSILON) {
+						} else if (control_allocator_status->unallocated_torque[i] < -FLT_EPSILON) {
 							saturation_negative(i) = true;
 						}
 					}
@@ -250,17 +325,6 @@ DfHoverRateControl::Run()
 
 				// TODO: send the unallocated value directly for better anti-windup
 				_rate_control.setSaturationStatus(saturation_positive, saturation_negative);
-			}
-
-			// run rate controller
-			_allocation_value_sub.update(&_allocation_value0);
-			_allocation_value_sub1.update(&_allocation_value1);
-
-			if (hasTorqueAuthority(_allocation_value1) && isRecentAllocationValue(_allocation_value1)) {
-				_allocation_value = _allocation_value1;
-
-			} else if (isRecentAllocationValue(_allocation_value0)) {
-				_allocation_value = _allocation_value0;
 			}
 
 			Vector3f indi_fb;
@@ -279,9 +343,10 @@ DfHoverRateControl::Run()
 			indi_output_scale.setAll(1.f);
 			float indi_dt = 0.f;
 			bool control_flag = false;
+			uint8_t rate_control_method = rate_ctrl_status_s::METHOD_RATE_CONTROL;
 
-			const hrt_abstime timestamp_controller_start = hrt_absolute_time();
-			const bool allocation_value_valid = _allocation_value.indi_valid && _allocation_value.u_dim > 0;
+			const hrt_abstime timestamp_controller_start = runtimeMeasurementTimeUs();
+			const bool allocation_value_valid = hasTorqueAuthority(_allocation_value) && isRecentAllocationValue(_allocation_value);
 
 			if (_use_indi && allocation_value_valid) {
 				const hrt_abstime now_indi = hrt_absolute_time();
@@ -314,6 +379,7 @@ DfHoverRateControl::Run()
 				_last_indi_torque_normalized = torque_setpoint;
 				_last_indi_status_valid = true;
 				control_flag = true;
+				rate_control_method = rate_ctrl_status_s::METHOD_INDI;
 				_indi_waiting = false;
 
 			} else {
@@ -323,7 +389,20 @@ DfHoverRateControl::Run()
 				_last_indi_run = 0;
 			}
 
-			_rate_control_running_time_us = hrt_absolute_time() - timestamp_controller_start;
+			_rate_control_running_time_us = runtimeMeasurementTimeUs() - timestamp_controller_start;
+
+			if (rate_control_method != _rate_control_method) {
+				_rate_control_running_time_avg_us = 0.f;
+				_rate_control_running_time_count = 0;
+				_rate_control_method = rate_control_method;
+			}
+
+			if (_rate_control_running_time_count < UINT32_MAX) {
+				_rate_control_running_time_count++;
+				_rate_control_running_time_avg_us += (static_cast<float>(_rate_control_running_time_us) -
+								       _rate_control_running_time_avg_us) /
+								      static_cast<float>(_rate_control_running_time_count);
+			}
 
 			// apply low-pass filtering on yaw axis to reduce high frequency torque caused by rotor acceleration
 			if (!control_flag) {
@@ -334,6 +413,10 @@ DfHoverRateControl::Run()
 			rate_ctrl_status_s rate_ctrl_status{};
 			_rate_control.getRateControlStatus(rate_ctrl_status);
 			rate_ctrl_status.timestamp = hrt_absolute_time();
+			rate_ctrl_status.method = _rate_control_method;
+			rate_ctrl_status.rate_control_running_time = static_cast<float>(_rate_control_running_time_us);
+			rate_ctrl_status.rate_control_running_time_avg = _rate_control_running_time_avg_us;
+			rate_ctrl_status.rate_control_running_time_samples = _rate_control_running_time_count;
 			_controller_status_pub.publish(rate_ctrl_status);
 
 			// publish thrust and torque setpoints
@@ -362,7 +445,6 @@ DfHoverRateControl::Run()
 			indi_control_status.allocation_valid = allocation_value_valid;
 			indi_control_status.u_dim = _allocation_value.u_dim;
 			indi_control_status.indi_dt = indi_dt;
-			indi_control_status.rate_control_running_time = static_cast<float>(_rate_control_running_time_us);
 
 			for (int i = 0; i < 3; i++) {
 				indi_control_status.error_fb[i] = PX4_ISFINITE(error_fb(i)) ? error_fb(i) : 0.f;
@@ -402,13 +484,30 @@ DfHoverRateControl::Run()
 				}
 			}
 
+			const hrt_abstime setpoint_timestamp = hrt_absolute_time();
 			vehicle_thrust_setpoint.timestamp_sample = angular_velocity.timestamp_sample;
-			vehicle_thrust_setpoint.timestamp = hrt_absolute_time();
-			_vehicle_thrust_setpoint_pub.publish(vehicle_thrust_setpoint);
-
+			vehicle_thrust_setpoint.timestamp = setpoint_timestamp;
 			vehicle_torque_setpoint.timestamp_sample = angular_velocity.timestamp_sample;
-			vehicle_torque_setpoint.timestamp = hrt_absolute_time();
-			_vehicle_torque_setpoint_pub.publish(vehicle_torque_setpoint);
+			vehicle_torque_setpoint.timestamp = setpoint_timestamp;
+
+			if (_vtol) {
+				_vehicle_thrust_setpoint0_pub.publish(vehicle_thrust_setpoint);
+				_vehicle_torque_setpoint0_pub.publish(vehicle_torque_setpoint);
+
+			} else {
+				vehicle_thrust_setpoint_s vehicle_thrust_setpoint1{};
+				vehicle_torque_setpoint_s vehicle_torque_setpoint0{};
+
+				vehicle_thrust_setpoint1.timestamp_sample = angular_velocity.timestamp_sample;
+				vehicle_thrust_setpoint1.timestamp = setpoint_timestamp;
+				vehicle_torque_setpoint0.timestamp_sample = angular_velocity.timestamp_sample;
+				vehicle_torque_setpoint0.timestamp = setpoint_timestamp;
+
+				_vehicle_thrust_setpoint0_pub.publish(vehicle_thrust_setpoint);
+				_vehicle_thrust_setpoint1_pub.publish(vehicle_thrust_setpoint1);
+				_vehicle_torque_setpoint1_pub.publish(vehicle_torque_setpoint);
+				_vehicle_torque_setpoint0_pub.publish(vehicle_torque_setpoint0);
+			}
 
 			indi_control_status.timestamp = vehicle_torque_setpoint.timestamp;
 			_indi_control_status_pub.publish(indi_control_status);
@@ -486,7 +585,10 @@ int DfHoverRateControl::print_status()
 	PX4_INFO("Running");
 	PX4_INFO("INDI rate control: enabled=%d active=%d waiting=%d use_u=%d use_tau_i=%d allocation_valid=%d u_dim=%u",
 		 (int)_use_indi, (int)_last_indi_status_valid, (int)_indi_waiting, (int)_use_u, (int)_use_tau_i,
-		 (int)_allocation_value.indi_valid, (unsigned)_allocation_value.u_dim);
+		 (int)(hasTorqueAuthority(_allocation_value) && isRecentAllocationValue(_allocation_value)), (unsigned)_allocation_value.u_dim);
+	PX4_INFO("Rate control method: %s time_us=%" PRIu64 " avg_us=%.2f samples=%" PRIu32,
+		 rateControlMethodName(_rate_control_method), _rate_control_running_time_us,
+		 (double)_rate_control_running_time_avg_us, _rate_control_running_time_count);
 
 	if (_allocation_value.u_dim > 0) {
 		PX4_INFO("INDI allocation: D_torque=%.4g %.4g %.4g D_thrust=%.4g %.4g %.4g U=%.4g %.4g %.4g",

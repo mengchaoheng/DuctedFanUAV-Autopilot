@@ -63,6 +63,29 @@ float normalizedThrustToMotorCommand(float normalized_thrust, float thrust_facto
 
 	return normalized_thrust;
 }
+
+bool hasForceAuthority(const allocation_value_s &allocation_value)
+{
+	if (!allocation_value.indi_valid || allocation_value.y_dim < allocation_value_s::MAX_Y
+	    || allocation_value.u_dim == 0 || allocation_value.u_dim > allocation_value_s::MAX_U) {
+		return false;
+	}
+
+	for (int row = 3; row < 6; row++) {
+		for (unsigned actuator = 0; actuator < allocation_value.u_dim; actuator++) {
+			if (fabsf(allocation_value.b[row * allocation_value_s::MAX_U + actuator]) > 1.e-4f) {
+				return true;
+			}
+		}
+	}
+
+	return false;
+}
+
+bool isRecentAllocationValue(const allocation_value_s &allocation_value)
+{
+	return allocation_value.timestamp != 0 && hrt_elapsed_time(&allocation_value.timestamp) < 500_ms;
+}
 } // namespace
 
 MulticopterPositionControl::MulticopterPositionControl(bool vtol) :
@@ -603,13 +626,15 @@ void MulticopterPositionControl::Run()
 			if (acc_indi_enabled) {
 				const Vector3f acc_meas(states.acceleration);
 				Vector3f thrust_acc_feedback;
+				const bool allocation_value_valid = hasForceAuthority(_allocation_value)
+								  && isRecentAllocationValue(_allocation_value);
 
 				acceleration_indi_status_s acceleration_indi_status{};
 				acceleration_indi_status.timestamp = hrt_absolute_time();
 				acceleration_indi_status.timestamp_sample = vehicle_local_position.timestamp_sample;
 				acceleration_indi_status.enabled = true;
 				acceleration_indi_status.supported = acc_indi_supported;
-				acceleration_indi_status.allocation_valid = _allocation_value.indi_valid;
+				acceleration_indi_status.allocation_valid = allocation_value_valid;
 				acceleration_indi_status.u_dim = _allocation_value.u_dim;
 				acceleration_indi_status.ca_airframe = _param_ca_airframe.get();
 				acceleration_indi_status.mass = _param_df_acc_mass.get();
@@ -718,7 +743,7 @@ void MulticopterPositionControl::Run()
 
 bool MulticopterPositionControl::updateThrustAccelerationFeedback(Vector3f &thrust_acc_feedback)
 {
-	if (_vehicle_attitude.timestamp == 0 || !_allocation_value.indi_valid) {
+	if (_vehicle_attitude.timestamp == 0 || !hasForceAuthority(_allocation_value) || !isRecentAllocationValue(_allocation_value)) {
 		return false;
 	}
 
@@ -908,7 +933,8 @@ int MulticopterPositionControl::print_status()
 	PX4_INFO("Acceleration INDI: enabled=%d supported=%d waiting=%d unsupported=%d CA_AIRFRAME=%d mass=%.4g thrust_factor=%.3g allocation_valid=%d u_dim=%u",
 		 _param_df_use_acc_indi.get(), (int)accelerationIndiAirframeSupported(), (int)_acc_indi_waiting,
 		 (int)_acc_indi_unsupported, _param_ca_airframe.get(), (double)_param_df_acc_mass.get(),
-		 (double)_param_thr_mdl_fac.get(), (int)_allocation_value.indi_valid, (unsigned)_allocation_value.u_dim);
+		 (double)_param_thr_mdl_fac.get(), (int)(hasForceAuthority(_allocation_value) && isRecentAllocationValue(_allocation_value)),
+		 (unsigned)_allocation_value.u_dim);
 
 	if (_last_acc_indi_feedback_valid) {
 		PX4_INFO("Acceleration INDI last feedback: acc_meas=%.3f %.3f %.3f thrust_acc=%.3f %.3f %.3f",

@@ -107,7 +107,8 @@ private:
 	uORB::Subscription _allocation_value_sub{ORB_ID(allocation_value), 0};
 	uORB::Subscription _allocation_value_sub1{ORB_ID(allocation_value), 1};
 	uORB::Subscription _battery_status_sub{ORB_ID(battery_status)};
-	uORB::Subscription _control_allocator_status_sub{ORB_ID(control_allocator_status)};
+	uORB::Subscription _control_allocator_status_sub{ORB_ID(control_allocator_status), 0};
+	uORB::Subscription _control_allocator_status_sub1{ORB_ID(control_allocator_status), 1};
 	uORB::Subscription _manual_control_setpoint_sub{ORB_ID(manual_control_setpoint)};
 	uORB::Subscription _vehicle_control_mode_sub{ORB_ID(vehicle_control_mode)};
 	uORB::Subscription _vehicle_land_detected_sub{ORB_ID(vehicle_land_detected)};
@@ -122,12 +123,17 @@ private:
 	uORB::Publication<indi_control_status_s>		_indi_control_status_pub{ORB_ID(indi_control_status)};
 	uORB::PublicationMulti<rate_ctrl_status_s>	_controller_status_pub{ORB_ID(rate_ctrl_status)};
 	uORB::Publication<vehicle_rates_setpoint_s>	_vehicle_rates_setpoint_pub{ORB_ID(vehicle_rates_setpoint)};
-	uORB::Publication<vehicle_thrust_setpoint_s>	_vehicle_thrust_setpoint_pub;
-	uORB::Publication<vehicle_torque_setpoint_s>	_vehicle_torque_setpoint_pub;
+	uORB::PublicationMulti<vehicle_thrust_setpoint_s>	_vehicle_thrust_setpoint0_pub;
+	uORB::PublicationMulti<vehicle_thrust_setpoint_s>	_vehicle_thrust_setpoint1_pub;
+	uORB::PublicationMulti<vehicle_torque_setpoint_s>	_vehicle_torque_setpoint0_pub;
+	uORB::PublicationMulti<vehicle_torque_setpoint_s>	_vehicle_torque_setpoint1_pub;
 
 	vehicle_control_mode_s	_vehicle_control_mode{};
 	vehicle_status_s	_vehicle_status{};
+	control_allocator_status_s _control_allocator_status0{};
+	control_allocator_status_s _control_allocator_status1{};
 
+	bool _vtol{false};
 	bool _landed{true};
 	bool _maybe_landed{true};
 	bool _use_indi{false};
@@ -139,6 +145,9 @@ private:
 	hrt_abstime _last_run{0};
 	hrt_abstime _last_indi_run{0};
 	hrt_abstime _rate_control_running_time_us{0};
+	float _rate_control_running_time_avg_us{0.f};
+	uint32_t _rate_control_running_time_count{0};
+	uint8_t _rate_control_method{0};
 	allocation_value_s _allocation_value0{};
 	allocation_value_s _allocation_value1{};
 	allocation_value_s _allocation_value{};

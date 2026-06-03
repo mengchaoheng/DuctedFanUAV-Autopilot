@@ -346,6 +346,8 @@ void Tailsitter::fill_actuator_outputs()
 
 		copy_torque_setpoint(_torque_setpoint_0, _vehicle_torque_setpoint_virtual_mc);
 	}
+	// 原本Control surfaces也要根据vtol_mode使用对应的力矩，这里加入参数使自定义。
+	// 但无论如何，如果同时存在电机和舵机分配力矩，这里等价于在有一个飞行模式下，力矩同时进入两个实例。但若飞机不会同时使用电机和舵同时控制一个通道，则无影响。
 
 	// Control surfaces
 	if (!_param_vt_elev_mc_lock.get() || _vtol_mode != vtol_mode::MC_MODE) {

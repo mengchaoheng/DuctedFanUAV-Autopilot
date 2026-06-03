@@ -25,6 +25,9 @@ uint8 active_axes_mask
 float32 solver_rho
 float32 solver_residual
 float32 solver_tolerance
+float32 allocation_running_time # [us] latest allocation calculation time
+float32 allocation_running_time_avg # [us] online average allocation calculation time
+uint32 allocation_running_time_samples
 
 float32[6] y
 float32[96] b

@@ -240,6 +240,10 @@ private:
 	hrt_abstime _last_run{0};
 	hrt_abstime _timestamp_sample{0};
 	hrt_abstime _last_status_pub{0};
+	hrt_abstime _allocation_running_time_us[ActuatorEffectiveness::MAX_NUM_MATRICES] {};
+	float _allocation_running_time_avg_us[ActuatorEffectiveness::MAX_NUM_MATRICES] {};
+	uint32_t _allocation_running_time_count[ActuatorEffectiveness::MAX_NUM_MATRICES] {};
+	bool _allocation_priority_split_torque_only[ActuatorEffectiveness::MAX_NUM_MATRICES] {};
 
 	ParamHandles _param_handles{};
 	Params _params{};
