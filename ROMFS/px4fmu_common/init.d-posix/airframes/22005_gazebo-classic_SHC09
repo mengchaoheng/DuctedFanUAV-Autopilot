@@ -11,7 +11,7 @@
 . ${R}etc/init.d/rc.mc_defaults
 set VEHICLE_TYPE df
 
-param set-default CA_AIRFRAME 16 # 4 or 9 or 16
+param set-default CA_AIRFRAME 16 #  9 or 16
 
 # INDI unit contract for ducted-fan airframes:
 # DF_USE_INDI and DF_USE_ACC_INDI require CA_AIRFRAME=16/17 so allocation_value
@@ -34,13 +34,13 @@ param set-default MC_PITCH_P 2
 param set-default MC_ROLL_P 2
 param set-default MC_YAW_P 2
 
-param set-default MPC_XY_VEL_P_ACC 2.0
-param set-default MPC_XY_VEL_I_ACC 0.0
+param set-default MPC_XY_VEL_P_ACC 1.8
+param set-default MPC_XY_VEL_I_ACC 0.4
 param set-default MPC_XY_VEL_D_ACC 0.0
 
-param set-default MPC_Z_VEL_P_ACC 3.0
-param set-default MPC_Z_VEL_I_ACC 0.0
-param set-default MPC_Z_VEL_D_ACC 1.0
+param set-default MPC_Z_VEL_P_ACC 4.0
+param set-default MPC_Z_VEL_I_ACC 2.0
+param set-default MPC_Z_VEL_D_ACC 0.0
 
 # Force and motor-output contract.
 #
@@ -107,6 +107,7 @@ param set-default DF_CS_TCONST 0.01
 # param set-default DF_MOT_TCONST 0.03 #(in motor plugins)
 param set-default DF_MOT_CUTOFF 6
 param set-default DF_CS_CUTOFF 8
+param set-default IMU_DGYRO_CUTOFF 10
 
 # Acceleration INDI uses the physical force rows in allocation_value:
 #   thrust_acc_0 = R_to_ned * (B_force * u_ultimate_phys) / DF_ACC_MASS

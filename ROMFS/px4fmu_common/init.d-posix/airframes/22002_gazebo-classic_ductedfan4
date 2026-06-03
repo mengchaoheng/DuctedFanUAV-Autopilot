@@ -63,6 +63,7 @@ param set-default DF_CS_TCONST 0.01
 # param set-default DF_MOT_TCONST 0.03 #(in motor plugins)
 param set-default DF_MOT_CUTOFF 8
 param set-default DF_CS_CUTOFF 8
+param set-default IMU_DGYRO_CUTOFF 10
 param set-default DF_ACC_MASS 1.39
 
 param set-default CA_SV_CS0_TRQ_R -41.4452
