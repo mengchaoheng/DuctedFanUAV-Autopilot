@@ -1,85 +1,14 @@
-/**
- * Author: Chaoheng Meng <chaohengmeng@163.com>
- */
-
 
 #include <matrix/math.hpp>
-// #include <iostream>
+#include <iostream>
 #include <stdlib.h>
-// #include <limits>
+#include <limits>
 #include <cmath>
 #include <cfloat>
 using namespace matrix;
 #if !defined(FLT_MAX)
 #define FLT_MAX     __FLT_MAX__
 #endif
-
-struct SimplexTieBreakOptions {
-    // Setting guide:
-    //   1. Daily MCU float build: keep defaults.
-    //   2. Target uses double throughout the simplex: use fromMachineEps(DBL_EPSILON).
-    //   3. MATLAB/host simulation of a low-precision target: set machine_eps
-    //      to the target arithmetic epsilon, then keep the derived fields.
-    //   4. Only tune tie_abs_tol/tie_rel_tol if reduced-cost ties still chatter.
-    //      These affect which equally optimal actuator vertex is chosen.
-    //   5. Avoid scaling leaving_tie/bound/feasibility tolerances by command
-    //      size; they protect pivot feasibility and should track arithmetic eps.
-
-    // Main hardware knob.  Use FLT_EPSILON for normal MCU float builds.
-    // Use DBL_EPSILON only if the complete solver arithmetic is really double.
-    float machine_eps;
-
-    // Entering variable tie: reduced-cost candidates within
-    // tie_abs_tol + tie_rel_tol * max(1, max(abs(rdt))) choose the smallest
-    // variable index.  These are control-problem scale tolerances.
-    float tie_rel_tol;
-    float tie_abs_tol;
-
-    // Leaving ratio and feasibility protection.  These should follow machine
-    // precision, not command magnitude.  The defaults mirror
-    // PCA/simplxuprevsol_tiebreak.m.
-    float leaving_tie_abs_tol;
-    float leaving_tie_rel_tol;
-    float zero_step_tol;
-    float bound_abs_tol;
-    float bound_rel_tol;
-    float feasibility_abs_tol;
-    float feasibility_rel_tol;
-    float pivot_zero_tol;
-
-    SimplexTieBreakOptions()
-    {
-        setFromMachineEps(FLT_EPSILON);
-        tie_rel_tol = 1.0e-5f;
-        tie_abs_tol = 1.0e-6f;
-    }
-
-    void setFromMachineEps(float eps)
-    {
-        if (!(eps > 0.0f) || !std::isfinite(eps)) {
-            eps = FLT_EPSILON;
-        }
-
-        machine_eps = eps;
-        leaving_tie_abs_tol = 16.0f * eps;
-        leaving_tie_rel_tol = 16.0f * eps;
-        zero_step_tol = 16.0f * eps;
-        bound_abs_tol = 16.0f * eps;
-        bound_rel_tol = 16.0f * eps;
-        feasibility_abs_tol = 128.0f * eps;
-        feasibility_rel_tol = 128.0f * eps;
-        pivot_zero_tol = matrix::typeFunction::max(1.0e-10f, 8.0f * eps);
-    }
-
-    static SimplexTieBreakOptions fromMachineEps(float eps)
-    {
-        SimplexTieBreakOptions opts;
-        opts.setFromMachineEps(eps);
-        opts.tie_rel_tol = 1.0e-5f;
-        opts.tie_abs_tol = 1.0e-6f;
-        return opts;
-    }
-};
 
 // Add the min_user function definition here
 template<typename Type, size_t M, size_t N>
@@ -99,48 +28,14 @@ inline void min_user(const Matrix<Type, M, N> &x, Type &x_min, size_t &x_index)
     }
 }
 
-inline float lp_tie_tolerance_from_scale(float scale, float tie_rel_tol, float tie_abs_tol)
-{
-    if (scale < 1.0f) {
-        scale = 1.0f;
-    }
-    return tie_abs_tol + tie_rel_tol * scale;
-}
-
 inline bool lp_is_finite(float value)
 {
     return value < INFINITY && value > -INFINITY;
 }
 
-template<typename Type, size_t M, size_t N>
-inline float lp_tie_tolerance(const Matrix<Type, M, N> &x, float tie_rel_tol, float tie_abs_tol)
-{
-    float scale = 1.0f;
-    for (size_t i = 0; i < M; ++i) {
-        for (size_t j = 0; j < N; ++j) {
-            const float value = fabs(static_cast<float>(x(i, j)));
-            if (lp_is_finite(value) && value > scale) {
-                scale = value;
-            }
-        }
-    }
-    return lp_tie_tolerance_from_scale(scale, tie_rel_tol, tie_abs_tol);
-}
-
-inline float lp_compare_tolerance(float a, float b, float tie_rel_tol, float tie_abs_tol)
-{
-    float scale = fabs(a);
-    const float scale_b = fabs(b);
-    if (scale_b > scale) {
-        scale = scale_b;
-    }
-    return lp_tie_tolerance_from_scale(scale, tie_rel_tol, tie_abs_tol);
-}
-
 template<size_t K>
-inline void select_entering_tiebreak(const Matrix<float, 1, K> &rdt, const int inD[K],
-                                     float &minr, size_t &qind,
-                                     const SimplexTieBreakOptions &opts)
+inline void select_entering_original(const Matrix<float, 1, K> &rdt,
+                                     float &minr, size_t &qind)
 {
     minr = rdt(0, 0);
     qind = 0;
@@ -150,39 +45,24 @@ inline void select_entering_tiebreak(const Matrix<float, 1, K> &rdt, const int i
             qind = i;
         }
     }
-
-    const float raw_min = minr;
-    const float tol = lp_tie_tolerance(rdt, opts.tie_rel_tol, opts.tie_abs_tol);
-    int best_variable = inD[qind];
-    for (size_t i = 0; i < K; ++i) {
-        if (fabs(rdt(0, i) - raw_min) <= tol && inD[i] < best_variable) {
-            best_variable = inD[i];
-            qind = i;
-        }
-    }
-    minr = rdt(0, qind);
 }
 
 template<size_t K>
-inline bool select_bland_negative_tiebreak(const Matrix<float, 1, K> &rdt, const int inD[K],
+inline bool select_bland_negative_original(const Matrix<float, 1, K> &rdt,
                                            size_t &qind)
 {
-    bool found = false;
-    int best_variable = 0;
     for (size_t i = 0; i < K; ++i) {
-        if (rdt(0, i) < 0.0f && (!found || inD[i] < best_variable)) {
-            found = true;
-            best_variable = inD[i];
+        if (rdt(0, i) < 0.0f) {
             qind = i;
+            return true;
         }
     }
-    return found;
+    return false;
 }
 
 template<size_t M>
-inline void select_leaving_tiebreak(const Vector<float, M> &rat, const int inB[M],
-                                    float &minrat, size_t &p, size_t &raw_p,
-                                    const SimplexTieBreakOptions &opts)
+inline void select_leaving_original(const Vector<float, M> &rat,
+                                    float &minrat, size_t &p)
 {
     minrat = rat(0);
     p = 0;
@@ -192,64 +72,14 @@ inline void select_leaving_tiebreak(const Vector<float, M> &rat, const int inB[M
             p = i;
         }
     }
-    raw_p = p;
-
-    int best_variable = inB[p];
-    if (lp_is_finite(minrat)) {
-        const float tol = lp_tie_tolerance_from_scale(fabs(minrat),
-                                                      opts.leaving_tie_rel_tol,
-                                                      opts.leaving_tie_abs_tol);
-        for (size_t i = 0; i < M; ++i) {
-            if (fabs(rat(i) - minrat) <= tol && inB[i] < best_variable) {
-                best_variable = inB[i];
-                p = i;
-            }
-        }
-    } else {
-        for (size_t i = 0; i < M; ++i) {
-            if (rat(i) == minrat && inB[i] < best_variable) {
-                best_variable = inB[i];
-                p = i;
-            }
-        }
-    }
-    minrat = rat(p);
-}
-
-inline float lp_bound_compare_tolerance(float a, float b, const SimplexTieBreakOptions &opts)
-{
-    return lp_compare_tolerance(a, b, opts.bound_rel_tol, opts.bound_abs_tol);
-}
-
-template<size_t M>
-inline bool lp_violates_box(const Vector<float, M> &y, const float h[M],
-                            const SimplexTieBreakOptions &opts)
-{
-    float violation = 0.0f;
-    float scale = 1.0f;
-    for (size_t i = 0; i < M; ++i) {
-        if (-y(i) > violation) {
-            violation = -y(i);
-        }
-        if (y(i) - h[i] > violation) {
-            violation = y(i) - h[i];
-        }
-        const float h_abs = fabs(h[i]);
-        if (h_abs > scale) {
-            scale = h_abs;
-        }
-    }
-
-    const float tol = opts.feasibility_abs_tol + opts.feasibility_rel_tol * scale;
-    return violation > tol;
 }
 
 template<typename Type, size_t M>
 inline bool solveSquareLU(Matrix<Type, M, M> A, Vector<Type, M> b, Vector<Type, M> &x)
 {
     // Dense square solve using LU with partial row pivoting.  This is used
-    // only for A(:,inB)\b style basis solves; simplex pivot selection is
-    // handled separately by the tie-break helpers above.
+    // only for A(:,inB)\b style basis solves; simplex pivot selection follows
+    // MATLAB simplxuprevsol.m.
     int piv[M];
     for (size_t i = 0; i < M; ++i) {
         piv[i] = static_cast<int>(i);
@@ -317,6 +147,23 @@ inline bool solveSquareLU(Matrix<Type, M, M> A, Vector<Type, M> b, Vector<Type, 
 
     return true;
 }
+
+template<typename Type, size_t M>
+inline bool solveBasis(const Matrix<Type, M, M> &A, const Vector<Type, M> &b, Vector<Type, M> &x)
+{
+#if defined(CA_SIMPLEX_USE_LS_SOLVE)
+    // This is the 408fda5 simplex basis-solve path.  Keep it as the default
+    // only when explicitly auditing old 3x4 behavior.
+    matrix::LeastSquaresSolver<Type, M, M> solver(A);
+    x = solver.solve(b);
+    return true;
+#else
+    // LU with partial pivoting is the default generic square solve.  In the
+    // current df4 tests it does not disturb the 3x4 split instance, and it
+    // avoids large DPscaled errors on the 4x5 single-instance case.
+    return solveSquareLU(A, b, x);
+#endif
+}
 //rho = ydt'*Bt*u/(ydt'*ydt)
 template<int ControlSize, int EffectorSize>
 inline float calculateRho(float ydt[ControlSize], float u[EffectorSize], float Bt[ControlSize][EffectorSize], float tol) {
@@ -364,7 +211,7 @@ inline float calculateRho(float ydt[ControlSize], float u[EffectorSize], float B
     // }
 
     if (fabs(denominator) < relativeEpsilon ) {
-        // std::cerr << "Error: Division by zero." << std::endl;
+        std::cerr << "Error: Division by zero." << std::endl;
         return 1.0f;
     }
     // Calculate rho
@@ -428,10 +275,7 @@ struct LinearProgrammingProblem {
     float c[N];
     float h[N];
     bool e[N];
-    float tol=10*FLT_EPSILON; // important value, if control surface saturation, Use a larger value
-    // Runtime simplex parameters.  The solver always uses the tiebreak path;
-    // change simplex_opts only to match target precision or diagnose numerics.
-    SimplexTieBreakOptions simplex_opts;
+    float tol=1.0e-10f; // Match MATLAB simplxuprevsol.m tolerance.
     LinearProgrammingProblem() : m(M), n(N), itlim(0) {
         // Initialize array member variables to 0
         for (int i = 0; i < M; ++i) {
@@ -459,7 +303,6 @@ struct LinearProgrammingProblem {
             n = other.n;
             itlim = other.itlim;
             tol = other.tol;
-            simplex_opts = other.simplex_opts;
             // Copy array member variables
             for (int i = 0; i < M; ++i) {
                 inB[i] = other.inB[i];
@@ -487,7 +330,6 @@ struct LinearProgrammingProblem {
         n = other.n;
         itlim = other.itlim;
         tol = other.tol;
-        simplex_opts = other.simplex_opts;
         // Copy array member variables
         for (int i = 0; i < M; ++i) {
             inB[i] = other.inB[i];
@@ -544,382 +386,224 @@ struct LinearProgrammingResult {
 };
 
 
-// Define the function template, which is the implementation of the modified simplex algorithm. It is required that row A has full rank, and inB and e are known before solving the problem, that is, an initial basic feasible solution needs to be found to start the algorithm iteration. e=0 indicates that the initial solution is on the upper limit h, otherwise it is 0.
-// see A.6.3 Simplex Method[1]. this function reimplement the simplxuprevsol of this book:
-// [1] W. Durham, K. A. Bordignon, and R. Beck, Aircraft control allocation. none: John Wiley & Sons, 2017.
-// and you can download the code on: https://github.com/mengchaoheng/control_allocation.git
+// Bounded revised simplex aligned with MATLAB simplxuprevsol.m.
 //
-// Current reference implementation:
-//   PCA/simplxuprevsol_tiebreak.m
-//
-// The original MATLAB reference is simplxuprevsol.m.  The C++ code follows
-// the same bounded revised simplex algorithm, but the public implementation is
-// simplxuprevsol_tiebreak: in degenerate LPs multiple bases can give the same
-// B*u but very different actuator vectors, so the tie-break rules below make
-// the entering/leaving choices reproducible:
-//   - reduced-cost ties choose the smallest variable index in inD;
-//   - ratio ties choose the smallest current basic variable index inB;
-//   - ratio ties use machine-epsilon scale, then fall back to the raw minimum
-//     ratio pivot if the guarded pivot violates 0 <= y <= h.
+// It intentionally uses the same pivot choices as the book/MATLAB reference:
+// min(rdt), first negative reduced cost in the Bland branch, and min(rat).
+// No deterministic near-tie rule or feasibility repair is applied here.
 template<int M, int N>
-LinearProgrammingResult<M, N> simplxuprevsol_tiebreak(LinearProgrammingProblem<M, N> problem) {
-    // Bounded Revised Simplex
-
-    // function [yout, inBout,eout, itout,errout] = simplxuprevsol(A,ct,b,inB,inD,h,e,m,n,itlim)
-
-    // Solves the linear program:
-    //         minimize c'y
-    //         subject to
-    //         Ay = b
-    //         0<= y <= h
-
-    // Inputs:
-    //         A [m,n]   = lhs Matrix of equaltity constraints
-    //         ct [1,n]  = transpose of cost vector
-    //         b [m,1]   = rhs vector for equality constraint
-    //         inB [m]   = Vector of indices of unknowns in the initial basic set
-    //         inD [n-m] = Vector of indices of unknowns not in the initial basic set
-    //         h[n,1]    = Upper Bound for unknowns
-    //         e[n,1]    = Sign for unknown variables (+ lower bound, - upper bound)
-    // Optional inputs:
-    //         m,n       = number of constraints, unknowns (Opposite standard
-    //                     CA convention
-    //         itlim     = Upper bound on the allowed iterations
-
-    // Outputs:
-    //         yout[n,1]  = Optimal output variable
-    //         inBout     = indices of Basic vectors in output
-    //         eout       = sign associate with output unknowns
-    //         itout      = number of iterations remaining out of itlim
-    //         errout     = Flag (=true) if unbounded is set
-
-    // Modification History
-    // 2002      Roger Beck  Original
-    // 8/2014    Roger Beck  Update for use
-    // 9/2014    Roger Beck  Added anti-cycling rule
-    // 4/2024    Meng ChaoHeng
-    // 5/2026    Meng ChaoHeng  Align pivot tie-breaks with
-    //           PCA/simplxuprevsol_tiebreak.m for deterministic C++/MATLAB tests.
-
+LinearProgrammingResult<M, N> simplxuprevsol(LinearProgrammingProblem<M, N> problem) {
     LinearProgrammingResult<M, N> result;
-    const SimplexTieBreakOptions &opts = problem.simplex_opts;
-    const float pivot_tol = opts.pivot_zero_tol;
-    // 使用 problem.inB, problem.inD, problem.itlim, problem.A, problem.b, problem.c, problem.h, problem.e, problem.tol
-    const int n_m=N-M;
-    // Index list for all variables
+
+    const int n_m = N - M;
     int ind_all[N];
     for (int num = 0, index = 0; num < N; ++num, ++index) {
         ind_all[index] = num;
     }
-    // Partition A, we have inD, which the element in ind_all but not in inB
+
+    // Partition A into current basic and non-basic variables.
     setdiff(ind_all, N, problem.inB, M, problem.inD);
-    //djust signs problem if variables are initialized at upper bounds.
-    for(int i=0; i<M; ++i)
-    {
-        for(int j=0; j<N; ++j)
-        {
-            if(!problem.e[j])
-            {
-                problem.A[i][j] *=-1;
-                problem.b[i]+=problem.A[i][j]*problem.h[j];
+
+    // Variables initialized at their upper bound are represented by sign flips.
+    for (int i = 0; i < M; ++i) {
+        for (int j = 0; j < N; ++j) {
+            if (!problem.e[j]) {
+                problem.A[i][j] *= -1;
+                problem.b[i] += problem.A[i][j] * problem.h[j];
             }
         }
     }
-    for(int j=0; j<N; ++j)
-    {
-        if(!problem.e[j])
-        {
-            problem.c[j] *=-1;
+    for (int j = 0; j < N; ++j) {
+        if (!problem.e[j]) {
+            problem.c[j] *= -1;
         }
     }
-    //==============================
+
     matrix::SquareMatrix<float, M> A_inB;
     matrix::Matrix<float, M, n_m> A_inD;
     matrix::Vector<float, M> c_inB;
     matrix::Vector<float, n_m> c_inD;
-    //===============use inB and inD to inital==============
-    for(int i=0; i<M; ++i)
-    {
-        for(int j=0; j<M; ++j)
-        {
-            A_inB(i,j)=problem.A[i][problem.inB[j]];
+
+    for (int i = 0; i < M; ++i) {
+        for (int j = 0; j < M; ++j) {
+            A_inB(i, j) = problem.A[i][problem.inB[j]];
         }
-        c_inB(i)=problem.c[problem.inB[i]];
+        c_inB(i) = problem.c[problem.inB[i]];
     }
-    for(int i=0; i<M; ++i)
-    {
-        for(int j=0; j<N-M; ++j)
-        {
-            A_inD(i,j)=problem.A[i][problem.inD[j]];
+    for (int i = 0; i < M; ++i) {
+        for (int j = 0; j < n_m; ++j) {
+            A_inD(i, j) = problem.A[i][problem.inD[j]];
         }
     }
-    for(int i=0; i<N-M; ++i)
-    {
-        c_inD(i)=problem.c[problem.inD[i]];
+    for (int i = 0; i < n_m; ++i) {
+        c_inD(i) = problem.c[problem.inD[i]];
     }
+
     matrix::Vector<float, M> b_vec(problem.b);
-    // inital some value
     Matrix<float, 1, M> lamt;
-    lamt.setZero();
     Matrix<float, 1, n_m> rdt;
-    rdt.setZero();
     matrix::Vector<float, M> A_qel;
-    A_qel.setZero();
     matrix::Vector<float, M> yq;
-    yq.setZero();
     matrix::Vector<float, M> rat;
-    rat.setZero();
-    //==============================
-    //  %Initial Solution.  A(:,inB) is square in the simplex basis; use
-    // LU with partial pivoting to match MATLAB mldivide's square dense path.
+
     matrix::Vector<float, M> y0;
-    solveSquareLU(A_inB, b_vec, y0);
-    // Initialize Loop Termination Conditionss
+    solveBasis(A_inB, b_vec, y0);
+
     bool done = false;
     bool unbounded = false;
-    int iters =0;
-     while ((!done) && (!unbounded) && (iters < problem.itlim))
-    {
-        iters = iters+1;
-        // Calculate transpose of relative cost vector based on current basis
+    int iters = 0;
+
+    while ((!done) && (!unbounded) && (iters < problem.itlim)) {
+        iters++;
+
+        // Relative cost: lamt = c_B' / A_B, rdt = c_D' - lamt*A_D.
         matrix::Vector<float, M> lamt_col;
-        solveSquareLU(A_inB.transpose(), c_inB, lamt_col);
+        solveBasis(A_inB.transpose(), c_inB, lamt_col);
         lamt = lamt_col.transpose();
-        rdt = c_inD.transpose()-lamt*A_inD;
+        rdt = c_inD.transpose() - lamt * A_inD;
+
         float minr;
         size_t qind;
-        // Reduced-cost ties choose the smallest variable index qel.
-        select_entering_tiebreak<n_m>(rdt, problem.inD, minr, qind, opts);
-        if(minr >=0)  // If all relative costs are positive then the solution is optimal. have to compare with 0 !
-        {
+        select_entering_original<n_m>(rdt, minr, qind);
+
+        // MATLAB simplxuprevsol.m uses minr >= 0 exactly.
+        if (minr >= 0.0f) {
             done = true;
             break;
         }
-        int qel = problem.inD[qind];  // Unknown to Enter the basis minimizes relative cost
-        for(int i=0;i<problem.m;++i){
-            A_qel(i)=problem.A[i][qel];
+
+        int qel = problem.inD[qind];
+        for (int i = 0; i < M; ++i) {
+            A_qel(i) = problem.A[i][qel];
         }
-        solveSquareLU(A_inB, A_qel, yq); // Vector to enter in terms of the current Basis vector
-         // Check wether all the abs of yq[i] is greater than tol.
-        bool flag=false;
-        for(int i=0;i<M;++i){
-            if(fabs(yq(i)) > pivot_tol)
-            {
-                flag = true;
+        solveBasis(A_inB, A_qel, yq);
+
+        bool has_pivot = false;
+        for (int i = 0; i < M; ++i) {
+            if (fabs(yq(i)) > problem.tol) {
+                has_pivot = true;
                 break;
             }
         }
-        if(!flag)
-        {
-            unbounded = true; // Check this condition
-            break;
-        }
-        // Compute ratio how much each current basic variable will have to move for the entering variable.
-        // careful here
-        float hinB[M];
-        for(int i=0;i<M;++i)
-        {
-            if(fabs(yq(i))>pivot_tol)
-            {
-                rat(i)=y0(i)/yq(i);
-                hinB[i]=problem.h[problem.inB[i]];
-                // If yq < 0 then increasing variable when it leaves the basis will minimize cost
-                if(yq(i)<0 ) // have to be compare with 0!!!
-                {
-                    rat(i)-=hinB[i]/yq(i);
-                }
-            }
-            else // If an element yq ~=0 then it doesn't change for the entering variable and shouldn't be chosen
-            {
-                rat(i)=INFINITY;
-            }
-        }
-        // Variable to exit is moving to its minimum value.  Ratio ties choose
-        // the smallest current basic variable index inB(p), matching
-        // PCA/simplxuprevsol_tiebreak.m.
-        float minrat=rat(0);
-        size_t p=0;
-        size_t raw_p=0;
-        select_leaving_tiebreak<M>(rat, problem.inB, minrat, p, raw_p, opts);
-        // If the minimum ratio is zero, then the solution is degenerate and the entering
-        // variable will not change the basis---invoke Bland's selection rule to avoid
-        // cycling.
-        if (fabs(minrat) <= opts.zero_step_tol)
-        {
-            // Bland anti-cycling rule: choose the smallest variable index
-            // among negative reduced costs, matching MATLAB tiebreak.
-            select_bland_negative_tiebreak<n_m>(rdt, problem.inD, qind);
-            qel = problem.inD[qind];
-            for(int i=0;i<problem.m;++i){
-                A_qel(i)=problem.A[i][qel];
-            }
-            solveSquareLU(A_inB, A_qel, yq); // Vector to enter in terms of the current Basis vector
-            bool flag1=false;
-            for(int i=0;i<M;++i){
-                if(fabs(yq(i)) > pivot_tol)
-                {
-                    flag1 = true;
-                    break;
-                }
-            }
-            if(!flag1)
-            {
-                unbounded = true; // Check this condition
-                break;
-            }
-            // Recompute rations and determine variable to leave
-            float hinB1[M];
-            for(int i=0;i<M;++i)
-            {
-                hinB1[i]=problem.h[problem.inB[i]];
-                if(fabs(yq(i))>pivot_tol)
-                {
-                    rat(i)=y0(i)/yq(i);
-                    if(yq(i)<0) // If yq < 0 then increasing variable when it leaves the basis will minimize cost
-                    {
-                        rat(i)-=hinB1[i]/yq(i);
-                    }
-                }
-                else
-                {
-                    rat(i)=INFINITY; // If an element yq ~=0 then it doesn't change for the entering variable and shouldn't be chosen
-                }
-            }
-            // Variable to exit is moving to its minimum value.
-            minrat=rat(0);
-            p=0;
-            raw_p=0;
-            select_leaving_tiebreak<M>(rat, problem.inB, minrat, p, raw_p, opts);
-        }
-        const LinearProgrammingProblem<M, N> problem_before(problem);
-        const matrix::SquareMatrix<float, M> A_inB_before(A_inB);
-        const matrix::Matrix<float, M, n_m> A_inD_before(A_inD);
-        const matrix::Vector<float, M> c_inB_before(c_inB);
-        const matrix::Vector<float, n_m> c_inD_before(c_inD);
-        const matrix::Vector<float, M> b_vec_before(b_vec);
-
-        auto apply_pivot = [&](size_t pivot_p, float pivot_minrat) {
-            // Maintain the bounded simplex as only having lower bounds by
-            // recasting any variable that needs to move to its opposite bound.
-            const float bound_tol = lp_bound_compare_tolerance(pivot_minrat, problem.h[qel], opts);
-            if (pivot_minrat > problem.h[qel] + bound_tol)
-            {
-                // Case 1: Entering variable goes to opposite bound and current basis is maintained.
-                problem.e[qel] =!problem.e[qel];
-                for(int i=0; i<M; ++i)
-                {
-                    problem.A[i][qel] *= -1;
-                    b_vec(i)+=problem.A[i][qel]*problem.h[qel];
-                    problem.b[i]=b_vec(i);
-                }
-                problem.c[qel] *= -1;
-
-                for(int i=0; i<M; ++i)
-                {
-                    A_inD(i,qind)=problem.A[i][qel];
-                }
-                c_inD(qind)=problem.c[qel];
-            }
-            else if(yq(pivot_p) > 0)
-            {
-                // Case 2: Leaving variable returns to lower bound (0).
-                int pel = problem.inB[pivot_p];
-                problem.inB[pivot_p]= qel;
-                problem.inD[qind]= pel;
-                for(int i=0; i<M; ++i)
-                {
-                    A_inB(i,pivot_p)=problem.A[i][qel];
-                }
-                c_inB(pivot_p)=problem.c[qel];
-                for(int i=0; i<M; ++i)
-                {
-                    A_inD(i,qind)=problem.A[i][pel];
-                }
-                c_inD(qind)=problem.c[pel];
-            }
-            else
-            {
-                // Case 3: Leaving variable moves to upper bound.
-                int pel = problem.inB[pivot_p];
-                problem.e[pel]=!problem.e[pel];
-                for(int i=0; i<M; ++i)
-                {
-                    problem.A[i][pel] *= -1;
-                    b_vec(i)+=problem.A[i][pel]*problem.h[pel];
-                    problem.b[i]=b_vec(i);
-                }
-                problem.inB[pivot_p]= qel;
-                problem.inD[qind]= pel;
-                problem.c[pel] *= -1;
-
-                for(int i=0; i<M; ++i)
-                {
-                    A_inB(i,pivot_p)=problem.A[i][qel];
-                }
-                c_inB(pivot_p)=problem.c[qel];
-                for(int i=0; i<M; ++i)
-                {
-                    A_inD(i,qind)=problem.A[i][pel];
-                }
-                c_inD(qind)=problem.c[pel];
-            }
-        };
-
-        auto current_basis_violates_box = [&]() {
-            float h_inB_current[M];
-            for (int i=0; i<M; ++i) {
-                h_inB_current[i] = problem.h[problem.inB[i]];
-            }
-            return lp_violates_box<M>(y0, h_inB_current, opts);
-        };
-
-        apply_pivot(p, minrat);
-        solveSquareLU(A_inB, b_vec, y0);
-
-        // MATLAB tiebreak does not blindly keep a tied-ratio pivot: if the
-        // deterministic pivot makes the basic solution infeasible, restore the
-        // state and use the raw minimum-ratio pivot.
-        if (p != raw_p && current_basis_violates_box())
-        {
-            problem = problem_before;
-            A_inB = A_inB_before;
-            A_inD = A_inD_before;
-            c_inB = c_inB_before;
-            c_inD = c_inD_before;
-            b_vec = b_vec_before;
-
-            p = raw_p;
-            minrat = rat(p);
-            apply_pivot(p, minrat);
-            solveSquareLU(A_inB, b_vec, y0);
-        }
-
-        if (current_basis_violates_box())
-        {
+        if (!has_pivot) {
             unbounded = true;
             break;
         }
+
+        // Ratio test copied from the original bounded revised simplex.
+        float hinB[M];
+        for (int i = 0; i < M; ++i) {
+            hinB[i] = problem.h[problem.inB[i]];
+            if (fabs(yq(i)) > problem.tol) {
+                rat(i) = y0(i) / yq(i);
+                if (yq(i) < 0.0f) {
+                    rat(i) -= hinB[i] / yq(i);
+                }
+            } else {
+                rat(i) = INFINITY;
+            }
+        }
+
+        float minrat;
+        size_t p;
+        select_leaving_original<M>(rat, minrat, p);
+
+        // Keep the original zero-step Bland branch and original tolerance.
+        if (fabs(minrat) <= problem.tol) {
+            select_bland_negative_original<n_m>(rdt, qind);
+            qel = problem.inD[qind];
+            for (int i = 0; i < M; ++i) {
+                A_qel(i) = problem.A[i][qel];
+            }
+            solveBasis(A_inB, A_qel, yq);
+
+            bool has_pivot1 = false;
+            for (int i = 0; i < M; ++i) {
+                if (fabs(yq(i)) > problem.tol) {
+                    has_pivot1 = true;
+                    break;
+                }
+            }
+            if (!has_pivot1) {
+                unbounded = true;
+                break;
+            }
+
+            float hinB1[M];
+            for (int i = 0; i < M; ++i) {
+                hinB1[i] = problem.h[problem.inB[i]];
+                if (fabs(yq(i)) > problem.tol) {
+                    rat(i) = y0(i) / yq(i);
+                    if (yq(i) < 0.0f) {
+                        rat(i) -= hinB1[i] / yq(i);
+                    }
+                } else {
+                    rat(i) = INFINITY;
+                }
+            }
+            select_leaving_original<M>(rat, minrat, p);
+        }
+
+        // Pivot/update logic copied from the original path.
+        if (minrat >= problem.h[qel]) {
+            problem.e[qel] = !problem.e[qel];
+            for (int i = 0; i < M; ++i) {
+                problem.A[i][qel] *= -1;
+                b_vec(i) += problem.A[i][qel] * problem.h[qel];
+                problem.b[i] = b_vec(i);
+            }
+            problem.c[qel] *= -1;
+            for (int i = 0; i < M; ++i) {
+                A_inD(i, qind) = problem.A[i][qel];
+            }
+            c_inD(qind) = problem.c[qel];
+        } else if (yq(p) > 0.0f) {
+            int pel = problem.inB[p];
+            problem.inB[p] = qel;
+            problem.inD[qind] = pel;
+            for (int i = 0; i < M; ++i) {
+                A_inB(i, p) = problem.A[i][qel];
+                A_inD(i, qind) = problem.A[i][pel];
+            }
+            c_inB(p) = problem.c[qel];
+            c_inD(qind) = problem.c[pel];
+        } else {
+            int pel = problem.inB[p];
+            problem.e[pel] = !problem.e[pel];
+            for (int i = 0; i < M; ++i) {
+                problem.A[i][pel] *= -1;
+                b_vec(i) += problem.A[i][pel] * problem.h[pel];
+                problem.b[i] = b_vec(i);
+            }
+            problem.inB[p] = qel;
+            problem.inD[qind] = pel;
+            problem.c[pel] *= -1;
+            for (int i = 0; i < M; ++i) {
+                A_inB(i, p) = problem.A[i][qel];
+                A_inD(i, qind) = problem.A[i][pel];
+            }
+            c_inB(p) = problem.c[qel];
+            c_inD(qind) = problem.c[pel];
+        }
+
+        solveBasis(A_inB, b_vec, y0);
     }
+
     result.errout = unbounded;
-    // Set result.y0, result.inB, result.e, etc.
-    for(int i=0; i<M; ++i)
-    {
-        result.y0[i]=y0(i);
-        result.inB[i]=problem.inB[i];
+    for (int i = 0; i < M; ++i) {
+        result.y0[i] = y0(i);
+        result.inB[i] = problem.inB[i];
     }
-    for(int i=0; i<N; ++i)
-    {
-        result.e[i]=problem.e[i];
+    for (int i = 0; i < N; ++i) {
+        result.e[i] = problem.e[i];
     }
-    result.iters=iters;
+    result.iters = iters;
     return result;
 }
 
 template<int M, int N>
 LinearProgrammingResult<M, N> BoundedRevisedSimplex(LinearProgrammingProblem<M, N> problem) {
-    // Compatibility wrapper for older code.  New allocator code calls
-    // simplxuprevsol_tiebreak() directly.
-    return simplxuprevsol_tiebreak(problem);
+    return simplxuprevsol(problem);
 }
 
 
@@ -1314,17 +998,6 @@ public:
         // If there are resources that need to be released, you can add code here
     }
 
-    void setSimplexTieBreakOptions(const SimplexTieBreakOptions &opts) {
-        DP_LPCA_problem.simplex_opts = opts;
-        Pre_DP_LPCA_problem.simplex_opts = opts;
-        DPscaled_LPCA_problem.simplex_opts = opts;
-        Pre_DPscaled_LPCA_problem.simplex_opts = opts;
-    }
-
-    void setSimplexMachineEps(float machine_eps) {
-        setSimplexTieBreakOptions(SimplexTieBreakOptions::fromMachineEps(machine_eps));
-    }
-
     // To find an initial condition, many linear programming solvers treat the solution in two phases. Phase one solves a specially constructed problem designed to yield a basic feasible solution that is used to initialize the original problem in phase two.
     // So we have DP_LPCA and DPscaled_LPCA
     void DP_LPCA(float input[ControlSize], float output[EffectorSize], int& err, float & rho){
@@ -1373,8 +1046,8 @@ public:
         //         upper_lam  = the upper limit of lambda
 
         // Calls:
-        //         simplxuprevsol_tiebreak = Bounded Revised Simplex solver
-        //         with deterministic guarded pivot tie-breaks.
+        //         simplxuprevsol = Bounded Revised Simplex solver
+        //         aligned with MATLAB simplxuprevsol.m.
 
         // Notes:
         // If errout ~0 there was a problem in the solution. %
@@ -1394,7 +1067,7 @@ public:
         rho = 0;
 
         // DP_LPCA function uses aircraft data to describe the allocation
-        // problem as a DP_LP problem and solves it using simplxuprevsol_tiebreak.
+        // problem as a DP_LP problem and solves it using simplxuprevsol.
         //=======================
         // Figure out how big the problem is (use standard CA definitions for m & n)
         // but in here we use [m,k] = size(B) instead of [n,m] = size(B) in matlab. just for adapt to BoundedRevisedSimplex
@@ -1442,7 +1115,7 @@ public:
         }
 
         // Use Bounded Revised Simplex to find initial basic feasible point of original program
-        auto result_init = simplxuprevsol_tiebreak(Pre_DP_LPCA_problem);
+        auto result_init = simplxuprevsol(Pre_DP_LPCA_problem);
 
         // Check that Feasible Solution was found
         if(result_init.iters>=Pre_DP_LPCA_problem.itlim){
@@ -1495,7 +1168,7 @@ public:
             for(int i=0;i<DP_LPCA_problem.n;++i){
                 DP_LPCA_problem.e[i]=result_init.e[i];
             }
-            auto result = simplxuprevsol_tiebreak(DP_LPCA_problem);
+            auto result = simplxuprevsol(DP_LPCA_problem);
 
             for(int i=0;i<ControlSize;++i){
                 xout[result.inB[i]]=result.y0[i];
@@ -1569,8 +1242,8 @@ public:
         //                         -3,3 = Iteration limit exceeded
 
         // Calls:
-        //         simplxuprevsol_tiebreak = Bounded Revised Simplex solver
-        //         with deterministic guarded pivot tie-breaks.
+        //         simplxuprevsol = Bounded Revised Simplex solver
+        //         aligned with MATLAB simplxuprevsol.m.
 
         // Notes:
         // If yd is close to zero, u = 0;
@@ -1588,7 +1261,7 @@ public:
         rho = 0;
 
         // The DPscaled_LPCA function formulates the allocation problem as a
-        // DP_LP problem and solves it using simplxuprevsol_tiebreak.
+        // DP_LP problem and solves it using simplxuprevsol.
         //=======================
         // Figure out how big the problem is (use standard CA definitions for m & n)
         // but in here we use [m,k] = size(B) instead of [n,m] = size(B) in matlab. just for adapt to BoundedRevisedSimplex
@@ -1721,7 +1394,74 @@ public:
         }
 
         // Use Bounded Revised Simplex to find initial basic feasible point of original program
-        auto result_init = simplxuprevsol_tiebreak(Pre_DPscaled_LPCA_problem);
+        auto result_init = simplxuprevsol(Pre_DPscaled_LPCA_problem);
+
+        auto cleanup_zero_artificial_basis = [&]() {
+            const float cleanup_tol = Pre_DPscaled_LPCA_problem.tol;
+            bool used_original[EffectorSize];
+            for (int i = 0; i < EffectorSize; ++i) {
+                used_original[i] = false;
+            }
+
+            for (int i = 0; i < ControlSize - 1; ++i) {
+                if (result_init.inB[i] < EffectorSize) {
+                    used_original[result_init.inB[i]] = true;
+                }
+            }
+
+            for (int basis_row = 0; basis_row < ControlSize - 1; ++basis_row) {
+                if (result_init.inB[basis_row] < EffectorSize) {
+                    continue;
+                }
+
+                if (fabs(result_init.y0[basis_row]) > cleanup_tol) {
+                    return false;
+                }
+
+                bool replaced = false;
+
+                for (int candidate = 0; candidate < EffectorSize; ++candidate) {
+                    if (used_original[candidate]) {
+                        continue;
+                    }
+
+                    matrix::SquareMatrix<float, ControlSize - 1> A_trial;
+
+                    for (int r = 0; r < ControlSize - 1; ++r) {
+                        for (int c = 0; c < ControlSize - 1; ++c) {
+                            const int variable = (c == basis_row) ? candidate : result_init.inB[c];
+                            float value = DPscaled_LPCA_problem.A[r][variable];
+
+                            if (!result_init.e[variable]) {
+                                value = -value;
+                            }
+
+                            A_trial(r, c) = value;
+                        }
+                    }
+
+                    matrix::Vector<float, ControlSize - 1> zero_b;
+                    matrix::Vector<float, ControlSize - 1> zero_x;
+                    zero_b.setZero();
+
+                    if (solveSquareLU(A_trial, zero_b, zero_x)) {
+                        result_init.inB[basis_row] = candidate;
+                        result_init.y0[basis_row] = 0.0f;
+                        used_original[candidate] = true;
+                        replaced = true;
+                        break;
+                    }
+                }
+
+                if (!replaced) {
+                    return false;
+                }
+            }
+
+            return true;
+        };
+
+        const bool cleaned_init_basis = cleanup_zero_artificial_basis();
 
         // Check that Feasible Solution was found
         if(result_init.iters>=Pre_DPscaled_LPCA_problem.itlim){
@@ -1739,7 +1479,10 @@ public:
                 break;
             }
         }
-        if(result_init.errout){
+        if(!cleaned_init_basis){
+            err = -2;
+        }
+        if(result_init.errout && !cleaned_init_basis){
             err = -1;
         }
         // solve Pre_DPscaled_LPCA_problem but proccess DPscaled_LPCA_problem
@@ -1779,7 +1522,7 @@ public:
                 DPscaled_LPCA_problem.e[i]=result_init.e[i];
             }
 
-            auto result = simplxuprevsol_tiebreak(DPscaled_LPCA_problem);
+            auto result = simplxuprevsol(DPscaled_LPCA_problem);
 
             for(int i=0;i<ControlSize-1;++i){
                 xout[result.inB[i]]=result.y0[i];
@@ -1848,7 +1591,7 @@ public:
         rho = 0;
 
         // The DP_LPCA function describes the prioritized allocation problem
-        // as a DP_LP problem and solves it using simplxuprevsol_tiebreak.
+        // as a DP_LP problem and solves it using simplxuprevsol.
         //=======================
         // Figure out how big the problem is (use standard CA definitions for m & n)
         // but in here we use [m,k] = size(B) instead of [n,m] = size(B) in matlab. just for adapt to BoundedRevisedSimplex
@@ -1896,7 +1639,7 @@ public:
         }
 
         // Use Bounded Revised Simplex to find initial basic feasible point of original program
-        auto result_init = simplxuprevsol_tiebreak(Pre_DP_LPCA_problem);
+        auto result_init = simplxuprevsol(Pre_DP_LPCA_problem);
 
         // Check that Feasible Solution was found
         if(result_init.iters>=Pre_DP_LPCA_problem.itlim){
@@ -1949,7 +1692,7 @@ public:
             for(int i=0;i<DP_LPCA_problem.n;++i){
                 DP_LPCA_problem.e[i]=result_init.e[i];
             }
-            auto result = simplxuprevsol_tiebreak(DP_LPCA_problem);
+            auto result = simplxuprevsol(DP_LPCA_problem);
 
             for(int i=0;i<ControlSize;++i){
                 xout[result.inB[i]]=result.y0[i];
