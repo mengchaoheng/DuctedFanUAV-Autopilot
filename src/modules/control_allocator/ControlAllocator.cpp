@@ -508,7 +508,7 @@ ControlAllocator::Run()
 		return;
 	}
 
-	perf_begin(_loop_perf);
+	const hrt_abstime cycle_start = runtimeMeasurementTimeUs();
 
 #ifndef ENABLE_LOCKSTEP_SCHEDULER // Backup schedule would interfere with lockstep
 	// Push backup schedule
@@ -530,6 +530,7 @@ ControlAllocator::Run()
 	}
 
 	if (_num_control_allocation == 0 || _actuator_effectiveness == nullptr) {
+		perf_set_elapsed(_loop_perf, runtimeMeasurementTimeUs() - cycle_start);
 		return;
 	}
 
@@ -695,7 +696,7 @@ ControlAllocator::Run()
 		_last_status_pub = now;
 	}
 
-	perf_end(_loop_perf);
+	perf_set_elapsed(_loop_perf, runtimeMeasurementTimeUs() - cycle_start);
 }
 
 void
@@ -1178,6 +1179,9 @@ ControlAllocator::publish_allocation_value(int matrix_index, float dt)
 	msg.solver_rho = diagnostics.solver_rho;
 	msg.solver_residual = diagnostics.solver_residual;
 	msg.solver_tolerance = diagnostics.solver_tolerance;
+	msg.solver_prepare_time = diagnostics.solver_prepare_time;
+	msg.solver_core_time = diagnostics.solver_core_time;
+	msg.solver_post_time = diagnostics.solver_post_time;
 	msg.allocation_running_time = static_cast<float>(_allocation_running_time_us[matrix_index]);
 	msg.allocation_running_time_avg = _allocation_running_time_avg_us[matrix_index];
 	msg.allocation_running_time_samples = _allocation_running_time_count[matrix_index];
@@ -1465,12 +1469,15 @@ int ControlAllocator::print_status()
 		const ControlAllocation::Diagnostics &diagnostics = _control_allocation[i]->getDiagnostics();
 		char axes[32];
 		formatAllocationAxesMask(diagnostics.active_axes_mask, axes, sizeof(axes));
-		PX4_INFO("  diagnostics: solver=%s(%d) err=%d fallback=%d full_rank=%d rows=%u axes=%s prio_split=%d rho=%.4g residual=%.4g tol=%.4g alloc_time_us=%" PRIu64 " avg_us=%.2f samples=%" PRIu32,
+		PX4_INFO("  diagnostics: solver=%s(%d) err=%d fallback=%d full_rank=%d rows=%u axes=%s prio_split=%d rho=%.4g residual=%.4g tol=%.4g",
 			 allocationSolverStatusName(diagnostics.solver_status), diagnostics.solver_status,
 			 diagnostics.solver_err, (int)_control_allocation[i]->usedFallback(), (int)diagnostics.full_row_rank,
 			 (unsigned)diagnostics.active_rows, axes, (int)diagnostics.priority_split_valid,
 			 (double)diagnostics.solver_rho, (double)diagnostics.solver_residual,
-			 (double)diagnostics.solver_tolerance, _allocation_running_time_us[i],
+			 (double)diagnostics.solver_tolerance);
+		PX4_INFO("  timing_us: prep=%.1f core=%.1f post=%.1f alloc=%" PRIu64 " avg=%.2f samples=%" PRIu32,
+			 (double)diagnostics.solver_prepare_time, (double)diagnostics.solver_core_time,
+			 (double)diagnostics.solver_post_time, _allocation_running_time_us[i],
 			 (double)_allocation_running_time_avg_us[i], _allocation_running_time_count[i]);
 	}
 

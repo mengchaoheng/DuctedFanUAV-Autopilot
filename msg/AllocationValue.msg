@@ -25,6 +25,9 @@ uint8 active_axes_mask
 float32 solver_rho
 float32 solver_residual
 float32 solver_tolerance
+float32 solver_prepare_time # [us] LPCA adapter work before entering pca/ControlAllocation.h objects
+float32 solver_core_time # [us] pca/ControlAllocation.h construction, solver and restoring
+float32 solver_post_time # [us] LPCA adapter work after returning from pca/ControlAllocation.h calls
 float32 allocation_running_time # [us] latest allocation calculation time
 float32 allocation_running_time_avg # [us] online average allocation calculation time
 uint32 allocation_running_time_samples

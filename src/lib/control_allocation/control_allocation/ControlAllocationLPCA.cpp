@@ -10,8 +10,11 @@
 
 #include "ControlAllocationLPCA.hpp"
 
+#include <drivers/drv_hrt.h>
 #include <cfloat>
 #include <cmath>
+#include <cstring>
+#include <time.h>
 
 #if defined(__clang__)
 # pragma clang diagnostic push
@@ -39,8 +42,9 @@ namespace
 {
 constexpr float kMatrixZeroTolerance = 1e-6f;
 constexpr float kRankRelativeTolerance = 1e-5f;
-constexpr float kPostResidualAbsoluteTolerance = 1e-3f;
-constexpr float kPostResidualRelativeTolerance = 1e-3f;
+constexpr int8_t kLPCAUnavailableRank = 1;
+constexpr int8_t kLPCAUnavailableRows = 2;
+constexpr int8_t kLPCAUnavailableActuators = 3;
 
 enum class LPCAMethod {
 	Dir,
@@ -51,10 +55,22 @@ enum class LPCAMethod {
 struct LPCADiagnostics {
 	int err{0};
 	float rho{0.f};
-	float max_residual{0.f};
-	float residual_tolerance{0.f};
-	bool accepted_with_solver_error{false};
+	float prepare_time_us{0.f};
+	float core_time_us{0.f};
+	float post_time_us{0.f};
+	hrt_abstime prepare_start{0};
 };
+
+hrt_abstime runtimeMeasurementTimeUs()
+{
+#if defined(__PX4_POSIX)
+	timespec ts {};
+	clock_gettime(CLOCK_MONOTONIC, &ts);
+	return static_cast<hrt_abstime>(ts.tv_sec) * 1000000ULL + static_cast<hrt_abstime>(ts.tv_nsec) / 1000ULL;
+#else
+	return hrt_absolute_time();
+#endif
+}
 
 float constrainFloat(float value, float lower, float upper)
 {
@@ -85,34 +101,35 @@ bool runLPCA(LPCAMethod method, const float b_par[ControlAllocation::NUM_AXES][C
 			  float output[ControlAllocation::NUM_ACTUATORS],
 			  LPCADiagnostics &diagnostics)
 {
-	float input[Rows] {};
-	float input_higher[Rows] {};
-	float input_lower[Rows] {};
-	float b[Rows][Cols] {};
-	float lower[Cols] {};
-	float upper[Cols] {};
-	float raw[Cols] {};
-	float restored[Cols] {};
-	const bool use_priority_split = method == LPCAMethod::Priority && priority_split_valid;
+	float b[Rows][Cols];
+	float input[Rows];
+	float input_higher[Rows];
+	float input_lower[Rows];
+	float lower[Cols];
+	float upper[Cols];
+	const bool use_priority = method == LPCAMethod::Priority;
 
 	for (int i = 0; i < Rows; ++i) {
 		input[i] = y_par[i];
-		input_lower[i] = use_priority_split ? y_lower_par[i] : input[i];
-		input_higher[i] = use_priority_split ? y_higher_par[i] : 0.f;
 
-		for (int j = 0; j < Cols; ++j) {
-			b[i][j] = b_par[i][j];
+		if (use_priority) {
+			input_lower[i] = priority_split_valid ? y_lower_par[i] : input[i];
+			input_higher[i] = priority_split_valid ? y_higher_par[i] : 0.f;
 		}
+
+		memcpy(b[i], b_par[i], Cols * sizeof(b[i][0]));
 	}
 
-	for (int i = 0; i < Cols; ++i) {
-		lower[i] = actuator_min[i];
-		upper[i] = actuator_max[i];
-	}
+	memcpy(lower, actuator_min, Cols * sizeof(lower[0]));
+	memcpy(upper, actuator_max, Cols * sizeof(upper[0]));
+
+	const hrt_abstime core_start = runtimeMeasurementTimeUs();
+	diagnostics.prepare_time_us = static_cast<float>(core_start - diagnostics.prepare_start);
 
 	Aircraft<Rows, Cols> aircraft(b, upper, lower);
 	DP_LP_ControlAllocator<Rows, Cols> allocator(aircraft);
-
+	float raw[Cols];
+	float restored[Cols];
 	int err = 0;
 	float rho = 0.f;
 
@@ -131,40 +148,20 @@ bool runLPCA(LPCAMethod method, const float b_par[ControlAllocation::NUM_AXES][C
 
 	allocator.restoring(raw, restored);
 
+	const hrt_abstime post_start = runtimeMeasurementTimeUs();
+	diagnostics.core_time_us = static_cast<float>(post_start - core_start);
+
 	for (int i = 0; i < Cols; ++i) {
 		if (!isFinite(restored[i])) {
+			diagnostics.post_time_us = static_cast<float>(runtimeMeasurementTimeUs() - post_start);
 			return false;
 		}
 
 		output[i] = constrainFloat(restored[i], lower[i], upper[i]);
 	}
 
-	float max_residual = 0.f;
-	float max_command = 0.f;
-
-	for (int row = 0; row < Rows; ++row) {
-		float achieved = 0.f;
-
-		for (int col = 0; col < Cols; ++col) {
-			achieved += b[row][col] * output[col];
-		}
-
-		max_residual = fmaxf(max_residual, fabsf(achieved - input[row]));
-		max_command = fmaxf(max_command, fabsf(input[row]));
-	}
-
-	diagnostics.max_residual = max_residual;
-	diagnostics.residual_tolerance = kPostResidualAbsoluteTolerance + kPostResidualRelativeTolerance * max_command;
-
-	if (err != 0) {
-		if (max_residual > diagnostics.residual_tolerance) {
-			return false;
-		}
-
-		diagnostics.accepted_with_solver_error = true;
-	}
-
-	return true;
+	diagnostics.post_time_us = static_cast<float>(runtimeMeasurementTimeUs() - post_start);
+	return err == 0;
 }
 
 template<int Rows>
@@ -299,6 +296,20 @@ ControlAllocationLPCA::setEffectivenessMatrix(
 }
 
 void
+ControlAllocationLPCA::setActuatorMin(const ActuatorVector &actuator_min)
+{
+	ControlAllocation::setActuatorMin(actuator_min);
+	_standard_problem_update_needed = true;
+}
+
+void
+ControlAllocationLPCA::setActuatorMax(const ActuatorVector &actuator_max)
+{
+	ControlAllocation::setActuatorMax(actuator_max);
+	_standard_problem_update_needed = true;
+}
+
+void
 ControlAllocationLPCA::allocate()
 {
 	updateStandardProblem();
@@ -308,27 +319,9 @@ ControlAllocationLPCA::allocate()
 	ActuatorVector actuator_delta;
 	actuator_delta.setZero();
 
-	const matrix::Vector<float, NUM_AXES> control = _control_sp - _control_trim;
-	matrix::Vector<float, NUM_AXES> priority_higher;
-	matrix::Vector<float, NUM_AXES> priority_lower = control;
-	priority_higher.setZero();
-
-	if (_control_sp_priority_split_valid) {
-		priority_higher = _control_sp_priority_higher;
-		priority_lower = _control_sp_priority_lower - _control_trim;
-	}
-
-	for (int i = 0; i < _num_active_rows; ++i) {
-		const int axis = _active_rows[i];
-		_y_par[i] = control(axis);
-		_y_higher_par[i] = priority_higher(axis);
-		_y_lower_par[i] = priority_lower(axis);
-	}
-
 	_diagnostics = {};
 	_diagnostics.active_rows = static_cast<uint8_t>(_num_active_rows);
 	_diagnostics.full_row_rank = _full_row_rank;
-	_diagnostics.priority_split_valid = _method == Method::PCA && _control_sp_priority_split_valid;
 
 	for (int i = 0; i < _num_active_rows; ++i) {
 		_diagnostics.active_axes_mask |= static_cast<uint8_t>(1u << _active_rows[i]);
@@ -340,7 +333,28 @@ ControlAllocationLPCA::allocate()
 	if (_method == Method::Inv) {
 		allocated = allocateInv(actuator_delta);
 
+	} else if (_lpca_unavailable_reason != 0) {
+		_diagnostics.solver_status = -1;
+		_diagnostics.solver_err = _lpca_unavailable_reason;
+		_used_fallback = true;
+		allocated = allocateInv(actuator_delta);
+
 	} else {
+		const bool priority_split_valid = _method == Method::PCA && _control_sp_priority_split_valid;
+		_diagnostics.priority_split_valid = priority_split_valid;
+		_lpca_nonzero_command = false;
+
+		for (int i = 0; i < _num_active_rows; ++i) {
+			const int axis = _active_rows[i];
+			_y_par[i] = _control_sp(axis) - _control_trim(axis);
+			_lpca_nonzero_command = _lpca_nonzero_command || fabsf(_y_par[i]) > kMatrixZeroTolerance;
+
+			if (priority_split_valid) {
+				_y_higher_par[i] = _control_sp_priority_higher(axis);
+				_y_lower_par[i] = _control_sp_priority_lower(axis) - _control_trim(axis);
+			}
+		}
+
 		allocated = allocateLPCA(actuator_delta);
 
 		if (!allocated) {
@@ -378,6 +392,9 @@ ControlAllocationLPCA::updateStandardProblem()
 	buildActiveRows();
 	buildActuatorDeltaLimits();
 	_full_row_rank = hasFullRowRank();
+	_lpca_unavailable_reason = lpcaUnavailableReason();
+
+	matrix::geninv(_effectiveness_unit, _mix_inv);
 
 	_standard_problem_update_needed = false;
 }
@@ -512,13 +529,14 @@ ControlAllocationLPCA::allocateInv(ActuatorVector &actuator_delta)
 		_diagnostics.solver_status = 0;
 	}
 
-	MixMatrix mix;
-	matrix::geninv(_effectiveness_unit, mix);
-
-	const matrix::Vector<float, NUM_AXES> control = _control_sp - _control_trim;
-	actuator_delta = mix * control;
+	actuator_delta.setZero();
 
 	for (int actuator = 0; actuator < _num_actuators; ++actuator) {
+		for (int row = 0; row < _num_active_rows; ++row) {
+			const int axis = _active_rows[row];
+			actuator_delta(actuator) += _mix_inv(actuator, axis) * (_control_sp(axis) - _control_trim(axis));
+		}
+
 		if (!isFinite(actuator_delta(actuator))) {
 			return false;
 		}
@@ -533,29 +551,17 @@ ControlAllocationLPCA::allocateInv(ActuatorVector &actuator_delta)
 bool
 ControlAllocationLPCA::allocateLPCA(ActuatorVector &actuator_delta)
 {
-	if (!_full_row_rank || _num_active_rows < 2 || _num_actuators < _num_active_rows) {
-		_diagnostics.solver_status = -1;
-		return false;
-	}
+	LPCADiagnostics lpca_diagnostics;
+	lpca_diagnostics.prepare_start = runtimeMeasurementTimeUs();
 
-	bool nonzero_command = false;
-
-	for (int i = 0; i < _num_active_rows; ++i) {
-		if (fabsf(_y_par[i]) > kMatrixZeroTolerance) {
-			nonzero_command = true;
-			break;
-		}
-	}
-
-	if (!nonzero_command) {
+	if (!_lpca_nonzero_command) {
 		_diagnostics.solver_status = 0;
 		actuator_delta.setZero();
 		return true;
 	}
 
-	float output[NUM_ACTUATORS] {};
+	float output[NUM_ACTUATORS];
 	LPCAMethod lpca_method = LPCAMethod::Priority;
-	const bool priority_split_valid = _method == Method::PCA && _control_sp_priority_split_valid;
 
 	if (_method == Method::DPLPCA) {
 		lpca_method = LPCAMethod::Dir;
@@ -564,23 +570,26 @@ ControlAllocationLPCA::allocateLPCA(ActuatorVector &actuator_delta)
 		lpca_method = LPCAMethod::DPScaled;
 	}
 
-	LPCADiagnostics lpca_diagnostics;
+	const bool lpca_ok = dispatchLPCA(_num_active_rows, _num_actuators, lpca_method, _b_par, _y_par, _y_higher_par,
+					  _y_lower_par, _diagnostics.priority_split_valid, _actuator_delta_min, _actuator_delta_max, output,
+					  lpca_diagnostics);
 
-	if (!dispatchLPCA(_num_active_rows, _num_actuators, lpca_method, _b_par, _y_par, _y_higher_par, _y_lower_par,
-			  priority_split_valid, _actuator_delta_min, _actuator_delta_max, output, lpca_diagnostics)) {
+	if (!lpca_ok) {
 		_diagnostics.solver_status = -2;
 		_diagnostics.solver_err = static_cast<int8_t>(lpca_diagnostics.err);
 		_diagnostics.solver_rho = lpca_diagnostics.rho;
-		_diagnostics.solver_residual = lpca_diagnostics.max_residual;
-		_diagnostics.solver_tolerance = lpca_diagnostics.residual_tolerance;
+		_diagnostics.solver_prepare_time = lpca_diagnostics.prepare_time_us;
+		_diagnostics.solver_core_time = lpca_diagnostics.core_time_us;
+		_diagnostics.solver_post_time = lpca_diagnostics.post_time_us;
 		return false;
 	}
 
-	_diagnostics.solver_status = lpca_diagnostics.accepted_with_solver_error ? 2 : 1;
+	_diagnostics.solver_status = 1;
 	_diagnostics.solver_err = static_cast<int8_t>(lpca_diagnostics.err);
 	_diagnostics.solver_rho = lpca_diagnostics.rho;
-	_diagnostics.solver_residual = lpca_diagnostics.max_residual;
-	_diagnostics.solver_tolerance = lpca_diagnostics.residual_tolerance;
+	_diagnostics.solver_prepare_time = lpca_diagnostics.prepare_time_us;
+	_diagnostics.solver_core_time = lpca_diagnostics.core_time_us;
+	_diagnostics.solver_post_time = lpca_diagnostics.post_time_us;
 
 	actuator_delta.setZero();
 
@@ -589,6 +598,24 @@ ControlAllocationLPCA::allocateLPCA(ActuatorVector &actuator_delta)
 	}
 
 	return true;
+}
+
+int8_t
+ControlAllocationLPCA::lpcaUnavailableReason() const
+{
+	if (!_full_row_rank) {
+		return kLPCAUnavailableRank;
+	}
+
+	if (_num_active_rows < 2) {
+		return kLPCAUnavailableRows;
+	}
+
+	if (_num_actuators < _num_active_rows) {
+		return kLPCAUnavailableActuators;
+	}
+
+	return 0;
 }
 
 bool

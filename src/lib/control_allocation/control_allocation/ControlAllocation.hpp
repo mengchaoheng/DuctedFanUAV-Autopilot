@@ -103,6 +103,9 @@ public:
 		float solver_rho{0.f};
 		float solver_residual{0.f};
 		float solver_tolerance{0.f};
+		float solver_prepare_time{0.f};
+		float solver_core_time{0.f};
+		float solver_post_time{0.f};
 	};
 
 	/**
@@ -187,7 +190,7 @@ public:
 	 *
 	 * @param actuator_min Minimum actuator values
 	 */
-	void setActuatorMin(const ActuatorVector &actuator_min) { _actuator_min = actuator_min; }
+	virtual void setActuatorMin(const ActuatorVector &actuator_min) { _actuator_min = actuator_min; }
 
 	/**
 	 * Get the minimum actuator values
@@ -201,7 +204,7 @@ public:
 	 *
 	 * @param actuator_max Maximum actuator values
 	 */
-	void setActuatorMax(const ActuatorVector &actuator_max) { _actuator_max = actuator_max; }
+	virtual void setActuatorMax(const ActuatorVector &actuator_max) { _actuator_max = actuator_max; }
 
 	/**
 	 * Get the maximum actuator values
