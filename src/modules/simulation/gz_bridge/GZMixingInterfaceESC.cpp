@@ -78,10 +78,12 @@ bool GZMixingInterfaceESC::updateOutputs(uint16_t outputs[MAX_ACTUATORS], unsign
 
 	if (active_output_count > 0) {
 		gz::msgs::Actuators rotor_velocity_message;
-		rotor_velocity_message.mutable_velocity()->Resize(active_output_count, 0);
+		auto *vel = rotor_velocity_message.mutable_velocity();
+		vel->Clear();
+		vel->Reserve(active_output_count);
 
 		for (unsigned i = 0; i < active_output_count; i++) {
-			rotor_velocity_message.set_velocity(i, outputs[i]);
+			vel->Add(outputs[i]);
 		}
 
 		if (_actuators_pub.Valid()) {

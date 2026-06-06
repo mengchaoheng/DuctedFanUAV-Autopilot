@@ -27,6 +27,7 @@ if (Protobuf_FOUND)
     if (Protobuf_VERSION VERSION_LESS "3.8")
         target_compile_options(px4_gz_msgs PRIVATE -Wno-error=float-equal)
     endif()
+    target_compile_options(px4_gz_msgs PRIVATE $<$<COMPILE_LANGUAGE:CXX>:-Wno-error=double-promotion>)
 
     # Export the binary dir for other modules
     set(PX4_GZ_MSGS_BINARY_DIR ${CMAKE_CURRENT_BINARY_DIR} CACHE INTERNAL "")

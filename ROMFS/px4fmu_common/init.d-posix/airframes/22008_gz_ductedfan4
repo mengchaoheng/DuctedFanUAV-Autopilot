@@ -1,0 +1,95 @@
+#!/bin/sh
+#
+# @name Gazebo ductedfan4
+#
+# @type Ducted Fan
+#
+# Author: Chaoheng Meng <chaohengmeng@163.com>
+
+. ${R}etc/init.d/rc.mc_defaults
+set VEHICLE_TYPE df
+
+PX4_SIMULATOR=${PX4_SIMULATOR:=gz}
+PX4_GZ_WORLD=${PX4_GZ_WORLD:=default}
+PX4_SIM_MODEL=${PX4_SIM_MODEL:=ductedfan4}
+
+param set-default SIM_GZ_EN 1
+
+param set-default CA_AIRFRAME 16
+
+param set-default MC_ROLL_P 4
+param set-default DF_ROLLRATE_P 0.45
+param set-default DF_ROLLRATE_I 0.3
+param set-default DF_ROLLRATE_D 0.0
+param set-default DF_ROLLRATE_FF 0
+
+param set-default MC_PITCH_P 4
+param set-default DF_PITCHRATE_P 0.45
+param set-default DF_PITCHRATE_I 0.3
+param set-default DF_PITCHRATE_D 0.0
+param set-default DF_PITCHRATE_FF 0
+
+param set-default MC_YAW_P 2.8
+param set-default DF_YAWRATE_P 0.4
+param set-default DF_YAWRATE_I 0.3
+param set-default DF_YAWRATE_D 0
+param set-default DF_YAWRATE_FF 0
+
+param set-default MPC_THR_HOVER 0.49
+param set-default THR_MDL_FAC 1
+param set-default RTL_RETURN_ALT 2.5
+param set-default RTL_DESCEND_ALT 2.5
+
+param set-default CA_ROTOR_COUNT 1
+param set-default CA_ROTOR0_AX 0
+param set-default CA_ROTOR0_AY 0
+param set-default CA_ROTOR0_AZ -1
+param set-default CA_ROTOR0_PX 0
+param set-default CA_ROTOR0_PY 0
+param set-default CA_ROTOR0_PZ -0.045
+param set-default CA_ROTOR0_CT 1
+param set-default CA_ROTOR0_KM 0
+
+param set-default CA_SV_CS_COUNT 4
+param set-default DF_CS_MAX 0.3491
+param set-default DF_MOT_MAX 27.8
+param set-default DF_MOT_ACTUATOR 0
+param set-default DF_CS_ACTUATOR 1
+param set-default DF_CS_TCONST 0.01
+param set-default DF_MOT_CUTOFF 8
+param set-default DF_CS_CUTOFF 8
+param set-default IMU_DGYRO_CUTOFF 10
+param set-default DF_ACC_MASS 1.39
+
+param set-default CA_SV_CS0_TRQ_R -41.4452
+param set-default CA_SV_CS0_TRQ_P 0
+param set-default CA_SV_CS0_TRQ_Y 40.4016
+param set-default CA_SV_CS1_TRQ_R 0
+param set-default CA_SV_CS1_TRQ_P -41.3015
+param set-default CA_SV_CS1_TRQ_Y 40.4016
+param set-default CA_SV_CS2_TRQ_R 41.4452
+param set-default CA_SV_CS2_TRQ_P 0
+param set-default CA_SV_CS2_TRQ_Y 40.4016
+param set-default CA_SV_CS3_TRQ_R 0
+param set-default CA_SV_CS3_TRQ_P 41.3015
+param set-default CA_SV_CS3_TRQ_Y 40.4016
+
+param set-default SIM_GZ_EC_FUNC1 101
+param set-default SIM_GZ_EC_MIN1 0
+param set-default SIM_GZ_EC_MAX1 1750
+
+param set-default SIM_GZ_SV_FUNC1 201
+param set-default SIM_GZ_SV_FUNC2 202
+param set-default SIM_GZ_SV_FUNC3 203
+param set-default SIM_GZ_SV_FUNC4 204
+
+param set-default SIM_GZ_SV_MINA1 -20
+param set-default SIM_GZ_SV_MAXA1 20
+param set-default SIM_GZ_SV_MINA2 -20
+param set-default SIM_GZ_SV_MAXA2 20
+param set-default SIM_GZ_SV_MINA3 -20
+param set-default SIM_GZ_SV_MAXA3 20
+param set-default SIM_GZ_SV_MINA4 -20
+param set-default SIM_GZ_SV_MAXA4 20
+
+param set-default SDLOG_MODE 0

@@ -63,6 +63,11 @@ else()
         PUBLIC ${GSTREAMER_APP_INCLUDE_DIRS}
     )
 
+    target_link_directories(${PROJECT_NAME}
+        PUBLIC ${GSTREAMER_LIBRARY_DIRS}
+        PUBLIC ${GSTREAMER_APP_LIBRARY_DIRS}
+    )
+
     target_compile_options(${PROJECT_NAME}
         PRIVATE ${GSTREAMER_CFLAGS}
         PRIVATE ${GSTREAMER_APP_CFLAGS}
