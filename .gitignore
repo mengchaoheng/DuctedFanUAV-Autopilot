@@ -12,6 +12,7 @@
 .project
 .settings
 .swp
+.venv
 .~lock.*
 Testing/
 Packages/*
