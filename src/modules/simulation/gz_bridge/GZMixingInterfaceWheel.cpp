@@ -75,13 +75,15 @@ bool GZMixingInterfaceWheel::updateOutputs(float outputs[MAX_ACTUATORS], unsigne
 
 	if (active_output_count > 0) {
 		gz::msgs::Actuators wheel_velocity_message;
-		wheel_velocity_message.mutable_velocity()->Resize(active_output_count, 0);
+		auto *velocity = wheel_velocity_message.mutable_velocity();
+		velocity->Clear();
+		velocity->Reserve(active_output_count);
 
 		for (unsigned i = 0; i < active_output_count; i++) {
 			// Offsetting the output allows for negative values despite unsigned integer to reverse the wheels
 			static constexpr double output_offset = 100.0;
 			double scaled_output = (double)outputs[i] - output_offset;
-			wheel_velocity_message.set_velocity(i, scaled_output);
+			velocity->Add(scaled_output);
 		}
 
 
