@@ -1,0 +1,12 @@
+menuconfig MODULES_DF_HOVER_RATE_CONTROL
+	bool "df_hover_rate_control"
+	default n
+	---help---
+		Enable support for df_hover_rate_control
+
+menuconfig USER_DF_HOVER_RATE_CONTROL
+	bool "df_hover_rate_control running as userspace module"
+	default n
+	depends on BOARD_PROTECTED && MODULES_DF_HOVER_RATE_CONTROL
+	---help---
+		Put df_hover_rate_control in userspace memory

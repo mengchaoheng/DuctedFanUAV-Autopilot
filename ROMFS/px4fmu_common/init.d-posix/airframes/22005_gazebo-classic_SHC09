@@ -1,0 +1,149 @@
+#!/bin/sh
+#
+# @name SHC09
+#
+# @type Ducted Fan
+#
+# Author: Chaoheng Meng <chaohengmeng@163.com>
+
+
+
+. ${R}etc/init.d/rc.mc_defaults
+set VEHICLE_TYPE df
+
+param set-default CA_AIRFRAME 16 #  9 or 16
+
+# INDI unit contract for ducted-fan airframes:
+# DF_USE_INDI and DF_USE_ACC_INDI require CA_AIRFRAME=16/17 so allocation_value
+# is published in physical units. PX4 does not validate the numerical B values;
+# the user must ensure CA_SV_CS*_TRQ_* maps surface deflection [rad] to angular
+# acceleration [rad/s^2], CA_ROTOR*_CT/KM/axis maps motor physical thrust [N]
+# into force/moment rows, and DF_CS_MAX, DF_MOT_MAX, and DF_ACC_MASS match the
+# vehicle.
+
+param set-default DF_ROLLRATE_P 0.4
+param set-default DF_ROLLRATE_I 0.2
+
+param set-default DF_PITCHRATE_P 0.4
+param set-default DF_PITCHRATE_I 0.2
+
+param set-default DF_YAWRATE_P 0.2
+param set-default DF_YAWRATE_I 0.1
+
+param set-default MC_PITCH_P 2
+param set-default MC_ROLL_P 2
+param set-default MC_YAW_P 2
+
+param set-default MPC_XY_VEL_P_ACC 1.8
+param set-default MPC_XY_VEL_I_ACC 0.4
+param set-default MPC_XY_VEL_D_ACC 0.0
+
+param set-default MPC_Z_VEL_P_ACC 4.0
+param set-default MPC_Z_VEL_I_ACC 2.0
+param set-default MPC_Z_VEL_D_ACC 0.0
+
+# Force and motor-output contract.
+#
+# The controller publishes normalized thrust demand. The allocator solves for
+# normalized motor thrust u_T, and FunctionMotors converts u_T to a motor
+# command x using:
+#   u_T = THR_MDL_FAC * x^2 + (1 - THR_MDL_FAC) * x
+# For this Gazebo rotor the physical model is:
+#   omega = x * maxRotVelocity
+#   F = motorConstant * omega^2
+#
+# With THR_MDL_FAC=1, u_T is exactly F/Fmax.
+#   Fmax = motorConstant * maxRotVelocity^2 = 2.937612e-5 * 1200^2 = 42.3016 N
+#   hover = mg/Fmax = 2.1 * 9.8 / 42.3016 = 0.4865
+param set-default MPC_THR_HOVER 0.4865
+param set-default THR_MDL_FAC 1
+param set-default RTL_RETURN_ALT 2.5
+param set-default RTL_DESCEND_ALT 2.5
+
+
+param set-default CA_ROTOR_COUNT 1
+param set-default CA_ROTOR0_AX 0
+param set-default CA_ROTOR0_AY 0
+param set-default CA_ROTOR0_AZ -1
+param set-default CA_ROTOR0_PX 0
+param set-default CA_ROTOR0_PY 0
+param set-default CA_ROTOR0_PZ -0.04
+# Rotor effectiveness in the allocation matrix.
+#
+# Ducted Fan uses the same B_user * U contract for motors and control surfaces:
+#   motor physical coordinate: F_motor [N] = DF_MOT_MAX * u_T
+#   servo physical coordinate: delta [rad] = DF_CS_MAX * u_servo
+#
+# PX4 constructs the motor column as:
+#   thrust = CT * axis
+#   moment = CT * (position x axis) - CT * KM * axis
+#
+# For SHC09 axis = [0, 0, -1], CT=1 means the B_user force row maps motor
+# thrust in N to body force in N:
+#   B_user,Fz = -1 N/N
+#   B_alloc,Fz = -DF_MOT_MAX = -42.3016 N at u_T=1
+#
+# The SDF rotor drag model is M_drag = F * momentConstant. The SHC09
+# control-surface rows are angular-acceleration effectiveness, so the true
+# motor drag coefficient in B_user would be yaw angular acceleration per N:
+#   KM = momentConstant / Iz = 2.35e-5 / 0.005006 = 0.00469
+#   B_user,Mz = 0.00469 rad/s^2/N
+#   B_alloc,Mz = 0.1986 rad/s^2 at u_T=1
+# It is much smaller than the control-surface yaw authority, so SHC09 ignores
+# the motor drag contribution for now and keeps KM=0.
+param set-default CA_ROTOR0_CT 1
+param set-default CA_ROTOR0_KM 0
+
+# Physical surface model from control_allocation/SHC09.m and the SDF hover
+# slipstream model.
+# B maps control-surface deflection in radians to body angular acceleration.
+# DF_CS_MAX maps normalized actuator_servos +/-1 to +/-0.6981 rad, so the
+# allocation matrix uses B_user * DF_CS_MAX before PX4 row normalization.
+param set-default DF_CS_MAX 0.6981
+param set-default DF_MOT_MAX 42.3016
+param set-default DF_MOT_ACTUATOR 0
+param set-default DF_CS_ACTUATOR 1
+param set-default DF_CS_TCONST 0.01
+# param set-default DF_MOT_TCONST 0.03 #(in motor plugins)
+param set-default DF_MOT_CUTOFF 6
+param set-default DF_CS_CUTOFF 8
+param set-default IMU_DGYRO_CUTOFF 10
+
+# Acceleration INDI uses the physical force rows in allocation_value:
+#   thrust_acc_0 = R_to_ned * (B_force * u_ultimate_phys) / DF_ACC_MASS
+# The motor model above only enters through DF_MOT_MAX and B_user,Fz=-1.
+param set-default DF_ACC_MASS 2.1
+
+param set-default CA_SV_CS_COUNT 6
+param set-default CA_SV_CS0_TRQ_R -11.2359
+param set-default CA_SV_CS0_TRQ_P 0
+param set-default CA_SV_CS0_TRQ_Y 24.3009
+param set-default CA_SV_CS1_TRQ_R -5.6179
+param set-default CA_SV_CS1_TRQ_P 9.7752
+param set-default CA_SV_CS1_TRQ_Y 24.3009
+param set-default CA_SV_CS2_TRQ_R 5.6179
+param set-default CA_SV_CS2_TRQ_P 9.7752
+param set-default CA_SV_CS2_TRQ_Y 24.3009
+param set-default CA_SV_CS3_TRQ_R 11.2359
+param set-default CA_SV_CS3_TRQ_P 0
+param set-default CA_SV_CS3_TRQ_Y 24.3009
+param set-default CA_SV_CS4_TRQ_R 5.6179
+param set-default CA_SV_CS4_TRQ_P -9.7752
+param set-default CA_SV_CS4_TRQ_Y 24.3009
+param set-default CA_SV_CS5_TRQ_R -5.6179
+param set-default CA_SV_CS5_TRQ_P -9.7752
+param set-default CA_SV_CS5_TRQ_Y 24.3009
+
+# param set-default VT_ELEV_MC_LOCK 0
+
+param set-default PWM_MAIN_FUNC1 101
+
+param set-default PWM_MAIN_FUNC2 201
+param set-default PWM_MAIN_FUNC3 202
+param set-default PWM_MAIN_FUNC4 203
+param set-default PWM_MAIN_FUNC5 204
+param set-default PWM_MAIN_FUNC6 205
+param set-default PWM_MAIN_FUNC7 206
+
+# param set-default SDLOG_PROFILE 17
+param set-default SDLOG_MODE 0

@@ -24,6 +24,15 @@ then
 fi
 
 #
+# Ducted fan multicopter setup.
+#
+if [ $VEHICLE_TYPE = df ]
+then
+	# Start ducted fan multicopter apps.
+	. ${R}etc/init.d/rc.df_apps
+fi
+
+#
 # UGV setup.
 #
 if [ $VEHICLE_TYPE = rover ]
@@ -66,6 +75,15 @@ if [ $VEHICLE_TYPE = vtol ]
 then
 	# Start standard vtol apps.
 	. ${R}etc/init.d/rc.vtol_apps
+fi
+
+#
+# Ducted fan VTOL setup.
+#
+if [ $VEHICLE_TYPE = df_vtol ]
+then
+	# Start ducted fan VTOL apps.
+	. ${R}etc/init.d/rc.df_vtol_apps
 fi
 
 #

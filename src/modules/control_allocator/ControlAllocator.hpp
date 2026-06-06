@@ -49,6 +49,8 @@
 #include <ActuatorEffectivenessFixedWing.hpp>
 #include <ActuatorEffectivenessMCTilt.hpp>
 #include <ActuatorEffectivenessCustom.hpp>
+#include <ActuatorEffectivenessDuctedFan.hpp>
+#include <ActuatorEffectivenessDuctedFanTailsitterVTOL.hpp>
 #include <ActuatorEffectivenessUUV.hpp>
 #include <ActuatorEffectivenessHelicopter.hpp>
 #include <ActuatorEffectivenessHelicopterCoaxial.hpp>
@@ -57,10 +59,12 @@
 #include "ActuatorGroupPreflightCheck.hpp"
 
 #include <ControlAllocation.hpp>
+#include <ControlAllocationLPCA.hpp>
 #include <ControlAllocationPseudoInverse.hpp>
 #include <ControlAllocationSequentialDesaturation.hpp>
 
 #include <lib/matrix/matrix/math.hpp>
+#include <mathlib/math/filter/LowPassFilter2p.hpp>
 #include <lib/perf/perf_counter.h>
 #include <px4_platform_common/px4_config.h>
 #include <px4_platform_common/module.h>
@@ -73,6 +77,7 @@
 #include <uORB/topics/actuator_motors.h>
 #include <uORB/topics/actuator_servos.h>
 #include <uORB/topics/actuator_servos_trim.h>
+#include <uORB/topics/allocation_value.h>
 #include <uORB/topics/control_allocator_status.h>
 #include <uORB/topics/parameter_update.h>
 #include <uORB/topics/vehicle_control_mode.h>
@@ -151,6 +156,12 @@ private:
 
 	float get_ice_shedding_output(hrt_abstime now);
 
+	void publish_allocation_value(int matrix_index, float dt);
+	float actuatorOutputSetpoint(int matrix_index, int actuator_index) const;
+
+	float update_allocation_feedback(int matrix_index, int actuator_index, float actuator_delta, float dt);
+	float actuatorPhysicalScale(ActuatorType actuator_type) const;
+
 	AllocationMethod _allocation_method_id{AllocationMethod::NONE};
 	ControlAllocation *_control_allocation[ActuatorEffectiveness::MAX_NUM_MATRICES] {}; 	///< class for control allocation calculations
 	int _num_control_allocation{0};
@@ -173,6 +184,8 @@ private:
 		HELICOPTER_COAXIAL = 12,
 		ROVER_MECANUM = 13,
 		SPACECRAFT_2D = 14,
+		DUCTED_FAN = 16,
+		DUCTED_FAN_TAILSITTER_VTOL = 17,
 	};
 
 	enum class FailureMode {
@@ -182,6 +195,12 @@ private:
 
 	EffectivenessSource _effectiveness_source_id{EffectivenessSource::NONE};
 	ActuatorEffectiveness *_actuator_effectiveness{nullptr}; 	///< class providing actuator effectiveness
+
+	bool ductedFanAllocationFeedbackEnabled() const
+	{
+		return _effectiveness_source_id == EffectivenessSource::DUCTED_FAN
+		       || _effectiveness_source_id == EffectivenessSource::DUCTED_FAN_TAILSITTER_VTOL;
+	}
 
 	uint8_t _control_allocation_selection_indexes[NUM_ACTUATORS * ActuatorEffectiveness::MAX_NUM_MATRICES] {};
 	int _num_actuators[(int)ActuatorType::COUNT] {};
@@ -206,6 +225,7 @@ private:
 	uORB::Publication<actuator_motors_s>	_actuator_motors_pub{ORB_ID(actuator_motors)};
 	uORB::Publication<actuator_servos_s>	_actuator_servos_pub{ORB_ID(actuator_servos)};
 	uORB::Publication<actuator_servos_trim_s>	_actuator_servos_trim_pub{ORB_ID(actuator_servos_trim)};
+	uORB::PublicationMulti<allocation_value_s>	_allocation_value_pub[2] {ORB_ID(allocation_value), ORB_ID(allocation_value)};
 
 	uORB::SubscriptionInterval _parameter_update_sub{ORB_ID(parameter_update), 1_s};
 
@@ -214,7 +234,10 @@ private:
 	uORB::Subscription _failure_detector_status_sub{ORB_ID(failure_detector_status)};
 
 	matrix::Vector3f _torque_sp;
+	matrix::Vector3f _torque_sp_rate_error_feedback;
+	matrix::Vector3f _torque_sp_indi_feedback;
 	matrix::Vector3f _thrust_sp;
+	bool _torque_sp_split_valid{false};
 	bool _publish_controls{true};
 
 	// Reflects motor failures that are currently handled, not motor failures that are reported.
@@ -231,10 +254,26 @@ private:
 	hrt_abstime _last_run{0};
 	hrt_abstime _timestamp_sample{0};
 	hrt_abstime _last_status_pub{0};
+	hrt_abstime _allocation_running_time_us[ActuatorEffectiveness::MAX_NUM_MATRICES] {};
+	float _allocation_running_time_avg_us[ActuatorEffectiveness::MAX_NUM_MATRICES] {};
+	uint32_t _allocation_running_time_count[ActuatorEffectiveness::MAX_NUM_MATRICES] {};
+	bool _allocation_priority_split_torque_only[ActuatorEffectiveness::MAX_NUM_MATRICES] {};
 
 	ParamHandles _param_handles{};
 	Params _params{};
 	bool _has_slew_rate{false};
+
+	bool _allocation_actuator_is_motor[ActuatorEffectiveness::MAX_NUM_MATRICES][NUM_ACTUATORS] {};
+	float _allocation_actuator_scale[ActuatorEffectiveness::MAX_NUM_MATRICES][NUM_ACTUATORS] {};
+	ActuatorEffectiveness::EffectivenessMatrix
+		_allocation_effectiveness_physical[ActuatorEffectiveness::MAX_NUM_MATRICES] {};
+	float _allocation_u_estimate[ActuatorEffectiveness::MAX_NUM_MATRICES][NUM_ACTUATORS] {};
+	float _allocation_u_cmd[ActuatorEffectiveness::MAX_NUM_MATRICES][NUM_ACTUATORS] {};
+	float _allocation_u_feedback[ActuatorEffectiveness::MAX_NUM_MATRICES][NUM_ACTUATORS] {};
+	math::LowPassFilter2p<float> _allocation_u_feedback_filter[ActuatorEffectiveness::MAX_NUM_MATRICES][NUM_ACTUATORS] {};
+	float _last_allocation_feedback_servo_cutoff{NAN};
+	float _last_allocation_feedback_motor_cutoff{NAN};
+	float _last_allocation_feedback_sample_freq{NAN};
 
 
 	DEFINE_PARAMETERS(
@@ -242,7 +281,15 @@ private:
 		(ParamInt<px4::params::CA_METHOD>) _param_ca_method,
 		(ParamInt<px4::params::CA_FAILURE_MODE>) _param_ca_failure_mode,
 		(ParamInt<px4::params::CA_R_REV>) _param_r_rev,
-		(ParamFloat<px4::params::CA_ICE_PERIOD>) _param_ice_shedding_period
+		(ParamFloat<px4::params::CA_ICE_PERIOD>) _param_ice_shedding_period,
+		(ParamFloat<px4::params::DF_CS_CUTOFF>) _param_df_cs_cutoff,
+		(ParamFloat<px4::params::DF_MOT_CUTOFF>) _param_df_motor_cutoff,
+		(ParamFloat<px4::params::DF_CS_TCONST>) _param_df_cs_time_const,
+		(ParamFloat<px4::params::DF_MOT_TCONST>) _param_df_motor_time_const,
+		(ParamFloat<px4::params::DF_CS_MAX>) _param_df_cs_max,
+		(ParamFloat<px4::params::DF_MOT_MAX>) _param_df_motor_max,
+		(ParamInt<px4::params::DF_CS_ACTUATOR>) _param_df_cs_actuator,
+		(ParamInt<px4::params::DF_MOT_ACTUATOR>) _param_df_motor_actuator
 	)
 
 };

@@ -1,0 +1,157 @@
+#!/bin/sh
+#
+# @name ductedfan6
+#
+# @type Ducted Fan
+#
+# Author: Chaoheng Meng <chaohengmeng@163.com>
+
+
+
+. ${R}etc/init.d/rc.mc_defaults
+set VEHICLE_TYPE df
+
+param set-default CA_AIRFRAME 9
+
+param set-default MC_ROLL_P 6
+param set-default DF_ROLLRATE_P 0.45
+param set-default DF_ROLLRATE_I 0.3
+param set-default DF_ROLLRATE_D 0.0
+param set-default DF_ROLLRATE_FF 0
+
+param set-default MC_PITCH_P 6
+param set-default DF_PITCHRATE_P 0.45
+param set-default DF_PITCHRATE_I 0.3
+param set-default DF_PITCHRATE_D 0.0
+param set-default DF_PITCHRATE_FF 0
+
+param set-default MC_YAW_P 5
+param set-default DF_YAWRATE_P 0.4
+param set-default DF_YAWRATE_I 0.3
+param set-default DF_YAWRATE_D 0
+param set-default DF_YAWRATE_FF 0
+
+param set-default MPC_THR_HOVER 0.5
+param set-default RTL_RETURN_ALT 2.5
+param set-default RTL_DESCEND_ALT 2.5
+
+
+param set-default CA_ROTOR_COUNT 1
+param set-default CA_ROTOR0_AX 0
+param set-default CA_ROTOR0_AY 0
+param set-default CA_ROTOR0_AZ -1
+param set-default CA_ROTOR0_PX 0
+param set-default CA_ROTOR0_PY 0
+param set-default CA_ROTOR0_PZ -0.045
+param set-default CA_ROTOR0_KM 0.0
+
+# Physical hover model reference only. The live CA_ROTOR0_* and CA_SV_CS*_TRQ_*
+# parameters below intentionally keep the original normalized allocation example.
+#
+# Aligned with control_allocation/df6.m and ductedfan6.sdf.jinja:
+#   m = 1.39 kg
+#   J = diag([0.01149, 0.01153, 0.00487]) kg m^2
+#   l1 = 0.167 m, l2 = 0.069 m
+#   delta_max = 20 deg = 0.3491 rad
+#   Omega_h = 1225 rad/s, Omega_max = 1750 rad/s
+#   motorConstant = 9.08e-06 N/(rad/s)^2
+#   k_v = 0.01624, area = 0.00693 m^2, control_joint_rad_to_cl = 1.7266
+#   k_cs = dF/d_delta = 2.8515 N/rad at hover slipstream
+#
+# INDI unit contract for ducted-fan airframes:
+# DF_USE_INDI and DF_USE_ACC_INDI require CA_AIRFRAME=16/17 so allocation_value
+# is published in physical units. PX4 does not validate the numerical B values;
+# the user must ensure CA_SV_CS*_TRQ_* maps surface deflection [rad] to angular
+# acceleration [rad/s^2], CA_ROTOR*_CT/KM/axis maps motor physical thrust [N]
+# into force/moment rows, and DF_CS_MAX, DF_MOT_MAX, and DF_ACC_MASS match the
+# vehicle. The live parameters below keep a normalized example matrix, so keep
+# INDI disabled unless the user converts and validates the physical B first.
+#
+# To enable the physical B in this file, use CA_AIRFRAME=16 and these physical
+# actuator scales:
+#   param set-default CA_AIRFRAME 16
+#   param set-default MPC_THR_HOVER 0.49
+#   param set-default THR_MDL_FAC 1
+#   param set-default CA_ROTOR_COUNT 1
+#   param set-default CA_ROTOR0_AX 0
+#   param set-default CA_ROTOR0_AY 0
+#   param set-default CA_ROTOR0_AZ -1
+#   param set-default CA_ROTOR0_PX 0
+#   param set-default CA_ROTOR0_PY 0
+#   param set-default CA_ROTOR0_PZ -0.045
+#   param set-default CA_ROTOR0_CT 1
+#   param set-default CA_ROTOR0_KM 0
+#   param set-default CA_SV_CS_COUNT 6
+#   param set-default DF_MOT_MAX 27.8
+#   param set-default DF_CS_MAX 0.3491
+#   param set-default DF_MOT_ACTUATOR 0
+#   param set-default DF_CS_ACTUATOR 1
+#   param set-default DF_CS_TCONST 0.01
+##   param set-default DF_MOT_TCONST 0.03 #(in motor plugins)
+#   param set-default DF_MOT_CUTOFF 8
+#   param set-default DF_CS_CUTOFF 8
+#   param set-default DF_ACC_MASS 1.39
+#
+# The motor is modeled as thrust-only here. Ignore propeller reaction torque
+# and rotor drag moment, so keep CA_ROTOR0_KM = 0. With CA_ROTOR0_AX/AY/AZ =
+# [0, 0, -1], CA_ROTOR0_PX/PY = [0, 0], and CA_ROTOR0_CT = 1, the physical
+# rotor column is:
+#   [Mx, My, Mz, Fx, Fy, Fz]' = [0, 0, 0, 0, 0, -1]'
+# The allocator then scales the motor column by DF_MOT_MAX, so normalized +1
+# corresponds to 27.8 N maximum thrust.
+#
+# Physical surface B maps surface deflection [rad] to angular acceleration
+# [rad/s^2]. To enable it, replace the CA_SV_CS*_TRQ_* values below with:
+#     [-41.4452  -20.7226   20.7226   41.4452   20.7226  -20.7226
+#        0       -35.7681  -35.7681    0        35.7681   35.7681
+#       40.4016   40.4016   40.4016   40.4016   40.4016   40.4016]
+#   param set-default CA_SV_CS0_TRQ_R -41.4452
+#   param set-default CA_SV_CS0_TRQ_P 0
+#   param set-default CA_SV_CS0_TRQ_Y 40.4016
+#   param set-default CA_SV_CS1_TRQ_R -20.7226
+#   param set-default CA_SV_CS1_TRQ_P -35.7681
+#   param set-default CA_SV_CS1_TRQ_Y 40.4016
+#   param set-default CA_SV_CS2_TRQ_R 20.7226
+#   param set-default CA_SV_CS2_TRQ_P -35.7681
+#   param set-default CA_SV_CS2_TRQ_Y 40.4016
+#   param set-default CA_SV_CS3_TRQ_R 41.4452
+#   param set-default CA_SV_CS3_TRQ_P 0
+#   param set-default CA_SV_CS3_TRQ_Y 40.4016
+#   param set-default CA_SV_CS4_TRQ_R 20.7226
+#   param set-default CA_SV_CS4_TRQ_P 35.7681
+#   param set-default CA_SV_CS4_TRQ_Y 40.4016
+#   param set-default CA_SV_CS5_TRQ_R -20.7226
+#   param set-default CA_SV_CS5_TRQ_P 35.7681
+#   param set-default CA_SV_CS5_TRQ_Y 40.4016
+
+param set-default CA_SV_CS_COUNT 6
+param set-default CA_SV_CS0_TRQ_R -0.501
+param set-default CA_SV_CS0_TRQ_P 0
+param set-default CA_SV_CS0_TRQ_Y 0.207
+param set-default CA_SV_CS1_TRQ_R -0.2505
+param set-default CA_SV_CS1_TRQ_P -0.4339
+param set-default CA_SV_CS1_TRQ_Y 0.207
+param set-default CA_SV_CS2_TRQ_R 0.2505
+param set-default CA_SV_CS2_TRQ_P -0.4339
+param set-default CA_SV_CS2_TRQ_Y 0.207
+param set-default CA_SV_CS3_TRQ_R 0.501
+param set-default CA_SV_CS3_TRQ_P 0
+param set-default CA_SV_CS3_TRQ_Y 0.207
+param set-default CA_SV_CS4_TRQ_R 0.2505
+param set-default CA_SV_CS4_TRQ_P 0.4339
+param set-default CA_SV_CS4_TRQ_Y 0.207
+param set-default CA_SV_CS5_TRQ_R -0.2505
+param set-default CA_SV_CS5_TRQ_P 0.4339
+param set-default CA_SV_CS5_TRQ_Y 0.207
+
+param set-default PWM_MAIN_FUNC1 101
+
+param set-default PWM_MAIN_FUNC2 201
+param set-default PWM_MAIN_FUNC3 202
+param set-default PWM_MAIN_FUNC4 203
+param set-default PWM_MAIN_FUNC5 204
+param set-default PWM_MAIN_FUNC6 205
+param set-default PWM_MAIN_FUNC7 206
+
+# param set-default SDLOG_PROFILE 17
+param set-default SDLOG_MODE 0

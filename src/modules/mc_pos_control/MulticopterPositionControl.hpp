@@ -58,9 +58,12 @@
 #include <uORB/Publication.hpp>
 #include <uORB/Subscription.hpp>
 #include <uORB/SubscriptionCallback.hpp>
+#include <uORB/topics/acceleration_indi_status.h>
+#include <uORB/topics/allocation_value.h>
 #include <uORB/topics/hover_thrust_estimate.h>
 #include <uORB/topics/parameter_update.h>
 #include <uORB/topics/trajectory_setpoint.h>
+#include <uORB/topics/vehicle_attitude.h>
 #include <uORB/topics/vehicle_attitude_setpoint.h>
 #include <uORB/topics/vehicle_constraints.h>
 #include <uORB/topics/vehicle_control_mode.h>
@@ -85,6 +88,9 @@ public:
 	/** @see ModuleBase */
 	static int custom_command(int argc, char *argv[]);
 
+	/** @see ModuleBase::print_status() */
+	int print_status() override;
+
 	/** @see ModuleBase */
 	static int print_usage(const char *reason = nullptr);
 
@@ -97,6 +103,7 @@ private:
 
 	orb_advert_t _mavlink_log_pub{nullptr};
 
+	uORB::Publication<acceleration_indi_status_s>        _acceleration_indi_status_pub{ORB_ID(acceleration_indi_status)};
 	uORB::PublicationData<takeoff_status_s>              _takeoff_status_pub{ORB_ID(takeoff_status)};
 	uORB::Publication<vehicle_attitude_setpoint_s>	     _vehicle_attitude_setpoint_pub{ORB_ID(vehicle_attitude_setpoint)};
 	uORB::Publication<vehicle_local_position_setpoint_s> _local_pos_sp_pub{ORB_ID(vehicle_local_position_setpoint)};	/**< vehicle local position setpoint publication */
@@ -106,7 +113,9 @@ private:
 	uORB::SubscriptionInterval _parameter_update_sub{ORB_ID(parameter_update), 1_s};
 
 	uORB::Subscription _hover_thrust_estimate_sub{ORB_ID(hover_thrust_estimate)};
+	uORB::Subscription _allocation_value_sub{ORB_ID(allocation_value)};
 	uORB::Subscription _trajectory_setpoint_sub{ORB_ID(trajectory_setpoint)};
+	uORB::Subscription _vehicle_attitude_sub{ORB_ID(vehicle_attitude)};
 	uORB::Subscription _vehicle_constraints_sub{ORB_ID(vehicle_constraints)};
 	uORB::Subscription _vehicle_control_mode_sub{ORB_ID(vehicle_control_mode)};
 	uORB::Subscription _vehicle_land_detected_sub{ORB_ID(vehicle_land_detected)};
@@ -116,6 +125,8 @@ private:
 
 	trajectory_setpoint_s _setpoint{PositionControl::empty_trajectory_setpoint};
 	trajectory_setpoint_s _last_valid_setpoint{PositionControl::empty_trajectory_setpoint};
+	allocation_value_s _allocation_value{};
+	vehicle_attitude_s _vehicle_attitude{};
 	vehicle_control_mode_s _vehicle_control_mode{};
 
 	vehicle_constraints_s _vehicle_constraints {
@@ -190,8 +201,14 @@ private:
 
 		(ParamFloat<px4::params::MPC_XY_ERR_MAX>) _param_mpc_xy_err_max,
 		(ParamFloat<px4::params::MPC_YAWRAUTO_MAX>) _param_mpc_yawrauto_max,
-		(ParamFloat<px4::params::MPC_YAWRAUTO_ACC>) _param_mpc_yawrauto_acc
-	);
+		(ParamFloat<px4::params::MPC_YAWRAUTO_ACC>) _param_mpc_yawrauto_acc,
+
+		// Ducted fan acceleration INDI
+		(ParamInt<px4::params::CA_AIRFRAME>)       _param_ca_airframe,
+		(ParamInt<px4::params::DF_USE_ACC_INDI>)   _param_df_use_acc_indi,
+		(ParamFloat<px4::params::DF_ACC_MASS>)     _param_df_acc_mass,
+		(ParamFloat<px4::params::THR_MDL_FAC>)     _param_thr_mdl_fac
+		);
 
 	math::WelfordMean<float> _sample_interval_s{};
 
@@ -210,6 +227,12 @@ private:
 	hrt_abstime _last_warn{0}; /**< timer when the last warn message was sent out */
 
 	bool _hover_thrust_initialized{false};
+	bool _acc_indi_waiting{false};
+	bool _last_acc_indi_feedback_valid{false};
+
+	float _hover_thrust{0.f};
+	matrix::Vector3f _last_acc_indi_acc_meas{};
+	matrix::Vector3f _last_acc_indi_thrust_acc{};
 
 	/** Timeout in us for trajectory data to get considered invalid */
 	static constexpr uint64_t TRAJECTORY_STREAM_TIMEOUT_US = 500_ms;
@@ -256,4 +279,10 @@ private:
 	 */
 	void adjustSetpointForEKFResets(const vehicle_local_position_s &vehicle_local_position,
 					trajectory_setpoint_s &setpoint);
+
+	/**
+	 * Estimate current thrust acceleration from physical force effectiveness,
+	 * actuator feedback, and attitude.
+	 */
+	bool updateThrustAccelerationFeedback(matrix::Vector3f &thrust_acc_feedback);
 };

@@ -1,0 +1,190 @@
+#!/bin/sh
+#
+# @name SHW09_vtol
+#
+# @type VTOL Ducted Fan
+#
+# Author: Chaoheng Meng <chaohengmeng@163.com>
+
+
+
+. ${R}etc/init.d/rc.vtol_defaults
+set VEHICLE_TYPE df_vtol
+
+param set-default MAV_TYPE 19 # For MAVLink
+
+param set-default EKF2_FUSE_BETA 0 # side slip fusion is currently not supported for tailsitters
+
+param set-default CA_AIRFRAME 17 # Ducted Fan Tailsitter VTOL or using 4 for FW-mode
+ # CA_AIRFRAME=4((normalize[0] = true normalize[1] = false;))
+# INDI unit contract for ducted-fan airframes:
+# DF_USE_INDI and DF_USE_ACC_INDI require CA_AIRFRAME=16/17 so allocation_value
+# is published in physical units. PX4 does not validate the numerical B values;
+# the user must ensure CA_SV_CS*_TRQ_* maps surface deflection [rad] to angular
+# acceleration [rad/s^2], CA_ROTOR*_CT/KM/axis maps motor physical thrust [N]
+# into force/moment rows, and DF_CS_MAX, DF_MOT_MAX, and DF_ACC_MASS match the
+# vehicle.
+
+param set-default CA_ROTOR_COUNT 1
+param set-default CA_ROTOR0_AX 0
+param set-default CA_ROTOR0_AY 0
+param set-default CA_ROTOR0_AZ -1
+param set-default CA_ROTOR0_PX 0
+param set-default CA_ROTOR0_PY 0
+param set-default CA_ROTOR0_PZ -0.0
+param set-default CA_ROTOR0_CT 1
+param set-default CA_ROTOR0_KM 0
+
+param set-default CA_SV_CS_COUNT 8
+# Physical surface model from SHW09_vtol.sdf.jinja and
+# /Users/mch/Proj/control_allocation/SHW09_vtol.m.
+# B maps control-surface deflection in radians to body angular acceleration.
+# DF_CS_MAX maps normalized actuator_servos +/-1 to +/-0.6981 rad, so the
+# allocation matrix uses B_user * DF_CS_MAX before PX4 row normalization.
+# Ducted Fan Tailsitter VTOL zeros CS6/7 in hover; in transition/FW it keeps
+# CS6/7 and scales CS0..5 by DF_FW_CS_GAIN.
+param set-default DF_CS_MAX 0.6981
+param set-default DF_FW_CS_GAIN 1.8393
+param set-default DF_MOT_MAX 32.1984
+param set-default DF_MOT_ACTUATOR 0
+param set-default DF_CS_ACTUATOR 1
+param set-default DF_CS_TCONST 0.03
+# param set-default DF_MOT_TCONST 0.03 #(in motor plugins)
+param set-default DF_MOT_CUTOFF 8
+param set-default DF_CS_CUTOFF 8
+param set-default IMU_DGYRO_CUTOFF 10
+param set-default DF_ACC_MASS 2.05
+param set-default DF_USE_INDI 1
+param set-default DF_USE_ACC_INDI 1
+param set-default DF_USE_TAUI 1
+param set-default DF_USE_U 1
+param set-default DF_INDI_R_P 15
+param set-default DF_INDI_P_P 15
+param set-default DF_INDI_Y_P 15
+
+param set-default CA_SV_CS0_TRQ_R -19.9162
+param set-default CA_SV_CS0_TRQ_P 0
+param set-default CA_SV_CS0_TRQ_Y 22.0433
+param set-default CA_SV_CS1_TRQ_R -9.9581
+param set-default CA_SV_CS1_TRQ_P 20.3326
+param set-default CA_SV_CS1_TRQ_Y 22.0433
+param set-default CA_SV_CS2_TRQ_R 9.9581
+param set-default CA_SV_CS2_TRQ_P 20.3326
+param set-default CA_SV_CS2_TRQ_Y 22.0433
+param set-default CA_SV_CS3_TRQ_R 19.9162
+param set-default CA_SV_CS3_TRQ_P 0
+param set-default CA_SV_CS3_TRQ_Y 22.0433
+param set-default CA_SV_CS4_TRQ_R 9.9581
+param set-default CA_SV_CS4_TRQ_P -20.3326
+param set-default CA_SV_CS4_TRQ_Y 22.0433
+param set-default CA_SV_CS5_TRQ_R -9.9581
+param set-default CA_SV_CS5_TRQ_P -20.3326
+param set-default CA_SV_CS5_TRQ_Y 22.0433
+
+param set-default CA_SV_CS6_TYPE 0
+param set-default CA_SV_CS6_TRQ_Y 140.2373
+param set-default CA_SV_CS7_TYPE 0
+param set-default CA_SV_CS7_TRQ_Y -140.2373
+
+param set-default VT_ELEV_MC_LOCK 0
+# param set-default VT_TS_CS_HVR_DIS 192
+
+# att at MC mode
+param set-default MC_ROLL_P 3
+param set-default MC_PITCH_P 3
+param set-default MC_YAW_P 2
+
+# rates at MC mode, but we also use the FW rates controller for it.
+param set-default DF_ROLLRATE_P 0.2
+param set-default DF_ROLLRATE_I 0.2
+param set-default DF_RR_INT_LIM 0.3
+param set-default DF_ROLLRATE_D 0.003
+param set-default DF_ROLLRATE_FF 0
+param set-default DF_ROLLRATE_K 1
+
+param set-default DF_PITCHRATE_P 0.2
+param set-default DF_PITCHRATE_I 0.2
+param set-default DF_PR_INT_LIM 0.3
+param set-default DF_PITCHRATE_D 0.003
+param set-default DF_PITCHRATE_FF 0
+param set-default DF_PITCHRATE_K 1
+
+param set-default DF_YAWRATE_P 0.2
+param set-default DF_YAWRATE_I 0.1
+param set-default DF_YR_INT_LIM 0.3
+param set-default DF_YAWRATE_D 0
+param set-default DF_YAWRATE_FF 0
+param set-default DF_YAWRATE_K 1
+param set-default DF_YAW_TQ_CUTOFF 2
+
+param set-default THR_MDL_FAC 1
+param set-default MPC_THR_HOVER 0.62
+param set-default MPC_XY_P 0.95
+param set-default MPC_Z_P 1
+param set-default MPC_XY_VEL_P_ACC 2
+param set-default MPC_XY_VEL_I_ACC 0
+param set-default MPC_XY_VEL_D_ACC 0
+param set-default MPC_Z_VEL_P_ACC 5
+param set-default MPC_Z_VEL_I_ACC 0
+param set-default MPC_Z_VEL_D_ACC 0
+param set-default MPC_ACC_HOR 3
+param set-default MPC_ACC_UP_MAX 4
+param set-default MPC_ACC_DOWN_MAX 3
+param set-default MPC_ACC_DECOUPLE 1
+param set-default MPC_THR_MIN 0.12
+param set-default MPC_THR_MAX 1
+
+param set-default PWM_MAIN_FUNC1 101
+
+param set-default PWM_MAIN_FUNC2 201
+param set-default PWM_MAIN_FUNC3 202
+param set-default PWM_MAIN_FUNC4 203
+param set-default PWM_MAIN_FUNC5 204
+param set-default PWM_MAIN_FUNC6 205
+param set-default PWM_MAIN_FUNC7 206
+param set-default PWM_MAIN_FUNC8 207
+param set-default PWM_MAIN_FUNC9 208
+
+# Single-EKF (for replay)
+param set-default EKF2_MULTI_IMU 0
+param set-default SENS_IMU_MODE 1
+
+# att for FW mode.
+param set-default FW_PSP_OFF 2
+
+# rates for all mode. But Yaw and Roll are opposite in MC and FW modes
+param set-default FW_ARSP_SCALE_EN 0
+param set-default FW_PR_FF 0.05
+param set-default FW_PR_P 0.5
+param set-default FW_RR_FF 0.05
+param set-default FW_RR_P 0.5
+param set-default FW_YR_FF 0.04
+param set-default FW_YR_P 0.4
+
+# FW performance
+param set-default FW_AIRSPD_TRIM 16
+param set-default FW_THR_TRIM 0.35
+# param set-default FW_THR_MIN 0.1
+
+# FW Longitudinal
+param set-default FW_GND_SPD_MIN 2.0
+param set-default FW_T_RLL2THR 18
+param set-default FW_T_ALT_TC 3.0
+# param set-default FW_T_HRATE_FF 0.5
+# param set-default FW_T_I_GAIN_PIT 0.2
+# param set-default FW_T_TAS_TC 6.0
+# param set-default FW_T_THR_INTEG 0.1
+
+
+
+param set-default MC_AIRMODE 1
+
+param set-default VT_ARSP_TRANS 10
+param set-default VT_B_TRANS_DUR 3
+param set-default VT_F_TRANS_DUR 3
+param set-default VT_TYPE 0
+
+param set-default WV_EN 0
+
+# param set-default SDLOG_PROFILE 17
+param set-default SDLOG_MODE 0

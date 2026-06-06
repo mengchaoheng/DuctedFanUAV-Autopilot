@@ -1,0 +1,28 @@
+module_name: mc_pos_control
+parameters:
+- group: Ducted Fan Acceleration INDI
+  definitions:
+    DF_USE_ACC_INDI:
+      description:
+        short: Enable ducted fan acceleration INDI
+        long: |-
+          When enabled, mc_pos_control keeps the PX4 position/velocity PID loop and
+          replaces the final acceleration-to-thrust conversion with an acceleration
+          INDI correction based on motor thrust feedback.
+
+          The controller only applies this correction while flying and when recent
+          allocation_value feedback provides force authority. Otherwise mc_pos_control
+          keeps the standard acceleration-to-thrust path.
+      type: boolean
+      default: 0
+    DF_ACC_MASS:
+      description:
+        short: Vehicle mass for acceleration INDI
+        long: |-
+          Mass used in thrust_acc = F / mass. The thrust force is estimated with
+          F = omega^2 * k_T.
+      type: float
+      default: 2.1
+      min: 0.01
+      unit: kg
+      decimal: 4
