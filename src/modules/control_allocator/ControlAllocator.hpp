@@ -59,7 +59,9 @@
 #include "ActuatorGroupPreflightCheck.hpp"
 
 #include <ControlAllocation.hpp>
+// #if defined(__PX4_POSIX)
 #include <ControlAllocationLPCA.hpp>
+// #endif
 #include <ControlAllocationPseudoInverse.hpp>
 #include <ControlAllocationSequentialDesaturation.hpp>
 

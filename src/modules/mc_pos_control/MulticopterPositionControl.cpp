@@ -923,7 +923,7 @@ int MulticopterPositionControl::print_status()
 {
 	PX4_INFO("Running");
 	PX4_INFO("Acceleration INDI: enabled=%d waiting=%d CA_AIRFRAME=%d mass=%.4g thrust_factor=%.3g allocation_valid=%d u_dim=%u",
-		 _param_df_use_acc_indi.get(), (int)_acc_indi_waiting, _param_ca_airframe.get(), (double)_param_df_acc_mass.get(),
+		 (int)_param_df_use_acc_indi.get(), (int)_acc_indi_waiting, (int)_param_ca_airframe.get(), (double)_param_df_acc_mass.get(),
 		 (double)_param_thr_mdl_fac.get(), (int)(hasForceAuthority(_allocation_value) && isRecentAllocationValue(_allocation_value)),
 		 (unsigned)_allocation_value.u_dim);
 

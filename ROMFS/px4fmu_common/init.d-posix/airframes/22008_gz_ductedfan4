@@ -35,7 +35,7 @@ param set-default MC_YAWRATE_I 0.05
 param set-default MC_YAWRATE_D 0
 param set-default MC_YAWRATE_FF 0
 
-param set-default MPC_THR_HOVER 0.70
+param set-default MPC_THR_HOVER 0.49
 param set-default MPC_TILTMAX_AIR 20
 param set-default MPC_TILTMAX_LND 10
 param set-default MPC_ACC_HOR 2

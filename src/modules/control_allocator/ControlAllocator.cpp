@@ -354,13 +354,14 @@ ControlAllocator::update_allocation_method(bool force)
 				_control_allocation[i] = new ControlAllocationPseudoInverse();
 				break;
 
-			case AllocationMethod::SEQUENTIAL_DESATURATION:
-				_control_allocation[i] = new ControlAllocationSequentialDesaturation();
-				break;
+				case AllocationMethod::SEQUENTIAL_DESATURATION:
+					_control_allocation[i] = new ControlAllocationSequentialDesaturation();
+					break;
 
-			case AllocationMethod::INV:
-				_control_allocation[i] = new ControlAllocationInv();
-				break;
+// #if defined(__PX4_POSIX)
+				case AllocationMethod::INV:
+					_control_allocation[i] = new ControlAllocationInv();
+					break;
 
 			case AllocationMethod::DP_LPCA:
 				_control_allocation[i] = new ControlAllocationDPLPCA();
@@ -370,13 +371,22 @@ ControlAllocator::update_allocation_method(bool force)
 				_control_allocation[i] = new ControlAllocationDPscaledLPCA();
 				break;
 
-			case AllocationMethod::PCA:
-				_control_allocation[i] = new ControlAllocationPCA();
-				break;
+				case AllocationMethod::PCA:
+					_control_allocation[i] = new ControlAllocationPCA();
+					break;
+// #else
+// 				case AllocationMethod::INV:
+// 				case AllocationMethod::DP_LPCA:
+// 				case AllocationMethod::DPSCALED_LPCA:
+// 				case AllocationMethod::PCA:
+// 					PX4_WARN("%s unavailable on NuttX, using pseudo-inverse", allocationMethodName(method));
+// 					_control_allocation[i] = new ControlAllocationPseudoInverse();
+// 					break;
+// #endif
 
-			default:
-				PX4_ERR("Unknown allocation method");
-				break;
+				default:
+					PX4_ERR("Unknown allocation method");
+					break;
 			}
 
 			if (_control_allocation[i] == nullptr) {
@@ -1324,8 +1334,8 @@ int ControlAllocator::print_status()
 	PX4_INFO("B Unit: User-defined");
 	PX4_INFO("Allocation Unit: Normalized");
 	PX4_INFO("DF feedback: CS cutoff=%.2fHz tconst=%.4fs actuator=%d, MOT cutoff=%.2fHz tconst=%.4fs actuator=%d",
-		 (double)_param_df_cs_cutoff.get(), (double)_param_df_cs_time_const.get(), _param_df_cs_actuator.get(),
-		 (double)_param_df_motor_cutoff.get(), (double)_param_df_motor_time_const.get(), _param_df_motor_actuator.get());
+		 (double)_param_df_cs_cutoff.get(), (double)_param_df_cs_time_const.get(), (int)_param_df_cs_actuator.get(),
+		 (double)_param_df_motor_cutoff.get(), (double)_param_df_motor_time_const.get(), (int)_param_df_motor_actuator.get());
 
 	// Print current effectiveness matrix
 	for (int i = 0; i < _num_control_allocation; ++i) {

@@ -1,10 +1,8 @@
 
 #include <matrix/math.hpp>
-#include <iostream>
 #include <stdlib.h>
-#include <limits>
 #include <cmath>
-#include <cfloat>
+#include <float.h>
 using namespace matrix;
 #if !defined(FLT_MAX)
 #define FLT_MAX     __FLT_MAX__
@@ -96,7 +94,7 @@ inline bool solveSquareLU(Matrix<Type, M, M> A, Vector<Type, M> b, Vector<Type, 
             }
         }
 
-        if (pivot_abs <= std::numeric_limits<Type>::epsilon() || !lp_is_finite(static_cast<float>(pivot_abs))) {
+        if (pivot_abs <= static_cast<Type>(FLT_EPSILON) || !lp_is_finite(static_cast<float>(pivot_abs))) {
             x.setZero();
             return false;
         }
@@ -120,7 +118,7 @@ inline bool solveSquareLU(Matrix<Type, M, M> A, Vector<Type, M> b, Vector<Type, 
         }
     }
 
-    if (fabs(A(M - 1, M - 1)) <= std::numeric_limits<Type>::epsilon()
+    if (fabs(A(M - 1, M - 1)) <= static_cast<Type>(FLT_EPSILON)
         || !lp_is_finite(static_cast<float>(A(M - 1, M - 1)))) {
         x.setZero();
         return false;
@@ -211,7 +209,6 @@ inline float calculateRho(float ydt[ControlSize], float u[EffectorSize], float B
     // }
 
     if (fabs(denominator) < relativeEpsilon ) {
-        std::cerr << "Error: Division by zero." << std::endl;
         return 1.0f;
     }
     // Calculate rho
