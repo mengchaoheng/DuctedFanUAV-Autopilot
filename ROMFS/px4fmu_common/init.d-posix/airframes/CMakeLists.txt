@@ -130,4 +130,9 @@ px4_add_romfs_files(
 	22006_gazebo-classic_SHW09_vtol
 	22007_gazebo-classic_tilt_multirotor
 	22008_gz_ductedfan4
+	22009_gz_ductedfan2
+	22010_gz_ductedfan6
+	22011_gz_ductedfan_mini
+	22012_gz_SHC09
+	22013_gz_SHW09_vtol
 )

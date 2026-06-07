@@ -14,7 +14,6 @@ PX4_GZ_WORLD=${PX4_GZ_WORLD:=default}
 PX4_SIM_MODEL=${PX4_SIM_MODEL:=ductedfan4}
 
 param set-default SIM_GZ_EN 1
-param set-default FD_ESCS_EN 0
 
 param set-default CA_AIRFRAME 9
 
