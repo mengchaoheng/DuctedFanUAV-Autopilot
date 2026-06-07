@@ -814,7 +814,7 @@ ControlAllocator::update_effectiveness_matrix_if_needed(EffectivenessUpdateReaso
 
 			ActuatorEffectiveness::EffectivenessMatrix physical_matrix = config.effectiveness_matrices[i];
 			ActuatorEffectiveness::EffectivenessMatrix allocation_matrix = physical_matrix;
-			int total_num_actuators = config.num_actuators_matrix[i];
+			int total_num_actuators = config.num_actuators_matrix[i];//why using this new variable?
 
 			for (int actuator = 0; actuator < total_num_actuators; actuator++) {
 				const float actuator_scale = (_allocation_actuator_scale[i][actuator] > FLT_EPSILON) ?
@@ -1035,13 +1035,7 @@ ControlAllocator::publish_actuator_controls()
 float
 ControlAllocator::actuatorOutputSetpoint(int matrix_index, int actuator_index) const
 {
-	if (matrix_index < 0 || matrix_index >= _num_control_allocation || _control_allocation[matrix_index] == nullptr ||
-	    actuator_index < 0 || actuator_index >= NUM_ACTUATORS) {
-		return NAN;
-	}
-
-	const ControlAllocation *allocation = _control_allocation[matrix_index];
-	float actuator_sp = allocation->getActuatorSetpoint()(actuator_index);
+	float actuator_sp = _control_allocation[matrix_index]->getActuatorSetpoint()(actuator_index);
 
 #if defined(__PX4_POSIX)
 	const bool is_motor = _allocation_actuator_is_motor[matrix_index][actuator_index];
@@ -1049,9 +1043,9 @@ ControlAllocator::actuatorOutputSetpoint(int matrix_index, int actuator_index) c
 			_param_df_cs_actuator.get() == 1;
 
 	if (use_actuator_model_for_sitl_output) {
-		const float trim = allocation->_actuator_trim(actuator_index);
-		const float min_delta = allocation->getActuatorMin()(actuator_index) - trim;
-		const float max_delta = allocation->getActuatorMax()(actuator_index) - trim;
+		const float trim = _control_allocation[matrix_index]->_actuator_trim(actuator_index);
+		const float min_delta = _control_allocation[matrix_index]->getActuatorMin()(actuator_index) - trim;
+		const float max_delta = _control_allocation[matrix_index]->getActuatorMax()(actuator_index) - trim;
 		const float actuator_delta_cmd = math::constrain(_allocation_u_cmd[matrix_index][actuator_index], min_delta,
 						   max_delta);
 		actuator_sp = trim + actuator_delta_cmd;
@@ -1105,7 +1099,7 @@ ControlAllocator::update_allocation_feedback(int matrix_index, int actuator_inde
 	const bool sample_freq_changed = !PX4_ISFINITE(_last_allocation_feedback_sample_freq)
 					 || fabsf(sample_freq - _last_allocation_feedback_sample_freq) >
 					 fmaxf(1.f, 0.1f * _last_allocation_feedback_sample_freq);
-
+	// why not update in parameters_updated?
 	if (first_filter_update || cutoff_changed || sample_freq_changed) {
 		for (int matrix = 0; matrix < ActuatorEffectiveness::MAX_NUM_MATRICES; matrix++) {
 			for (int actuator = 0; actuator < NUM_ACTUATORS; actuator++) {
@@ -1136,7 +1130,7 @@ ControlAllocator::update_allocation_feedback(int matrix_index, int actuator_inde
 
 	float feedback_source = _allocation_u_estimate[matrix_index][actuator_index];
 
-#if defined(__PX4_POSIX)
+#if defined(__PX4_POSIX)// In gazebo-classic, the actuator is directly commanded, if we want to simulate a true actuator, we can use the value after the actuator model first_order_update_zoh. Whether or not an actuator simulator is used, we make the feedback the same as the command, as if we have a perfect estimator of the actuator. In gz, there is an actuator model, so some work to do here （The case where __PX4_POSIX=0 is always passed through）.
 	const bool use_actuator_model_for_sitl_output = is_motor ? _param_df_motor_actuator.get() == 1 :
 			_param_df_cs_actuator.get() == 1;
 	_allocation_u_cmd[matrix_index][actuator_index] = use_actuator_model_for_sitl_output ?
@@ -1208,6 +1202,7 @@ ControlAllocator::publish_allocation_value(int matrix_index, float dt)
 	}
 
 	matrix::Vector<float, NUM_AXES> achieved;
+	achieved.setZero();
 
 	for (int actuator = 0; actuator < num_actuators; actuator++) {
 		const float actuator_delta = actuator_sp(actuator) - actuator_trim(actuator);
