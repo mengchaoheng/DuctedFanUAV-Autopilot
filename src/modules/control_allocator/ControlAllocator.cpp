@@ -354,14 +354,13 @@ ControlAllocator::update_allocation_method(bool force)
 				_control_allocation[i] = new ControlAllocationPseudoInverse();
 				break;
 
-				case AllocationMethod::SEQUENTIAL_DESATURATION:
-					_control_allocation[i] = new ControlAllocationSequentialDesaturation();
-					break;
+			case AllocationMethod::SEQUENTIAL_DESATURATION:
+				_control_allocation[i] = new ControlAllocationSequentialDesaturation();
+				break;
 
-// #if defined(__PX4_POSIX)
-				case AllocationMethod::INV:
-					_control_allocation[i] = new ControlAllocationInv();
-					break;
+			case AllocationMethod::INV:
+				_control_allocation[i] = new ControlAllocationInv();
+				break;
 
 			case AllocationMethod::DP_LPCA:
 				_control_allocation[i] = new ControlAllocationDPLPCA();
@@ -371,22 +370,13 @@ ControlAllocator::update_allocation_method(bool force)
 				_control_allocation[i] = new ControlAllocationDPscaledLPCA();
 				break;
 
-				case AllocationMethod::PCA:
-					_control_allocation[i] = new ControlAllocationPCA();
-					break;
-// #else
-// 				case AllocationMethod::INV:
-// 				case AllocationMethod::DP_LPCA:
-// 				case AllocationMethod::DPSCALED_LPCA:
-// 				case AllocationMethod::PCA:
-// 					PX4_WARN("%s unavailable on NuttX, using pseudo-inverse", allocationMethodName(method));
-// 					_control_allocation[i] = new ControlAllocationPseudoInverse();
-// 					break;
-// #endif
+			case AllocationMethod::PCA:
+				_control_allocation[i] = new ControlAllocationPCA();
+				break;
 
-				default:
-					PX4_ERR("Unknown allocation method");
-					break;
+			default:
+				PX4_ERR("Unknown allocation method");
+				break;
 			}
 
 			if (_control_allocation[i] == nullptr) {
@@ -689,7 +679,7 @@ ControlAllocator::Run()
 	}
 
 	for (int i = 0; i < _num_control_allocation; ++i) {
-		publish_allocation_value(i, dt);
+		publish_allocation_value(i, dt); // Before publish_actuator_controls
 	}
 
 	// Publish actuator setpoint and allocator status
@@ -1045,7 +1035,13 @@ ControlAllocator::publish_actuator_controls()
 float
 ControlAllocator::actuatorOutputSetpoint(int matrix_index, int actuator_index) const
 {
-	float actuator_sp = _control_allocation[matrix_index]->getActuatorSetpoint()(actuator_index);
+	if (matrix_index < 0 || matrix_index >= _num_control_allocation || _control_allocation[matrix_index] == nullptr ||
+	    actuator_index < 0 || actuator_index >= NUM_ACTUATORS) {
+		return NAN;
+	}
+
+	const ControlAllocation *allocation = _control_allocation[matrix_index];
+	float actuator_sp = allocation->getActuatorSetpoint()(actuator_index); //float actuator_sp = _control_allocation[matrix_index]->getActuatorSetpoint()(actuator_index);
 
 #if defined(__PX4_POSIX)
 	const bool is_motor = _allocation_actuator_is_motor[matrix_index][actuator_index];
@@ -1053,9 +1049,9 @@ ControlAllocator::actuatorOutputSetpoint(int matrix_index, int actuator_index) c
 			_param_df_cs_actuator.get() == 1;
 
 	if (use_actuator_model_for_sitl_output) {
-		const float trim = _control_allocation[matrix_index]->_actuator_trim(actuator_index);
-		const float min_delta = _control_allocation[matrix_index]->getActuatorMin()(actuator_index) - trim;
-		const float max_delta = _control_allocation[matrix_index]->getActuatorMax()(actuator_index) - trim;
+		const float trim = allocation->_actuator_trim(actuator_index);
+		const float min_delta = allocation->getActuatorMin()(actuator_index) - trim;
+		const float max_delta = allocation->getActuatorMax()(actuator_index) - trim;
 		const float actuator_delta_cmd = math::constrain(_allocation_u_cmd[matrix_index][actuator_index], min_delta,
 						   max_delta);
 		actuator_sp = trim + actuator_delta_cmd;
