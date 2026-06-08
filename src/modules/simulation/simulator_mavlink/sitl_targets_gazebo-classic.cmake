@@ -115,6 +115,7 @@ if(gazebo_FOUND)
 		ductedfan6
 		ductedfan_mini
 		SHC09
+		SHC09_d
 		SHW09_vtol
 		tilt_multirotor
 	)
