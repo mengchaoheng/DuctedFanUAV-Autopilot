@@ -69,7 +69,7 @@ param set-default CA_ROTOR0_AY 0
 param set-default CA_ROTOR0_AZ -1
 param set-default CA_ROTOR0_PX 0
 param set-default CA_ROTOR0_PY 0
-param set-default CA_ROTOR0_PZ -0.04
+param set-default CA_ROTOR0_PZ 0.1
 # Rotor effectiveness in the allocation matrix.
 #
 # Ducted Fan uses the same B_user * U contract for motors and control surfaces:
@@ -138,14 +138,14 @@ param set-default CA_SV_CS5_TRQ_Y 24.3009
 
 # param set-default VT_ELEV_MC_LOCK 0
 
-param set-default PWM_MAIN_FUNC1 101
+param set-default PWM_AUX_FUNC1 101
 
-param set-default PWM_MAIN_FUNC2 201
-param set-default PWM_MAIN_FUNC3 202
-param set-default PWM_MAIN_FUNC4 203
-param set-default PWM_MAIN_FUNC5 204
-param set-default PWM_MAIN_FUNC6 205
-param set-default PWM_MAIN_FUNC7 206
+param set-default PWM_AUX_FUNC2 201
+param set-default PWM_AUX_FUNC3 202
+param set-default PWM_AUX_FUNC4 203
+param set-default PWM_AUX_FUNC5 204
+param set-default PWM_AUX_FUNC6 205
+param set-default PWM_AUX_FUNC7 206
 
 # param set-default SDLOG_PROFILE 17
 param set-default SDLOG_MODE 0

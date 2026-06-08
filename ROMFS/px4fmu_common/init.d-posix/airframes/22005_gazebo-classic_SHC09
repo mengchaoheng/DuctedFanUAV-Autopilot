@@ -67,7 +67,7 @@ param set-default CA_ROTOR0_AY 0
 param set-default CA_ROTOR0_AZ -1
 param set-default CA_ROTOR0_PX 0
 param set-default CA_ROTOR0_PY 0
-param set-default CA_ROTOR0_PZ -0.04
+param set-default CA_ROTOR0_PZ 0.1
 # Rotor effectiveness in the allocation matrix.
 #
 # Ducted Fan uses the same B_user * U contract for motors and control surfaces:
