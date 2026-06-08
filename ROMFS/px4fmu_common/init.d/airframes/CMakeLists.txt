@@ -183,3 +183,9 @@ if(CONFIG_MODULES_SPACECRAFT)
 		70000_atmos
 	)
 endif()
+
+if(CONFIG_MODULES_DF_HOVER_RATE_CONTROL)
+	px4_add_romfs_files(
+		22005_SHC09
+	)
+endif()
