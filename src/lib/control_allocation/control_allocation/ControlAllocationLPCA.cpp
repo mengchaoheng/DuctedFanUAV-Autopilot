@@ -181,9 +181,9 @@ bool dispatchLPCAColumns(int cols, LPCAMethod method,
 	// 	if constexpr (Rows <= 2) { return runLPCA<Rows, 2>(method, b_par, y_par, y_higher_par, y_lower_par, priority_split_valid, actuator_min, actuator_max, output, diagnostics); }
 	// 	break;
 
-	case 3:
-		if constexpr (Rows <= 3) { return runLPCA<Rows, 3>(method, b_par, y_par, y_higher_par, y_lower_par, priority_split_valid, actuator_min, actuator_max, output, diagnostics); }
-		break;
+	// case 3:
+	// 	if constexpr (Rows <= 3) { return runLPCA<Rows, 3>(method, b_par, y_par, y_higher_par, y_lower_par, priority_split_valid, actuator_min, actuator_max, output, diagnostics); }
+	// 	break;
 
 	case 4:
 		if constexpr (Rows <= 4) { return runLPCA<Rows, 4>(method, b_par, y_par, y_higher_par, y_lower_par, priority_split_valid, actuator_min, actuator_max, output, diagnostics); }
