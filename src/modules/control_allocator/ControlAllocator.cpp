@@ -1038,10 +1038,10 @@ ControlAllocator::actuatorOutputSetpoint(int matrix_index, int actuator_index) c
 	if (matrix_index < 0 || matrix_index >= _num_control_allocation || _control_allocation[matrix_index] == nullptr ||
 	    actuator_index < 0 || actuator_index >= NUM_ACTUATORS) {
 		return NAN;
-	}
+	}// It seems unnecessary
 
 	const ControlAllocation *allocation = _control_allocation[matrix_index];
-	float actuator_sp = allocation->getActuatorSetpoint()(actuator_index); //float actuator_sp = _control_allocation[matrix_index]->getActuatorSetpoint()(actuator_index);
+	float actuator_sp = allocation->getActuatorSetpoint()(actuator_index); // why not using: float actuator_sp = _control_allocation[matrix_index]->getActuatorSetpoint()(actuator_index);
 
 #if defined(__PX4_POSIX)
 	const bool is_motor = _allocation_actuator_is_motor[matrix_index][actuator_index];
@@ -1053,7 +1053,7 @@ ControlAllocator::actuatorOutputSetpoint(int matrix_index, int actuator_index) c
 		const float min_delta = allocation->getActuatorMin()(actuator_index) - trim;
 		const float max_delta = allocation->getActuatorMax()(actuator_index) - trim;
 		const float actuator_delta_cmd = math::constrain(_allocation_u_cmd[matrix_index][actuator_index], min_delta,
-						   max_delta);
+						   max_delta); // why we have to constrain the command here again?
 		actuator_sp = trim + actuator_delta_cmd;
 	}
 #endif
@@ -1136,16 +1136,19 @@ ControlAllocator::update_allocation_feedback(int matrix_index, int actuator_inde
 
 	float feedback_source = _allocation_u_estimate[matrix_index][actuator_index];
 
-#if defined(__PX4_POSIX)// In gazebo-classic, the actuator is directly commanded, if we want to simulate a true actuator, we can use the value after the actuator model first_order_update_zoh. Whether or not an actuator simulator is used, we make the feedback the same as the command, as if we have a perfect estimator of the actuator. In gz, there is an actuator model, so some work to do here （The case where __PX4_POSIX=0 is always passed through）.
+#if defined(__PX4_POSIX)// In gazebo-classic, the actuator is directly commanded, if we want to simulate a true actuator, we can use the value after the actuator model first_order_update_zoh.
 	const bool use_actuator_model_for_sitl_output = is_motor ? _param_df_motor_actuator.get() == 1 :
 			_param_df_cs_actuator.get() == 1;
 	_allocation_u_cmd[matrix_index][actuator_index] = use_actuator_model_for_sitl_output ?
 			_allocation_u_estimate[matrix_index][actuator_index] : actuator_delta;
 	feedback_source = _allocation_u_cmd[matrix_index][actuator_index];
-#else
+#else // In practical systems, actuator dynamics naturally exist, and commands are sent directly to the actuator without simulation. However, the result of first_order_update_zoh can serve as an estimate of the actual actuator state.
 	_allocation_u_cmd[matrix_index][actuator_index] = actuator_delta;
 #endif
+	// In gazebo-classic simulation, whether or not an actuator simulator is used, we make the feedback the same as the command, as if we have a perfect estimator of the actuator.
+	// In real-world flight, the feedback would come from first_order_update_zoh, which as a estimate of the actuator state.
 
+	// NOTE: There is an actuator model in gz, so some work is needed here (for example, changing the logic to still behave like real flight even when running simulation, i.e., with __PX4_POSIX=1). Since we don't need gz for now, we will ignore it here. Currently, the code can disable the actuator simulation when running in gz, and still use the _allocation_u_cmd as feedback for the actuator. Just set the low-pass filter with an appropriate cutoff frequency, and INDI will still work.
 	_allocation_u_feedback[matrix_index][actuator_index] =
 		_allocation_u_feedback_filter[matrix_index][actuator_index].apply(feedback_source);
 
