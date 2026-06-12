@@ -115,8 +115,9 @@ if(gazebo_FOUND)
 		ductedfan6
 		ductedfan_mini
 		SHC09
-		SHC09_d
+		SHC09_d # default setup for SHC09
 		SHW09_vtol
+		SHW09_vtol_d # default setup for SHW09_vtol
 		tilt_multirotor
 	)
 

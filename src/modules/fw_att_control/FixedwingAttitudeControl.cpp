@@ -298,7 +298,15 @@ void FixedwingAttitudeControl::Run()
 				const Quatf q_sp(_att_sp.q_d);
 
 				if (q_sp.isAllFinite()) {
-					const Quatf q_current(att.q);
+					Quatf q_current(att.q);
+
+					// Tailsitter setpoints are in the virtual fixed-wing frame, while att.q is in the
+					// physical hover frame. Align the current attitude before computing the error.
+					if (_vehicle_status.is_vtol_tailsitter) {
+						q_current *= Quatf(matrix::Eulerf{0.f, M_PI_2_F, 0.f});
+						q_current.normalize();
+					}
+
 					const Vector3f att_err = computeAttitudeError(q_current, q_sp);
 
 					Vector3f body_rates_setpoint;
