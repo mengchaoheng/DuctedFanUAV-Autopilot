@@ -16,6 +16,7 @@
 #include <gz/sim/components/JointVelocity.hh>
 #include <gz/sim/components/LinearVelocity.hh>
 #include <gz/sim/components/Pose.hh>
+#include <gz/sim/components/Wind.hh>
 
 #include <algorithm>
 #include <cmath>
@@ -51,6 +52,7 @@ void DuctedFanLiftDrag::Configure(const gz::sim::Entity &entity,
 	const auto sdf_clone = sdf->Clone();
 
 	ReadIfPresent(sdf_clone, "radial_symmetry", _radial_symmetry);
+	ReadIfPresent(sdf_clone, "reversible", _reversible);
 	ReadIfPresent(sdf_clone, "a0", _alpha0);
 	ReadIfPresent(sdf_clone, "cla", _cla);
 	ReadIfPresent(sdf_clone, "cda", _cda);
@@ -129,9 +131,20 @@ void DuctedFanLiftDrag::PreUpdate(const gz::sim::UpdateInfo &info,
 
 	const gz::math::Vector3d cp_world = pose->Rot().RotateVector(_cp);
 	const gz::math::Vector3d link_velocity_world = *linear_velocity + angular_velocity->Cross(cp_world);
-	const gz::math::Vector3d wash_velocity_world = PropellerWashVelocity(ecm, pose->Rot());
+	const gz::math::Vector3d wash_velocity_world = PropellerWashVelocity(ecm);
+	gz::math::Vector3d wind_velocity = _wind_velocity;
+	const auto wind_entity = ecm.EntityByComponents(gz::sim::components::Wind());
+
+	if (wind_entity != gz::sim::kNullEntity) {
+		const auto world_wind_velocity = ecm.Component<gz::sim::components::WorldLinearVelocity>(wind_entity);
+
+		if (world_wind_velocity) {
+			wind_velocity = world_wind_velocity->Data();
+		}
+	}
+
 	const gz::math::Vector3d air_velocity = _wash_only ? -wash_velocity_world :
-						link_velocity_world - _wind_velocity - wash_velocity_world;
+						link_velocity_world - wind_velocity - wash_velocity_world;
 
 	if (air_velocity.Length() <= 0.01) {
 		return;
@@ -142,7 +155,7 @@ void DuctedFanLiftDrag::PreUpdate(const gz::sim::UpdateInfo &info,
 
 	gz::math::Vector3d forward_i = pose->Rot().RotateVector(_forward);
 
-	if (forward_i.Dot(air_velocity) <= 0.0) {
+	if (!_reversible && forward_i.Dot(air_velocity) <= 0.0) {
 		return;
 	}
 
@@ -162,13 +175,14 @@ void DuctedFanLiftDrag::PreUpdate(const gz::sim::UpdateInfo &info,
 
 	const double min_ratio = -1.0;
 	const double max_ratio = 1.0;
-	double sweep = std::asin(gz::math::clamp(spanwise_i.Dot(vel_i), min_ratio, max_ratio));
+	const double sin_sweep_angle = gz::math::clamp(spanwise_i.Dot(vel_i), min_ratio, max_ratio);
+	const double cos2_sweep_angle = 1.0 - sin_sweep_angle * sin_sweep_angle;
+	double sweep = std::asin(sin_sweep_angle);
 
 	while (std::fabs(sweep) > 0.5 * GZ_PI) {
 		sweep = sweep > 0.0 ? sweep - GZ_PI : sweep + GZ_PI;
 	}
 
-	const double cos_sweep_angle = 1.0;
 	const gz::math::Vector3d vel_in_ld_plane = air_velocity - air_velocity.Dot(spanwise_i) * spanwise_i;
 
 	gz::math::Vector3d drag_direction = -vel_in_ld_plane;
@@ -192,15 +206,15 @@ void DuctedFanLiftDrag::PreUpdate(const gz::sim::UpdateInfo &info,
 	double cl = 0.0;
 
 	if (alpha > _alpha_stall) {
-		cl = (_cla * _alpha_stall + _cla_stall * (alpha - _alpha_stall)) * cos_sweep_angle;
+		cl = (_cla * _alpha_stall + _cla_stall * (alpha - _alpha_stall)) * cos2_sweep_angle;
 		cl = std::max(0.0, cl);
 
 	} else if (alpha < -_alpha_stall) {
-		cl = (-_cla * _alpha_stall + _cla_stall * (alpha + _alpha_stall)) * cos_sweep_angle;
+		cl = (-_cla * _alpha_stall + _cla_stall * (alpha + _alpha_stall)) * cos2_sweep_angle;
 		cl = std::min(0.0, cl);
 
 	} else {
-		cl = _cla * alpha * cos_sweep_angle;
+		cl = _cla * alpha * cos2_sweep_angle;
 	}
 
 	double control_angle = 0.0;
@@ -219,13 +233,13 @@ void DuctedFanLiftDrag::PreUpdate(const gz::sim::UpdateInfo &info,
 	double cd = 0.0;
 
 	if (alpha > _alpha_stall) {
-		cd = (_cda * _alpha_stall + _cda_stall * (alpha - _alpha_stall)) * cos_sweep_angle;
+		cd = (_cda * _alpha_stall + _cda_stall * (alpha - _alpha_stall)) * cos2_sweep_angle;
 
 	} else if (alpha < -_alpha_stall) {
-		cd = (-_cda * _alpha_stall + _cda_stall * (alpha + _alpha_stall)) * cos_sweep_angle;
+		cd = (-_cda * _alpha_stall + _cda_stall * (alpha + _alpha_stall)) * cos2_sweep_angle;
 
 	} else {
-		cd = _cda * alpha * cos_sweep_angle;
+		cd = _cda * alpha * cos2_sweep_angle;
 	}
 
 	cd = std::fabs(cd);
@@ -234,25 +248,26 @@ void DuctedFanLiftDrag::PreUpdate(const gz::sim::UpdateInfo &info,
 	double cm = 0.0;
 
 	if (alpha > _alpha_stall) {
-		cm = (_cma * _alpha_stall + _cma_stall * (alpha - _alpha_stall)) * cos_sweep_angle;
+		cm = (_cma * _alpha_stall + _cma_stall * (alpha - _alpha_stall)) * cos2_sweep_angle;
 		cm = std::max(0.0, cm);
 
 	} else if (alpha < -_alpha_stall) {
-		cm = (-_cma * _alpha_stall + _cma_stall * (alpha + _alpha_stall)) * cos_sweep_angle;
+		cm = (-_cma * _alpha_stall + _cma_stall * (alpha + _alpha_stall)) * cos2_sweep_angle;
 		cm = std::min(0.0, cm);
 
 	} else {
-		cm = _cma * alpha * cos_sweep_angle;
+		cm = _cma * alpha * cos2_sweep_angle;
 	}
 
 	cm += _cm_delta * control_angle;
 
 	gz::math::Vector3d force = lift + drag;
 	gz::math::Vector3d moment = cm * q * _area * moment_direction;
+	gz::math::Vector3d total_moment = moment + cp_world.Cross(force);
 	force.Correct();
-	moment.Correct();
+	total_moment.Correct();
 
-	_link.AddWorldWrench(ecm, force, moment, _cp);
+	_link.AddWorldWrench(ecm, force, total_moment);
 }
 
 void DuctedFanLiftDrag::ResolveEntities(gz::sim::EntityComponentManager &ecm)
@@ -325,8 +340,7 @@ bool DuctedFanLiftDrag::EnsureComponents(gz::sim::EntityComponentManager &ecm)
 	return ready;
 }
 
-gz::math::Vector3d DuctedFanLiftDrag::PropellerWashVelocity(gz::sim::EntityComponentManager &ecm,
-		const gz::math::Quaterniond &link_rot) const
+gz::math::Vector3d DuctedFanLiftDrag::PropellerWashVelocity(gz::sim::EntityComponentManager &ecm) const
 {
 	gz::math::Vector3d wash_velocity{0.0, 0.0, 0.0};
 
@@ -344,7 +358,8 @@ gz::math::Vector3d DuctedFanLiftDrag::PropellerWashVelocity(gz::sim::EntityCompo
 
 		const double omega = joint_velocity->Data()[0] * propeller.rotor_velocity_slowdown_sim;
 		const double speed_mag = propeller.k_v * std::fabs(omega);
-		gz::math::Vector3d axis = link_rot.RotateVector(joint_axis->Data().Xyz());
+		gz::math::Vector3d axis = gz::sim::worldPose(propeller.joint_entity, ecm).Rot()
+					   .RotateVector(joint_axis->Data().Xyz());
 		axis.Normalize();
 		wash_velocity += -axis * speed_mag;
 	}

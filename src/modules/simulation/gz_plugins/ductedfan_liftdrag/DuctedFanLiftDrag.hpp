@@ -7,7 +7,6 @@
 #pragma once
 
 #include <gz/math/Helpers.hh>
-#include <gz/math/Quaternion.hh>
 #include <gz/math/Vector3.hh>
 #include <gz/msgs/wind.pb.h>
 #include <gz/sim/Link.hh>
@@ -48,8 +47,7 @@ private:
 	void WindCallback(const gz::msgs::Wind &msg);
 	void ResolveEntities(gz::sim::EntityComponentManager &ecm);
 	bool EnsureComponents(gz::sim::EntityComponentManager &ecm);
-	gz::math::Vector3d PropellerWashVelocity(gz::sim::EntityComponentManager &ecm,
-			const gz::math::Quaterniond &link_rot) const;
+	gz::math::Vector3d PropellerWashVelocity(gz::sim::EntityComponentManager &ecm) const;
 
 	gz::sim::Model _model{gz::sim::kNullEntity};
 	gz::sim::Entity _link_entity{gz::sim::kNullEntity};
@@ -76,6 +74,7 @@ private:
 	double _alpha0{0.0};
 	double _control_joint_rad_to_cl{4.0};
 	bool _radial_symmetry{false};
+	bool _reversible{false};
 	bool _wash_only{false};
 
 	gz::math::Vector3d _cp{0.0, 0.0, 0.0};

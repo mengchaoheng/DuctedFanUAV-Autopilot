@@ -25,11 +25,11 @@ param set-default MC_PITCHRATE_I 0.2
 param set-default MC_YAWRATE_P 0.2
 param set-default MC_YAWRATE_I 0.1
 
-param set-default MC_PITCH_P 5
-param set-default MC_ROLL_P 5
-param set-default MC_YAW_P 3
+# param set-default MC_PITCH_P 5
+# param set-default MC_ROLL_P 5
+# param set-default MC_YAW_P 3
 
-param set-default MPC_THR_HOVER 0.49
+param set-default MPC_THR_HOVER 0.4865
 param set-default THR_MDL_FAC 1
 param set-default RTL_RETURN_ALT 2.5
 param set-default RTL_DESCEND_ALT 2.5
