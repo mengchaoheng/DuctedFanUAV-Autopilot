@@ -274,6 +274,14 @@ private:
 	float _last_allocation_feedback_servo_cutoff{NAN};
 	float _last_allocation_feedback_motor_cutoff{NAN};
 	float _last_allocation_feedback_sample_freq{NAN};
+	// Add these declarations inside class ControlAllocator in ControlAllocator.hpp.
+
+	void reset_allocation_feedback_state();
+	void update_allocation_feedback_filter_config(float sample_freq);
+
+	bool _allocation_feedback_filters_configured{false};
+	bool _allocation_feedback_active_prev{false};
+	hrt_abstime _last_allocation_feedback_update[ActuatorEffectiveness::MAX_NUM_MATRICES] {};
 
 
 	DEFINE_PARAMETERS(

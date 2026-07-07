@@ -56,7 +56,11 @@ namespace
 {
 float first_order_update_zoh(float input, float state, float time_constant, float dt)
 {
-	if (time_constant <= FLT_EPSILON || dt <= FLT_EPSILON) {
+	if (!PX4_ISFINITE(input)) {
+		return NAN;
+	}
+
+	if (!PX4_ISFINITE(state) || time_constant <= FLT_EPSILON || dt <= FLT_EPSILON) {
 		return input;
 	}
 
@@ -242,6 +246,7 @@ ControlAllocator::ControlAllocator() :
 		_param_handles.slew_rate_servos[i] = param_find(buffer);
 	}
 
+	reset_allocation_feedback_state();
 	parameters_updated();
 }
 
@@ -572,6 +577,15 @@ ControlAllocator::Run()
 		}
 	}
 
+	const bool allocation_feedback_active = ductedFanAllocationFeedbackEnabled() && _publish_controls;
+
+	if (allocation_feedback_active && !_allocation_feedback_active_prev) {
+		reset_allocation_feedback_state();
+		_allocation_feedback_filters_configured = false;
+	}
+
+	_allocation_feedback_active_prev = allocation_feedback_active;
+
 	// Guard against too small (< 0.2ms) and too large (> 20ms) dt's.
 	const hrt_abstime now = hrt_absolute_time();
 	const float dt = math::constrain(((now - _last_run) / 1e6f), 0.0002f, 0.02f);
@@ -863,6 +877,11 @@ ControlAllocator::update_effectiveness_matrix_if_needed(EffectivenessUpdateReaso
 
 		trims.timestamp = hrt_absolute_time();
 		_actuator_servos_trim_pub.publish(trims);
+
+		if (reason != EffectivenessUpdateReason::NO_EXTERNAL_UPDATE) {
+			reset_allocation_feedback_state();
+			_allocation_feedback_filters_configured = false;
+		}
 	}
 }
 
@@ -1084,53 +1103,68 @@ ControlAllocator::actuatorPhysicalScale(ActuatorType actuator_type) const
 	return math::constrain(scale, 0.0001f, 1.e6f);
 }
 
+void
+ControlAllocator::reset_allocation_feedback_state()
+{
+	for (int matrix = 0; matrix < ActuatorEffectiveness::MAX_NUM_MATRICES; matrix++) {
+		_last_allocation_feedback_update[matrix] = 0;
+
+		for (int actuator = 0; actuator < NUM_ACTUATORS; actuator++) {
+			_allocation_u_cmd[matrix][actuator] = NAN;
+			_allocation_u_estimate[matrix][actuator] = NAN;
+			_allocation_u_feedback[matrix][actuator] = NAN;
+			_allocation_u_feedback_filter[matrix][actuator].reset(0.f);
+		}
+	}
+}
+
+void
+ControlAllocator::update_allocation_feedback_filter_config(float sample_freq)
+{
+	const float servo_cutoff = math::max(_param_df_cs_cutoff.get(), 0.f);
+	const float motor_cutoff = math::max(_param_df_motor_cutoff.get(), 0.f);
+
+	const bool cutoff_changed = !_allocation_feedback_filters_configured
+					    || fabsf(servo_cutoff - _last_allocation_feedback_servo_cutoff) > FLT_EPSILON
+					    || fabsf(motor_cutoff - _last_allocation_feedback_motor_cutoff) > FLT_EPSILON;
+	const bool sample_freq_changed = !_allocation_feedback_filters_configured
+						 || fabsf(sample_freq - _last_allocation_feedback_sample_freq) >
+						 fmaxf(1.f, 0.1f * _last_allocation_feedback_sample_freq);
+
+	if (!cutoff_changed && !sample_freq_changed) {
+		return;
+	}
+
+	for (int matrix = 0; matrix < ActuatorEffectiveness::MAX_NUM_MATRICES; matrix++) {
+		for (int actuator = 0; actuator < NUM_ACTUATORS; actuator++) {
+			const float cutoff = _allocation_actuator_is_motor[matrix][actuator] ? motor_cutoff : servo_cutoff;
+			_allocation_u_feedback_filter[matrix][actuator].set_cutoff_frequency(sample_freq, cutoff);
+
+			if (cutoff_changed) {
+				const float reset_value = PX4_ISFINITE(_allocation_u_feedback[matrix][actuator]) ?
+							  _allocation_u_feedback[matrix][actuator] : 0.f;
+				_allocation_u_feedback_filter[matrix][actuator].reset(reset_value);
+			}
+		}
+	}
+
+	_last_allocation_feedback_servo_cutoff = servo_cutoff;
+	_last_allocation_feedback_motor_cutoff = motor_cutoff;
+	_last_allocation_feedback_sample_freq = sample_freq;
+	_allocation_feedback_filters_configured = true;
+}
+
 float
 ControlAllocator::update_allocation_feedback(int matrix_index, int actuator_index, float actuator_delta, float dt)
 {
 	const float sample_freq = 1.f / math::constrain(dt, 0.0001f, 0.02f);
+	update_allocation_feedback_filter_config(sample_freq);
+
 	const bool is_motor = _allocation_actuator_is_motor[matrix_index][actuator_index];
-
-	auto sanitized_cutoff = [](float cutoff) {
-		return (PX4_ISFINITE(cutoff) && cutoff >= 0.f) ? cutoff : 0.f;
-	};
-
-	const float servo_cutoff = sanitized_cutoff(_param_df_cs_cutoff.get());
-	const float motor_cutoff = sanitized_cutoff(_param_df_motor_cutoff.get());
-
-	const bool first_filter_update = !PX4_ISFINITE(_last_allocation_feedback_servo_cutoff)
-					 || !PX4_ISFINITE(_last_allocation_feedback_motor_cutoff)
-					 || !PX4_ISFINITE(_last_allocation_feedback_sample_freq);
-	const bool cutoff_changed = fabsf(servo_cutoff - _last_allocation_feedback_servo_cutoff) > 0.1f
-				    || fabsf(motor_cutoff - _last_allocation_feedback_motor_cutoff) > 0.1f;
-	const bool sample_freq_changed = !PX4_ISFINITE(_last_allocation_feedback_sample_freq)
-					 || fabsf(sample_freq - _last_allocation_feedback_sample_freq) >
-					 fmaxf(1.f, 0.1f * _last_allocation_feedback_sample_freq);
-	// why not update in parameters_updated?
-	if (first_filter_update || cutoff_changed || sample_freq_changed) {
-		for (int matrix = 0; matrix < ActuatorEffectiveness::MAX_NUM_MATRICES; matrix++) {
-			for (int actuator = 0; actuator < NUM_ACTUATORS; actuator++) {
-				const float cutoff = _allocation_actuator_is_motor[matrix][actuator] ? motor_cutoff : servo_cutoff;
-				_allocation_u_feedback_filter[matrix][actuator].set_cutoff_frequency(sample_freq, cutoff);
-
-				if (first_filter_update || cutoff_changed) {
-					_allocation_u_feedback_filter[matrix][actuator].reset(_allocation_u_feedback[matrix][actuator]);
-				}
-			}
-		}
-
-		_last_allocation_feedback_servo_cutoff = servo_cutoff;
-		_last_allocation_feedback_motor_cutoff = motor_cutoff;
-		_last_allocation_feedback_sample_freq = sample_freq;
-	}
-
 	float time_constant = is_motor ? _param_df_motor_time_const.get() : _param_df_cs_time_const.get();
 	const float min_time_constant = 1.f / sample_freq;
+	time_constant = PX4_ISFINITE(time_constant) ? math::constrain(time_constant, min_time_constant, 0.2f) : min_time_constant;
 
-	if (!PX4_ISFINITE(time_constant)) {
-		time_constant = min_time_constant;
-	}
-
-	time_constant = math::constrain(time_constant, min_time_constant, 0.2f);
 	_allocation_u_estimate[matrix_index][actuator_index] = first_order_update_zoh(actuator_delta,
 			_allocation_u_estimate[matrix_index][actuator_index], time_constant, dt);
 
@@ -1149,6 +1183,16 @@ ControlAllocator::update_allocation_feedback(int matrix_index, int actuator_inde
 	// In real-world flight, the feedback would come from first_order_update_zoh, which as a estimate of the actuator state.
 
 	// NOTE: There is an actuator model in gz, so some work is needed here (for example, changing the logic to still behave like real flight even when running simulation, i.e., with __PX4_POSIX=1). Since we don't need gz for now, we will ignore it here. Currently, the code can disable the actuator simulation when running in gz, and still use the _allocation_u_cmd as feedback for the actuator. Just set the low-pass filter with an appropriate cutoff frequency, and INDI will still work.
+
+	if (!PX4_ISFINITE(feedback_source)) {
+		_allocation_u_feedback[matrix_index][actuator_index] = NAN;
+		return NAN;
+	}
+
+	if (!PX4_ISFINITE(_allocation_u_feedback[matrix_index][actuator_index])) {
+		_allocation_u_feedback_filter[matrix_index][actuator_index].reset(feedback_source);
+	}
+
 	_allocation_u_feedback[matrix_index][actuator_index] =
 		_allocation_u_feedback_filter[matrix_index][actuator_index].apply(feedback_source);
 
@@ -1165,8 +1209,17 @@ ControlAllocator::publish_allocation_value(int matrix_index, float dt)
 	const ControlAllocation *allocation = _control_allocation[matrix_index];
 	const int num_actuators = math::min(allocation->numConfiguredActuators(), (int)allocation_value_s::MAX_U);
 
+	const hrt_abstime now = hrt_absolute_time();
+	float dt_feedback = math::constrain(dt, 0.0001f, 0.02f);
+
+	if (_last_allocation_feedback_update[matrix_index] != 0) {
+		dt_feedback = math::constrain((now - _last_allocation_feedback_update[matrix_index]) / 1e6f, 0.0001f, 0.02f);
+	}
+
+	_last_allocation_feedback_update[matrix_index] = now;
+
 	allocation_value_s msg {};
-	msg.timestamp = hrt_absolute_time();
+	msg.timestamp = now;
 	msg.timestamp_sample = _timestamp_sample;
 	msg.requested_method = static_cast<int8_t>(_allocation_method_id);
 	msg.fallback = allocation->usedFallback() ? 1 : 0;
@@ -1215,6 +1268,10 @@ ControlAllocator::publish_allocation_value(int matrix_index, float dt)
 
 	for (int actuator = 0; actuator < num_actuators; actuator++) {
 		const float actuator_delta = actuator_sp(actuator) - actuator_trim(actuator);
+		if(matrix_index==0){
+			PX4_INFO("DF feedback: actuator_delta=%.2f ",
+			(double)actuator_delta);
+		}
 		const float actuator_scale = (_allocation_actuator_scale[matrix_index][actuator] > FLT_EPSILON) ?
 					     _allocation_actuator_scale[matrix_index][actuator] : 1.f;
 
@@ -1222,11 +1279,11 @@ ControlAllocator::publish_allocation_value(int matrix_index, float dt)
 		msg.u[actuator] = actuator_delta;
 		msg.umin[actuator] = actuator_min(actuator) - actuator_trim(actuator);
 		msg.umax[actuator] = actuator_max(actuator) - actuator_trim(actuator);
-		const float actuator_feedback = math::constrain(update_allocation_feedback(matrix_index, actuator, actuator_delta, dt),
-						msg.umin[actuator], msg.umax[actuator]);
-		msg.u_ultimate[actuator] = actuator_feedback;
+		const float actuator_feedback = update_allocation_feedback(matrix_index, actuator, actuator_delta, dt_feedback);
+		msg.u_ultimate[actuator] = PX4_ISFINITE(actuator_feedback) ?
+					      math::constrain(actuator_feedback, msg.umin[actuator], msg.umax[actuator]) : actuator_feedback;
 		msg.u_phys[actuator] = actuator_scale * actuator_delta;
-		msg.u_ultimate_phys[actuator] = actuator_scale * actuator_feedback;
+		msg.u_ultimate_phys[actuator] = actuator_scale * msg.u_ultimate[actuator];
 
 		for (int row = 0; row < NUM_AXES; row++) {
 			achieved(row) += msg.b[row * allocation_value_s::MAX_U + actuator] * msg.u_phys[actuator];
