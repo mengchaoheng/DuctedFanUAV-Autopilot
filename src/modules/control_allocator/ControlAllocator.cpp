@@ -1054,13 +1054,7 @@ ControlAllocator::publish_actuator_controls()
 float
 ControlAllocator::actuatorOutputSetpoint(int matrix_index, int actuator_index) const
 {
-	if (matrix_index < 0 || matrix_index >= _num_control_allocation || _control_allocation[matrix_index] == nullptr ||
-	    actuator_index < 0 || actuator_index >= NUM_ACTUATORS) {
-		return NAN;
-	}// It seems unnecessary
-
-	const ControlAllocation *allocation = _control_allocation[matrix_index];
-	float actuator_sp = allocation->getActuatorSetpoint()(actuator_index); // why not using: float actuator_sp = _control_allocation[matrix_index]->getActuatorSetpoint()(actuator_index);
+	float actuator_sp = _control_allocation[matrix_index]->getActuatorSetpoint()(actuator_index);
 
 #if defined(__PX4_POSIX)
 	const bool is_motor = _allocation_actuator_is_motor[matrix_index][actuator_index];
@@ -1068,9 +1062,9 @@ ControlAllocator::actuatorOutputSetpoint(int matrix_index, int actuator_index) c
 			_param_df_cs_actuator.get() == 1;
 
 	if (use_actuator_model_for_sitl_output) {
-		const float trim = allocation->_actuator_trim(actuator_index);
-		const float min_delta = allocation->getActuatorMin()(actuator_index) - trim;
-		const float max_delta = allocation->getActuatorMax()(actuator_index) - trim;
+		const float trim = _control_allocation[matrix_index]->_actuator_trim(actuator_index);
+		const float min_delta = _control_allocation[matrix_index]->getActuatorMin()(actuator_index) - trim;
+		const float max_delta = _control_allocation[matrix_index]->getActuatorMax()(actuator_index) - trim;
 		const float actuator_delta_cmd = math::constrain(_allocation_u_cmd[matrix_index][actuator_index], min_delta,
 						   max_delta); // why we have to constrain the command here again?
 		actuator_sp = trim + actuator_delta_cmd;
@@ -1268,10 +1262,6 @@ ControlAllocator::publish_allocation_value(int matrix_index, float dt)
 
 	for (int actuator = 0; actuator < num_actuators; actuator++) {
 		const float actuator_delta = actuator_sp(actuator) - actuator_trim(actuator);
-		if(matrix_index==0){
-			PX4_INFO("DF feedback: actuator_delta=%.2f ",
-			(double)actuator_delta);
-		}
 		const float actuator_scale = (_allocation_actuator_scale[matrix_index][actuator] > FLT_EPSILON) ?
 					     _allocation_actuator_scale[matrix_index][actuator] : 1.f;
 
