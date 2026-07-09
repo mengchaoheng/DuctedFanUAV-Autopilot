@@ -50,80 +50,187 @@ using namespace matrix;
 namespace
 {
 
-matrix::Dcmf expMapSO3(const matrix::Vector3f &v)
-{
-	const float theta = v.norm();
-	const matrix::Dcmf K(v.hat());
+/*
+ * SO(3) helper references used in this file:
+ *
+ * [R1] Blanco Claraco, "A tutorial on SE(3) transformation parameterizations
+ *      and on-manifold optimization", Sec. 9.4.1:
+ *      - Rodrigues Exp map.
+ *      - Matrix Log baseline:
+ *            Log(R)^vee = theta / (2 * sin(theta)) * (R - R^T)^vee
+ *      - Around-pi axis extraction with:
+ *            S = R + R^T + (1 - tr(R)) * I
+ *
+ * [R2] Sola, "Quaternion kinematics for the error-state Kalman filter",
+ *      Sec. 2.3-2.4:
+ *      - Rotation matrix and quaternion represent the same SO(3) rotation.
+ *      - Quaternion Exp and Log:
+ *            q = [cos(theta/2), u * sin(theta/2)]
+ *            Log(q) = theta * u
+ *            theta = 2 * atan2(||qv||, qw)
+ *
+ * [R3] Sola, Deray, Atchuthan, "A micro Lie theory for state estimation
+ *      in robotics", Appendix B:
+ *      - S3 and SO(3) share the same tangent vector space R^3.
+ *      - q and -q encode the same SO(3) rotation.
+ *      - Use positive real part before Log to select the principal branch.
+ *
+ * [R4] Nurlanov, "Exploring SO(3) logarithmic map: degeneracies and derivatives",
+ *      Sec. 2 and Sec. 3.2.4:
+ *      - Matrix baseline Log is standard.
+ *      - Matrix baseline becomes ill-conditioned near theta = pi.
+ *      - Through-quaternion Log is the robust candidate.
+ *      - Stable quaternion Log small-angle branch:
+ *            (2 / qw - 2 * ||qv||^2 / (3 * qw^3)) * qv
+ *
+ * [R5] manif: https://github.com/artivis/manif, SO3Base::log():
+ *      - Implements SO(3) Log through quaternion coefficients.
+ *      - Uses two_angle = 2 * atan2(||qv||, qw).
+ *      - Uses a sign branch for the principal angle-axis representative.
+ *
+ * [R6] PX4 matrix::Quatf::canonical():
+ *      - Selects a deterministic representative from q and -q.
+ *      - For regular cases, this gives qw >= 0.
+ *      - For theta ~= pi, it fixes the axis sign using the first significant component.
+ */
 
-	if (theta < 1e-6f) {
-		return matrix::Dcmf(matrix::Dcmf() + K + 0.5f * K * K);
+/**
+ * SO(3) exponential map.
+ *
+ * Formula:
+ *     theta = ||phi||
+ *     Exp(phi) = I
+ *              + sin(theta) / theta * hat(phi)
+ *              + (1 - cos(theta)) / theta^2 * hat(phi)^2
+ *
+ * Sources:
+ *     [R1] Rodrigues Exp map.
+ *     [R3] SO(3) Exp map in Appendix B.
+ *
+ * Small-angle branch:
+ *     sin(theta) / theta = 1 - theta^2 / 6 + theta^4 / 120 + O(theta^6)
+ *     (1 - cos(theta)) / theta^2 = 1/2 - theta^2 / 24 + theta^4 / 720 + O(theta^6)
+ *
+ * Use:
+ *     Needed by SO(3)-level methods such as Yu tilt-torsion construction.
+ */
+matrix::Dcmf expMapSO3(const matrix::Vector3f &phi)
+{
+	const float theta_sq = phi.dot(phi);
+	const matrix::Dcmf W(phi.hat());
+	const matrix::Dcmf W2(W * W);
+	const matrix::Dcmf I;
+
+	if (theta_sq < 1e-8f) {
+		const float theta_4 = theta_sq * theta_sq;
+		const float A = 1.f - theta_sq / 6.f + theta_4 / 120.f;
+		const float B = 0.5f - theta_sq / 24.f + theta_4 / 720.f;
+
+		return matrix::Dcmf(I + A * W + B * W2);
 	}
 
-	return matrix::Dcmf(matrix::Dcmf()
-			    + (sinf(theta) / theta) * K
-			    + ((1.f - cosf(theta)) / (theta * theta)) * K * K);
+	const float theta = sqrtf(theta_sq);
+	const float A = sinf(theta) / theta;
+	const float B = (1.f - cosf(theta)) / theta_sq;
+
+	return matrix::Dcmf(I + A * W + B * W2);
 }
 
+/**
+ * Principal SO(3) logarithm through a unit quaternion.
+ *
+ * Mathematical target:
+ *     e = Log(R)^vee = theta * u, with theta in [0, pi].
+ *
+ * Quaternion representation:
+ *     q = [qw, qv] = [cos(theta/2), u * sin(theta/2)]
+ *
+ * Principal quaternion Log:
+ *     theta = 2 * atan2(||qv||, qw)
+ *     u = qv / ||qv||
+ *     Log(q) = theta * u
+ *
+ * Regular branch implemented below:
+ *     Log(q) = 2 * atan2(||qv||, qw) * qv / ||qv||
+ *
+ * Small-angle branch implemented below:
+ *     Log(q) ~= (2 / qw - 2 * ||qv||^2 / (3 * qw^3)) * qv
+ *
+ * Why quaternion route:
+ *     Direct matrix baseline:
+ *         Log(R)^vee = theta / (2 * sin(theta)) * (R - R^T)^vee
+ *     is the standard formula [R1], [R4].
+ *
+ *     Near theta = pi, sin(theta) approaches zero and the matrix baseline
+ *     becomes ill-conditioned [R4]. The through-quaternion route gives a
+ *     robust principal Log and matches manif::SO3Base::log() [R5].
+ *
+ * Branch selection:
+ *     q and -q represent the same SO(3) element [R3].
+ *     q_in.canonical() selects one deterministic representative [R6].
+ *     For regular cases this is equivalent to qw >= 0.
+ *     The resulting angle from atan2 is the principal angle in [0, pi].
+ *
+ * Unit input assumption:
+ *     q_in is expected to be unit length. In the attitude controller,
+ *     qe = q^-1 * qd is unit length when q and qd are attitude quaternions.
+ */
+matrix::Vector3f logMapSO3FromUnitQuat(const matrix::Quatf &q_in)
+{
+	const matrix::Quatf q = q_in.canonical();
+
+	const float qw = math::constrain(q(0), 0.f, 1.f);
+	const matrix::Vector3f qv = q.imag();
+
+	const float qv_norm_sq = qv.dot(qv);
+
+	if (qv_norm_sq < 1e-12f) {
+		const float qw_sq = qw * qw;
+
+		if (qw > 1e-6f) {
+			const float coeff = 2.f / qw - (2.f / 3.f) * qv_norm_sq / (qw * qw_sq);
+			return coeff * qv;
+		}
+
+		// Defensive fallback for degenerate floating-point input.
+		return 2.f * qv;
+	}
+
+	const float qv_norm = sqrtf(qv_norm_sq);
+
+	// theta = 2 * atan2(||qv||, qw), theta in [0, pi] after canonical().
+	const float angle = 2.f * atan2f(qv_norm, qw);
+
+	// theta * u = theta * qv / ||qv||.
+	return (angle / qv_norm) * qv;
+}
+
+/**
+ * SO(3) logarithm with a DCM input.
+ *
+ * Mathematical definition:
+ *     Log(R)^vee
+ *
+ * Reference matrix formula:
+ *     theta = acos((tr(R) - 1) / 2)
+ *     Log(R)^vee = theta / (2 * sin(theta)) * (R - R^T)^vee
+ *
+ * Around-pi matrix reference:
+ *     S = R + R^T + (1 - tr(R)) * I
+ *     n_j * n_k = S_jk / (3 - tr(R))
+ *
+ * Implementation:
+ *     Convert R to a unit quaternion and call logMapSO3FromUnitQuat().
+ *
+ * Reason:
+ *     This preserves the SO(3) mathematical definition while using the
+ *     through-quaternion robust route recommended by [R4] and used by [R5].
+ */
 matrix::Vector3f logMapSO3(const matrix::Dcmf &R)
 {
-	const float cos_phi = math::constrain((R(0, 0) + R(1, 1) + R(2, 2) - 1.f) * 0.5f, -1.f, 1.f);
-	const float phi = acosf(cos_phi);
+	const matrix::Quatf q(R);
 
-	const matrix::Dcmf R_skew = R - R.transpose();
-	const matrix::Vector3f vee = R_skew.vee();
-
-	if (phi < 1e-5f) {
-		return 0.5f * vee;
-	}
-
-	const float sin_phi = sinf(phi);
-
-	if (fabsf(sin_phi) > 1e-5f) {
-		return (phi / (2.f * sin_phi)) * vee;
-	}
-
-	matrix::Vector3f axis;
-
-	if (R(0, 0) >= R(1, 1) && R(0, 0) >= R(2, 2)) {
-		axis(0) = sqrtf(fmaxf((R(0, 0) + 1.f) * 0.5f, 0.f));
-
-		if (axis(0) > 1e-5f) {
-			axis(1) = (R(0, 1) + R(1, 0)) / (4.f * axis(0));
-			axis(2) = (R(0, 2) + R(2, 0)) / (4.f * axis(0));
-
-		} else {
-			axis = matrix::Vector3f(1.f, 0.f, 0.f);
-		}
-
-	} else if (R(1, 1) >= R(2, 2)) {
-		axis(1) = sqrtf(fmaxf((R(1, 1) + 1.f) * 0.5f, 0.f));
-
-		if (axis(1) > 1e-5f) {
-			axis(0) = (R(0, 1) + R(1, 0)) / (4.f * axis(1));
-			axis(2) = (R(1, 2) + R(2, 1)) / (4.f * axis(1));
-
-		} else {
-			axis = matrix::Vector3f(0.f, 1.f, 0.f);
-		}
-
-	} else {
-		axis(2) = sqrtf(fmaxf((R(2, 2) + 1.f) * 0.5f, 0.f));
-
-		if (axis(2) > 1e-5f) {
-			axis(0) = (R(0, 2) + R(2, 0)) / (4.f * axis(2));
-			axis(1) = (R(1, 2) + R(2, 1)) / (4.f * axis(2));
-
-		} else {
-			axis = matrix::Vector3f(0.f, 0.f, 1.f);
-		}
-	}
-
-	if (axis.norm() > 1e-5f) {
-		axis.normalize();
-		return phi * axis;
-	}
-
-	return matrix::Vector3f(0.f, 0.f, 0.f);
+	return logMapSO3FromUnitQuat(q);
 }
 
 } // namespace
@@ -198,11 +305,19 @@ matrix::Vector3f AttitudeControl::calculateAttitudeErrorQuaternionImag(const Qua
 
 matrix::Vector3f AttitudeControl::calculateAttitudeErrorQuaternionLog(const Quatf &q, const Quatf &qd) const
 {
-	// Quaternion attitude error, rotation from current attitude q to desired attitude qd.
-	const Quatf qe = (q.inversed() * qd).canonical();
+	// PX4 body-frame attitude error:
+	//     qe = q^-1 * qd
+	//
+	// Same mathematical error as:
+	//     Re = R^T * Rd
+	//     eq = Log(Re)^vee
+	//
+	// Quaternion principal Log:
+	//     qe = [qw, qv] = [cos(theta/2), u * sin(theta/2)]
+	//     eq = 2 * atan2(||qv||, qw) * qv / ||qv||
+	const Quatf qe = q.inversed() * qd;
 
-	// PX4 AxisAnglef(Quatf) already returns angle-axis vector: angle * axis.
-	return Vector3f(AxisAnglef(qe));
+	return logMapSO3FromUnitQuat(qe);
 }
 
 matrix::Vector3f AttitudeControl::calculateAttitudeErrorDcmLog(const Quatf &q, const Quatf &qd) const
@@ -210,71 +325,32 @@ matrix::Vector3f AttitudeControl::calculateAttitudeErrorDcmLog(const Quatf &q, c
 	const Dcmf R(q);
 	const Dcmf Rd(qd);
 
-	// Rotation error from current attitude to desired attitude, expressed in current body frame.
+	// PX4 body-frame attitude error:
+	//     Re = R^T * Rd
+	//
+	// This is the DCM form of:
+	//     qe = q^-1 * qd
+	//
+	// Desired error vector:
+	//     eq = Log(Re)^vee
+	//
+	// Direct R formula for reference:
+	//     theta = acos((tr(Re) - 1) / 2)
+	//     eq = theta / (2 * sin(theta)) * (Re - Re^T)^vee
+	//
+	// Small-angle matrix reference:
+	//     eq ~= 0.5 * (1 + theta^2 / 6 + 7 * theta^4 / 360)
+	//           * (Re - Re^T)^vee
+	//
+	// Around-pi matrix reference:
+	//     S = Re + Re^T + (1 - tr(Re)) * I
+	//     n_j * n_k = S_jk / (3 - tr(Re))
+	//
+	// Compiled implementation:
+	//     logMapSO3(Re), internally using quaternion-based principal Log.
 	const Dcmf Re = R.transpose() * Rd;
 
-	const float cos_theta = math::constrain((Re(0, 0) + Re(1, 1) + Re(2, 2) - 1.f) * 0.5f, -1.f, 1.f);
-	const float theta = acosf(cos_theta);
-
-	const Dcmf Re_skew = Re - Re.transpose();
-	const Vector3f vee = Re_skew.vee();
-
-	if (theta < 1e-5f) {
-		// Log(R) ~= 0.5 * (R - R^T) for small angle.
-		return 0.5f * vee;
-	}
-
-	const float sin_theta = sinf(theta);
-
-	if (fabsf(sin_theta) > 1e-5f) {
-		// Log(R) = theta / (2 sin(theta)) * (R - R^T).
-		return (theta / (2.f * sin_theta)) * vee;
-	}
-
-	// Near pi, theta / sin(theta) is ill-conditioned.
-	// Extract the rotation axis from R = 2 * axis * axis^T - I.
-	Vector3f axis;
-
-	if (Re(0, 0) >= Re(1, 1) && Re(0, 0) >= Re(2, 2)) {
-		axis(0) = sqrtf(math::max((Re(0, 0) + 1.f) * 0.5f, 0.f));
-
-		if (axis(0) > 1e-5f) {
-			axis(1) = (Re(0, 1) + Re(1, 0)) / (4.f * axis(0));
-			axis(2) = (Re(0, 2) + Re(2, 0)) / (4.f * axis(0));
-
-		} else {
-			axis = Vector3f(1.f, 0.f, 0.f);
-		}
-
-	} else if (Re(1, 1) >= Re(2, 2)) {
-		axis(1) = sqrtf(math::max((Re(1, 1) + 1.f) * 0.5f, 0.f));
-
-		if (axis(1) > 1e-5f) {
-			axis(0) = (Re(0, 1) + Re(1, 0)) / (4.f * axis(1));
-			axis(2) = (Re(1, 2) + Re(2, 1)) / (4.f * axis(1));
-
-		} else {
-			axis = Vector3f(0.f, 1.f, 0.f);
-		}
-
-	} else {
-		axis(2) = sqrtf(math::max((Re(2, 2) + 1.f) * 0.5f, 0.f));
-
-		if (axis(2) > 1e-5f) {
-			axis(0) = (Re(0, 2) + Re(2, 0)) / (4.f * axis(2));
-			axis(1) = (Re(1, 2) + Re(2, 1)) / (4.f * axis(2));
-
-		} else {
-			axis = Vector3f(0.f, 0.f, 1.f);
-		}
-	}
-
-	if (axis.norm() > 1e-5f) {
-		axis.normalize();
-		return theta * axis;
-	}
-
-	return Vector3f(0.f, 0.f, 0.f);
+	return logMapSO3(Re);
 }
 
 matrix::Vector3f AttitudeControl::calculateAttitudeErrorDcmVee(const Quatf &q, const Quatf &qd) const
