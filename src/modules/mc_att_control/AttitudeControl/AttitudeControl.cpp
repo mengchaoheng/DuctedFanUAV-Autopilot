@@ -49,6 +49,24 @@ using namespace matrix;
 
 namespace
 {
+static constexpr bool kDebugAttitudeErrorMode = false; // Set to true to print the attitude error mode when it changes.
+
+void debugPrintAttitudeErrorModeIfChanged(const int mode, const char *branch)
+{
+	if (!kDebugAttitudeErrorMode) {
+		return;
+	}
+
+	static int last_mode = -999;
+	static const char *last_branch = nullptr;
+
+	if (mode != last_mode || branch != last_branch) {
+		PX4_INFO("MC_ATT_ERR_MODE=%d -> %s", mode, branch);
+
+		last_mode = mode;
+		last_branch = branch;
+	}
+}
 
 /*
  * SO(3) helper references used in this file:
@@ -513,28 +531,36 @@ matrix::Vector3f AttitudeControl::calculateAttitudeError(const Quatf &q, const Q
 	switch (_attitude_error_mode) {
 		// The equivalent relationship between the different attitude error representations can be found in the references [8][9].
 	case ATTITUDE_ERROR_QUATERNION_IMAG:
+		debugPrintAttitudeErrorModeIfChanged(_attitude_error_mode, "ATTITUDE_ERROR_QUATERNION_IMAG");
 		return calculateAttitudeErrorQuaternionImag(q, qd); // Equivalent: 2*n*sin(theta/2). It can be found in [1], here is the original version without separate handling of yaw. At theta=0 it returns 0; at theta=pi it returns 2*n_canonical, with canonical() selecting the q/-q representative.
 
 	case ATTITUDE_ERROR_QUATERNION_LOG:
+		debugPrintAttitudeErrorModeIfChanged(_attitude_error_mode, "ATTITUDE_ERROR_QUATERNION_LOG");
 		return calculateAttitudeErrorQuaternionLog(q, qd); // Equivalent: n*theta, more robust than the DCM log map. At theta=0 it returns 0 by the quaternion Log Taylor limit; at theta=pi it returns pi*n_canonical through the principal quaternion Log.
 
 	case ATTITUDE_ERROR_DCM_LOG:
+		debugPrintAttitudeErrorModeIfChanged(_attitude_error_mode, "ATTITUDE_ERROR_DCM_LOG");
 		return calculateAttitudeErrorDcmLog(q, qd); // Equivalent: n*theta. It can be found in [5], which handles the situation theta = pi. The direct matrix formula is 0/0 at theta=pi, and our implementation corrects it to pi*n_canonical through quaternion-based principal Log.
 
 	case ATTITUDE_ERROR_DCM_VEE:
+		debugPrintAttitudeErrorModeIfChanged(_attitude_error_mode, "ATTITUDE_ERROR_DCM_VEE");
 		return calculateAttitudeErrorDcmVee(q, qd); // Equivalent: n*sin(theta). It can be found in [3], and is equivalent to 2*q_0*q_v in quaternion version. At theta=0 it returns 0; at theta=pi it also returns 0, which is the known pi critical point of this vee error.
 
 	case ATTITUDE_ERROR_EZRA_TAL:
+		debugPrintAttitudeErrorModeIfChanged(_attitude_error_mode, "ATTITUDE_ERROR_EZRA_TAL");
 		return calculateAttitudeErrorEzraTal(q, qd); // Equivalent: n*theta. It can be found in [4], where there are some singularities. At theta=0 it returns 0; at theta=pi the nonsingular xi_c branch returns pi*n_canonical, and the antipodal-thrust singularity is corrected by selecting bar_xi_c = [0, 1, 0, 0].
 
 	case ATTITUDE_ERROR_TILT_PRIORITIZED:
+		debugPrintAttitudeErrorModeIfChanged(_attitude_error_mode, "ATTITUDE_ERROR_TILT_PRIORITIZED");
 		return calculateAttitudeErrorTiltPrioritized(q, qd); // Equivalent: 2*n*sin(theta/2). It can be found in [6][7]. At theta=0 it returns 0; at theta=pi the split is finite when sqrt(q0^2+q3^2)>0, and the opposite-thrust singularity q0=q3=0 is corrected by falling back to 2*imag(qe.canonical()) = 2*n_canonical.
 
 	case ATTITUDE_ERROR_TILT_TORSION:
+		debugPrintAttitudeErrorModeIfChanged(_attitude_error_mode, "ATTITUDE_ERROR_TILT_TORSION");
 		return calculateAttitudeErrorTiltTorsion(q, qd); // Equivalent: n*theta. It can be found in [2]. At theta=0 it returns 0; at theta=pi it is evaluated by the tilt/torsion split, with antipodal tilt corrected by selecting R_tilt=Exp(pi*e_x), while pure torsion gives yaw_w*pi*e_z.
 
 	case ATTITUDE_ERROR_DEFAULT:
 	default:
+		debugPrintAttitudeErrorModeIfChanged(_attitude_error_mode, "ATTITUDE_ERROR_DEFAULT");
 		return calculateAttitudeErrorDefault(q, qd); // Equivalent: 2*n*sin(theta/2). It can be found in [1], here is the version with separate handling of yaw. At zero final mixed error it returns 0; at pi final mixed error it returns 2*n_canonical, and the opposite-thrust corner keeps the original PX4 full-attitude fallback before yaw recombination.
 	}
 }
