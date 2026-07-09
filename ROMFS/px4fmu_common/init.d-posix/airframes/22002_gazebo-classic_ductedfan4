@@ -67,6 +67,7 @@ param set-default IMU_DGYRO_CUTOFF 10
 param set-default DF_ACC_MASS 1.39
 
 param set-default MC_ATT_ERR_MODE 3
+param set-default MC_YAW_WEIGHT 1 # K_YAW=MC_YAW_P/MC_YAW_WEIGHT
 
 param set-default CA_SV_CS0_TRQ_R -41.4452
 param set-default CA_SV_CS0_TRQ_P 0
