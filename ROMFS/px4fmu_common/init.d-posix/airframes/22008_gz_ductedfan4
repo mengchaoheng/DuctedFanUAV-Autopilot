@@ -6,8 +6,9 @@
 #
 # Author: Chaoheng Meng <chaohengmeng@163.com>
 
+
 . ${R}etc/init.d/rc.mc_defaults
-set VEHICLE_TYPE mc
+set VEHICLE_TYPE df
 
 PX4_SIMULATOR=${PX4_SIMULATOR:=gz}
 PX4_GZ_WORLD=${PX4_GZ_WORLD:=default}
@@ -15,48 +16,36 @@ PX4_SIM_MODEL=${PX4_SIM_MODEL:=ductedfan4}
 
 param set-default SIM_GZ_EN 1
 
-param set-default CA_AIRFRAME 9
+param set-default CA_AIRFRAME 16 # 9(NormalizeRPY=0)
 
-# Standard-controller comparison profile: the values below are a legacy
-# normalized shape matrix, not physical B*U. The calibrated DF4 contract is
-# v=[tau;F]=(B*U)*u_norm with tau [N m], F [N], CT=T_max and surface moments
-# already including delta_max; see airframe 22002. CA_AIRFRAME=9 does not
-# publish calibrated physical-wrench feedback, so do not enable INDI in this file.
-param set-default MPC_MASS 1.39
-param set-default MC_J_X 0.01149
-param set-default MC_J_Y 0.01153
-param set-default MC_J_Z 0.00487
+# Effectiveness unit contract (control_allocation/df4.m):
+#   v = [tau; F] = B*u, with tau [N m], F [N]. The physical actuator vector u
+#   contains rotor thrust [N] and surface deflection [rad]. Parameters use
+#   u = U*u_norm, so PX4 is configured with B*U and allocates
+#   v = (B*U)*u_norm. CA_ROTOR0_CT is maximum thrust [N]; each
+#   CA_SV_CSx_TRQ_* is the moment at normalized surface command +1 [N m] and
+#   already includes the 20 deg maximum deflection. Do not multiply another
+#   motor-thrust or surface-deflection scale in control_allocator.
 
-param set-default MC_ROLL_P 3
-param set-default MC_ROLLRATE_P 0.3
-# param set-default MC_ROLLRATE_I 0.05
-# param set-default MC_ROLLRATE_D 0.002
-# param set-default MC_ROLLRATE_FF 0
+param set-default MC_ROLL_P 4
+param set-default MC_ROLLRATE_P 0.45
+param set-default MC_ROLLRATE_I 0.3
+param set-default MC_ROLLRATE_D 0.0
+param set-default MC_ROLLRATE_FF 0
 
-param set-default MC_PITCH_P 3
-param set-default MC_PITCHRATE_P 0.3
-# param set-default MC_PITCHRATE_I 0.05
-# param set-default MC_PITCHRATE_D 0.002
-# param set-default MC_PITCHRATE_FF 0
+param set-default MC_PITCH_P 4
+param set-default MC_PITCHRATE_P 0.45
+param set-default MC_PITCHRATE_I 0.3
+param set-default MC_PITCHRATE_D 0.0
+param set-default MC_PITCHRATE_FF 0
 
-param set-default MC_YAW_P 2
-param set-default MC_YAWRATE_P 0.10
-param set-default MC_YAWRATE_I 0.05
+param set-default MC_YAW_P 2.8
+param set-default MC_YAWRATE_P 0.4
+param set-default MC_YAWRATE_I 0.3
 param set-default MC_YAWRATE_D 0
 param set-default MC_YAWRATE_FF 0
 
 param set-default MPC_THR_HOVER 0.49
-param set-default MPC_TILTMAX_AIR 20
-param set-default MPC_TILTMAX_LND 10
-param set-default MPC_ACC_HOR 2
-param set-default MPC_ACC_HOR_MAX 2
-param set-default MPC_VEL_MANUAL 3
-param set-default MPC_XY_VEL_MAX 3
-param set-default MPC_XY_P 0.4
-param set-default MPC_XY_TRAJ_P 0.2
-param set-default MPC_XY_VEL_P_ACC 1.2
-param set-default MPC_XY_VEL_I_ACC 0.05
-param set-default MPC_XY_VEL_D_ACC 0.1
 param set-default THR_MDL_FAC 1
 param set-default RTL_RETURN_ALT 2.5
 param set-default RTL_DESCEND_ALT 2.5
@@ -67,23 +56,35 @@ param set-default CA_ROTOR0_AY 0
 param set-default CA_ROTOR0_AZ -1
 param set-default CA_ROTOR0_PX 0
 param set-default CA_ROTOR0_PY 0
-param set-default CA_ROTOR0_PZ -0.045
-param set-default CA_ROTOR0_CT 1
+param set-default CA_ROTOR0_PZ 0.05
+param set-default CA_ROTOR0_CT 27.8
 param set-default CA_ROTOR0_KM 0
 
 param set-default CA_SV_CS_COUNT 4
-param set-default CA_SV_CS0_TRQ_R -0.5
+param set-default CA_FORCE_CUTOFF 6
+param set-default CA_TORQ_CUTOFF 8
+param set-default IMU_DGYRO_CUTOFF 10
+param set-default MPC_MASS 1.39
+param set-default MC_J_X 0.01149
+param set-default MC_J_Y 0.01153
+param set-default MC_J_Z 0.00487
+
+param set-default MC_ATT_ERR_MODE 3
+param set-default MC_YAW_WEIGHT 1 # K_YAW=MC_YAW_P/MC_YAW_WEIGHT
+
+param set-default CA_SV_CS0_TRQ_R -0.166227
 param set-default CA_SV_CS0_TRQ_P 0
-param set-default CA_SV_CS0_TRQ_Y 0.25
+param set-default CA_SV_CS0_TRQ_Y 0.068681
 param set-default CA_SV_CS1_TRQ_R 0
-param set-default CA_SV_CS1_TRQ_P -0.5
-param set-default CA_SV_CS1_TRQ_Y 0.25
-param set-default CA_SV_CS2_TRQ_R 0.5
+param set-default CA_SV_CS1_TRQ_P -0.166227
+param set-default CA_SV_CS1_TRQ_Y 0.068681
+param set-default CA_SV_CS2_TRQ_R 0.166227
 param set-default CA_SV_CS2_TRQ_P 0
-param set-default CA_SV_CS2_TRQ_Y 0.25
+param set-default CA_SV_CS2_TRQ_Y 0.068681
 param set-default CA_SV_CS3_TRQ_R 0
-param set-default CA_SV_CS3_TRQ_P 0.5
-param set-default CA_SV_CS3_TRQ_Y 0.25
+param set-default CA_SV_CS3_TRQ_P 0.166227
+param set-default CA_SV_CS3_TRQ_Y 0.068681
+
 
 param set-default SIM_GZ_EC_FUNC1 101
 param set-default SIM_GZ_EC_MIN1 0
@@ -103,4 +104,5 @@ param set-default SIM_GZ_SV_MAXA3 -20
 param set-default SIM_GZ_SV_MINA4 -20
 param set-default SIM_GZ_SV_MAXA4 20
 
+param set-default SDLOG_PROFILE 27
 param set-default SDLOG_MODE 0

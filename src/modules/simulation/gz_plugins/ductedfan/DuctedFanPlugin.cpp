@@ -16,6 +16,7 @@
 #include <gz/sim/components/JointVelocityCmd.hh>
 #include <gz/sim/components/LinearVelocity.hh>
 #include <gz/sim/components/Pose.hh>
+#include <gz/sim/components/Wind.hh>
 
 #include <algorithm>
 #include <chrono>
@@ -373,7 +374,18 @@ void DuctedFanPlugin::UpdateForcesAndMoments(const gz::sim::UpdateInfo &, gz::si
 
 	ReadControlJointAngles(ecm);
 
-	const auto airspeed_frd = FluToFrd(pose->Rot().RotateVectorReverse(*linear_velocity - _wind_velocity));
+	gz::math::Vector3d wind_velocity = _wind_velocity;
+	const auto wind_entity = ecm.EntityByComponents(gz::sim::components::Wind());
+
+	if (wind_entity != gz::sim::kNullEntity) {
+		const auto world_wind_velocity = ecm.Component<gz::sim::components::WorldLinearVelocity>(wind_entity);
+
+		if (world_wind_velocity) {
+			wind_velocity = world_wind_velocity->Data();
+		}
+	}
+
+	const auto airspeed_frd = FluToFrd(pose->Rot().RotateVectorReverse(*linear_velocity - wind_velocity));
 	const auto rates_frd = FluToFrd(pose->Rot().RotateVectorReverse(*angular_velocity));
 	const double u = airspeed_frd.X();
 	const double v = airspeed_frd.Y();
@@ -455,7 +467,8 @@ void DuctedFanPlugin::UpdateForcesAndMoments(const gz::sim::UpdateInfo &, gz::si
 
 	const auto force_world = pose->Rot().RotateVector(FrdToFlu(force_frd));
 	const auto torque_world = pose->Rot().RotateVector(FrdToFlu(torque_frd));
-	_base_link.AddWorldWrench(ecm, force_world, torque_world);
+	_base_link.AddWorldForce(ecm, force_world);
+	_base_link.AddWorldWrench(ecm, gz::math::Vector3d::Zero, torque_world);
 
 	double ref_motor_rot_vel = 0.0;
 

@@ -2,11 +2,13 @@
 #
 # @name Gazebo SHW09_vtol
 #
-# @type VTOL Tailsitter
+# @type VTOL Ducted Fan
 #
 # Author: Chaoheng Meng <chaohengmeng@163.com>
 
+
 . ${R}etc/init.d/rc.vtol_defaults
+set VEHICLE_TYPE df_vtol
 
 PX4_SIMULATOR=${PX4_SIMULATOR:=gz}
 PX4_GZ_WORLD=${PX4_GZ_WORLD:=default}
@@ -14,20 +16,19 @@ PX4_SIM_MODEL=${PX4_SIM_MODEL:=SHW09_vtol}
 
 param set-default SIM_GZ_EN 1
 
-param set-default MAV_TYPE 19
-param set-default EKF2_FUSE_BETA 0
-param set-default CA_AIRFRAME 4
+param set-default MAV_TYPE 19 # For MAVLink
 
-# Standard-VTOL comparison profile: CA_AIRFRAME=4 and the values below retain
-# the legacy normalized surface convention, not physical B*U. The calibrated
-# SHW09 contract is v=[tau;F]=(B*U)*u_norm with tau [N m], F [N], CT=T_max and
-# surface moments including delta_max; see airframe 22006. Physical-wrench INDI
-# requires the complete CA_AIRFRAME=17 physical-feedback routing, not only a
-# numerical replacement of these coefficients.
-param set-default MPC_MASS 2.05
-param set-default MC_J_X 0.050636
-param set-default MC_J_Y 0.042954
-param set-default MC_J_Z 0.012668
+param set-default EKF2_FUSE_BETA 0 # side slip fusion is currently not supported for tailsitters
+
+param set-default CA_AIRFRAME 17 # Ducted Fan Tailsitter VTOL or using 4 for FW-mode
+ # CA_AIRFRAME=4((normalize[0] = true normalize[1] = false;))
+
+# Effectiveness unit contract (control_allocation/SHW09_vtol.m):
+#   v = [tau; F] = B*u, with tau [N m], F [N]. Physical u contains rotor
+#   thrust [N] and surface deflection [rad]. Writing u = U*u_norm gives
+#   v = (B*U)*u_norm; therefore the parameter matrix below is B*U.
+#   CA_ROTOR0_CT is maximum thrust [N]. CA_SV_CSx_TRQ_* is the moment at
+#   normalized surface command +1 [N m] and already includes delta_max=40 deg.
 
 param set-default CA_ROTOR_COUNT 1
 param set-default CA_ROTOR0_AX 0
@@ -35,61 +36,112 @@ param set-default CA_ROTOR0_AY 0
 param set-default CA_ROTOR0_AZ -1
 param set-default CA_ROTOR0_PX 0
 param set-default CA_ROTOR0_PY 0
-param set-default CA_ROTOR0_PZ -0.0
-param set-default CA_ROTOR0_CT 1
-param set-default CA_ROTOR0_KM 0.05
+param set-default CA_ROTOR0_PZ 0.1
+param set-default CA_ROTOR0_CT 32.1984
+param set-default CA_ROTOR0_KM 0
 
 param set-default CA_SV_CS_COUNT 8
-param set-default CA_SV_CS0_TRQ_R -0.501
+# Ducted Fan Tailsitter VTOL zeros CS6/7 in hover; in transition/FW it keeps
+# CS6/7 and scales CS0..5 by DF_FW_CS_GAIN.
+param set-default DF_FW_CS_GAIN 1.8393
+# The allocator filters the resulting physical wrench, not individual actuator
+# coordinates, and does not simulate actuator dynamics.
+param set-default CA_FORCE_CUTOFF 8
+param set-default CA_TORQ_CUTOFF 8
+param set-default IMU_DGYRO_CUTOFF 10
+param set-default MPC_MASS 2.05
+param set-default MC_J_X 0.050636
+param set-default MC_J_Y 0.042954
+param set-default MC_J_Z 0.012668
+param set-default MC_USE_INDI 1
+param set-default MPC_USE_ACC_INDI 1
+param set-default MC_USE_TAUI 1
+param set-default MC_USE_U 1
+param set-default MC_INDI_R_P 15
+param set-default MC_INDI_P_P 15
+param set-default MC_INDI_Y_P 15
+
+param set-default CA_SV_CS0_TRQ_R -0.704019
 param set-default CA_SV_CS0_TRQ_P 0
-param set-default CA_SV_CS0_TRQ_Y 0.207
-param set-default CA_SV_CS1_TRQ_R -0.2505
-param set-default CA_SV_CS1_TRQ_P 0.4339
-param set-default CA_SV_CS1_TRQ_Y 0.207
-param set-default CA_SV_CS2_TRQ_R 0.2505
-param set-default CA_SV_CS2_TRQ_P 0.4339
-param set-default CA_SV_CS2_TRQ_Y 0.207
-param set-default CA_SV_CS3_TRQ_R 0.501
+param set-default CA_SV_CS0_TRQ_Y 0.194941
+param set-default CA_SV_CS1_TRQ_R -0.352009
+param set-default CA_SV_CS1_TRQ_P 0.609698
+param set-default CA_SV_CS1_TRQ_Y 0.194941
+param set-default CA_SV_CS2_TRQ_R 0.352009
+param set-default CA_SV_CS2_TRQ_P 0.609698
+param set-default CA_SV_CS2_TRQ_Y 0.194941
+param set-default CA_SV_CS3_TRQ_R 0.704019
 param set-default CA_SV_CS3_TRQ_P 0
-param set-default CA_SV_CS3_TRQ_Y 0.207
-param set-default CA_SV_CS4_TRQ_R 0.2505
-param set-default CA_SV_CS4_TRQ_P -0.4339
-param set-default CA_SV_CS4_TRQ_Y 0.207
-param set-default CA_SV_CS5_TRQ_R -0.2505
-param set-default CA_SV_CS5_TRQ_P -0.4339
-param set-default CA_SV_CS5_TRQ_Y 0.207
+param set-default CA_SV_CS3_TRQ_Y 0.194941
+param set-default CA_SV_CS4_TRQ_R 0.352009
+param set-default CA_SV_CS4_TRQ_P -0.609698
+param set-default CA_SV_CS4_TRQ_Y 0.194941
+param set-default CA_SV_CS5_TRQ_R -0.352009
+param set-default CA_SV_CS5_TRQ_P -0.609698
+param set-default CA_SV_CS5_TRQ_Y 0.194941
+
 param set-default CA_SV_CS6_TYPE 0
-param set-default CA_SV_CS6_TRQ_Y 0.5
+param set-default CA_SV_CS6_TRQ_Y 1.240193
 param set-default CA_SV_CS7_TYPE 0
-param set-default CA_SV_CS7_TRQ_Y -0.5
+param set-default CA_SV_CS7_TRQ_Y -1.240193
+
 param set-default VT_ELEV_MC_LOCK 0
+# param set-default VT_TS_CS_HVR_DIS 192
 
 # att at MC mode
-param set-default MC_ROLL_P 6
-param set-default MC_PITCH_P 6
-param set-default MC_YAW_P 5
+param set-default MC_ROLL_P 3
+param set-default MC_PITCH_P 3
+param set-default MC_YAW_P 2
 
 # rates at MC mode, but we also use the FW rates controller for it.
-param set-default MC_ROLLRATE_P 0.45
-param set-default MC_ROLLRATE_I 0.3
-param set-default MC_ROLLRATE_D 0.0
+param set-default MC_ROLLRATE_P 0.2
+param set-default MC_ROLLRATE_I 0.2
+param set-default MC_RR_INT_LIM 0.3
+param set-default MC_ROLLRATE_D 0.003
 param set-default MC_ROLLRATE_FF 0
+param set-default MC_ROLLRATE_K 1
 
-param set-default MC_PITCHRATE_P 0.45
-param set-default MC_PITCHRATE_I 0.3
-param set-default MC_PITCHRATE_D 0.0
+param set-default MC_PITCHRATE_P 0.2
+param set-default MC_PITCHRATE_I 0.2
+param set-default MC_PR_INT_LIM 0.3
+param set-default MC_PITCHRATE_D 0.003
 param set-default MC_PITCHRATE_FF 0
+param set-default MC_PITCHRATE_K 1
 
-param set-default MC_YAWRATE_P 0.4
-param set-default MC_YAWRATE_I 0.3
+param set-default MC_YAWRATE_P 0.2
+param set-default MC_YAWRATE_I 0.1
+param set-default MC_YR_INT_LIM 0.3
 param set-default MC_YAWRATE_D 0
 param set-default MC_YAWRATE_FF 0
+param set-default MC_YAWRATE_K 1
+param set-default MC_YAW_TQ_CUTOFF 2
 
-param set-default MPC_THR_HOVER 0.5
+param set-default THR_MDL_FAC 1
+param set-default MPC_THR_HOVER 0.62
+param set-default MPC_XY_P 0.95
+param set-default MPC_Z_P 1
+param set-default MPC_XY_VEL_P_ACC 2
+param set-default MPC_XY_VEL_I_ACC 0
+param set-default MPC_XY_VEL_D_ACC 0
+param set-default MPC_Z_VEL_P_ACC 5
+param set-default MPC_Z_VEL_I_ACC 0
+param set-default MPC_Z_VEL_D_ACC 0
+param set-default MPC_ACC_HOR 3
+param set-default MPC_ACC_UP_MAX 4
+param set-default MPC_ACC_DOWN_MAX 3
+param set-default MPC_ACC_DECOUPLE 1
+param set-default MPC_THR_MIN 0.12
+param set-default MPC_THR_MAX 1
 
+
+# Single-EKF (for replay)
 param set-default EKF2_MULTI_IMU 0
 param set-default SENS_IMU_MODE 1
 
+# att for FW mode.
+param set-default FW_PSP_OFF 2
+
+# rates for all mode. But Yaw and Roll are opposite in MC and FW modes
 param set-default FW_ARSP_SCALE_EN 0
 param set-default FW_PR_FF 0.05
 param set-default FW_PR_P 0.5
@@ -97,18 +149,29 @@ param set-default FW_RR_FF 0.05
 param set-default FW_RR_P 0.5
 param set-default FW_YR_FF 0.04
 param set-default FW_YR_P 0.4
-param set-default FW_PSP_OFF 2
+
+# FW performance
 param set-default FW_AIRSPD_TRIM 16
 param set-default FW_THR_TRIM 0.35
+# param set-default FW_THR_MIN 0.1
+
+# FW Longitudinal
 param set-default FW_GND_SPD_MIN 2.0
 param set-default FW_T_RLL2THR 18
 param set-default FW_T_ALT_TC 3.0
+# param set-default FW_T_HRATE_FF 0.5
+# param set-default FW_T_I_GAIN_PIT 0.2
+# param set-default FW_T_TAS_TC 6.0
+# param set-default FW_T_THR_INTEG 0.1
+
 
 param set-default MC_AIRMODE 1
+
 param set-default VT_ARSP_TRANS 10
 param set-default VT_B_TRANS_DUR 3
 param set-default VT_F_TRANS_DUR 3
 param set-default VT_TYPE 0
+
 param set-default WV_EN 0
 
 param set-default SIM_GZ_EC_FUNC1 101
@@ -142,5 +205,5 @@ param set-default SIM_GZ_SV_MAXA7 39.9982
 param set-default SIM_GZ_SV_MINA8 -39.9982
 param set-default SIM_GZ_SV_MAXA8 39.9982
 
-param set-default SDLOG_PROFILE 17
+# param set-default SDLOG_PROFILE 17
 param set-default SDLOG_MODE 0
