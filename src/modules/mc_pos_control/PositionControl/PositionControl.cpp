@@ -108,11 +108,13 @@ void PositionControl::setInputSetpoint(const trajectory_setpoint_s &setpoint)
 	_yawspeed_sp = setpoint.yawspeed;
 }
 
-void PositionControl::setAccelerationIndiFeedback(const Vector3f &acc_meas, const Vector3f &thrust_acc_feedback)
+void PositionControl::setAccelerationIndiFeedback(const Vector3f &acc_meas, const Vector3f &force_feedback, float mass)
 {
-	if (acc_meas.isAllFinite() && thrust_acc_feedback.isAllFinite()) {
+	if (acc_meas.isAllFinite() && force_feedback.isAllFinite()
+	    && PX4_ISFINITE(mass) && mass > FLT_EPSILON) {
 		_acceleration_indi_meas = acc_meas;
-		_acceleration_indi_thrust_acc = thrust_acc_feedback;
+		_acceleration_indi_force = force_feedback;
+		_acceleration_indi_mass = mass;
 		_acceleration_indi_enabled = true;
 
 	} else {
@@ -124,7 +126,8 @@ void PositionControl::clearAccelerationIndiFeedback()
 {
 	_acceleration_indi_enabled = false;
 	_acceleration_indi_meas.setZero();
-	_acceleration_indi_thrust_acc.setZero();
+	_acceleration_indi_force.setZero();
+	_acceleration_indi_mass = NAN;
 }
 
 bool PositionControl::update(const float dt)
@@ -227,8 +230,14 @@ void PositionControl::_accelerationControl()
 {
 	// Paper: Full-Mode Flight Control Framework for a Ducted-Fan Tail-Sitter UAV
 	if (_acceleration_indi_enabled && _acc_sp.isAllFinite()) {
-		const Vector3f thrust_acc_sp = _acceleration_indi_thrust_acc + (_acc_sp - _acceleration_indi_meas); // thrust_acc_sp is -T*b_z in paper._acceleration_indi_thrust_acc is (-T*b_z)_0
-		_acc_sp = thrust_acc_sp + Vector3f(0.f, 0.f, CONSTANTS_ONE_G); // reconstruct the desired acc by (1) in paper.
+		// The allocator force uses the PX4 sign convention f_T = -T*b_z:
+		// f_T,c = f_T,0 + m*(a_c-a_0). Convert the physical force command
+		// into the equivalent acceleration setpoint expected by PX4, then let
+		// the original hover-thrust mapping and thrust-limit path handle it.
+		const Vector3f force_sp = _acceleration_indi_force
+					 + _acceleration_indi_mass * (_acc_sp - _acceleration_indi_meas);
+		const Vector3f thrust_acc_sp = force_sp / _acceleration_indi_mass;
+		_acc_sp = thrust_acc_sp + Vector3f(0.f, 0.f, CONSTANTS_ONE_G);
 	}
 
 	// Assume standard acceleration due to gravity in vertical direction for attitude generation

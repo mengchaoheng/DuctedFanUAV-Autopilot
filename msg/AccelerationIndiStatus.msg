@@ -10,7 +10,7 @@ uint8 u_dim
 int32 ca_airframe
 
 float32 mass
-float32 thrust_model_factor
+float32 force_scale    # Body Fz row of D, [1/N]
 
-float32[3] acc_meas
-float32[3] thrust_acc_feedback
+float32[3] acc_meas       # NED acceleration, [m/s^2]
+float32[3] force_feedback # Filtered allocated force in NED, [N]

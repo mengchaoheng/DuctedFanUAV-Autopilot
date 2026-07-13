@@ -18,6 +18,17 @@ param set-default MAV_TYPE 19
 param set-default EKF2_FUSE_BETA 0
 param set-default CA_AIRFRAME 4
 
+# Standard-VTOL comparison profile: CA_AIRFRAME=4 and the values below retain
+# the legacy normalized surface convention, not physical B*U. The calibrated
+# SHW09 contract is v=[tau;F]=(B*U)*u_norm with tau [N m], F [N], CT=T_max and
+# surface moments including delta_max; see airframe 22006. Physical-wrench INDI
+# requires the complete CA_AIRFRAME=17 physical-feedback routing, not only a
+# numerical replacement of these coefficients.
+param set-default MPC_MASS 2.05
+param set-default MC_J_X 0.050636
+param set-default MC_J_Y 0.042954
+param set-default MC_J_Z 0.012668
+
 param set-default CA_ROTOR_COUNT 1
 param set-default CA_ROTOR0_AX 0
 param set-default CA_ROTOR0_AY 0

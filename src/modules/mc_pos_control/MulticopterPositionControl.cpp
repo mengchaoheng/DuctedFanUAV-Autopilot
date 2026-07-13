@@ -43,47 +43,20 @@ using namespace matrix;
 
 namespace
 {
-float normalizedThrustToMotorCommand(float normalized_thrust, float thrust_factor)
-{
-	// Same inverse model as FunctionMotors:
-	// normalized_thrust = factor * x^2 + (1 - factor) * x.
-	normalized_thrust = math::constrain(normalized_thrust, 0.f, 1.f);
-	thrust_factor = math::constrain(thrust_factor, 0.f, 1.f);
-
-	if (thrust_factor > FLT_EPSILON) {
-		const float a = thrust_factor;
-		const float b = 1.f - thrust_factor;
-		const float tmp1 = b / (2.f * a);
-		const float tmp2 = b * b / (4.f * a * a);
-
-		if (normalized_thrust > FLT_EPSILON) {
-			return -tmp1 + sqrtf(tmp2 + normalized_thrust / a);
-		}
-	}
-
-	return normalized_thrust;
-}
-
 bool hasForceAuthority(const allocation_value_s &allocation_value)
 {
-	if (!allocation_value.feedback_valid) {
+	if (!allocation_value.feedback_valid
+	    || !PX4_ISFINITE(allocation_value.control_allocation_scale[5])
+	    || allocation_value.control_allocation_scale[5] <= FLT_EPSILON) {
 		return false;
 	}
 
-	for (int row = 3; row < 6; row++) {
-		for (unsigned actuator = 0; actuator < allocation_value.u_dim; actuator++) {
-			if (fabsf(allocation_value.b[row * allocation_value_s::MAX_U + actuator]) > 1.e-4f) {
-				return true;
-			}
-		}
-	}
-
-	return false;
+	return (allocation_value.feedback_axes_mask & (1u << 5)) != 0;
 }
 
 bool isRecentAllocationValue(const allocation_value_s &allocation_value)
 {
-	return allocation_value.timestamp != 0 && hrt_elapsed_time(&allocation_value.timestamp) < 500_ms;
+	return allocation_value.timestamp != 0 && hrt_elapsed_time(&allocation_value.timestamp) < 100_ms;
 }
 } // namespace
 
@@ -621,51 +594,56 @@ void MulticopterPositionControl::Run()
 			_control.setState(states);
 			_control.clearAccelerationIndiFeedback();
 
-			const bool acc_indi_enabled = _param_df_use_acc_indi.get() > 0 && flying;
+			const bool acc_indi_requested = _param_mpc_use_acc_indi.get() > 0;
+			const bool acc_indi_enabled = acc_indi_requested && flying;
+			const Vector3f acc_meas(states.acceleration);
+			const bool allocation_value_valid = hasForceAuthority(_allocation_value)
+							  && isRecentAllocationValue(_allocation_value);
+			acceleration_indi_status_s acceleration_indi_status{};
+			acceleration_indi_status.timestamp = hrt_absolute_time();
+			acceleration_indi_status.timestamp_sample = vehicle_local_position.timestamp_sample;
+			acceleration_indi_status.enabled = acc_indi_requested;
+			acceleration_indi_status.supported = _param_ca_airframe.get() == 16 || _param_ca_airframe.get() == 17;
+			acceleration_indi_status.allocation_valid = allocation_value_valid;
+			acceleration_indi_status.u_dim = _allocation_value.u_dim;
+			acceleration_indi_status.ca_airframe = _param_ca_airframe.get();
+			const float mass = _param_mpc_mass.get();
+			const float force_scale = _allocation_value.control_allocation_scale[5];
+			acceleration_indi_status.mass = mass;
+			acceleration_indi_status.force_scale = force_scale;
+
+			for (int i = 0; i < 3; i++) {
+				acceleration_indi_status.acc_meas[i] = PX4_ISFINITE(acc_meas(i)) ? acc_meas(i) : 0.f;
+			}
 
 			if (acc_indi_enabled) {
-				const Vector3f acc_meas(states.acceleration);
-				Vector3f thrust_acc_feedback;
-				const bool allocation_value_valid = hasForceAuthority(_allocation_value)
-								  && isRecentAllocationValue(_allocation_value);
+				Vector3f force_feedback;
 
-				acceleration_indi_status_s acceleration_indi_status{};
-				acceleration_indi_status.timestamp = hrt_absolute_time();
-				acceleration_indi_status.timestamp_sample = vehicle_local_position.timestamp_sample;
-				acceleration_indi_status.enabled = true;
-				acceleration_indi_status.supported = true;
-				acceleration_indi_status.allocation_valid = allocation_value_valid;
-				acceleration_indi_status.u_dim = _allocation_value.u_dim;
-				acceleration_indi_status.ca_airframe = _param_ca_airframe.get();
-				acceleration_indi_status.mass = _param_df_acc_mass.get();
-				acceleration_indi_status.thrust_model_factor = _param_thr_mdl_fac.get();
-
-				for (int i = 0; i < 3; i++) {
-					acceleration_indi_status.acc_meas[i] = PX4_ISFINITE(acc_meas(i)) ? acc_meas(i) : 0.f;
-				}
-
-				if (acc_meas.isAllFinite() && updateThrustAccelerationFeedback(thrust_acc_feedback)) {
-					_control.setAccelerationIndiFeedback(acc_meas, thrust_acc_feedback);
+				if (acc_meas.isAllFinite() && PX4_ISFINITE(mass) && mass > FLT_EPSILON
+				    && updateThrustForceFeedback(force_feedback)) {
+					_control.setAccelerationIndiFeedback(acc_meas, force_feedback, mass);
 					_acc_indi_waiting = false;
 					_last_acc_indi_acc_meas = acc_meas;
-					_last_acc_indi_thrust_acc = thrust_acc_feedback;
+					_last_acc_indi_force = force_feedback;
 					_last_acc_indi_feedback_valid = true;
 					acceleration_indi_status.control_flag = true;
 
 					for (int i = 0; i < 3; i++) {
-						acceleration_indi_status.thrust_acc_feedback[i] = thrust_acc_feedback(i);
+						acceleration_indi_status.force_feedback[i] = force_feedback(i);
 					}
 
 				} else {
 					_acc_indi_waiting = true;
+					_last_acc_indi_feedback_valid = false;
 				}
-
-				acceleration_indi_status.waiting = _acc_indi_waiting;
-				_acceleration_indi_status_pub.publish(acceleration_indi_status);
 
 			} else {
 				_acc_indi_waiting = false;
+				_last_acc_indi_feedback_valid = false;
 			}
+
+			acceleration_indi_status.waiting = _acc_indi_waiting;
+			_acceleration_indi_status_pub.publish(acceleration_indi_status);
 
 			const hrt_abstime now = hrt_absolute_time();
 
@@ -734,57 +712,19 @@ void MulticopterPositionControl::Run()
 	perf_end(_cycle_perf);
 }
 
-bool MulticopterPositionControl::updateThrustAccelerationFeedback(Vector3f &thrust_acc_feedback)
+bool MulticopterPositionControl::updateThrustForceFeedback(Vector3f &force_feedback)
 {
-	if (_vehicle_attitude.timestamp == 0 || !hasForceAuthority(_allocation_value) || !isRecentAllocationValue(_allocation_value)) {
+	if (_vehicle_attitude.timestamp == 0 || hrt_elapsed_time(&_vehicle_attitude.timestamp) >= 100_ms
+	    || !hasForceAuthority(_allocation_value) || !isRecentAllocationValue(_allocation_value)) {
 		return false;
 	}
 
-	const float mass = _param_df_acc_mass.get();
-
-	if (!PX4_ISFINITE(mass) || mass <= FLT_EPSILON) {
-		return false;
-	}
-
-	Vector3f force_body;
-	force_body.setZero();
-
-	for (unsigned axis = 0; axis < 3; axis++) {
-		const unsigned row = axis + 3; // Fx, Fy, Fz rows in the allocation matrix
-
-		for (unsigned actuator = 0; actuator < _allocation_value.u_dim; actuator++) {
-			const float b = _allocation_value.b[row * allocation_value_s::MAX_U + actuator];
-			float actuator_feedback = _allocation_value.u_ultimate_phys[actuator];
-
-			if (!PX4_ISFINITE(b) || !PX4_ISFINITE(actuator_feedback)) {
-				return false;
-			}
-
-			// allocation_value.u_ultimate is the normalized allocator signal.
-			// For non-reversible motors the final Gazebo force is quadratic in
-			// the motor command. Apply the same THR_MDL_FAC inverse used by
-			// FunctionMotors before converting back to physical thrust.
-			const bool nonreversible_motor = _allocation_value.umin[actuator] >= -FLT_EPSILON;
-
-			if (nonreversible_motor) {
-				const float normalized_thrust = _allocation_value.u_ultimate[actuator];
-				const float actuator_scale = _allocation_value.actuator_scale[actuator];
-
-				if (!PX4_ISFINITE(normalized_thrust) || !PX4_ISFINITE(actuator_scale) || actuator_scale <= FLT_EPSILON) {
-					return false;
-				}
-
-				const float motor_command = normalizedThrustToMotorCommand(normalized_thrust, _param_thr_mdl_fac.get());
-				actuator_feedback = actuator_scale * motor_command * fabsf(motor_command);
-			}
-
-			force_body(axis) += b * actuator_feedback;
-		}
-	}
+	const Vector3f force_body(_allocation_value.allocated_wrench[3], _allocation_value.allocated_wrench[4],
+				  _allocation_value.allocated_wrench[5]);
 
 	Dcmf R_to_ned(Quatf(_vehicle_attitude.q));
-	thrust_acc_feedback = R_to_ned * force_body / mass;
-	return thrust_acc_feedback.isAllFinite();
+	force_feedback = R_to_ned * force_body;
+	return force_feedback.isAllFinite();
 }
 
 trajectory_setpoint_s MulticopterPositionControl::generateFailsafeSetpoint(const hrt_abstime &now,
@@ -922,17 +862,18 @@ int MulticopterPositionControl::custom_command(int argc, char *argv[])
 int MulticopterPositionControl::print_status()
 {
 	PX4_INFO("Running");
-	PX4_INFO("Acceleration INDI: enabled=%d waiting=%d CA_AIRFRAME=%d mass=%.4g thrust_factor=%.3g allocation_valid=%d u_dim=%u",
-		 (int)_param_df_use_acc_indi.get(), (int)_acc_indi_waiting, (int)_param_ca_airframe.get(), (double)_param_df_acc_mass.get(),
-		 (double)_param_thr_mdl_fac.get(), (int)(hasForceAuthority(_allocation_value) && isRecentAllocationValue(_allocation_value)),
+	PX4_INFO("Acceleration INDI: enabled=%d waiting=%d CA_AIRFRAME=%d mass=%.4g allocation_valid=%d u_dim=%u",
+		 (int)_param_mpc_use_acc_indi.get(), (int)_acc_indi_waiting, (int)_param_ca_airframe.get(),
+		 (double)_param_mpc_mass.get(),
+		 (int)(hasForceAuthority(_allocation_value) && isRecentAllocationValue(_allocation_value)),
 		 (unsigned)_allocation_value.u_dim);
 
 	if (_last_acc_indi_feedback_valid) {
-		PX4_INFO("Acceleration INDI last feedback: acc_meas=%.3f %.3f %.3f thrust_acc=%.3f %.3f %.3f",
+		PX4_INFO("Acceleration INDI last feedback: acc_meas=%.3f %.3f %.3f force_ned=%.3f %.3f %.3f N",
 			 (double)_last_acc_indi_acc_meas(0), (double)_last_acc_indi_acc_meas(1),
 			 (double)_last_acc_indi_acc_meas(2),
-			 (double)_last_acc_indi_thrust_acc(0), (double)_last_acc_indi_thrust_acc(1),
-			 (double)_last_acc_indi_thrust_acc(2));
+			 (double)_last_acc_indi_force(0), (double)_last_acc_indi_force(1),
+			 (double)_last_acc_indi_force(2));
 	}
 
 	perf_print_counter(_cycle_perf);

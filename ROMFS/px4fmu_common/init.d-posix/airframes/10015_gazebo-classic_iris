@@ -12,6 +12,18 @@
 
 param set-default CA_AIRFRAME 0
 
+# Effectiveness unit contract (control_allocation/iris.m):
+#   v = [tau; F] = B*u, with tau [N m], F [N], and physical rotor thrusts
+#   u [N]. Writing u = U*u_norm makes the configured matrix B*U, so allocation
+#   uses v = (B*U)*u_norm. For the rotor geometry below CA_ROTORx_CT is the
+#   per-rotor maximum thrust (8.5 N), while position [m] and KM [m] construct
+#   the corresponding full-scale moment columns. The internal row scale D
+#   converts physical v to PX4's normalized torque/thrust setpoints.
+param set-default MPC_MASS 0.75
+param set-default MC_J_X 0.0025
+param set-default MC_J_Y 0.0021
+param set-default MC_J_Z 0.0043
+
 # Tuned for the reduced Iris mass/inertia used in the Gazebo model.
 param set-default MC_ROLL_P 6.5
 param set-default MC_PITCH_P 6.5

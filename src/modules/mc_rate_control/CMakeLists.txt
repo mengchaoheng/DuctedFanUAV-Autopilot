@@ -39,9 +39,12 @@ px4_add_module(
 	SRCS
 		MulticopterRateControl.cpp
 		MulticopterRateControl.hpp
+		IndiControl/IndiControl.cpp
+		IndiControl/IndiControl.hpp
 	MODULE_CONFIG
 		mc_acro_params.yaml
 		mc_rate_control_params.yaml
+		multicopter_rate_indi_params.yaml
 	DEPENDS
 		circuit_breaker
 		mathlib

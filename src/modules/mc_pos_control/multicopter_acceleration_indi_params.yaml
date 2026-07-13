@@ -1,10 +1,10 @@
 module_name: mc_pos_control
 parameters:
-- group: Ducted Fan Acceleration INDI
+- group: Multicopter Acceleration INDI
   definitions:
-    DF_USE_ACC_INDI:
+    MPC_USE_ACC_INDI:
       description:
-        short: Enable ducted fan acceleration INDI
+        short: Enable multicopter acceleration INDI
         long: |-
           When enabled, mc_pos_control keeps the PX4 position/velocity PID loop and
           replaces the final acceleration-to-thrust conversion with an acceleration
@@ -15,14 +15,15 @@ parameters:
           keeps the standard acceleration-to-thrust path.
       type: boolean
       default: 0
-    DF_ACC_MASS:
+    MPC_MASS:
       description:
         short: Vehicle mass for acceleration INDI
         long: |-
-          Mass used in thrust_acc = F / mass. The thrust force is estimated with
-          F = omega^2 * k_T.
+          Vehicle mass used by acceleration INDI in
+          F_c = F_0 + mass * (a_c - a_0). F is the signed PX4 thrust-force
+          vector in N, F = -T*b_z, and is opposite to the paper's T*b_z vector.
       type: float
-      default: 2.1
+      default: 1.0
       min: 0.01
       unit: kg
       decimal: 4

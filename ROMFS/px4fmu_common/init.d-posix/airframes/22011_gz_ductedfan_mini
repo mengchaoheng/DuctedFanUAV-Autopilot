@@ -17,6 +17,12 @@ param set-default SIM_GZ_EN 1
 
 param set-default CA_AIRFRAME 9
 
+# Target DF contract is v=[tau;F]=(B*U)*u_norm, with tau [N m], F [N], rotor
+# thrust and surface deflection absorbed into U. This comparison profile still
+# uses an uncalibrated normalized shape matrix, not a physical B*U model.
+# CA_AIRFRAME=9 provides no calibrated wrench feedback; keep INDI disabled until the
+# complete physical model is identified and migrated.
+
 param set-default MC_ROLL_P 3
 param set-default MC_ROLLRATE_P 0.3
 # param set-default MC_ROLLRATE_I 0.05

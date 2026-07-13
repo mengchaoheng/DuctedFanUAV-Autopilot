@@ -203,11 +203,10 @@ private:
 		(ParamFloat<px4::params::MPC_YAWRAUTO_MAX>) _param_mpc_yawrauto_max,
 		(ParamFloat<px4::params::MPC_YAWRAUTO_ACC>) _param_mpc_yawrauto_acc,
 
-		// Ducted fan acceleration INDI
+		// Multicopter acceleration INDI
 		(ParamInt<px4::params::CA_AIRFRAME>)       _param_ca_airframe,
-		(ParamInt<px4::params::DF_USE_ACC_INDI>)   _param_df_use_acc_indi,
-		(ParamFloat<px4::params::DF_ACC_MASS>)     _param_df_acc_mass,
-		(ParamFloat<px4::params::THR_MDL_FAC>)     _param_thr_mdl_fac
+		(ParamInt<px4::params::MPC_USE_ACC_INDI>)  _param_mpc_use_acc_indi,
+		(ParamFloat<px4::params::MPC_MASS>)        _param_mpc_mass
 		);
 
 	math::WelfordMean<float> _sample_interval_s{};
@@ -232,7 +231,7 @@ private:
 
 	float _hover_thrust{0.f};
 	matrix::Vector3f _last_acc_indi_acc_meas{};
-	matrix::Vector3f _last_acc_indi_thrust_acc{};
+	matrix::Vector3f _last_acc_indi_force{};
 
 	/** Timeout in us for trajectory data to get considered invalid */
 	static constexpr uint64_t TRAJECTORY_STREAM_TIMEOUT_US = 500_ms;
@@ -281,8 +280,7 @@ private:
 					trajectory_setpoint_s &setpoint);
 
 	/**
-	 * Estimate current thrust acceleration from physical force effectiveness,
-	 * actuator feedback, and attitude.
+	 * Rotate the filtered physical allocated force feedback into NED.
 	 */
-	bool updateThrustAccelerationFeedback(matrix::Vector3f &thrust_acc_feedback);
+	bool updateThrustForceFeedback(matrix::Vector3f &force_feedback);
 };

@@ -202,11 +202,15 @@ parameters:
 
         CA_ROTOR${i}_CT:
             description:
-                short: Thrust coefficient of rotor ${i}
+                short: Rotor ${i} thrust effectiveness at normalized input 1
                 long: |
-                  The thrust coefficient if defined as Thrust = CT * u^2,
-                  where u (with value between actuator minimum and maximum)
-                  is the output signal sent to the motor controller.
+                  The rotor effectiveness column contains CT times the configured
+                  axis, plus the corresponding position and KM moments. For an
+                  airframe using the physical B*U contract, set CT to the maximum
+                  rotor thrust in N represented by normalized rotor thrust u=1.
+                  Legacy normalized airframes may retain a relative coefficient.
+                  The motor output model separately converts normalized thrust to
+                  the signal sent to the motor controller.
             type: float
             decimal: 1
             increment: 1
@@ -292,6 +296,7 @@ parameters:
         CA_SV_CS${i}_TRQ_R:
             description:
                 short: Control Surface ${i} roll torque scaling
+                long: Roll effectiveness at normalized surface delta +1. Under the physical B*U contract this is a moment in N m and already includes the maximum deflection.
             type: float
             decimal: 2
             num_instances: *max_num_control_surfaces
@@ -301,6 +306,7 @@ parameters:
         CA_SV_CS${i}_TRQ_P:
             description:
                 short: Control Surface ${i} pitch torque scaling
+                long: Pitch effectiveness at normalized surface delta +1. Under the physical B*U contract this is a moment in N m and already includes the maximum deflection.
             type: float
             decimal: 2
             num_instances: *max_num_control_surfaces
@@ -310,6 +316,7 @@ parameters:
         CA_SV_CS${i}_TRQ_Y:
             description:
                 short: Control Surface ${i} yaw torque scaling
+                long: Yaw effectiveness at normalized surface delta +1. Under the physical B*U contract this is a moment in N m and already includes the maximum deflection.
             type: float
             decimal: 2
             num_instances: *max_num_control_surfaces
@@ -642,46 +649,23 @@ parameters:
             min: 0.0
             default: 0.0
 
-    - group: Ducted Fan Rate INDI
+    - group: Multicopter Rate INDI
       definitions:
-        DF_CS_CUTOFF:
+        CA_TORQ_CUTOFF:
             description:
-                short: INDI servo feedback low-pass cutoff
+                short: Allocated moment feedback cutoff
                 long: |
-                  Cutoff frequency for the filtered servo feedback published
-                  in allocation_value.u_ultimate. 0 disables the filter.
+                  Low-pass cutoff applied after computing the physical allocated
+                  moment (B*U)*u_norm. No actuator dynamics are simulated.
+                  0 publishes the unfiltered allocated moment.
             type: float
             min: 0
             unit: Hz
             decimal: 2
             default: 8.0
 
-        DF_CS_TCONST:
-            description:
-                short: INDI servo feedback time constant
-                long: |
-                  First-order virtual servo model time constant used for actuator feedback.
-            type: float
-            min: 0.0001
-            max: 0.2
-            unit: s
-            decimal: 4
-            default: 0.03
-
-        DF_CS_MAX:
-            description:
-                short: INDI control surface maximum deflection
-                long: |
-                  Physical deflection represented by a normalized servo delta command of +1.
-                  The control allocator uses this as the servo column scale U when converting
-                  a physical B matrix into the normalized allocation problem B_norm = D B U.
-                  Keep at 1 for the default PX4 normalized actuator contract.
-            type: float
-            min: 0.0001
-            unit: rad
-            decimal: 4
-            default: 1.0
-
+    - group: Ducted Fan Effectiveness
+      definitions:
         DF_FW_CS_GAIN:
             description:
                 short: Forward-flight ducted fan surface effectiveness gain
@@ -696,67 +680,20 @@ parameters:
             decimal: 4
             default: 1.0
 
-        DF_CS_ACTUATOR:
-            description:
-                short: Use virtual control-surface model as SITL feedback source
-                long: |
-                  SITL-only switch. 0 uses the allocator command as feedback source,
-                  1 uses the first-order control-surface estimate. This affects
-                  rate INDI servo feedback and, on POSIX/SITL, the signal sent
-                  to actuator_servos.
-            type: boolean
-            default: 0
-
-    - group: Ducted Fan Acceleration INDI
+    - group: Multicopter Acceleration INDI
       definitions:
-        DF_MOT_CUTOFF:
+        CA_FORCE_CUTOFF:
             description:
-                short: INDI motor feedback low-pass cutoff
+                short: Allocated force feedback cutoff
                 long: |
-                  Cutoff frequency for the filtered motor feedback published
-                  in allocation_value.u_ultimate. 0 disables the filter.
+                  Low-pass cutoff applied after computing the physical allocated
+                  force (B*U)*u_norm. No actuator dynamics are simulated.
+                  0 publishes the unfiltered allocated force.
             type: float
             min: 0
             unit: Hz
             decimal: 2
             default: 8.0
-
-        DF_MOT_TCONST:
-            description:
-                short: INDI motor feedback time constant
-                long: |
-                  First-order virtual motor model time constant used for actuator feedback.
-            type: float
-            min: 0.0001
-            max: 0.2
-            unit: s
-            decimal: 4
-            default: 0.01
-
-        DF_MOT_ACTUATOR:
-            description:
-                short: Use virtual motor model as SITL feedback source
-                long: |
-                  SITL-only switch. 0 uses the allocator command as feedback source,
-                  1 uses the first-order motor estimate. This affects acceleration
-                  INDI motor feedback and, on POSIX/SITL, the signal sent to
-                  actuator_motors.
-            type: boolean
-            default: 0
-
-        DF_MOT_MAX:
-            description:
-                short: INDI motor physical scale
-                long: |
-                  Maximum motor thrust represented by a normalized motor command of +1.
-                  The control allocator uses this as the motor column scale U when converting
-                  a motor force-based B matrix into the normalized allocation problem
-                  B_norm = D B U. Keep at 1 for the default PX4 normalized actuator contract.
-            type: float
-            min: 0.0001
-            unit: N
-            decimal: 4
-            default: 1.0
 
 # Mixer
 mixer:

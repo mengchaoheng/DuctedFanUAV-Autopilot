@@ -12,6 +12,16 @@
 
 param set-default CA_AIRFRAME 9 #  9 or 16
 
+# Standard-controller comparison profile: the values below are a legacy
+# normalized shape matrix, not physical B*U. The calibrated SHC09 contract is
+# v=[tau;F]=(B*U)*u_norm with tau [N m], F [N], CT=T_max and surface moments
+# already including delta_max; see airframe 22005. CA_AIRFRAME=9 does not
+# publish calibrated physical-wrench feedback, so do not enable INDI in this file.
+param set-default MPC_MASS 2.1
+param set-default MC_J_X 0.0438
+param set-default MC_J_Y 0.0436
+param set-default MC_J_Z 0.005006
+
 
 param set-default MC_ROLLRATE_P 0.4
 param set-default MC_ROLLRATE_I 0.2

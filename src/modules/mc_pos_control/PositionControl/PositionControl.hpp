@@ -148,9 +148,10 @@ public:
 
 	/**
 	 * Enable acceleration-loop INDI for the next update.
-	 * acc_meas and thrust_acc_feedback are NED accelerations in m/s^2.
+	 * acc_meas is in NED [m/s^2], force_feedback is in NED [N], and mass is [kg].
 	 */
-	void setAccelerationIndiFeedback(const matrix::Vector3f &acc_meas, const matrix::Vector3f &thrust_acc_feedback);
+	void setAccelerationIndiFeedback(const matrix::Vector3f &acc_meas, const matrix::Vector3f &force_feedback,
+					 float mass);
 
 	/**
 	 * Disable acceleration-loop INDI and use the original acceleration-to-thrust path.
@@ -240,7 +241,8 @@ private:
 	// Acceleration INDI feedback
 	bool _acceleration_indi_enabled{false};
 	matrix::Vector3f _acceleration_indi_meas;
-	matrix::Vector3f _acceleration_indi_thrust_acc;
+	matrix::Vector3f _acceleration_indi_force;
+	float _acceleration_indi_mass{NAN};
 
 	// Setpoints
 	matrix::Vector3f _pos_sp; /**< desired position */

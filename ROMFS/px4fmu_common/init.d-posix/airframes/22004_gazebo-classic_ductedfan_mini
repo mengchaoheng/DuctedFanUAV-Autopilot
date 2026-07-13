@@ -9,27 +9,38 @@
 
 
 . ${R}etc/init.d/rc.mc_defaults
-set VEHICLE_TYPE df
+# This legacy CA_AIRFRAME=9 profile uses one allocation matrix, so keep the
+# standard multicopter controller routing (torque and thrust on instance 0).
+set VEHICLE_TYPE mc
 
 param set-default CA_AIRFRAME 9 #   9 or 16
 
+# Target physical effectiveness contract:
+#   v = [tau; F] = B*u, with tau [N m], F [N]. Physical u contains rotor
+#   thrust [N] and surface deflection [rad]. Parameters are entered after
+#   u = U*u_norm, so CA_ROTOR*/CA_SV_CS* together represent B*U and allocation
+#   uses v = (B*U)*u_norm. However, this CA_AIRFRAME=9 profile still contains a
+#   legacy normalized shape matrix, not calibrated forces [N] and moments [N m].
+#   Do not enable physical-wrench INDI until CT and surface moments are identified
+#   and the allocator source provides matching normalization and feedback.
+
 param set-default MC_ROLL_P 6
-param set-default DF_ROLLRATE_P 0.45
-param set-default DF_ROLLRATE_I 0.3
-param set-default DF_ROLLRATE_D 0.0
-param set-default DF_ROLLRATE_FF 0
+param set-default MC_ROLLRATE_P 0.45
+param set-default MC_ROLLRATE_I 0.3
+param set-default MC_ROLLRATE_D 0.0
+param set-default MC_ROLLRATE_FF 0
 
 param set-default MC_PITCH_P 6
-param set-default DF_PITCHRATE_P 0.45
-param set-default DF_PITCHRATE_I 0.3
-param set-default DF_PITCHRATE_D 0.0
-param set-default DF_PITCHRATE_FF 0
+param set-default MC_PITCHRATE_P 0.45
+param set-default MC_PITCHRATE_I 0.3
+param set-default MC_PITCHRATE_D 0.0
+param set-default MC_PITCHRATE_FF 0
 
 param set-default MC_YAW_P 5
-param set-default DF_YAWRATE_P 0.4
-param set-default DF_YAWRATE_I 0.3
-param set-default DF_YAWRATE_D 0
-param set-default DF_YAWRATE_FF 0
+param set-default MC_YAWRATE_P 0.4
+param set-default MC_YAWRATE_I 0.3
+param set-default MC_YAWRATE_D 0
+param set-default MC_YAWRATE_FF 0
 
 param set-default MPC_THR_HOVER 0.5
 param set-default RTL_RETURN_ALT 2.5

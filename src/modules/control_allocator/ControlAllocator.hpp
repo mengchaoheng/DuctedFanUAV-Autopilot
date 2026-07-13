@@ -157,10 +157,9 @@ private:
 	float get_ice_shedding_output(hrt_abstime now);
 
 	void publish_allocation_value(int matrix_index, float dt);
-	float actuatorOutputSetpoint(int matrix_index, int actuator_index) const;
 
-	float update_allocation_feedback(int matrix_index, int actuator_index, float actuator_delta, float dt);
-	float actuatorPhysicalScale(ActuatorType actuator_type) const;
+	bool filter_allocation_wrench(int matrix_index, const matrix::Vector<float, NUM_AXES> &raw_wrench,
+				      float dt, matrix::Vector<float, NUM_AXES> &filtered_wrench);
 
 	AllocationMethod _allocation_method_id{AllocationMethod::NONE};
 	ControlAllocation *_control_allocation[ActuatorEffectiveness::MAX_NUM_MATRICES] {}; 	///< class for control allocation calculations
@@ -264,17 +263,13 @@ private:
 	bool _has_slew_rate{false};
 
 	bool _allocation_actuator_is_motor[ActuatorEffectiveness::MAX_NUM_MATRICES][NUM_ACTUATORS] {};
-	float _allocation_actuator_scale[ActuatorEffectiveness::MAX_NUM_MATRICES][NUM_ACTUATORS] {};
 	ActuatorEffectiveness::EffectivenessMatrix
-		_allocation_effectiveness_physical[ActuatorEffectiveness::MAX_NUM_MATRICES] {};
-	float _allocation_u_estimate[ActuatorEffectiveness::MAX_NUM_MATRICES][NUM_ACTUATORS] {};
-	float _allocation_u_cmd[ActuatorEffectiveness::MAX_NUM_MATRICES][NUM_ACTUATORS] {};
-	float _allocation_u_feedback[ActuatorEffectiveness::MAX_NUM_MATRICES][NUM_ACTUATORS] {};
-	math::LowPassFilter2p<float> _allocation_u_feedback_filter[ActuatorEffectiveness::MAX_NUM_MATRICES][NUM_ACTUATORS] {};
-	float _last_allocation_feedback_servo_cutoff{NAN};
-	float _last_allocation_feedback_motor_cutoff{NAN};
+		_allocation_effectiveness_bu[ActuatorEffectiveness::MAX_NUM_MATRICES] {};
+	matrix::Vector<float, NUM_AXES> _allocation_wrench_feedback[ActuatorEffectiveness::MAX_NUM_MATRICES] {};
+	math::LowPassFilter2p<float> _allocation_wrench_feedback_filter[ActuatorEffectiveness::MAX_NUM_MATRICES][NUM_AXES] {};
+	float _last_allocation_feedback_torque_cutoff{NAN};
+	float _last_allocation_feedback_force_cutoff{NAN};
 	float _last_allocation_feedback_sample_freq{NAN};
-	// Add these declarations inside class ControlAllocator in ControlAllocator.hpp.
 
 	void reset_allocation_feedback_state();
 	void update_allocation_feedback_filter_config(float sample_freq);
@@ -290,14 +285,8 @@ private:
 		(ParamInt<px4::params::CA_FAILURE_MODE>) _param_ca_failure_mode,
 		(ParamInt<px4::params::CA_R_REV>) _param_r_rev,
 		(ParamFloat<px4::params::CA_ICE_PERIOD>) _param_ice_shedding_period,
-		(ParamFloat<px4::params::DF_CS_CUTOFF>) _param_df_cs_cutoff,
-		(ParamFloat<px4::params::DF_MOT_CUTOFF>) _param_df_motor_cutoff,
-		(ParamFloat<px4::params::DF_CS_TCONST>) _param_df_cs_time_const,
-		(ParamFloat<px4::params::DF_MOT_TCONST>) _param_df_motor_time_const,
-		(ParamFloat<px4::params::DF_CS_MAX>) _param_df_cs_max,
-		(ParamFloat<px4::params::DF_MOT_MAX>) _param_df_motor_max,
-		(ParamInt<px4::params::DF_CS_ACTUATOR>) _param_df_cs_actuator,
-		(ParamInt<px4::params::DF_MOT_ACTUATOR>) _param_df_motor_actuator
+		(ParamFloat<px4::params::CA_TORQ_CUTOFF>) _param_ca_torque_cutoff,
+		(ParamFloat<px4::params::CA_FORCE_CUTOFF>) _param_ca_force_cutoff
 	)
 
 };

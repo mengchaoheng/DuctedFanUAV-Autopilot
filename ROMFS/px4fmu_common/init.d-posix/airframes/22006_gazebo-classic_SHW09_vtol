@@ -17,13 +17,13 @@ param set-default EKF2_FUSE_BETA 0 # side slip fusion is currently not supported
 
 param set-default CA_AIRFRAME 17 # Ducted Fan Tailsitter VTOL or using 4 for FW-mode
  # CA_AIRFRAME=4((normalize[0] = true normalize[1] = false;))
-# INDI unit contract for ducted-fan airframes:
-# DF_USE_INDI and DF_USE_ACC_INDI require CA_AIRFRAME=16/17 so allocation_value
-# is published in physical units. PX4 does not validate the numerical B values;
-# the user must ensure CA_SV_CS*_TRQ_* maps surface deflection [rad] to angular
-# acceleration [rad/s^2], CA_ROTOR*_CT/KM/axis maps motor physical thrust [N]
-# into force/moment rows, and DF_CS_MAX, DF_MOT_MAX, and DF_ACC_MASS match the
-# vehicle.
+
+# Effectiveness unit contract (control_allocation/SHW09_vtol.m):
+#   v = [tau; F] = B*u, with tau [N m], F [N]. Physical u contains rotor
+#   thrust [N] and surface deflection [rad]. Writing u = U*u_norm gives
+#   v = (B*U)*u_norm; therefore the parameter matrix below is B*U.
+#   CA_ROTOR0_CT is maximum thrust [N]. CA_SV_CSx_TRQ_* is the moment at
+#   normalized surface command +1 [N m] and already includes delta_max=40 deg.
 
 param set-default CA_ROTOR_COUNT 1
 param set-default CA_ROTOR0_AX 0
@@ -32,59 +32,53 @@ param set-default CA_ROTOR0_AZ -1
 param set-default CA_ROTOR0_PX 0
 param set-default CA_ROTOR0_PY 0
 param set-default CA_ROTOR0_PZ 0.1
-param set-default CA_ROTOR0_CT 1
+param set-default CA_ROTOR0_CT 32.1984
 param set-default CA_ROTOR0_KM 0
 
 param set-default CA_SV_CS_COUNT 8
-# Physical surface model from SHW09_vtol.sdf.jinja and
-# /Users/mch/Proj/control_allocation/SHW09_vtol.m.
-# B maps control-surface deflection in radians to body angular acceleration.
-# DF_CS_MAX maps normalized actuator_servos +/-1 to +/-0.6981 rad, so the
-# allocation matrix uses B_user * DF_CS_MAX before PX4 row normalization.
 # Ducted Fan Tailsitter VTOL zeros CS6/7 in hover; in transition/FW it keeps
 # CS6/7 and scales CS0..5 by DF_FW_CS_GAIN.
-param set-default DF_CS_MAX 0.6981
 param set-default DF_FW_CS_GAIN 1.8393
-param set-default DF_MOT_MAX 32.1984
-param set-default DF_MOT_ACTUATOR 0
-param set-default DF_CS_ACTUATOR 1
-param set-default DF_CS_TCONST 0.03
-# param set-default DF_MOT_TCONST 0.03 #(in motor plugins)
-param set-default DF_MOT_CUTOFF 8
-param set-default DF_CS_CUTOFF 8
+# The allocator filters the resulting physical wrench, not individual actuator
+# coordinates, and does not simulate actuator dynamics.
+param set-default CA_FORCE_CUTOFF 8
+param set-default CA_TORQ_CUTOFF 8
 param set-default IMU_DGYRO_CUTOFF 10
-param set-default DF_ACC_MASS 2.05
-param set-default DF_USE_INDI 1
-param set-default DF_USE_ACC_INDI 1
-param set-default DF_USE_TAUI 1
-param set-default DF_USE_U 1
-param set-default DF_INDI_R_P 15
-param set-default DF_INDI_P_P 15
-param set-default DF_INDI_Y_P 15
+param set-default MPC_MASS 2.05
+param set-default MC_J_X 0.050636
+param set-default MC_J_Y 0.042954
+param set-default MC_J_Z 0.012668
+param set-default MC_USE_INDI 1
+param set-default MPC_USE_ACC_INDI 1
+param set-default MC_USE_TAUI 1
+param set-default MC_USE_U 1
+param set-default MC_INDI_R_P 15
+param set-default MC_INDI_P_P 15
+param set-default MC_INDI_Y_P 15
 
-param set-default CA_SV_CS0_TRQ_R -19.9162
+param set-default CA_SV_CS0_TRQ_R -0.704019
 param set-default CA_SV_CS0_TRQ_P 0
-param set-default CA_SV_CS0_TRQ_Y 22.0433
-param set-default CA_SV_CS1_TRQ_R -9.9581
-param set-default CA_SV_CS1_TRQ_P 20.3326
-param set-default CA_SV_CS1_TRQ_Y 22.0433
-param set-default CA_SV_CS2_TRQ_R 9.9581
-param set-default CA_SV_CS2_TRQ_P 20.3326
-param set-default CA_SV_CS2_TRQ_Y 22.0433
-param set-default CA_SV_CS3_TRQ_R 19.9162
+param set-default CA_SV_CS0_TRQ_Y 0.194941
+param set-default CA_SV_CS1_TRQ_R -0.352009
+param set-default CA_SV_CS1_TRQ_P 0.609698
+param set-default CA_SV_CS1_TRQ_Y 0.194941
+param set-default CA_SV_CS2_TRQ_R 0.352009
+param set-default CA_SV_CS2_TRQ_P 0.609698
+param set-default CA_SV_CS2_TRQ_Y 0.194941
+param set-default CA_SV_CS3_TRQ_R 0.704019
 param set-default CA_SV_CS3_TRQ_P 0
-param set-default CA_SV_CS3_TRQ_Y 22.0433
-param set-default CA_SV_CS4_TRQ_R 9.9581
-param set-default CA_SV_CS4_TRQ_P -20.3326
-param set-default CA_SV_CS4_TRQ_Y 22.0433
-param set-default CA_SV_CS5_TRQ_R -9.9581
-param set-default CA_SV_CS5_TRQ_P -20.3326
-param set-default CA_SV_CS5_TRQ_Y 22.0433
+param set-default CA_SV_CS3_TRQ_Y 0.194941
+param set-default CA_SV_CS4_TRQ_R 0.352009
+param set-default CA_SV_CS4_TRQ_P -0.609698
+param set-default CA_SV_CS4_TRQ_Y 0.194941
+param set-default CA_SV_CS5_TRQ_R -0.352009
+param set-default CA_SV_CS5_TRQ_P -0.609698
+param set-default CA_SV_CS5_TRQ_Y 0.194941
 
 param set-default CA_SV_CS6_TYPE 0
-param set-default CA_SV_CS6_TRQ_Y 140.2373
+param set-default CA_SV_CS6_TRQ_Y 1.240193
 param set-default CA_SV_CS7_TYPE 0
-param set-default CA_SV_CS7_TRQ_Y -140.2373
+param set-default CA_SV_CS7_TRQ_Y -1.240193
 
 param set-default VT_ELEV_MC_LOCK 0
 # param set-default VT_TS_CS_HVR_DIS 192
@@ -95,27 +89,27 @@ param set-default MC_PITCH_P 3
 param set-default MC_YAW_P 2
 
 # rates at MC mode, but we also use the FW rates controller for it.
-param set-default DF_ROLLRATE_P 0.2
-param set-default DF_ROLLRATE_I 0.2
-param set-default DF_RR_INT_LIM 0.3
-param set-default DF_ROLLRATE_D 0.003
-param set-default DF_ROLLRATE_FF 0
-param set-default DF_ROLLRATE_K 1
+param set-default MC_ROLLRATE_P 0.2
+param set-default MC_ROLLRATE_I 0.2
+param set-default MC_RR_INT_LIM 0.3
+param set-default MC_ROLLRATE_D 0.003
+param set-default MC_ROLLRATE_FF 0
+param set-default MC_ROLLRATE_K 1
 
-param set-default DF_PITCHRATE_P 0.2
-param set-default DF_PITCHRATE_I 0.2
-param set-default DF_PR_INT_LIM 0.3
-param set-default DF_PITCHRATE_D 0.003
-param set-default DF_PITCHRATE_FF 0
-param set-default DF_PITCHRATE_K 1
+param set-default MC_PITCHRATE_P 0.2
+param set-default MC_PITCHRATE_I 0.2
+param set-default MC_PR_INT_LIM 0.3
+param set-default MC_PITCHRATE_D 0.003
+param set-default MC_PITCHRATE_FF 0
+param set-default MC_PITCHRATE_K 1
 
-param set-default DF_YAWRATE_P 0.2
-param set-default DF_YAWRATE_I 0.1
-param set-default DF_YR_INT_LIM 0.3
-param set-default DF_YAWRATE_D 0
-param set-default DF_YAWRATE_FF 0
-param set-default DF_YAWRATE_K 1
-param set-default DF_YAW_TQ_CUTOFF 2
+param set-default MC_YAWRATE_P 0.2
+param set-default MC_YAWRATE_I 0.1
+param set-default MC_YR_INT_LIM 0.3
+param set-default MC_YAWRATE_D 0
+param set-default MC_YAWRATE_FF 0
+param set-default MC_YAWRATE_K 1
+param set-default MC_YAW_TQ_CUTOFF 2
 
 param set-default THR_MDL_FAC 1
 param set-default MPC_THR_HOVER 0.62

@@ -11,9 +11,9 @@
 control_allocator start
 
 #
-# Start ducted fan hover rate controller.
+# Start multicopter rate controller with ducted-fan allocation routing.
 #
-df_hover_rate_control start
+mc_rate_control start df
 
 #
 # Start multicopter attitude controller.

@@ -16,6 +16,11 @@
 
 param set-default CA_AIRFRAME 8
 
+# This tilt-multirotor is not one of the calibrated ducted-fan INDI models.
+# Its rotor/tilt coefficients retain the standard normalized PX4 convention;
+# do not interpret them as the physical B*U wrench matrix described by the DF
+# airframes without a separate force/moment identification.
+
 param set-default MC_ROLL_P 6.5
 param set-default MC_ROLLRATE_P 0.055
 param set-default MC_ROLLRATE_I 0.073

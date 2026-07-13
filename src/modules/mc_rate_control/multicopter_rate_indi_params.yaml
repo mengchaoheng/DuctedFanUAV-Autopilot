@@ -1,0 +1,81 @@
+module_name: mc_rate_control
+parameters:
+- group: Multicopter Rate INDI
+  definitions:
+    MC_INDI_R_P:
+      description:
+        short: INDI roll rate proportional gain
+        long: Maps roll-rate error to commanded roll angular acceleration.
+      type: float
+      default: 10.0
+      min: 0
+      unit: 1/s
+      decimal: 3
+    MC_INDI_P_P:
+      description:
+        short: INDI pitch rate proportional gain
+        long: Maps pitch-rate error to commanded pitch angular acceleration.
+      type: float
+      default: 10.0
+      min: 0
+      unit: 1/s
+      decimal: 3
+    MC_INDI_Y_P:
+      description:
+        short: INDI yaw rate proportional gain
+        long: Maps yaw-rate error to commanded yaw angular acceleration.
+      type: float
+      default: 10.0
+      min: 0
+      unit: 1/s
+      decimal: 3
+    MC_J_X:
+      description:
+        short: Vehicle roll-axis moment of inertia
+        long: Diagonal Jxx term used by rate INDI to convert angular acceleration to moment.
+      type: float
+      default: 0.01
+      min: 0.000001
+      unit: kg m^2
+      decimal: 6
+    MC_J_Y:
+      description:
+        short: Vehicle pitch-axis moment of inertia
+        long: Diagonal Jyy term used by rate INDI to convert angular acceleration to moment.
+      type: float
+      default: 0.01
+      min: 0.000001
+      unit: kg m^2
+      decimal: 6
+    MC_J_Z:
+      description:
+        short: Vehicle yaw-axis moment of inertia
+        long: Diagonal Jzz term used by rate INDI to convert angular acceleration to moment.
+      type: float
+      default: 0.01
+      min: 0.000001
+      unit: kg m^2
+      decimal: 6
+    MC_USE_INDI:
+      description:
+        short: Enable INDI rate control
+        long: |-
+          When enabled, mc_rate_control publishes the sum of INDI feedback and
+          rate-error feedback as the normalized torque setpoint.
+
+          The controller only enters the INDI branch when recent allocation
+          feedback provides complete roll, pitch, and yaw torque authority.
+          Otherwise it falls back to the standard rate controller for that cycle.
+      type: boolean
+      default: 0
+    MC_USE_TAUI:
+      description:
+        short: Enable INDI angular acceleration feedback
+      type: boolean
+      default: 1
+    MC_USE_U:
+      description:
+        short: Enable INDI allocated-moment feedback term
+        long: Uses the filtered physical moment tau_0=(B*U)*u_norm published by control allocation.
+      type: boolean
+      default: 1

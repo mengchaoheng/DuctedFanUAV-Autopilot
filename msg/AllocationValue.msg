@@ -7,6 +7,7 @@ uint8 MAX_U = 16
 uint8 y_dim
 uint8 u_dim
 bool feedback_valid
+uint8 feedback_axes_mask             # Bit i is set when body-FRD B*U row i has a configured nonzero element
 int8 requested_method
 uint8 fallback
 
@@ -32,14 +33,11 @@ float32 allocation_running_time # [us] latest allocation calculation time
 float32 allocation_running_time_avg # [us] online average allocation calculation time
 uint32 allocation_running_time_samples
 
-float32[6] y
-float32[96] b
-float32[6] control_allocation_scale
-float32[16] actuator_scale
-float32[3] error
-float32[16] u
-float32[16] u_ultimate
-float32[16] u_phys
-float32[16] u_ultimate_phys
+float32[6] y                       # Requested body-FRD physical wrench [Mx, My, Mz, Fx, Fy, Fz], [N m, N]
+float32[96] b                      # Body-FRD B*U: physical wrench per normalized actuator delta from allocator trim, row-major
+float32[6] allocated_wrench        # Filtered body-FRD (B*U)*u; rotor thrust force follows F=-T*b_z, [N m, N]
+float32[6] control_allocation_scale # D: physical wrench to normalized control setpoint
+float32[3] error                   # Requested minus allocated physical torque, [N m]
+float32[16] u                     # Normalized actuator delta relative to allocator trim
 float32[16] umin
 float32[16] umax
