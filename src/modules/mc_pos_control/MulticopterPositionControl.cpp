@@ -34,7 +34,6 @@
 #include "MulticopterPositionControl.hpp"
 
 #include <float.h>
-#include <geo/geo.h>
 #include <lib/mathlib/mathlib.h>
 #include <lib/matrix/matrix/math.hpp>
 #include <px4_platform_common/events.h>
@@ -43,20 +42,19 @@ using namespace matrix;
 
 namespace
 {
-bool hasForceAuthority(const allocation_value_s &allocation_value)
+bool allocationForceValid(const allocation_value_s &allocation_value)
 {
-	if (!allocation_value.feedback_valid
-	    || !PX4_ISFINITE(allocation_value.control_allocation_scale[5])
-	    || allocation_value.control_allocation_scale[5] <= FLT_EPSILON) {
+	if (allocation_value.timestamp == 0 || hrt_elapsed_time(&allocation_value.timestamp) >= 100_ms) {
 		return false;
 	}
 
-	return (allocation_value.feedback_axes_mask & (1u << 5)) != 0;
-}
+	for (int axis = 0; axis < 3; axis++) {
+		if (!PX4_ISFINITE(allocation_value.allocated_wrench[axis + 3])) {
+			return false;
+		}
+	}
 
-bool isRecentAllocationValue(const allocation_value_s &allocation_value)
-{
-	return allocation_value.timestamp != 0 && hrt_elapsed_time(&allocation_value.timestamp) < 100_ms;
+	return true;
 }
 } // namespace
 
@@ -313,7 +311,6 @@ void MulticopterPositionControl::parameters_update(bool force)
 
 		if (!_hover_thrust_initialized) {
 			_control.setHoverThrust(_param_mpc_thr_hover.get());
-			_hover_thrust = _param_mpc_thr_hover.get();
 			_hover_thrust_initialized = true;
 		}
 
@@ -443,7 +440,6 @@ void MulticopterPositionControl::Run()
 			if (_hover_thrust_estimate_sub.copy(&hte)) {
 				if (hte.valid) {
 					_control.updateHoverThrust(hte.hover_thrust);
-					_hover_thrust = hte.hover_thrust;
 				}
 			}
 		}
@@ -526,7 +522,6 @@ void MulticopterPositionControl::Run()
 
 			if (!flying) {
 				_control.setHoverThrust(_param_mpc_thr_hover.get());
-				_hover_thrust = _param_mpc_thr_hover.get();
 			}
 
 			// make sure takeoff ramp is not amended by acceleration feed-forward
@@ -594,56 +589,16 @@ void MulticopterPositionControl::Run()
 			_control.setState(states);
 			_control.clearAccelerationIndiFeedback();
 
-			const bool acc_indi_requested = _param_mpc_use_acc_indi.get() > 0;
-			const bool acc_indi_enabled = acc_indi_requested && flying;
-			const Vector3f acc_meas(states.acceleration);
-			const bool allocation_value_valid = hasForceAuthority(_allocation_value)
-							  && isRecentAllocationValue(_allocation_value);
-			acceleration_indi_status_s acceleration_indi_status{};
-			acceleration_indi_status.timestamp = hrt_absolute_time();
-			acceleration_indi_status.timestamp_sample = vehicle_local_position.timestamp_sample;
-			acceleration_indi_status.enabled = acc_indi_requested;
-			acceleration_indi_status.supported = _param_ca_airframe.get() == 16 || _param_ca_airframe.get() == 17;
-			acceleration_indi_status.allocation_valid = allocation_value_valid;
-			acceleration_indi_status.u_dim = _allocation_value.u_dim;
-			acceleration_indi_status.ca_airframe = _param_ca_airframe.get();
-			const float mass = _param_mpc_mass.get();
-			const float force_scale = _allocation_value.control_allocation_scale[5];
-			acceleration_indi_status.mass = mass;
-			acceleration_indi_status.force_scale = force_scale;
-
-			for (int i = 0; i < 3; i++) {
-				acceleration_indi_status.acc_meas[i] = PX4_ISFINITE(acc_meas(i)) ? acc_meas(i) : 0.f;
-			}
-
-			if (acc_indi_enabled) {
+			if (_param_mpc_use_acc_indi.get() && flying) {
+				const Vector3f acc_meas(states.acceleration);
+				const float mass = _param_mpc_mass.get();
 				Vector3f force_feedback;
 
 				if (acc_meas.isAllFinite() && PX4_ISFINITE(mass) && mass > FLT_EPSILON
 				    && updateThrustForceFeedback(force_feedback)) {
 					_control.setAccelerationIndiFeedback(acc_meas, force_feedback, mass);
-					_acc_indi_waiting = false;
-					_last_acc_indi_acc_meas = acc_meas;
-					_last_acc_indi_force = force_feedback;
-					_last_acc_indi_feedback_valid = true;
-					acceleration_indi_status.control_flag = true;
-
-					for (int i = 0; i < 3; i++) {
-						acceleration_indi_status.force_feedback[i] = force_feedback(i);
-					}
-
-				} else {
-					_acc_indi_waiting = true;
-					_last_acc_indi_feedback_valid = false;
 				}
-
-			} else {
-				_acc_indi_waiting = false;
-				_last_acc_indi_feedback_valid = false;
 			}
-
-			acceleration_indi_status.waiting = _acc_indi_waiting;
-			_acceleration_indi_status_pub.publish(acceleration_indi_status);
 
 			const hrt_abstime now = hrt_absolute_time();
 
@@ -715,7 +670,7 @@ void MulticopterPositionControl::Run()
 bool MulticopterPositionControl::updateThrustForceFeedback(Vector3f &force_feedback)
 {
 	if (_vehicle_attitude.timestamp == 0 || hrt_elapsed_time(&_vehicle_attitude.timestamp) >= 100_ms
-	    || !hasForceAuthority(_allocation_value) || !isRecentAllocationValue(_allocation_value)) {
+	    || !allocationForceValid(_allocation_value)) {
 		return false;
 	}
 
@@ -857,27 +812,6 @@ int MulticopterPositionControl::task_spawn(int argc, char *argv[])
 int MulticopterPositionControl::custom_command(int argc, char *argv[])
 {
 	return print_usage("unknown command");
-}
-
-int MulticopterPositionControl::print_status()
-{
-	PX4_INFO("Running");
-	PX4_INFO("Acceleration INDI: enabled=%d waiting=%d CA_AIRFRAME=%d mass=%.4g allocation_valid=%d u_dim=%u",
-		 (int)_param_mpc_use_acc_indi.get(), (int)_acc_indi_waiting, (int)_param_ca_airframe.get(),
-		 (double)_param_mpc_mass.get(),
-		 (int)(hasForceAuthority(_allocation_value) && isRecentAllocationValue(_allocation_value)),
-		 (unsigned)_allocation_value.u_dim);
-
-	if (_last_acc_indi_feedback_valid) {
-		PX4_INFO("Acceleration INDI last feedback: acc_meas=%.3f %.3f %.3f force_ned=%.3f %.3f %.3f N",
-			 (double)_last_acc_indi_acc_meas(0), (double)_last_acc_indi_acc_meas(1),
-			 (double)_last_acc_indi_acc_meas(2),
-			 (double)_last_acc_indi_force(0), (double)_last_acc_indi_force(1),
-			 (double)_last_acc_indi_force(2));
-	}
-
-	perf_print_counter(_cycle_perf);
-	return 0;
 }
 
 int MulticopterPositionControl::print_usage(const char *reason)

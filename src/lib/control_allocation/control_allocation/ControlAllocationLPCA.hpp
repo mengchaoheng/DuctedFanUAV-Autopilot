@@ -46,6 +46,7 @@ private:
 	bool allocateInv(ActuatorVector &actuator_delta);
 	bool allocateLPCA(ActuatorVector &actuator_delta);
 	int8_t lpcaUnavailableReason() const;
+	bool hasPcaAxes() const;
 	bool hasFullRowRank() const;
 
 	static int computeRowRank(float matrix[NUM_AXES][NUM_ACTUATORS], int rows, int cols);

@@ -8,11 +8,11 @@ parameters:
         long: |-
           When enabled, mc_pos_control keeps the PX4 position/velocity PID loop and
           replaces the final acceleration-to-thrust conversion with an acceleration
-          INDI correction based on motor thrust feedback.
+          INDI correction based on the allocated physical force. The configured
+          B*U force rows must be in N per normalized actuator delta.
 
           The controller only applies this correction while flying and when recent
-          allocation_value feedback provides force authority. Otherwise mc_pos_control
-          keeps the standard acceleration-to-thrust path.
+          finite force feedback is available. Otherwise it uses the standard path.
       type: boolean
       default: 0
     MPC_MASS:

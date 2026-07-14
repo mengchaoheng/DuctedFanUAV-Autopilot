@@ -156,10 +156,16 @@ private:
 
 	float get_ice_shedding_output(hrt_abstime now);
 
+	float actuator_delta_for_feedback(int matrix_index, int actuator) const;
+
+	void calculate_allocation_wrench(int matrix_index,
+					 const ControlAllocation::ActuatorVector &actuator_delta,
+					 matrix::Vector<float, NUM_AXES> &raw_wrench) const;
+
 	void publish_allocation_value(int matrix_index, float dt);
 
-	bool filter_allocation_wrench(int matrix_index, const matrix::Vector<float, NUM_AXES> &raw_wrench,
-				      float dt, matrix::Vector<float, NUM_AXES> &filtered_wrench);
+	void filter_allocation_wrench(int matrix_index, const matrix::Vector<float, NUM_AXES> &raw_wrench,
+				       float dt, matrix::Vector<float, NUM_AXES> &filtered_wrench);
 
 	AllocationMethod _allocation_method_id{AllocationMethod::NONE};
 	ControlAllocation *_control_allocation[ActuatorEffectiveness::MAX_NUM_MATRICES] {}; 	///< class for control allocation calculations
@@ -194,12 +200,6 @@ private:
 
 	EffectivenessSource _effectiveness_source_id{EffectivenessSource::NONE};
 	ActuatorEffectiveness *_actuator_effectiveness{nullptr}; 	///< class providing actuator effectiveness
-
-	bool ductedFanAllocationFeedbackEnabled() const
-	{
-		return _effectiveness_source_id == EffectivenessSource::DUCTED_FAN
-		       || _effectiveness_source_id == EffectivenessSource::DUCTED_FAN_TAILSITTER_VTOL;
-	}
 
 	uint8_t _control_allocation_selection_indexes[NUM_ACTUATORS * ActuatorEffectiveness::MAX_NUM_MATRICES] {};
 	int _num_actuators[(int)ActuatorType::COUNT] {};
@@ -236,13 +236,13 @@ private:
 	matrix::Vector3f _torque_sp_rate_error_feedback;
 	matrix::Vector3f _torque_sp_indi_feedback;
 	matrix::Vector3f _thrust_sp;
-	bool _torque_sp_split_valid{false};
 	bool _publish_controls{true};
 
 	// Reflects motor failures that are currently handled, not motor failures that are reported.
 	// For example, the system might report two motor failures, but only the first one is handled by CA
 	uint16_t _handled_motor_failure_bitmask{0};
 	uint16_t _motor_stop_mask{0};
+	ActuatorBitmask _stopped_motors{0};
 
 	ActuatorGroupPreflightCheck _actuator_group_preflight_check;
 
@@ -256,17 +256,19 @@ private:
 	hrt_abstime _allocation_running_time_us[ActuatorEffectiveness::MAX_NUM_MATRICES] {};
 	float _allocation_running_time_avg_us[ActuatorEffectiveness::MAX_NUM_MATRICES] {};
 	uint32_t _allocation_running_time_count[ActuatorEffectiveness::MAX_NUM_MATRICES] {};
-	bool _allocation_priority_split_torque_only[ActuatorEffectiveness::MAX_NUM_MATRICES] {};
+	uint8_t _allocation_axes_mask[ActuatorEffectiveness::MAX_NUM_MATRICES] {};
 
 	ParamHandles _param_handles{};
 	Params _params{};
 	bool _has_slew_rate{false};
 
 	bool _allocation_actuator_is_motor[ActuatorEffectiveness::MAX_NUM_MATRICES][NUM_ACTUATORS] {};
+	// Physical B*U used for feedback: failed columns removed, legacy weak-row suppression not applied.
 	ActuatorEffectiveness::EffectivenessMatrix
 		_allocation_effectiveness_bu[ActuatorEffectiveness::MAX_NUM_MATRICES] {};
 	matrix::Vector<float, NUM_AXES> _allocation_wrench_feedback[ActuatorEffectiveness::MAX_NUM_MATRICES] {};
-	math::LowPassFilter2p<float> _allocation_wrench_feedback_filter[ActuatorEffectiveness::MAX_NUM_MATRICES][NUM_AXES] {};
+	math::LowPassFilter2p<float>
+		_allocation_wrench_feedback_filter[ActuatorEffectiveness::MAX_NUM_MATRICES][NUM_AXES] {};
 	float _last_allocation_feedback_torque_cutoff{NAN};
 	float _last_allocation_feedback_force_cutoff{NAN};
 	float _last_allocation_feedback_sample_freq{NAN};
@@ -275,7 +277,6 @@ private:
 	void update_allocation_feedback_filter_config(float sample_freq);
 
 	bool _allocation_feedback_filters_configured{false};
-	bool _allocation_feedback_active_prev{false};
 	hrt_abstime _last_allocation_feedback_update[ActuatorEffectiveness::MAX_NUM_MATRICES] {};
 
 

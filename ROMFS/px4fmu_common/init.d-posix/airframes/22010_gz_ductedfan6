@@ -8,8 +8,6 @@
 
 
 . ${R}etc/init.d/rc.mc_defaults
-set VEHICLE_TYPE df
-
 PX4_SIMULATOR=${PX4_SIMULATOR:=gz}
 PX4_GZ_WORLD=${PX4_GZ_WORLD:=default}
 PX4_SIM_MODEL=${PX4_SIM_MODEL:=ductedfan6}

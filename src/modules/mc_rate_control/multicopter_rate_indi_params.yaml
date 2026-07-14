@@ -60,22 +60,15 @@ parameters:
       description:
         short: Enable INDI rate control
         long: |-
-          When enabled, mc_rate_control publishes the sum of INDI feedback and
-          rate-error feedback as the normalized torque setpoint.
+          Uses tau_c=tau_0+J*(Kp*(omega_sp-omega)-alpha_0). The physical
+          torque command is multiplied by the allocator torque scale D before
+          it is published as a normalized torque setpoint.
 
-          The controller only enters the INDI branch when recent allocation
-          feedback provides complete roll, pitch, and yaw torque authority.
-          Otherwise it falls back to the standard rate controller for that cycle.
+          The configured B*U columns must therefore represent physical moment
+          in N m per normalized actuator delta. This unit contract is supplied
+          by the airframe configuration and is not validated by PX4.
+
+          If recent finite allocator feedback and D are unavailable, the
+          standard rate controller is used for that cycle.
       type: boolean
       default: 0
-    MC_USE_TAUI:
-      description:
-        short: Enable INDI angular acceleration feedback
-      type: boolean
-      default: 1
-    MC_USE_U:
-      description:
-        short: Enable INDI allocated-moment feedback term
-        long: Uses the filtered physical moment tau_0=(B*U)*u_norm published by control allocation.
-      type: boolean
-      default: 1

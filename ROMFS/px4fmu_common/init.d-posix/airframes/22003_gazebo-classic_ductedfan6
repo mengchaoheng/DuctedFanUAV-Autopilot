@@ -9,8 +9,6 @@
 
 
 . ${R}etc/init.d/rc.mc_defaults
-set VEHICLE_TYPE df
-
 param set-default CA_AIRFRAME 16
 
 # Effectiveness unit contract (control_allocation/df6.m):

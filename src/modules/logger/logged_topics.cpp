@@ -236,7 +236,6 @@ void LoggedTopics::add_default_topics()
 	add_topic("actuator_motors", 100);
 	add_topic("actuator_servos", 100);
 	add_topic_multi("allocation_value", 20, 2);
-	add_topic("indi_control_status", 20);
 	add_topic_multi("vehicle_thrust_setpoint", 20, 2);
 	add_topic_multi("vehicle_torque_setpoint", 20, 2);
 

@@ -24,6 +24,7 @@ public:
 	// force and torque, this split is no longer valid. Use a single allocation
 	// matrix for that coupled geometry and extend PCA priority semantics first
 	// (for example force > INDI torque > rate-error torque).
+	// Motors allocate force in matrix 0; control surfaces allocate torque in matrix 1.
 	int numMatrices() const override { return 2; }
 
 	bool getEffectivenessMatrix(Configuration &configuration, EffectivenessUpdateReason external_update) override;

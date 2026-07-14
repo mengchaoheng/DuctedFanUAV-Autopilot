@@ -96,9 +96,6 @@ const char *allocationSolverStatusName(int8_t status)
 	case allocation_value_s::SOLVER_STATUS_OK:
 		return "ok";
 
-	case allocation_value_s::SOLVER_STATUS_ACCEPTED_WITH_ERROR:
-		return "accepted_err";
-
 	case allocation_value_s::SOLVER_STATUS_UNAVAILABLE:
 		return "unavailable";
 
@@ -179,18 +176,14 @@ void formatAllocationAxesMask(uint8_t axes_mask, char *buffer, size_t buffer_len
 	}
 }
 
-void setPrioritySplitIfSupported(ControlAllocation *allocator,
-				 const matrix::Vector3f &torque_indi_feedback,
-				 const matrix::Vector3f &torque_rate_error_feedback,
-				 bool torque_split_valid,
-				 bool allocation_torque_only)
+void setPrioritySetpoint(ControlAllocation &allocator,
+			 const matrix::Vector3f &torque_indi_feedback,
+			 const matrix::Vector3f &torque_rate_error_feedback)
 {
-	if (allocator == nullptr || !torque_split_valid || !allocation_torque_only) {
-		return;
-	}
-
 	matrix::Vector<float, ControlAllocation::NUM_AXES> higher;
 	matrix::Vector<float, ControlAllocation::NUM_AXES> lower;
+	higher.setZero();
+	lower.setZero();
 
 	higher(ControlAllocation::ROLL) = torque_indi_feedback(0);
 	higher(ControlAllocation::PITCH) = torque_indi_feedback(1);
@@ -200,7 +193,7 @@ void setPrioritySplitIfSupported(ControlAllocation *allocator,
 	lower(ControlAllocation::PITCH) = torque_rate_error_feedback(1);
 	lower(ControlAllocation::YAW) = torque_rate_error_feedback(2);
 
-	allocator->setControlSetpointPrioritySplit(higher, lower, true);
+	allocator.setControlSetpointPrioritySplit(higher, lower);
 }
 }
 
@@ -563,15 +556,6 @@ ControlAllocator::Run()
 		}
 	}
 
-	const bool allocation_feedback_active = ductedFanAllocationFeedbackEnabled() && _publish_controls;
-
-	if (allocation_feedback_active && !_allocation_feedback_active_prev) {
-		reset_allocation_feedback_state();
-		_allocation_feedback_filters_configured = false;
-	}
-
-	_allocation_feedback_active_prev = allocation_feedback_active;
-
 	// Guard against too small (< 0.2ms) and too large (> 20ms) dt's.
 	const hrt_abstime now = hrt_absolute_time();
 	const float dt = math::constrain(((now - _last_run) / 1e6f), 0.0002f, 0.02f);
@@ -588,7 +572,6 @@ ControlAllocator::Run()
 		_torque_sp = matrix::Vector3f(vehicle_torque_setpoint.xyz);
 		_torque_sp_rate_error_feedback = matrix::Vector3f(vehicle_torque_setpoint.xyz_rate_error_feedback);
 		_torque_sp_indi_feedback = matrix::Vector3f(vehicle_torque_setpoint.xyz_indi_feedback);
-		_torque_sp_split_valid = vehicle_torque_setpoint.xyz_split_valid;
 
 		do_update = true;
 		_timestamp_sample = vehicle_torque_setpoint.timestamp_sample;
@@ -610,7 +593,12 @@ ControlAllocator::Run()
 		matrix::Vector<float, NUM_AXES> c[ActuatorEffectiveness::MAX_NUM_MATRICES];
 		matrix::Vector3f torque_sp_indi_feedback[ActuatorEffectiveness::MAX_NUM_MATRICES];
 		matrix::Vector3f torque_sp_rate_error_feedback[ActuatorEffectiveness::MAX_NUM_MATRICES];
-		bool torque_sp_split_valid[ActuatorEffectiveness::MAX_NUM_MATRICES] {};
+
+		for (int i = 0; i < ActuatorEffectiveness::MAX_NUM_MATRICES; ++i) {
+			c[i].setZero();
+			torque_sp_indi_feedback[i].setZero();
+			torque_sp_rate_error_feedback[i].setZero();
+		}
 
 		c[0](0) = _torque_sp(0);
 		c[0](1) = _torque_sp(1);
@@ -620,7 +608,6 @@ ControlAllocator::Run()
 		c[0](5) = _thrust_sp(2);
 		torque_sp_indi_feedback[0] = _torque_sp_indi_feedback;
 		torque_sp_rate_error_feedback[0] = _torque_sp_rate_error_feedback;
-		torque_sp_split_valid[0] = _torque_sp_split_valid;
 
 		if (_num_control_allocation > 1) {
 			if (_vehicle_torque_setpoint1_sub.copy(&vehicle_torque_setpoint)) {
@@ -629,7 +616,6 @@ ControlAllocator::Run()
 				c[1](2) = vehicle_torque_setpoint.xyz[2];
 				torque_sp_indi_feedback[1] = matrix::Vector3f(vehicle_torque_setpoint.xyz_indi_feedback);
 				torque_sp_rate_error_feedback[1] = matrix::Vector3f(vehicle_torque_setpoint.xyz_rate_error_feedback);
-				torque_sp_split_valid[1] = vehicle_torque_setpoint.xyz_split_valid;
 			}
 
 			if (_vehicle_thrust_setpoint1_sub.copy(&vehicle_thrust_setpoint)) {
@@ -644,9 +630,8 @@ ControlAllocator::Run()
 		for (int i = 0; i < _num_control_allocation; ++i) {
 
 			_control_allocation[i]->setControlSetpoint(c[i]);
-			setPrioritySplitIfSupported(_control_allocation[i], torque_sp_indi_feedback[i],
-						    torque_sp_rate_error_feedback[i], torque_sp_split_valid[i],
-						    _allocation_priority_split_torque_only[i]);
+			setPrioritySetpoint(*_control_allocation[i], torque_sp_indi_feedback[i],
+					     torque_sp_rate_error_feedback[i]);
 
 			// Do allocation
 			const hrt_abstime allocation_start = runtimeMeasurementTimeUs();
@@ -676,10 +661,13 @@ ControlAllocator::Run()
 
 			_control_allocation[i]->clipActuatorSetpoint();
 		}
-	}
 
-	for (int i = 0; i < _num_control_allocation; ++i) {
-		publish_allocation_value(i, dt); // Before publish_actuator_controls
+		// Form feedback from the final actuator setpoints after auxiliary controls,
+		// stopped-motor handling, slew limiting and clipping. Publish feedback only
+		// for a real allocation update so a fresh timestamp never labels stale u.
+		for (int i = 0; i < _num_control_allocation; ++i) {
+			publish_allocation_value(i, dt);
+		}
 	}
 
 	// Publish actuator setpoint and allocator status
@@ -809,14 +797,15 @@ ControlAllocator::update_effectiveness_matrix_if_needed(EffectivenessUpdateReaso
 			// which in turn would degrade the control of the main axes that actually should and can be controlled.
 
 			// The configured matrix is B*U: physical wrench generated by a unit
-			// normalized actuator delta. Row normalization inside the allocation
-			// method supplies D; no additional actuator-column scaling is applied.
-			ActuatorEffectiveness::EffectivenessMatrix allocation_matrix = config.effectiveness_matrices[i];
-			int total_num_actuators = config.num_actuators_matrix[i];//why using this new variable?
-
-			const float row_zero_threshold = ductedFanAllocationFeedbackEnabled() ? FLT_EPSILON : 0.05f;
+			// normalized actuator delta. Preserve it for feedback after failed
+			// actuator columns have been removed, but before the legacy weak-row
+			// suppression changes the matrix used by the solver.
+			_allocation_effectiveness_bu[i] = config.effectiveness_matrices[i];
+			ActuatorEffectiveness::EffectivenessMatrix allocation_matrix = _allocation_effectiveness_bu[i];
+			const int total_num_actuators = config.num_actuators_matrix[i];
 
 			for (int n = 0; n < NUM_AXES; n++) {
+				const float row_zero_threshold = 0.05f;
 				bool all_entries_small = true;
 
 				for (int m = 0; m < total_num_actuators; m++) {
@@ -830,21 +819,15 @@ ControlAllocator::update_effectiveness_matrix_if_needed(EffectivenessUpdateReaso
 				}
 			}
 
-			bool has_torque_authority = false;
-			bool has_force_authority = false;
+			_allocation_axes_mask[i] = 0;
 
 			for (int actuator = 0; actuator < total_num_actuators; actuator++) {
-				for (int row = 0; row < 3; row++) {
-					has_torque_authority |= fabsf(allocation_matrix(row, actuator)) > FLT_EPSILON;
-				}
-
-				for (int row = 3; row < NUM_AXES; row++) {
-					has_force_authority |= fabsf(allocation_matrix(row, actuator)) > FLT_EPSILON;
+				for (int row = 0; row < NUM_AXES; row++) {
+					if (fabsf(allocation_matrix(row, actuator)) > FLT_EPSILON) {
+						_allocation_axes_mask[i] |= static_cast<uint8_t>(1u << row);
+					}
 				}
 			}
-
-			_allocation_priority_split_torque_only[i] = has_torque_authority && !has_force_authority;
-			_allocation_effectiveness_bu[i] = allocation_matrix;
 
 			// Assign control effectiveness matrix
 			_control_allocation[i]->setEffectivenessMatrix(allocation_matrix, config.trim[i],
@@ -870,6 +853,7 @@ ControlAllocator::handle_stopped_motors(const hrt_abstime now)
 	const ActuatorBitmask stopped_motors = stopped_motors_due_to_effectiveness
 					       | _handled_motor_failure_bitmask
 					       | _motor_stop_mask;
+	_stopped_motors = stopped_motors;
 
 	// Handle stopped motors by setting NaN
 	const unsigned int allocation_index = 0;  // Motors always in allocation 0
@@ -1030,13 +1014,13 @@ ControlAllocator::publish_actuator_controls()
 void
 ControlAllocator::reset_allocation_feedback_state()
 {
-	for (int matrix = 0; matrix < ActuatorEffectiveness::MAX_NUM_MATRICES; matrix++) {
-		_last_allocation_feedback_update[matrix] = 0;
+	for (int matrix_index = 0; matrix_index < ActuatorEffectiveness::MAX_NUM_MATRICES; matrix_index++) {
+		_last_allocation_feedback_update[matrix_index] = 0;
 
-		_allocation_wrench_feedback[matrix].setAll(NAN);
+		_allocation_wrench_feedback[matrix_index].setAll(NAN);
 
 		for (int axis = 0; axis < NUM_AXES; axis++) {
-			_allocation_wrench_feedback_filter[matrix][axis].reset(0.f);
+			_allocation_wrench_feedback_filter[matrix_index][axis].reset(0.f);
 		}
 	}
 }
@@ -1058,22 +1042,19 @@ ControlAllocator::update_allocation_feedback_filter_config(float sample_freq)
 		return;
 	}
 
-	for (int matrix = 0; matrix < ActuatorEffectiveness::MAX_NUM_MATRICES; matrix++) {
+	for (int matrix_index = 0; matrix_index < ActuatorEffectiveness::MAX_NUM_MATRICES; matrix_index++) {
 		for (int axis = 0; axis < NUM_AXES; axis++) {
 			const float cutoff = axis < 3 ? torque_cutoff : force_cutoff;
 
 			if (cutoff > FLT_EPSILON) {
-				_allocation_wrench_feedback_filter[matrix][axis].set_cutoff_frequency(sample_freq, cutoff);
+				_allocation_wrench_feedback_filter[matrix_index][axis].set_cutoff_frequency(sample_freq, cutoff);
 			}
 
 			// set_cutoff_frequency() clears the filter delay state. Preserve the
-			// current wrench when either the cutoff or the estimated sample rate
-			// changes, otherwise dt jitter creates a spurious feedback transient.
-			if (cutoff_changed || sample_freq_changed) {
-				const float reset_value = PX4_ISFINITE(_allocation_wrench_feedback[matrix](axis)) ?
-							  _allocation_wrench_feedback[matrix](axis) : 0.f;
-				_allocation_wrench_feedback_filter[matrix][axis].reset(reset_value);
-			}
+			// current wrench when the filter configuration changes.
+			const float reset_value = PX4_ISFINITE(_allocation_wrench_feedback[matrix_index](axis)) ?
+						  _allocation_wrench_feedback[matrix_index](axis) : 0.f;
+			_allocation_wrench_feedback_filter[matrix_index][axis].reset(reset_value);
 		}
 	}
 
@@ -1083,20 +1064,23 @@ ControlAllocator::update_allocation_feedback_filter_config(float sample_freq)
 	_allocation_feedback_filters_configured = true;
 }
 
-bool
+void
 ControlAllocator::filter_allocation_wrench(int matrix_index, const matrix::Vector<float, NUM_AXES> &raw_wrench,
-					  float dt, matrix::Vector<float, NUM_AXES> &filtered_wrench)
+		float dt, matrix::Vector<float, NUM_AXES> &filtered_wrench)
 {
-	if (!raw_wrench.isAllFinite()) {
-		return false;
-	}
-
-	const float sample_freq = 1.f / math::constrain(dt, 0.0001f, 0.02f);
+	const float sample_freq = 1.f / dt;
 	update_allocation_feedback_filter_config(sample_freq);
+	const float torque_cutoff = math::max(_param_ca_torque_cutoff.get(), 0.f);
+	const float force_cutoff = math::max(_param_ca_force_cutoff.get(), 0.f);
 
 	for (int axis = 0; axis < NUM_AXES; axis++) {
-		const float cutoff = axis < 3 ? math::max(_param_ca_torque_cutoff.get(), 0.f) :
-				     math::max(_param_ca_force_cutoff.get(), 0.f);
+		const float cutoff = axis < 3 ? torque_cutoff : force_cutoff;
+
+		if (!PX4_ISFINITE(raw_wrench(axis))) {
+			_allocation_wrench_feedback[matrix_index](axis) = NAN;
+			filtered_wrench(axis) = NAN;
+			continue;
+		}
 
 		if (cutoff > FLT_EPSILON) {
 			if (!PX4_ISFINITE(_allocation_wrench_feedback[matrix_index](axis))) {
@@ -1112,25 +1096,90 @@ ControlAllocator::filter_allocation_wrench(int matrix_index, const matrix::Vecto
 
 		filtered_wrench(axis) = _allocation_wrench_feedback[matrix_index](axis);
 	}
+}
 
-	return filtered_wrench.isAllFinite();
+float
+ControlAllocator::actuator_delta_for_feedback(int matrix_index, int actuator) const
+{
+	const ControlAllocation *allocation = _control_allocation[matrix_index];
+	const float actuator_trim = allocation->_actuator_trim(actuator);
+	float actuator_delta = allocation->getActuatorSetpoint()(actuator) - actuator_trim;
+
+	// A NaN actuator setpoint has several meanings in PX4. Treat it as physical
+	// zero only when this exact motor was explicitly stopped in the current
+	// allocation cycle. Every other NaN remains invalid feedback.
+	const bool explicitly_stopped_motor = matrix_index == 0
+			&& _allocation_actuator_is_motor[matrix_index][actuator]
+			&& (_stopped_motors & (ActuatorBitmask{1} << actuator));
+
+	if (!PX4_ISFINITE(actuator_delta) && explicitly_stopped_motor && PX4_ISFINITE(actuator_trim)) {
+		actuator_delta = -actuator_trim;
+	}
+
+	return actuator_delta;
+}
+
+void
+ControlAllocator::calculate_allocation_wrench(int matrix_index,
+		const ControlAllocation::ActuatorVector &actuator_delta,
+		matrix::Vector<float, NUM_AXES> &raw_wrench) const
+{
+	const ActuatorEffectiveness::EffectivenessMatrix &effectiveness_bu =
+		_allocation_effectiveness_bu[matrix_index];
+	const int num_actuators = _control_allocation[matrix_index]->numConfiguredActuators();
+	ControlAllocation::ActuatorVector actuator_delta_for_wrench = actuator_delta;
+	uint8_t invalid_axes_mask{0};
+
+	for (int actuator = 0; actuator < num_actuators; actuator++) {
+		if (PX4_ISFINITE(actuator_delta(actuator))) {
+			continue;
+		}
+
+		// Keep unaffected rows usable when an actuator value is invalid. The
+		// invalid actuator is zeroed only for multiplication, then every row to
+		// which it contributes is marked invalid below.
+		actuator_delta_for_wrench(actuator) = 0.f;
+
+		for (int row = 0; row < NUM_AXES; row++) {
+			const float effectiveness = effectiveness_bu(row, actuator);
+
+			if (!PX4_ISFINITE(effectiveness) || fabsf(effectiveness) > FLT_EPSILON) {
+				invalid_axes_mask |= static_cast<uint8_t>(1u << row);
+			}
+		}
+	}
+
+	// Parameters already contain B*U, so this is the complete physical
+	// feedback model. No additional actuator scaling is applied here.
+	raw_wrench = effectiveness_bu * actuator_delta_for_wrench;
+
+	for (int row = 0; row < NUM_AXES; row++) {
+		if (invalid_axes_mask & (1u << row)) {
+			raw_wrench(row) = NAN;
+		}
+	}
 }
 
 void
 ControlAllocator::publish_allocation_value(int matrix_index, float dt)
 {
-	if (!ductedFanAllocationFeedbackEnabled() || !_publish_controls || _control_allocation[matrix_index] == nullptr) {
-		return;
-	}
+	static_assert(allocation_value_s::MAX_U == NUM_ACTUATORS,
+		      "AllocationValue actuator arrays must match the allocator capacity");
 
 	const ControlAllocation *allocation = _control_allocation[matrix_index];
-	const int num_actuators = math::min(allocation->numConfiguredActuators(), (int)allocation_value_s::MAX_U);
+	const int num_actuators = allocation->numConfiguredActuators();
 
 	const hrt_abstime now = hrt_absolute_time();
-	float dt_feedback = math::constrain(dt, 0.0001f, 0.02f);
+	float dt_feedback = dt;
 
 	if (_last_allocation_feedback_update[matrix_index] != 0) {
-		dt_feedback = math::constrain((now - _last_allocation_feedback_update[matrix_index]) / 1e6f, 0.0001f, 0.02f);
+		const hrt_abstime feedback_interval = now - _last_allocation_feedback_update[matrix_index];
+		dt_feedback = math::constrain(feedback_interval / 1e6f, 0.0001f, 0.02f);
+
+		if (feedback_interval > 100_ms) {
+			// Do not revive a stale filter state when allocation resumes after a gap.
+			_allocation_wrench_feedback[matrix_index].setAll(NAN);
+		}
 	}
 
 	_last_allocation_feedback_update[matrix_index] = now;
@@ -1138,36 +1187,22 @@ ControlAllocator::publish_allocation_value(int matrix_index, float dt)
 	allocation_value_s msg {};
 	msg.timestamp = now;
 	msg.timestamp_sample = _timestamp_sample;
-	msg.requested_method = static_cast<int8_t>(_allocation_method_id);
-	msg.fallback = allocation->usedFallback() ? 1 : 0;
-	msg.y_dim = allocation_value_s::MAX_Y;
-	msg.u_dim = static_cast<uint8_t>(num_actuators);
-	msg.feedback_valid = num_actuators > 0;
+	msg.num_actuators = static_cast<uint8_t>(num_actuators);
+	msg.feedback_axes_mask = _allocation_axes_mask[matrix_index];
+	msg.fallback = allocation->usedFallback();
 
 	const ControlAllocation::Diagnostics &diagnostics = allocation->getDiagnostics();
 	msg.solver_status = diagnostics.solver_status;
 	msg.solver_err = diagnostics.solver_err;
 	msg.full_row_rank = diagnostics.full_row_rank;
-	msg.priority_split_valid = diagnostics.priority_split_valid;
-	msg.active_rows = diagnostics.active_rows;
-	msg.active_axes_mask = diagnostics.active_axes_mask;
 	msg.solver_rho = diagnostics.solver_rho;
-	msg.solver_residual = diagnostics.solver_residual;
-	msg.solver_tolerance = diagnostics.solver_tolerance;
 	msg.solver_prepare_time = diagnostics.solver_prepare_time;
 	msg.solver_core_time = diagnostics.solver_core_time;
 	msg.solver_post_time = diagnostics.solver_post_time;
-	msg.allocation_running_time = static_cast<float>(_allocation_running_time_us[matrix_index]);
-	msg.allocation_running_time_avg = _allocation_running_time_avg_us[matrix_index];
-	msg.allocation_running_time_samples = _allocation_running_time_count[matrix_index];
 
 	const matrix::Vector<float, NUM_AXES> &control_sp = allocation->getControlSetpoint();
 	const ActuatorEffectiveness::EffectivenessMatrix &effectiveness_bu =
 		_allocation_effectiveness_bu[matrix_index];
-	const ControlAllocation::ActuatorVector &actuator_sp = allocation->getActuatorSetpoint();
-	const ControlAllocation::ActuatorVector &actuator_min = allocation->getActuatorMin();
-	const ControlAllocation::ActuatorVector &actuator_max = allocation->getActuatorMax();
-	const ControlAllocation::ActuatorVector &actuator_trim = allocation->_actuator_trim;
 	const matrix::Vector<float, NUM_AXES> &scale = allocation->_control_allocation_scale;
 
 	for (int row = 0; row < NUM_AXES; row++) {
@@ -1176,51 +1211,26 @@ ControlAllocator::publish_allocation_value(int matrix_index, float dt)
 			     NAN;
 
 		for (int actuator = 0; actuator < num_actuators; actuator++) {
-			msg.b[row * allocation_value_s::MAX_U + actuator] = effectiveness_bu(row, actuator);
-
-			if (PX4_ISFINITE(effectiveness_bu(row, actuator)) && fabsf(effectiveness_bu(row, actuator)) > FLT_EPSILON) {
-				msg.feedback_axes_mask |= 1u << row;
-			}
+			msg.effectiveness_bu[row * allocation_value_s::MAX_U + actuator] = effectiveness_bu(row, actuator);
 		}
+	}
+
+	ControlAllocation::ActuatorVector actuator_delta;
+	actuator_delta.setZero();
+
+	for (int actuator = 0; actuator < num_actuators; actuator++) {
+		actuator_delta(actuator) = actuator_delta_for_feedback(matrix_index, actuator);
+		msg.u[actuator] = actuator_delta(actuator);
 	}
 
 	matrix::Vector<float, NUM_AXES> raw_wrench;
-	raw_wrench.setZero();
-
-	for (int actuator = 0; actuator < num_actuators; actuator++) {
-		float actuator_delta = actuator_sp(actuator) - actuator_trim(actuator);
-
-		// PX4 represents a stopped motor with a NaN actuator setpoint, while
-		// its physical output is zero thrust. Convert that representation back
-		// into the allocator's delta-from-trim coordinate before forming B*U*u.
-		if (!PX4_ISFINITE(actuator_delta) && _allocation_actuator_is_motor[matrix_index][actuator]
-		    && PX4_ISFINITE(actuator_trim(actuator))) {
-			actuator_delta = -actuator_trim(actuator);
-		}
-
-		msg.u[actuator] = actuator_delta;
-		msg.umin[actuator] = actuator_min(actuator) - actuator_trim(actuator);
-		msg.umax[actuator] = actuator_max(actuator) - actuator_trim(actuator);
-		if (!PX4_ISFINITE(actuator_delta)) {
-			msg.feedback_valid = false;
-			continue;
-		}
-
-		for (int row = 0; row < NUM_AXES; row++) {
-			raw_wrench(row) += msg.b[row * allocation_value_s::MAX_U + actuator] * actuator_delta;
-		}
-	}
+	calculate_allocation_wrench(matrix_index, actuator_delta, raw_wrench);
 
 	matrix::Vector<float, NUM_AXES> filtered_wrench;
-	filtered_wrench.setZero();
-	msg.feedback_valid = msg.feedback_valid && filter_allocation_wrench(matrix_index, raw_wrench, dt_feedback, filtered_wrench);
+	filter_allocation_wrench(matrix_index, raw_wrench, dt_feedback, filtered_wrench);
 
 	for (int row = 0; row < NUM_AXES; row++) {
 		msg.allocated_wrench[row] = filtered_wrench(row);
-	}
-
-	for (int row = 0; row < 3; row++) {
-		msg.error[row] = msg.y[row] - filtered_wrench(row);
 	}
 
 	_allocation_value_pub[matrix_index].publish(msg);
@@ -1437,12 +1447,10 @@ int ControlAllocator::print_status()
 		const ControlAllocation::Diagnostics &diagnostics = _control_allocation[i]->getDiagnostics();
 		char axes[32];
 		formatAllocationAxesMask(diagnostics.active_axes_mask, axes, sizeof(axes));
-		PX4_INFO("  diagnostics: solver=%s(%d) err=%d fallback=%d full_rank=%d rows=%u axes=%s prio_split=%d rho=%.4g residual=%.4g tol=%.4g",
+		PX4_INFO("  diagnostics: solver=%s(%d) err=%d fallback=%d full_rank=%d rows=%u axes=%s rho=%.4g",
 			 allocationSolverStatusName(diagnostics.solver_status), diagnostics.solver_status,
 			 diagnostics.solver_err, (int)_control_allocation[i]->usedFallback(), (int)diagnostics.full_row_rank,
-			 (unsigned)diagnostics.active_rows, axes, (int)diagnostics.priority_split_valid,
-			 (double)diagnostics.solver_rho, (double)diagnostics.solver_residual,
-			 (double)diagnostics.solver_tolerance);
+			 (unsigned)diagnostics.active_rows, axes, (double)diagnostics.solver_rho);
 		PX4_INFO("  timing_us: prep=%.1f core=%.1f post=%.1f alloc=%" PRIu64 " avg=%.2f samples=%" PRIu32,
 			 (double)diagnostics.solver_prepare_time, (double)diagnostics.solver_core_time,
 			 (double)diagnostics.solver_post_time, _allocation_running_time_us[i],

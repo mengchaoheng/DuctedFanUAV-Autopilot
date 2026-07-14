@@ -9,8 +9,6 @@
 
 
 . ${R}etc/init.d/rc.vtol_defaults
-set VEHICLE_TYPE df_vtol
-
 param set-default MAV_TYPE 19 # For MAVLink
 
 param set-default EKF2_FUSE_BETA 0 # side slip fusion is currently not supported for tailsitters
@@ -50,8 +48,6 @@ param set-default MC_J_Y 0.042954
 param set-default MC_J_Z 0.012668
 param set-default MC_USE_INDI 1
 param set-default MPC_USE_ACC_INDI 1
-param set-default MC_USE_TAUI 1
-param set-default MC_USE_U 1
 param set-default MC_INDI_R_P 15
 param set-default MC_INDI_P_P 15
 param set-default MC_INDI_Y_P 15

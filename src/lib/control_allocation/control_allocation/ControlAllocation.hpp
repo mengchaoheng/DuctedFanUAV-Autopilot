@@ -98,12 +98,9 @@ public:
 		int8_t solver_status{0};
 		int8_t solver_err{0};
 		bool full_row_rank{false};
-		bool priority_split_valid{false};
 		uint8_t active_rows{0};
 		uint8_t active_axes_mask{0};
 		float solver_rho{0.f};
-		float solver_residual{0.f};
-		float solver_tolerance{0.f};
 		float solver_prepare_time{0.f};
 		float solver_core_time{0.f};
 		float solver_post_time{0.f};
@@ -144,11 +141,7 @@ public:
 	 *
 	 * @param Control vector
 	 */
-	void setControlSetpoint(const matrix::Vector<float, NUM_AXES> &control)
-	{
-		_control_sp = control;
-		_control_sp_priority_split_valid = false;
-	}
+	void setControlSetpoint(const matrix::Vector<float, NUM_AXES> &control) { _control_sp = control; }
 
 	/**
 	 * Set optional higher/lower priority components of the desired control vector.
@@ -157,11 +150,10 @@ public:
 	 * higher and lower should match the control setpoint supplied by setControlSetpoint().
 	 */
 	void setControlSetpointPrioritySplit(const matrix::Vector<float, NUM_AXES> &higher,
-					     const matrix::Vector<float, NUM_AXES> &lower, bool valid)
+					     const matrix::Vector<float, NUM_AXES> &lower)
 	{
 		_control_sp_priority_higher = higher;
 		_control_sp_priority_lower = lower;
-		_control_sp_priority_split_valid = valid;
 	}
 
 	/**
@@ -303,5 +295,4 @@ protected:
 	Diagnostics _diagnostics{};
 	bool _normalize_rpy{false};				///< if true, normalize roll, pitch and yaw columns
 	bool _had_actuator_failure{false};
-	bool _control_sp_priority_split_valid{false};
 };

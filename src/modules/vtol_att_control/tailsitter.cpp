@@ -53,8 +53,6 @@ void clear_torque_setpoint(vehicle_torque_setpoint_s *setpoint)
 		setpoint->xyz_rate_error_feedback[i] = 0.f;
 		setpoint->xyz_indi_feedback[i] = 0.f;
 	}
-
-	setpoint->xyz_split_valid = false;
 }
 
 void copy_torque_setpoint(vehicle_torque_setpoint_s *dst, const vehicle_torque_setpoint_s *src)
@@ -64,8 +62,6 @@ void copy_torque_setpoint(vehicle_torque_setpoint_s *dst, const vehicle_torque_s
 		dst->xyz_rate_error_feedback[i] = src->xyz_rate_error_feedback[i];
 		dst->xyz_indi_feedback[i] = src->xyz_indi_feedback[i];
 	}
-
-	dst->xyz_split_valid = src->xyz_split_valid;
 }
 }
 

@@ -656,7 +656,8 @@ parameters:
                 short: Allocated moment feedback cutoff
                 long: |
                   Low-pass cutoff applied after computing the physical allocated
-                  moment (B*U)*u_norm. No actuator dynamics are simulated.
+                  moment (B*U)*u_norm for each allocation matrix. No actuator
+                  dynamics are simulated.
                   0 publishes the unfiltered allocated moment.
             type: float
             min: 0
@@ -687,7 +688,8 @@ parameters:
                 short: Allocated force feedback cutoff
                 long: |
                   Low-pass cutoff applied after computing the physical allocated
-                  force (B*U)*u_norm. No actuator dynamics are simulated.
+                  force (B*U)*u_norm for each allocation matrix. No actuator
+                  dynamics are simulated.
                   0 publishes the unfiltered allocated force.
             type: float
             min: 0

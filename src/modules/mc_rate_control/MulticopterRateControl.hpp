@@ -49,11 +49,11 @@
 #include <uORB/PublicationMulti.hpp>
 #include <uORB/Subscription.hpp>
 #include <uORB/SubscriptionCallback.hpp>
+#include <uORB/SubscriptionMultiArray.hpp>
 #include <uORB/topics/actuator_controls_status.h>
 #include <uORB/topics/allocation_value.h>
 #include <uORB/topics/battery_status.h>
 #include <uORB/topics/control_allocator_status.h>
-#include <uORB/topics/indi_control_status.h>
 #include <uORB/topics/manual_control_setpoint.h>
 #include <uORB/topics/parameter_update.h>
 #include <uORB/topics/rate_ctrl_status.h>
@@ -72,7 +72,7 @@ class MulticopterRateControl : public ModuleBase, public ModuleParams, public px
 public:
 	static Descriptor desc;
 
-	MulticopterRateControl(bool vtol = false, bool ducted_fan = false);
+	MulticopterRateControl(bool vtol = false);
 	~MulticopterRateControl() override;
 
 	/** @see ModuleBase */
@@ -81,15 +81,19 @@ public:
 	/** @see ModuleBase */
 	static int custom_command(int argc, char *argv[]);
 
-	/** @see ModuleBase::print_status() */
-	int print_status() override;
-
 	/** @see ModuleBase */
 	static int print_usage(const char *reason = nullptr);
 
 	bool init();
 
 private:
+	struct IndiOutput {
+		matrix::Vector3f rate_error;
+		matrix::Vector3f feedback;
+
+		matrix::Vector3f torque() const { return rate_error + feedback; }
+	};
+
 	void Run() override;
 
 	/**
@@ -97,64 +101,54 @@ private:
 	 */
 	void parameters_updated();
 
+	void updateSaturationStatus();
+	bool updateIndiTorqueSetpoint(const matrix::Vector3f &rates, const matrix::Vector3f &rates_setpoint,
+				      const matrix::Vector3f &angular_accel, IndiOutput &output);
+	void setPrioritySplit(vehicle_torque_setpoint_s &setpoint, const IndiOutput &indi_output,
+			      const matrix::Vector3f &filtered_torque, bool indi_active, float dt);
+	void publishTorqueSetpoint(const vehicle_torque_setpoint_s &setpoint);
 	void updateActuatorControlsStatus(const vehicle_torque_setpoint_s &vehicle_torque_setpoint, float dt);
 
 	RateControl _rate_control; ///< class for rate control calculations
 	IndiControl _indi_control; ///< INDI angular rate control
 
-	uORB::Subscription _allocation_value0_sub{ORB_ID(allocation_value), 0};
-	uORB::Subscription _allocation_value1_sub{ORB_ID(allocation_value), 1};
 	uORB::Subscription _battery_status_sub{ORB_ID(battery_status)};
-	uORB::Subscription _control_allocator_status0_sub{ORB_ID(control_allocator_status), 0};
-	uORB::Subscription _control_allocator_status1_sub{ORB_ID(control_allocator_status), 1};
 	uORB::Subscription _manual_control_setpoint_sub{ORB_ID(manual_control_setpoint)};
 	uORB::Subscription _vehicle_control_mode_sub{ORB_ID(vehicle_control_mode)};
 	uORB::Subscription _vehicle_land_detected_sub{ORB_ID(vehicle_land_detected)};
 	uORB::Subscription _vehicle_rates_setpoint_sub{ORB_ID(vehicle_rates_setpoint)};
 	uORB::Subscription _vehicle_status_sub{ORB_ID(vehicle_status)};
+	uORB::SubscriptionMultiArray<allocation_value_s, 2> _allocation_value_subs{ORB_ID::allocation_value};
+	uORB::SubscriptionMultiArray<control_allocator_status_s, 2> _control_allocator_status_subs{
+		ORB_ID::control_allocator_status};
 
 	uORB::SubscriptionInterval _parameter_update_sub{ORB_ID(parameter_update), 1_s};
 
 	uORB::SubscriptionCallbackWorkItem _vehicle_angular_velocity_sub{this, ORB_ID(vehicle_angular_velocity)};
 
 	uORB::Publication<actuator_controls_status_s>	_actuator_controls_status_pub{ORB_ID(actuator_controls_status_0)};
-	uORB::Publication<indi_control_status_s>		_indi_control_status_pub{ORB_ID(indi_control_status)};
 	uORB::PublicationMulti<rate_ctrl_status_s>	_controller_status_pub{ORB_ID(rate_ctrl_status)};
 	uORB::Publication<vehicle_rates_setpoint_s>	_vehicle_rates_setpoint_pub{ORB_ID(vehicle_rates_setpoint)};
 	uORB::Publication<vehicle_thrust_setpoint_s>	_vehicle_thrust_setpoint_pub;
 	uORB::Publication<vehicle_torque_setpoint_s>	_vehicle_torque_setpoint_pub;
-	uORB::PublicationMulti<vehicle_thrust_setpoint_s> _vehicle_thrust_setpoint1_pub{ORB_ID(vehicle_thrust_setpoint)};
 	uORB::PublicationMulti<vehicle_torque_setpoint_s> _vehicle_torque_setpoint1_pub{ORB_ID(vehicle_torque_setpoint)};
 
 	vehicle_control_mode_s	_vehicle_control_mode{};
 	vehicle_status_s	_vehicle_status{};
-	control_allocator_status_s _control_allocator_status{};
 
-	bool _vtol{false};
-	bool _ducted_fan{false};
 	bool _landed{true};
 	bool _maybe_landed{true};
 	bool _use_indi{false};
-	bool _use_tau_i{true};
-	bool _use_u{true};
-	bool _indi_waiting{false};
-	bool _last_indi_status_valid{false};
+	bool _vtol{false};
+	uint8_t _torque_allocation_instance{0};
 
 	hrt_abstime _last_run{0};
-	hrt_abstime _last_indi_run{0};
-	hrt_abstime _rate_control_running_time_us{0};
-	float _rate_control_running_time_avg_us{0.f};
-	uint32_t _rate_control_running_time_count{0};
-	uint8_t _rate_control_method{0};
-	allocation_value_s _allocation_value{};
 
 	perf_counter_t	_loop_perf;			/**< loop duration performance counter */
 
 	// keep setpoint values between updates
 	matrix::Vector3f _acro_rate_max;		/**< max attitude rates in acro mode */
 	matrix::Vector3f _rates_setpoint{};
-	matrix::Vector3f _last_indi_torque_physical{};
-	matrix::Vector3f _last_indi_torque_normalized{};
 
 	float _battery_status_scale{0.0f};
 	matrix::Vector3f _thrust_setpoint{};
@@ -163,6 +157,7 @@ private:
 	float _control_energy[4] {};
 
 	AlphaFilter<float> _output_lpf_yaw;
+	AlphaFilter<float> _indi_feedback_lpf_yaw;
 
 	DEFINE_PARAMETERS(
 		(ParamFloat<px4::params::MC_ROLLRATE_P>) _param_mc_rollrate_p,
@@ -204,7 +199,6 @@ private:
 		(ParamFloat<px4::params::MC_J_Y>) _param_mc_j_y,
 		(ParamFloat<px4::params::MC_J_Z>) _param_mc_j_z,
 		(ParamInt<px4::params::MC_USE_INDI>) _param_mc_use_indi,
-		(ParamInt<px4::params::MC_USE_TAUI>) _param_mc_use_tau_i,
-		(ParamInt<px4::params::MC_USE_U>) _param_mc_use_u
+		(ParamInt<px4::params::CA_AIRFRAME>) _param_ca_airframe
 	)
 };

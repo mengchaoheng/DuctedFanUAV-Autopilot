@@ -24,25 +24,15 @@ bool IndiControl::paramsValid() const
 	       && _inertia(0) > FLT_EPSILON && _inertia(1) > FLT_EPSILON && _inertia(2) > FLT_EPSILON;
 }
 
-Vector3f IndiControl::update(const Vector3f &rate, const Vector3f &rate_sp, const Vector3f &angular_accel,
-			     const Vector3f &allocated_torque, Vector3f &indi_fb, bool landed, bool use_u, bool use_tau_i)
+IndiControl::Output IndiControl::update(const Vector3f &rate, const Vector3f &rate_sp,
+		const Vector3f &angular_accel, const Vector3f &allocated_torque) const
 {
 	const Vector3f rate_error = rate_sp - rate;
 	const Vector3f angular_accel_sp = _gain_p.emult(rate_error);
-	const Vector3f error_fb = _inertia.emult(angular_accel_sp);
-	indi_fb.setZero();
 
-	if (!landed) {
-		// tau_c = tau_0 + J * (alpha_c - alpha_0). Keep the incremental
-		// feedback and commanded-acceleration terms separate for allocator priority.
-		if (use_u) {
-			indi_fb += allocated_torque;
-		}
-
-		if (use_tau_i) {
-			indi_fb -= _inertia.emult(angular_accel);
-		}
-	}
-
-	return error_fb;
+	// tau_c = tau_0 + J * (alpha_c - alpha_0)
+	Output output;
+	output.rate_error_torque = _inertia.emult(angular_accel_sp);
+	output.feedback_torque = allocated_torque - _inertia.emult(angular_accel);
+	return output;
 }

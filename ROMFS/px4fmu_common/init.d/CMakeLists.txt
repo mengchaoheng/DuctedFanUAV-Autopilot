@@ -69,12 +69,6 @@ if(CONFIG_MODULES_MC_RATE_CONTROL)
 	)
 endif()
 
-if(CONFIG_MODULES_MC_RATE_CONTROL AND CONFIG_MODULES_MC_ATT_CONTROL AND CONFIG_MODULES_MC_POS_CONTROL)
-	px4_add_romfs_files(
-		rc.df_apps
-	)
-endif()
-
 if(CONFIG_MODULES_ROVER_DIFFERENTIAL)
 	px4_add_romfs_files(
 		rc.rover
@@ -117,12 +111,6 @@ if(CONFIG_MODULES_VTOL_ATT_CONTROL)
 	px4_add_romfs_files(
 		rc.vtol_apps
 		rc.vtol_defaults
-	)
-endif()
-
-if(CONFIG_MODULES_MC_RATE_CONTROL AND CONFIG_MODULES_MC_ATT_CONTROL AND CONFIG_MODULES_MC_POS_CONTROL AND CONFIG_MODULES_VTOL_ATT_CONTROL)
-	px4_add_romfs_files(
-		rc.df_vtol_apps
 	)
 endif()
 
