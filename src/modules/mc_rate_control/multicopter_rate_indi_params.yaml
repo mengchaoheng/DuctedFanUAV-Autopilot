@@ -56,9 +56,9 @@ parameters:
       min: 0.000001
       unit: kg m^2
       decimal: 6
-    MC_USE_INDI:
+    MC_INDI_RATE_EN:
       description:
-        short: Enable INDI rate control
+        short: Enable rate INDI control
         long: |-
           Uses tau_c=tau_0+J*(Kp*(omega_sp-omega)-alpha_0). The physical
           torque command is multiplied by the allocator torque scale D before

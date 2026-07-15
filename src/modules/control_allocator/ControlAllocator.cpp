@@ -1200,15 +1200,12 @@ ControlAllocator::publish_allocation_value(int matrix_index, float dt)
 	msg.solver_core_time = diagnostics.solver_core_time;
 	msg.solver_post_time = diagnostics.solver_post_time;
 
-	const matrix::Vector<float, NUM_AXES> &control_sp = allocation->getControlSetpoint();
 	const ActuatorEffectiveness::EffectivenessMatrix &effectiveness_bu =
 		_allocation_effectiveness_bu[matrix_index];
 	const matrix::Vector<float, NUM_AXES> &scale = allocation->_control_allocation_scale;
 
 	for (int row = 0; row < NUM_AXES; row++) {
 		msg.control_allocation_scale[row] = scale(row);
-		msg.y[row] = (PX4_ISFINITE(scale(row)) && fabsf(scale(row)) > FLT_EPSILON) ? control_sp(row) / scale(row) :
-			     NAN;
 
 		for (int actuator = 0; actuator < num_actuators; actuator++) {
 			msg.effectiveness_bu[row * allocation_value_s::MAX_U + actuator] = effectiveness_bu(row, actuator);

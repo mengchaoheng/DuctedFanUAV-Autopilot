@@ -199,7 +199,7 @@ private:
 		(ParamFloat<px4::params::MPC_YAWRAUTO_ACC>) _param_mpc_yawrauto_acc,
 
 		// Multicopter acceleration INDI
-		(ParamInt<px4::params::MPC_USE_ACC_INDI>)  _param_mpc_use_acc_indi,
+		(ParamInt<px4::params::MPC_INDI_ACC_EN>)   _param_mpc_indi_acc_en,
 		(ParamFloat<px4::params::MPC_MASS>)        _param_mpc_mass
 		);
 

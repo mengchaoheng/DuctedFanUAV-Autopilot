@@ -72,7 +72,7 @@ parameters:
           6: Tilt-prioritized quaternion error. This uses the Brescianini and D'Andrea / Sun et al. split into reduced-attitude and yaw errors, adapted to the PX4 convention qe = q^(-1) * qd. Error scale: 2*n*sin(theta/2).
 
           7: Tilt-torsion SO(3) logarithm-map error. This uses the Yu et al. tilt-torsion decomposition with Re = R^T * Rd, computes tilt and torsion errors separately, and applies yaw weighting to torsion. Error scale: n*theta.
-      type: int32
+      type: enum
       default: 0
       min: 0
       max: 7

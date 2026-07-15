@@ -139,6 +139,7 @@ private:
 	bool _landed{true};
 	bool _maybe_landed{true};
 	bool _use_indi{false};
+	bool _indi_was_active{false};
 	bool _vtol{false};
 	uint8_t _torque_allocation_instance{0};
 
@@ -198,7 +199,7 @@ private:
 		(ParamFloat<px4::params::MC_J_X>) _param_mc_j_x,
 		(ParamFloat<px4::params::MC_J_Y>) _param_mc_j_y,
 		(ParamFloat<px4::params::MC_J_Z>) _param_mc_j_z,
-		(ParamInt<px4::params::MC_USE_INDI>) _param_mc_use_indi,
+		(ParamInt<px4::params::MC_INDI_RATE_EN>) _param_mc_indi_rate_en,
 		(ParamInt<px4::params::CA_AIRFRAME>) _param_ca_airframe
 	)
 };

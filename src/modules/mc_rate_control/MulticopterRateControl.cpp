@@ -136,7 +136,7 @@ MulticopterRateControl::parameters_updated()
 	_indi_control.setParams(Vector3f(_param_mc_indi_roll_p.get(), _param_mc_indi_pitch_p.get(),
 					 _param_mc_indi_yaw_p.get()),
 				Vector3f(_param_mc_j_x.get(), _param_mc_j_y.get(), _param_mc_j_z.get()));
-	_use_indi = _param_mc_use_indi.get() == 1;
+	_use_indi = _param_mc_indi_rate_en.get() == 1;
 	_torque_allocation_instance = torqueAllocationInstance(_param_ca_airframe.get());
 }
 
@@ -346,12 +346,17 @@ MulticopterRateControl::Run()
 
 			if (indi_active) {
 				torque_setpoint = indi_output.torque();
-				_rate_control.resetIntegral();
+
+				if (!_indi_was_active) {
+					_rate_control.resetIntegral();
+				}
 
 			} else {
 				torque_setpoint = _rate_control.update(rates, _rates_setpoint, angular_accel, dt,
 									_maybe_landed || _landed);
 			}
+
+			_indi_was_active = indi_active;
 
 			// apply low-pass filtering on yaw axis to reduce high frequency torque caused by rotor acceleration
 			torque_setpoint(2) = _output_lpf_yaw.update(torque_setpoint(2), dt);
@@ -359,6 +364,7 @@ MulticopterRateControl::Run()
 			// publish rate controller status
 			rate_ctrl_status_s rate_ctrl_status{};
 			_rate_control.getRateControlStatus(rate_ctrl_status);
+			rate_ctrl_status.indi_active = indi_active;
 			rate_ctrl_status.timestamp = hrt_absolute_time();
 			_controller_status_pub.publish(rate_ctrl_status);
 
@@ -401,6 +407,8 @@ MulticopterRateControl::Run()
 
 			updateActuatorControlsStatus(vehicle_torque_setpoint, dt);
 
+		} else {
+			_indi_was_active = false;
 		}
 	}
 

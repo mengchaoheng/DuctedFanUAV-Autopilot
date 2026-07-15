@@ -20,8 +20,7 @@ float32 solver_prepare_time # [us] LPCA adapter work before entering pca/Control
 float32 solver_core_time # [us] pca/ControlAllocation.h construction, solver and restoring
 float32 solver_post_time # [us] LPCA adapter work after returning from pca/ControlAllocation.h calls
 
-float32[6] y                       # Requested body-FRD physical wrench [Mx, My, Mz, Fx, Fy, Fz], [N m, N]
 float32[96] effectiveness_bu       # Body-FRD B*U, row-major; valid at row*MAX_U+actuator for actuator<num_actuators
 float32[6] allocated_wrench        # Filtered per-matrix body-FRD (B*U)*(u_sp-u_trim); rotor thrust follows F=-T*b_z, [N m, N]
 float32[6] control_allocation_scale # D: physical wrench to normalized control setpoint
-float32[16] u                     # Normalized actuator delta relative to allocator trim
+float32[16] u                     # Normalized actuator allocation variable relative to trim

@@ -589,7 +589,7 @@ void MulticopterPositionControl::Run()
 			_control.setState(states);
 			_control.clearAccelerationIndiFeedback();
 
-			if (_param_mpc_use_acc_indi.get() && flying) {
+			if (_param_mpc_indi_acc_en.get() && flying) {
 				const Vector3f acc_meas(states.acceleration);
 				const float mass = _param_mpc_mass.get();
 				Vector3f force_feedback;

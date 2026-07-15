@@ -2,9 +2,9 @@ module_name: mc_pos_control
 parameters:
 - group: Multicopter Acceleration INDI
   definitions:
-    MPC_USE_ACC_INDI:
+    MPC_INDI_ACC_EN:
       description:
-        short: Enable multicopter acceleration INDI
+        short: Enable acceleration INDI control
         long: |-
           When enabled, mc_pos_control keeps the PX4 position/velocity PID loop and
           replaces the final acceleration-to-thrust conversion with an acceleration
