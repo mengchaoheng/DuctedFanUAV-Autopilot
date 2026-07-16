@@ -207,6 +207,20 @@ $$
 
 $a_{\mathrm{map}}^n$ 随后进入原有 hover-thrust mapping、姿态生成和推力限制流程。
 
+`vehicle_local_position_setpoint.acc_indi_active` 记录本周期是否真正执行了上述 INDI 映射。参数已经开启但车辆尚未起飞、反馈过期或数值无效时，该字段为 `false`。
+
+### 3.4 物理反馈模型的适用前提
+
+当前 INDI 反馈实现面向 `linearization_point=0` 的线性物理模型：目标 matrix 的非零行必须是单位为 N·m、N 的 $BU$，此时最终执行器设定值对应的模型反馈为：
+
+$$
+v_0=(BU)\left(u_{n,\mathrm{final}}-u_{n,\mathrm{trim}}\right).
+$$
+
+部分内置 effectiveness source 使用相对系数、力矩方向符号或 `updateSetpoint()` 中的非线性映射。例如 Tiltrotor 的 differential tilt、MC Tilt 和 Helicopter；这些分配模型目前不能提供上述物理反馈，也不能仅靠修改 INDI 增益获得正确结果。该限制来自控制分配模型，而不是 INDI 控制律。effectiveness source 将来提供物理线性矩阵，或提供与状态相关的物理前向模型及 Jacobian 后，可以继续使用相同的 INDI 公式和反馈链路。
+
+软件保留时效、有限值和控制轴检查，但不根据数值猜测矩阵是相对量还是物理量。启用 `MC_INDI_RATE_EN` 或 `MPC_INDI_ACC_EN` 表示用户确认目标 matrix 满足物理模型要求。
+
 ## 4. PCA 优先级分配
 
 上述角速度 INDI 输出还为本分支新增的 PCA 提供优先级输入。归一化 torque 拆分为：
@@ -269,31 +283,41 @@ FW 阶段的 Tailsitter 调度由 `virtual_fw` 更新触发，CA17 在该周期�
 
 ## 6. INDI 适用范围
 
-角速度 INDI 沿用 `mc_rate_control` 的输出路由，并使用目标 matrix 的物理 $BU$ 反馈和 $D$；加速度 INDI 沿用 `mc_pos_control` 的输出路由，并使用 matrix 0 的物理力反馈。分支仿真运行覆盖 Iris 和 DF 全系列；物理 INDI 配置状态如下。
+角速度 INDI 沿用 `mc_rate_control` 的输出路由；加速度 INDI 沿用 `mc_pos_control` 的输出路由。适用性取决于当前阶段使用的控制器，以及目标 matrix 是否采用第 3.4 节所述的物理 $BU$。
 
-### 6.1 已配置物理分配模型
+### 6.1 已配置并验证
 
 - Iris：`10015_gazebo-classic_iris`，以及继承其配置的 `22016_gz_iris`；
 - DF4、DF6、SHC09；
-- SHW09 VTOL：角速度 INDI 支持 MC、Transition、FW，加速度 INDI 支持 MC、Transition。
+- SHW09 VTOL：角速度 INDI 支持 MC、Transition、FW，加速度 INDI 支持 MC、Transition；
+- CA2 Standard VTOL：`1040_gazebo-classic_standard_vtol`，MC 阶段支持角速度和加速度 INDI；
+- CA4 Tailsitter：`1045_gazebo-classic_quadtailsitter`，MC 阶段支持角速度和加速度 INDI。
 
-这些配置已填写物理 $BU$、质量和惯量。`22006/22013` 将两级 INDI 默认值设为 1，其余配置继承 `MC_INDI_RATE_EN=0`、`MPC_INDI_ACC_EN=0` 的模块默认值。
+以上配置已经填写物理 $BU$、质量和惯量。通过 `MC_INDI_RATE_EN` 和 `MPC_INDI_ACC_EN` 分别启用角速度和加速度 INDI。
 
-### 6.2 补充物理分配参数后可用
+### 6.2 配置物理效应矩阵后可用
 
-- DF2、Ducted Fan Mini：当前 DF 系列中只有这两类尚未填写物理 $BU$；
-- 其他使用 `mc_rate_control`/`mc_pos_control` 的普通多旋翼；
-- CA2/CA3/CA4 VTOL 的 MC、Transition 阶段，包括 `1045_gazebo-classic_quadtailsitter`；
-- 其他 CA17 DF Tailsitter。
+角速度 INDI 的使用条件为：
 
-角速度 INDI 需要配置物理 torque rows、`MC_J_*` 和 `MC_INDI_RATE_EN`；加速度 INDI 需要配置物理 force rows、`MPC_MASS` 和 `MPC_INDI_ACC_EN`。
+- 当前阶段实际使用 `mc_rate_control`；
+- 目标 matrix 的三轴力矩行为物理 $BU$，单位为 N·m；
+- `MC_J_*` 与机体惯量一致。
 
-### 6.3 现有 `mc_rate_control` 路径的限制
+加速度 INDI 的使用条件为：
+
+- 当前阶段实际使用 `mc_pos_control`；
+- matrix 0 的三轴力行为物理 $BU$，单位为 N；
+- `MPC_MASS` 与整机质量一致。
+
+满足这些条件后，普通多旋翼、其他 CA2/CA4 VTOL 的 MC 阶段、其他 CA17 DF Tailsitter，以及补齐物理参数后的 DF2、Ducted Fan Mini 均可使用现有 INDI 链路。$D$ 由目标 matrix 的归一化控制分配自动提供。
+
+### 6.3 当前不适用
 
 - CA10/11/12 Helicopter：力矩非线性映射位于 `updateSetpoint()`，allocation matrix 没有可供 INDI 使用的三轴力矩反馈；
+- CA3 Tiltrotor 和其他 active-tilt 机型：tilt torque 随当前电机推力和倾转角变化，现有相对力矩列不是物理 N·m；
 - CA2/CA3/CA4 VTOL 的 FW 阶段：虽然 `mc_rate_control` 模块已经启动，但实际力矩路径使用 `fw_rate_control`。CA17 SHW09 是当前例外。
 
-以上情况需要修改 effectiveness 或 VTOL 路由代码。
+这些路径需要先使 effectiveness 能描述目标实例当前实际产生的物理力和力矩，或调整控制器路由；仅修改 INDI 参数不能建立正确反馈。
 
 ## 7. 日志确认
 
@@ -303,6 +327,7 @@ FW 阶段的 Tailsitter 调度由 `virtual_fw` 更新触发，CA17 在该周期�
 - `allocation_value` instance 0/1：$(BU)_{\mathrm{feedback}}$、$u_{\mathrm{alloc,final}}$、$D$ 和模型反馈；
 - `control_allocator_status` instance 0/1：分配状态、饱和和运行时间；
 - `rate_ctrl_status.indi_active`：角速度环每周期的 PID/INDI 实际选择；
+- `vehicle_local_position_setpoint.acc_indi_active`：加速度环每周期是否真正执行 INDI 映射；
 - `vehicle_angular_velocity`、`actuator_motors`、`actuator_servos`：系统响应和最终执行器命令。
 
 ## 8. 相关代码

@@ -240,6 +240,7 @@ private:
 
 	// Acceleration INDI feedback
 	bool _acceleration_indi_enabled{false};
+	bool _acceleration_indi_active{false};
 	matrix::Vector3f _acceleration_indi_meas;
 	matrix::Vector3f _acceleration_indi_force;
 	float _acceleration_indi_mass{NAN};

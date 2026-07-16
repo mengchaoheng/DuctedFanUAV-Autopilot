@@ -14,22 +14,53 @@ param set-default FD_ACT_MOT_TOUT 500
 
 param set-default CA_AIRFRAME 2
 
+# Physical matrix-0 motor model for MC hover INDI and Transition tests:
+#   v = (B*U)*u_norm, with moment in N m and force in N.
+# Rotor positions are the Classic SDF locations converted from FLU to FRD
+# and expressed relative to the complete-model center of mass. With
+# THR_MDL_FAC=1, normalized motor thrust is the physical thrust fraction.
+# Matrix 1 keeps the legacy fixed control-surface coefficients used by the
+# fixed-wing controller; the SDF aerodynamic effect varies with airspeed.
+# MC INDI reads matrix 0 only.
+param set-default THR_MDL_FAC 1
+param set-default MPC_MASS 5.0700
+param set-default MC_J_X 0.480461
+param set-default MC_J_Y 0.345324
+param set-default MC_J_Z 0.816889
+param set-default MPC_THR_HOVER 0.2762
+param set-default CA_FORCE_CUTOFF 3
+param set-default CA_TORQ_CUTOFF 8
+
 param set-default CA_ROTOR_COUNT 5
-param set-default CA_ROTOR0_PX 0.1515
-param set-default CA_ROTOR0_PY 0.245
-param set-default CA_ROTOR0_KM 0.05
-param set-default CA_ROTOR1_PX -0.1515
-param set-default CA_ROTOR1_PY -0.1875
-param set-default CA_ROTOR1_KM 0.05
-param set-default CA_ROTOR2_PX 0.1515
-param set-default CA_ROTOR2_PY -0.245
-param set-default CA_ROTOR2_KM -0.05
-param set-default CA_ROTOR3_PX -0.1515
-param set-default CA_ROTOR3_PY 0.1875
-param set-default CA_ROTOR3_KM -0.05
+param set-default CA_ROTOR0_PX 0.350217
+param set-default CA_ROTOR0_PY 0.350000
+param set-default CA_ROTOR0_PZ -0.069724
+param set-default CA_ROTOR0_CT 45
+param set-default CA_ROTOR0_KM 0.06
+param set-default CA_ROTOR1_PX -0.349783
+param set-default CA_ROTOR1_PY -0.350000
+param set-default CA_ROTOR1_PZ -0.069724
+param set-default CA_ROTOR1_CT 45
+param set-default CA_ROTOR1_KM 0.06
+param set-default CA_ROTOR2_PX 0.350217
+param set-default CA_ROTOR2_PY -0.350000
+param set-default CA_ROTOR2_PZ -0.069724
+param set-default CA_ROTOR2_CT 45
+param set-default CA_ROTOR2_KM -0.06
+param set-default CA_ROTOR3_PX -0.349783
+param set-default CA_ROTOR3_PY 0.350000
+param set-default CA_ROTOR3_PZ -0.069724
+param set-default CA_ROTOR3_CT 45
+param set-default CA_ROTOR3_KM -0.06
 param set-default CA_ROTOR4_AX 1
+param set-default CA_ROTOR4_AY 0
 param set-default CA_ROTOR4_AZ 0
-param set-default CA_ROTOR4_PX 0.2
+param set-default CA_ROTOR4_PX -0.219783
+param set-default CA_ROTOR4_PY 0
+param set-default CA_ROTOR4_PZ 0.000276
+param set-default CA_ROTOR4_CT 100
+# CA2 deliberately disables propeller torque for non-upward rotors.
+param set-default CA_ROTOR4_KM 0
 
 param set-default CA_SV_CS_COUNT 3
 param set-default CA_SV_CS0_TYPE 1

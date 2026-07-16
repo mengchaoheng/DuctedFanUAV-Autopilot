@@ -11,19 +11,60 @@ param set-default MAV_TYPE 20
 
 param set-default CA_AIRFRAME 4
 
+# Physical rotor model for MC/Transition INDI:
+#   v = (B*U)*u_norm, with moment in N m and force in N.
+# The SDF rotor links and allocator axes are vertical, so CA_ROTORx_CT is the
+# complete per-rotor maximum thrust. Positions are converted from SDF FLU to FRD
+# and expressed relative to the complete-model center of mass.
+param set-default THR_MDL_FAC 1
+param set-default MPC_MASS 1.6650
+# The simulated IMU is 0.44865 m below the complete-model center of mass.
+# Report local position/velocity at the center of mass so acceleration INDI
+# does not feed rotational lever-arm acceleration back as translational motion.
+param set-default EKF2_IMU_POS_Z 0.44865
+param set-default MC_J_X 0.118456
+param set-default MC_J_Y 0.035338
+param set-default MC_J_Z 0.085701
+param set-default MPC_THR_HOVER 0.18305
+param set-default CA_FORCE_CUTOFF 6
+param set-default CA_TORQ_CUTOFF 8
+param set-default MC_INDI_P_P 20
+param set-default MC_INDI_R_P 20
+param set-default MC_INDI_Y_P 20
+
 param set-default CA_ROTOR_COUNT 4
-param set-default CA_ROTOR0_PX 0.15
+param set-default CA_ROTOR0_AX 0
+param set-default CA_ROTOR0_AY 0
+param set-default CA_ROTOR0_AZ -1
+param set-default CA_ROTOR0_PX 0.145
 param set-default CA_ROTOR0_PY 0.23
-param set-default CA_ROTOR0_KM 0.05
-param set-default CA_ROTOR1_PX -0.15
+param set-default CA_ROTOR0_PZ -0.011351
+param set-default CA_ROTOR0_CT 22.299552
+param set-default CA_ROTOR0_KM 0.06
+param set-default CA_ROTOR1_AX 0
+param set-default CA_ROTOR1_AY 0
+param set-default CA_ROTOR1_AZ -1
+param set-default CA_ROTOR1_PX -0.145
 param set-default CA_ROTOR1_PY -0.23
-param set-default CA_ROTOR1_KM 0.05
-param set-default CA_ROTOR2_PX 0.15
+param set-default CA_ROTOR1_PZ -0.011351
+param set-default CA_ROTOR1_CT 22.299552
+param set-default CA_ROTOR1_KM 0.06
+param set-default CA_ROTOR2_AX 0
+param set-default CA_ROTOR2_AY 0
+param set-default CA_ROTOR2_AZ -1
+param set-default CA_ROTOR2_PX 0.145
 param set-default CA_ROTOR2_PY -0.23
-param set-default CA_ROTOR2_KM -0.05
-param set-default CA_ROTOR3_PX -0.15
+param set-default CA_ROTOR2_PZ -0.011351
+param set-default CA_ROTOR2_CT 22.299552
+param set-default CA_ROTOR2_KM -0.06
+param set-default CA_ROTOR3_AX 0
+param set-default CA_ROTOR3_AY 0
+param set-default CA_ROTOR3_AZ -1
+param set-default CA_ROTOR3_PX -0.145
 param set-default CA_ROTOR3_PY 0.23
-param set-default CA_ROTOR3_KM -0.05
+param set-default CA_ROTOR3_PZ -0.011351
+param set-default CA_ROTOR3_CT 22.299552
+param set-default CA_ROTOR3_KM -0.06
 
 param set-default CA_SV_CS_COUNT 0
 
@@ -63,6 +104,10 @@ param set-default MC_ROLL_P 3
 param set-default MC_PITCH_P 3
 param set-default MC_ROLLRATE_P 0.3
 param set-default MC_PITCHRATE_P 0.3
+# The motor dynamics are as fast as Iris. The legacy D terms excite a pitch
+# mode around 16 Hz and make airmode raise the mean collective thrust.
+param set-default MC_ROLLRATE_D 0
+param set-default MC_PITCHRATE_D 0
 
 param set-default VT_ARSP_TRANS 15
 param set-default VT_B_TRANS_DUR 5

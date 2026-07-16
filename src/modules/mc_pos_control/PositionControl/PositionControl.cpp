@@ -125,6 +125,7 @@ void PositionControl::setAccelerationIndiFeedback(const Vector3f &acc_meas, cons
 void PositionControl::clearAccelerationIndiFeedback()
 {
 	_acceleration_indi_enabled = false;
+	_acceleration_indi_active = false;
 	_acceleration_indi_meas.setZero();
 	_acceleration_indi_force.setZero();
 	_acceleration_indi_mass = NAN;
@@ -132,6 +133,7 @@ void PositionControl::clearAccelerationIndiFeedback()
 
 bool PositionControl::update(const float dt)
 {
+	_acceleration_indi_active = false;
 	bool valid = _inputValid();
 
 	if (valid) {
@@ -230,6 +232,8 @@ void PositionControl::_accelerationControl()
 {
 	// Paper: Full-Mode Flight Control Framework for a Ducted-Fan Tail-Sitter UAV
 	if (_acceleration_indi_enabled && _acc_sp.isAllFinite()) {
+		_acceleration_indi_active = true;
+
 		// The allocator force uses the PX4 sign convention f_T = -T*b_z:
 		// f_T,c = f_T,0 + m*(a_c-a_0). Convert the physical force command
 		// into the equivalent acceleration setpoint expected by PX4, then let
@@ -298,6 +302,7 @@ void PositionControl::getLocalPositionSetpoint(vehicle_local_position_setpoint_s
 	local_position_setpoint.vz = _vel_sp(2);
 	_acc_sp.copyTo(local_position_setpoint.acceleration);
 	_thr_sp.copyTo(local_position_setpoint.thrust);
+	local_position_setpoint.acc_indi_active = _acceleration_indi_active;
 }
 
 void PositionControl::getAttitudeSetpoint(vehicle_attitude_setpoint_s &attitude_setpoint) const

@@ -649,6 +649,7 @@ void MulticopterPositionControl::Run()
 			// an update is necessary here because otherwise the takeoff state doesn't get skipped with non-altitude-controlled modes
 			_takeoff.updateTakeoffState(_vehicle_control_mode.flag_armed, _vehicle_land_detected.landed, false, 10.f, true,
 						    vehicle_local_position.timestamp_sample);
+			_control.clearAccelerationIndiFeedback();
 			_control.resetIntegral();
 		}
 
