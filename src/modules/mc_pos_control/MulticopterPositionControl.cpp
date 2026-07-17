@@ -42,6 +42,11 @@ using namespace matrix;
 
 namespace
 {
+bool indiAllocationFeedbackSupported(int32_t airframe)
+{
+	return airframe == 0 || airframe == 9 || airframe == 16 || airframe == 17;
+}
+
 bool allocationForceValid(const allocation_value_s &allocation_value)
 {
 	if (allocation_value.timestamp == 0 || hrt_elapsed_time(&allocation_value.timestamp) >= 100_ms) {
@@ -99,6 +104,9 @@ void MulticopterPositionControl::parameters_update(bool force)
 
 		// update parameters from storage
 		ModuleParams::updateParams();
+		_use_indi = _param_mpc_indi_acc_en.get() == 1
+			    && indiAllocationFeedbackSupported(_param_ca_airframe.get())
+			    && PX4_ISFINITE(_param_mpc_mass.get()) && _param_mpc_mass.get() > FLT_EPSILON;
 
 		float sample_freq_hz = 1.f / _sample_interval_s.mean();
 
@@ -589,14 +597,11 @@ void MulticopterPositionControl::Run()
 			_control.setState(states);
 			_control.clearAccelerationIndiFeedback();
 
-			if (_param_mpc_indi_acc_en.get() && flying) {
-				const Vector3f acc_meas(states.acceleration);
-				const float mass = _param_mpc_mass.get();
+			if (_use_indi) {
 				Vector3f force_feedback;
 
-				if (acc_meas.isAllFinite() && PX4_ISFINITE(mass) && mass > FLT_EPSILON
-				    && updateThrustForceFeedback(force_feedback)) {
-					_control.setAccelerationIndiFeedback(acc_meas, force_feedback, mass);
+				if (updateThrustForceFeedback(force_feedback)) {
+					_control.setAccelerationIndiFeedback(states.acceleration, force_feedback, _param_mpc_mass.get());
 				}
 			}
 

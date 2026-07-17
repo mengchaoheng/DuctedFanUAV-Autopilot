@@ -45,20 +45,19 @@ using math::radians;
 
 namespace
 {
+bool indiAllocationFeedbackSupported(int32_t airframe)
+{
+	return airframe == 0 || airframe == 9 || airframe == 16 || airframe == 17;
+}
+
 uint8_t torqueAllocationInstance(int32_t airframe)
 {
-	constexpr int32_t kDuctedFan = 16;
-	constexpr int32_t kDuctedFanTailsitterVtol = 17;
-	return (airframe == kDuctedFan || airframe == kDuctedFanTailsitterVtol) ? 1 : 0;
+	return (airframe == 16 || airframe == 17) ? 1 : 0;
 }
 
 bool allocationFeedbackValid(const allocation_value_s &allocation_value)
 {
 	if (allocation_value.timestamp == 0 || hrt_elapsed_time(&allocation_value.timestamp) >= 100_ms) {
-		return false;
-	}
-
-	if ((allocation_value.feedback_axes_mask & 0x07u) != 0x07u) {
 		return false;
 	}
 
@@ -136,8 +135,10 @@ MulticopterRateControl::parameters_updated()
 	_indi_control.setParams(Vector3f(_param_mc_indi_roll_p.get(), _param_mc_indi_pitch_p.get(),
 					 _param_mc_indi_yaw_p.get()),
 				Vector3f(_param_mc_j_x.get(), _param_mc_j_y.get(), _param_mc_j_z.get()));
-	_use_indi = _param_mc_indi_rate_en.get() == 1;
 	_torque_allocation_instance = torqueAllocationInstance(_param_ca_airframe.get());
+	_use_indi = _param_mc_indi_rate_en.get() == 1
+		    && indiAllocationFeedbackSupported(_param_ca_airframe.get())
+		    && _indi_control.paramsValid();
 }
 
 void
@@ -169,8 +170,7 @@ bool
 MulticopterRateControl::updateIndiTorqueSetpoint(const Vector3f &rates, const Vector3f &rates_setpoint,
 		const Vector3f &angular_accel, IndiOutput &output)
 {
-	if (!_use_indi || !_indi_control.paramsValid() || !rates.isAllFinite()
-	    || !rates_setpoint.isAllFinite() || !angular_accel.isAllFinite()) {
+	if (!_use_indi || !rates.isAllFinite() || !rates_setpoint.isAllFinite() || !angular_accel.isAllFinite()) {
 		return false;
 	}
 

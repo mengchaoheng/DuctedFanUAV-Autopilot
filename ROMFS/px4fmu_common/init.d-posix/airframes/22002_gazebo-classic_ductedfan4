@@ -9,8 +9,11 @@
 
 
 . ${R}etc/init.d/rc.mc_defaults
-param set-default CA_AIRFRAME 16 # 9(NormalizeRPY=0)
+param set-default CA_AIRFRAME 16 # matrix 0: physical force, matrix 1: physical torque
 
+# CA16 publishes physical allocation feedback. mc_pos_control reads force from
+# allocation instance 0; mc_rate_control reads torque from allocation instance 1.
+#
 # Effectiveness unit contract (control_allocation/df4.m):
 #   v = [tau; F] = B*u, with tau [N m], F [N]. The physical actuator vector u
 #   contains rotor thrust [N] and surface deflection [rad]. Parameters use

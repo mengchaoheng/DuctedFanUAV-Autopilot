@@ -121,6 +121,7 @@ private:
 	trajectory_setpoint_s _setpoint{PositionControl::empty_trajectory_setpoint};
 	trajectory_setpoint_s _last_valid_setpoint{PositionControl::empty_trajectory_setpoint};
 	allocation_value_s _allocation_value{};
+	bool _use_indi{false};
 	vehicle_attitude_s _vehicle_attitude{};
 	vehicle_control_mode_s _vehicle_control_mode{};
 
@@ -200,7 +201,8 @@ private:
 
 		// Multicopter acceleration INDI
 		(ParamInt<px4::params::MPC_INDI_ACC_EN>)   _param_mpc_indi_acc_en,
-		(ParamFloat<px4::params::MPC_MASS>)        _param_mpc_mass
+		(ParamFloat<px4::params::MPC_MASS>)        _param_mpc_mass,
+		(ParamInt<px4::params::CA_AIRFRAME>)       _param_ca_airframe
 		);
 
 	math::WelfordMean<float> _sample_interval_s{};

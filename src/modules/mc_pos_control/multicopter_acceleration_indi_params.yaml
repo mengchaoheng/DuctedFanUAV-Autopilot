@@ -9,10 +9,11 @@ parameters:
           When enabled, mc_pos_control keeps the PX4 position/velocity PID loop and
           replaces the final acceleration-to-thrust conversion with an acceleration
           INDI correction based on the allocated physical force. The configured
-          B*U force rows must be in N per normalized actuator delta.
+          B*U force rows must be in N per normalized actuator delta. This project
+          publishes INDI allocation feedback only for CA_AIRFRAME 0, 9, 16 and 17.
 
-          The controller only applies this correction while flying and when recent
-          finite force feedback is available. Otherwise it uses the standard path.
+          With a supported CA type, a valid mass and recent finite force feedback,
+          INDI is used. Otherwise the standard path is used.
       type: boolean
       default: 0
     MPC_MASS:

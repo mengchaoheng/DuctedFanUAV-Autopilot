@@ -163,6 +163,7 @@ private:
 					 matrix::Vector<float, NUM_AXES> &raw_wrench) const;
 
 	void publish_allocation_value(int matrix_index, float dt);
+	bool allocation_feedback_enabled() const;
 
 	void filter_allocation_wrench(int matrix_index, const matrix::Vector<float, NUM_AXES> &raw_wrench,
 				       float dt, matrix::Vector<float, NUM_AXES> &filtered_wrench);
