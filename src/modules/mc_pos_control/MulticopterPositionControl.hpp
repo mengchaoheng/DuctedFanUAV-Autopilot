@@ -120,8 +120,8 @@ private:
 
 	trajectory_setpoint_s _setpoint{PositionControl::empty_trajectory_setpoint};
 	trajectory_setpoint_s _last_valid_setpoint{PositionControl::empty_trajectory_setpoint};
-	allocation_value_s _allocation_value{};
 	bool _use_indi{false};
+	float _indi_inverse_mass{0.f};
 	vehicle_attitude_s _vehicle_attitude{};
 	vehicle_control_mode_s _vehicle_control_mode{};
 
@@ -203,7 +203,7 @@ private:
 		(ParamInt<px4::params::MPC_INDI_ACC_EN>)   _param_mpc_indi_acc_en,
 		(ParamFloat<px4::params::MPC_MASS>)        _param_mpc_mass,
 		(ParamInt<px4::params::CA_AIRFRAME>)       _param_ca_airframe
-		);
+	);
 
 	math::WelfordMean<float> _sample_interval_s{};
 
@@ -222,6 +222,7 @@ private:
 	hrt_abstime _last_warn{0}; /**< timer when the last warn message was sent out */
 
 	bool _hover_thrust_initialized{false};
+
 	/** Timeout in us for trajectory data to get considered invalid */
 	static constexpr uint64_t TRAJECTORY_STREAM_TIMEOUT_US = 500_ms;
 
@@ -269,7 +270,7 @@ private:
 					trajectory_setpoint_s &setpoint);
 
 	/**
-	 * Rotate the filtered physical allocated force feedback into NED.
+	 * Convert filtered physical allocated force into NED acceleration.
 	 */
-	bool updateThrustForceFeedback(matrix::Vector3f &force_feedback);
+	matrix::Vector3f getAllocatedThrustAcceleration();
 };

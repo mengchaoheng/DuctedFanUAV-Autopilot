@@ -87,13 +87,6 @@ public:
 	bool init();
 
 private:
-	struct IndiOutput {
-		matrix::Vector3f rate_error;
-		matrix::Vector3f feedback;
-
-		matrix::Vector3f torque() const { return rate_error + feedback; }
-	};
-
 	void Run() override;
 
 	/**
@@ -101,12 +94,10 @@ private:
 	 */
 	void parameters_updated();
 
-	void updateSaturationStatus();
-	bool updateIndiTorqueSetpoint(const matrix::Vector3f &rates, const matrix::Vector3f &rates_setpoint,
-				      const matrix::Vector3f &angular_accel, IndiOutput &output);
-	void setPrioritySplit(vehicle_torque_setpoint_s &setpoint, const IndiOutput &indi_output,
-			      const matrix::Vector3f &filtered_torque, bool indi_active, float dt);
-	void publishTorqueSetpoint(const vehicle_torque_setpoint_s &setpoint);
+	/** Compute INDI output from allocation feedback. Returns false if feedback is unavailable or stale. */
+	bool computeIndiTorqueSetpoint(const matrix::Vector3f &rates, const matrix::Vector3f &rates_setpoint,
+				       const matrix::Vector3f &angular_accel, matrix::Vector3f &torque_setpoint,
+				       matrix::Vector3f &indi_feedback);
 	void updateActuatorControlsStatus(const vehicle_torque_setpoint_s &vehicle_torque_setpoint, float dt);
 
 	RateControl _rate_control; ///< class for rate control calculations
@@ -118,7 +109,7 @@ private:
 	uORB::Subscription _vehicle_land_detected_sub{ORB_ID(vehicle_land_detected)};
 	uORB::Subscription _vehicle_rates_setpoint_sub{ORB_ID(vehicle_rates_setpoint)};
 	uORB::Subscription _vehicle_status_sub{ORB_ID(vehicle_status)};
-	uORB::SubscriptionMultiArray<allocation_value_s, 2> _allocation_value_subs{ORB_ID::allocation_value};
+	uORB::Subscription _allocation_value_sub{ORB_ID(allocation_value)};
 	uORB::SubscriptionMultiArray<control_allocator_status_s, 2> _control_allocator_status_subs{
 		ORB_ID::control_allocator_status};
 
@@ -131,16 +122,13 @@ private:
 	uORB::Publication<vehicle_rates_setpoint_s>	_vehicle_rates_setpoint_pub{ORB_ID(vehicle_rates_setpoint)};
 	uORB::Publication<vehicle_thrust_setpoint_s>	_vehicle_thrust_setpoint_pub;
 	uORB::Publication<vehicle_torque_setpoint_s>	_vehicle_torque_setpoint_pub;
-	uORB::PublicationMulti<vehicle_torque_setpoint_s> _vehicle_torque_setpoint1_pub{ORB_ID(vehicle_torque_setpoint)};
 
 	vehicle_control_mode_s	_vehicle_control_mode{};
 	vehicle_status_s	_vehicle_status{};
 
 	bool _landed{true};
 	bool _maybe_landed{true};
-	bool _use_indi{false};
-	bool _indi_was_active{false};
-	bool _vtol{false};
+	bool _indi_enabled{false};
 	uint8_t _torque_allocation_instance{0};
 
 	hrt_abstime _last_run{0};
@@ -158,7 +146,6 @@ private:
 	float _control_energy[4] {};
 
 	AlphaFilter<float> _output_lpf_yaw;
-	AlphaFilter<float> _indi_feedback_lpf_yaw;
 
 	DEFINE_PARAMETERS(
 		(ParamFloat<px4::params::MC_ROLLRATE_P>) _param_mc_rollrate_p,

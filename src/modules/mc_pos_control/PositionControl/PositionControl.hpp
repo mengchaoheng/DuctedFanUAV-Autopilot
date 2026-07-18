@@ -49,6 +49,7 @@ struct PositionControlStates {
 	matrix::Vector3f position;
 	matrix::Vector3f velocity;
 	matrix::Vector3f acceleration;
+	matrix::Vector3f allocated_thrust_acceleration{NAN, NAN, NAN}; ///< allocated thrust force / mass in NED [m/s^2]
 	float yaw;
 };
 
@@ -147,18 +148,6 @@ public:
 	void setInputSetpoint(const trajectory_setpoint_s &setpoint);
 
 	/**
-	 * Enable acceleration-loop INDI for the next update.
-	 * acc_meas is in NED [m/s^2], force_feedback is in NED [N], and mass is [kg].
-	 */
-	void setAccelerationIndiFeedback(const matrix::Vector3f &acc_meas, const matrix::Vector3f &force_feedback,
-					 float mass);
-
-	/**
-	 * Disable acceleration-loop INDI and use the original acceleration-to-thrust path.
-	 */
-	void clearAccelerationIndiFeedback();
-
-	/**
 	 * Apply P-position and PID-velocity controller that updates the member
 	 * thrust, yaw- and yawspeed-setpoints.
 	 * @see _thr_sp
@@ -239,11 +228,8 @@ private:
 	float _yaw{}; /**< current heading */
 
 	// Acceleration INDI feedback
-	bool _acceleration_indi_enabled{false};
 	bool _acceleration_indi_active{false};
-	matrix::Vector3f _acceleration_indi_meas;
-	matrix::Vector3f _acceleration_indi_force;
-	float _acceleration_indi_mass{NAN};
+	matrix::Vector3f _allocated_thrust_acceleration{NAN, NAN, NAN}; ///< allocated thrust force / mass in NED [m/s^2]
 
 	// Setpoints
 	matrix::Vector3f _pos_sp; /**< desired position */

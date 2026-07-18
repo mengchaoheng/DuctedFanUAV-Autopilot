@@ -28,8 +28,6 @@ public:
 	void setEffectivenessMatrix(const matrix::Matrix<float, NUM_AXES, NUM_ACTUATORS> &effectiveness,
 				    const ActuatorVector &actuator_trim, const ActuatorVector &linearization_point, int num_actuators,
 				    bool update_normalization_scale) override;
-	void setActuatorMin(const ActuatorVector &actuator_min) override;
-	void setActuatorMax(const ActuatorVector &actuator_max) override;
 	bool usedFallback() const override { return _used_fallback; }
 	void setMetricAllocation(bool metric_allocation) { _metric_allocation = metric_allocation; }
 

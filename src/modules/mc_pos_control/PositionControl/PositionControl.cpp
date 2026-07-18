@@ -97,6 +97,7 @@ void PositionControl::setState(const PositionControlStates &states)
 	_vel = states.velocity;
 	_yaw = states.yaw;
 	_vel_dot = states.acceleration;
+	_allocated_thrust_acceleration = states.allocated_thrust_acceleration;
 }
 
 void PositionControl::setInputSetpoint(const trajectory_setpoint_s &setpoint)
@@ -106,29 +107,6 @@ void PositionControl::setInputSetpoint(const trajectory_setpoint_s &setpoint)
 	_acc_sp = Vector3f(setpoint.acceleration);
 	_yaw_sp = setpoint.yaw;
 	_yawspeed_sp = setpoint.yawspeed;
-}
-
-void PositionControl::setAccelerationIndiFeedback(const Vector3f &acc_meas, const Vector3f &force_feedback, float mass)
-{
-	if (acc_meas.isAllFinite() && force_feedback.isAllFinite()
-	    && PX4_ISFINITE(mass) && mass > FLT_EPSILON) {
-		_acceleration_indi_meas = acc_meas;
-		_acceleration_indi_force = force_feedback;
-		_acceleration_indi_mass = mass;
-		_acceleration_indi_enabled = true;
-
-	} else {
-		clearAccelerationIndiFeedback();
-	}
-}
-
-void PositionControl::clearAccelerationIndiFeedback()
-{
-	_acceleration_indi_enabled = false;
-	_acceleration_indi_active = false;
-	_acceleration_indi_meas.setZero();
-	_acceleration_indi_force.setZero();
-	_acceleration_indi_mass = NAN;
 }
 
 bool PositionControl::update(const float dt)
@@ -231,17 +209,16 @@ void PositionControl::_velocityControl(const float dt)
 void PositionControl::_accelerationControl()
 {
 	// Paper: Full-Mode Flight Control Framework for a Ducted-Fan Tail-Sitter UAV
-	if (_acceleration_indi_enabled && _acc_sp.isAllFinite()) {
+	if (_allocated_thrust_acceleration.isAllFinite() && _vel_dot.isAllFinite()) {
 		_acceleration_indi_active = true;
 
-		// The allocator force uses the PX4 sign convention f_T = -T*b_z:
-		// f_T,c = f_T,0 + m*(a_c-a_0). Convert the physical force command
-		// into the equivalent acceleration setpoint expected by PX4, then let
-		// the original hover-thrust mapping and thrust-limit path handle it.
-		const Vector3f force_sp = _acceleration_indi_force
-					 + _acceleration_indi_mass * (_acc_sp - _acceleration_indi_meas);
-		const Vector3f thrust_acc_sp = force_sp / _acceleration_indi_mass;
-		_acc_sp = thrust_acc_sp + Vector3f(0.f, 0.f, CONSTANTS_ONE_G);
+		// f_T,c/m = f_T,0/m + (a_c - a_0), all expressed in NED.
+		const Vector3f acceleration_error = _acc_sp - _vel_dot;
+		const Vector3f thrust_acceleration_sp = _allocated_thrust_acceleration + acceleration_error;
+
+		// Convert f_T,c/m to PX4's inertial-acceleration convention, then continue
+		// through the original hover-thrust mapping and thrust limits.
+		_acc_sp = thrust_acceleration_sp + Vector3f(0.f, 0.f, CONSTANTS_ONE_G);
 	}
 
 	// Assume standard acceleration due to gravity in vertical direction for attitude generation

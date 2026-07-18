@@ -94,10 +94,7 @@ private:
 
 	bool isFrontTransitionCompletedBase() override;
 
-	bool useMcVirtualTorqueForControlSurfaces() const
-	{
-		return _param_ca_airframe.get() == kDuctedFanTailsitterVtolAirframe;
-	}
+	bool _use_mc_torque_for_control_surfaces{false};
 
 	DEFINE_PARAMETERS_CUSTOM_PARENT(VtolType,
 					(ParamInt<px4::params::CA_AIRFRAME>) _param_ca_airframe,

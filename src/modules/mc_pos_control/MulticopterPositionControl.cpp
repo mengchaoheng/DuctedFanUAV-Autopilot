@@ -37,6 +37,7 @@
 #include <lib/mathlib/mathlib.h>
 #include <lib/matrix/matrix/math.hpp>
 #include <px4_platform_common/events.h>
+#include "PositionControl/ControlMath.hpp"
 
 using namespace matrix;
 
@@ -53,13 +54,7 @@ bool allocationForceValid(const allocation_value_s &allocation_value)
 		return false;
 	}
 
-	for (int axis = 0; axis < 3; axis++) {
-		if (!PX4_ISFINITE(allocation_value.allocated_wrench[axis + 3])) {
-			return false;
-		}
-	}
-
-	return true;
+	return Vector3f(allocation_value.allocated_force).isAllFinite();
 }
 } // namespace
 
@@ -104,9 +99,12 @@ void MulticopterPositionControl::parameters_update(bool force)
 
 		// update parameters from storage
 		ModuleParams::updateParams();
+		const float mass = _param_mpc_mass.get();
+		const bool mass_valid = PX4_ISFINITE(mass) && mass > FLT_EPSILON;
+		_indi_inverse_mass = mass_valid ? 1.f / mass : 0.f;
 		_use_indi = _param_mpc_indi_acc_en.get() == 1
 			    && indiAllocationFeedbackSupported(_param_ca_airframe.get())
-			    && PX4_ISFINITE(_param_mpc_mass.get()) && _param_mpc_mass.get() > FLT_EPSILON;
+			    && mass_valid;
 
 		float sample_freq_hz = 1.f / _sample_interval_s.mean();
 
@@ -141,6 +139,8 @@ void MulticopterPositionControl::parameters_update(bool force)
 			_vel_deriv_xy_lp_filter.setAlpha(1.f);
 			_vel_deriv_z_lp_filter.setAlpha(1.f);
 		}
+
+
 
 		int num_changed = 0;
 
@@ -440,7 +440,6 @@ void MulticopterPositionControl::Run()
 
 		_vehicle_land_detected_sub.update(&_vehicle_land_detected);
 		_vehicle_attitude_sub.update(&_vehicle_attitude);
-		_allocation_value_sub.update(&_allocation_value);
 
 		if (_hover_thrust_estimate_sub.updated()) {
 			hover_thrust_estimate_s hte;
@@ -594,16 +593,11 @@ void MulticopterPositionControl::Run()
 				_control.resetIntegralXY();
 			}
 
-			_control.setState(states);
-			_control.clearAccelerationIndiFeedback();
-
 			if (_use_indi) {
-				Vector3f force_feedback;
-
-				if (updateThrustForceFeedback(force_feedback)) {
-					_control.setAccelerationIndiFeedback(states.acceleration, force_feedback, _param_mpc_mass.get());
-				}
+				states.allocated_thrust_acceleration = getAllocatedThrustAcceleration();
 			}
+
+			_control.setState(states);
 
 			const hrt_abstime now = hrt_absolute_time();
 
@@ -639,14 +633,12 @@ void MulticopterPositionControl::Run()
 			// This message is used by other modules (such as Landdetector) to determine vehicle intention.
 			vehicle_local_position_setpoint_s local_pos_sp{};
 			_control.getLocalPositionSetpoint(local_pos_sp);
+			local_pos_sp.timestamp = hrt_absolute_time();
+			_local_pos_sp_pub.publish(local_pos_sp);
 
 			// Publish attitude setpoint output
 			vehicle_attitude_setpoint_s attitude_setpoint{};
 			_control.getAttitudeSetpoint(attitude_setpoint);
-
-			local_pos_sp.timestamp = hrt_absolute_time();
-			_local_pos_sp_pub.publish(local_pos_sp);
-
 			attitude_setpoint.timestamp = hrt_absolute_time();
 			_vehicle_attitude_setpoint_pub.publish(attitude_setpoint);
 
@@ -654,7 +646,6 @@ void MulticopterPositionControl::Run()
 			// an update is necessary here because otherwise the takeoff state doesn't get skipped with non-altitude-controlled modes
 			_takeoff.updateTakeoffState(_vehicle_control_mode.flag_armed, _vehicle_land_detected.landed, false, 10.f, true,
 						    vehicle_local_position.timestamp_sample);
-			_control.clearAccelerationIndiFeedback();
 			_control.resetIntegral();
 		}
 
@@ -673,19 +664,19 @@ void MulticopterPositionControl::Run()
 	perf_end(_cycle_perf);
 }
 
-bool MulticopterPositionControl::updateThrustForceFeedback(Vector3f &force_feedback)
+Vector3f MulticopterPositionControl::getAllocatedThrustAcceleration()
 {
+	allocation_value_s allocation_value;
+
 	if (_vehicle_attitude.timestamp == 0 || hrt_elapsed_time(&_vehicle_attitude.timestamp) >= 100_ms
-	    || !allocationForceValid(_allocation_value)) {
-		return false;
+	    || !_allocation_value_sub.copy(&allocation_value) || !allocationForceValid(allocation_value)) {
+		return Vector3f{NAN, NAN, NAN};
 	}
 
-	const Vector3f force_body(_allocation_value.allocated_wrench[3], _allocation_value.allocated_wrench[4],
-				  _allocation_value.allocated_wrench[5]);
+	const Vector3f force_body(allocation_value.allocated_force);
 
 	Dcmf R_to_ned(Quatf(_vehicle_attitude.q));
-	force_feedback = R_to_ned * force_body;
-	return force_feedback.isAllFinite();
+	return (R_to_ned * force_body) * _indi_inverse_mass;
 }
 
 trajectory_setpoint_s MulticopterPositionControl::generateFailsafeSetpoint(const hrt_abstime &now,

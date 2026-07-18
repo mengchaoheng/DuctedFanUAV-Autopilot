@@ -47,7 +47,6 @@ ControlAllocation::ControlAllocation()
 	_actuator_min.setAll(0.f);
 	_actuator_max.setAll(1.f);
 	_control_sp_priority_higher.setZero();
-	_control_sp_priority_lower.setZero();
 }
 
 void

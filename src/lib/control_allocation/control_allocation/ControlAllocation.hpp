@@ -99,7 +99,6 @@ public:
 		int8_t solver_err{0};
 		bool full_row_rank{false};
 		uint8_t active_rows{0};
-		uint8_t active_axes_mask{0};
 		float solver_rho{0.f};
 		float solver_prepare_time{0.f};
 		float solver_core_time{0.f};
@@ -141,19 +140,23 @@ public:
 	 *
 	 * @param Control vector
 	 */
-	void setControlSetpoint(const matrix::Vector<float, NUM_AXES> &control) { _control_sp = control; }
+	void setControlSetpoint(const matrix::Vector<float, NUM_AXES> &control)
+	{
+		_control_sp = control;
+		_control_sp_priority_higher.setZero();
+		_control_sp_priority_valid = false;
+	}
 
 	/**
-	 * Set optional higher/lower priority components of the desired control vector.
+	 * Set the optional higher-priority component of the desired control vector.
 	 *
-	 * The split is only used by allocators that explicitly support it. The sum of
-	 * higher and lower should match the control setpoint supplied by setControlSetpoint().
+	 * The lower-priority component is derived from control minus higher. Calling
+	 * this explicitly also marks the priority split valid, even when higher is zero.
 	 */
-	void setControlSetpointPrioritySplit(const matrix::Vector<float, NUM_AXES> &higher,
-					     const matrix::Vector<float, NUM_AXES> &lower)
+	void setControlSetpointPriorityHigher(const matrix::Vector<float, NUM_AXES> &higher)
 	{
 		_control_sp_priority_higher = higher;
-		_control_sp_priority_lower = lower;
+		_control_sp_priority_valid = true;
 	}
 
 	/**
@@ -183,7 +186,7 @@ public:
 	 *
 	 * @param actuator_min Minimum actuator values
 	 */
-	virtual void setActuatorMin(const ActuatorVector &actuator_min) { _actuator_min = actuator_min; }
+	void setActuatorMin(const ActuatorVector &actuator_min) { _actuator_min = actuator_min; }
 
 	/**
 	 * Get the minimum actuator values
@@ -197,7 +200,7 @@ public:
 	 *
 	 * @param actuator_max Maximum actuator values
 	 */
-	virtual void setActuatorMax(const ActuatorVector &actuator_max) { _actuator_max = actuator_max; }
+	void setActuatorMax(const ActuatorVector &actuator_max) { _actuator_max = actuator_max; }
 
 	/**
 	 * Get the maximum actuator values
@@ -289,7 +292,7 @@ protected:
 	ActuatorVector _actuator_sp;  	///< Actuator setpoint
 	matrix::Vector<float, NUM_AXES> _control_sp;   		///< Control setpoint
 	matrix::Vector<float, NUM_AXES> _control_sp_priority_higher;	///< Higher-priority control component
-	matrix::Vector<float, NUM_AXES> _control_sp_priority_lower;	///< Lower-priority control component
+	bool _control_sp_priority_valid{false};			///< Higher-priority component was explicitly supplied
 	matrix::Vector<float, NUM_AXES> _control_trim; 		///< Control at trim actuator values
 	int _num_actuators{0};
 	Diagnostics _diagnostics{};

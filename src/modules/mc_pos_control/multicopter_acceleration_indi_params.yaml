@@ -10,7 +10,8 @@ parameters:
           replaces the final acceleration-to-thrust conversion with an acceleration
           INDI correction based on the allocated physical force. The configured
           B*U force rows must be in N per normalized actuator delta. This project
-          publishes INDI allocation feedback only for CA_AIRFRAME 0, 9, 16 and 17.
+          publishes INDI allocation feedback only for CA_AIRFRAME 0, 9, 16 and
+          17. Force feedback comes from matrix 0.
 
           With a supported CA type, a valid mass and recent finite force feedback,
           INDI is used. Otherwise the standard path is used.

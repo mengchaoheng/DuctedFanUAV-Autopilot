@@ -46,6 +46,7 @@ constexpr int8_t kLPCAUnavailableRank = 1;
 constexpr int8_t kLPCAUnavailableRows = 2;
 constexpr int8_t kLPCAUnavailableActuators = 3;
 constexpr int8_t kPCAUnavailableAxes = 4;
+constexpr int8_t kPCAUnavailablePriority = 5;
 
 enum class LPCAMethod {
 	Dir,
@@ -246,20 +247,6 @@ ControlAllocationLPCA::setEffectivenessMatrix(
 }
 
 void
-ControlAllocationLPCA::setActuatorMin(const ActuatorVector &actuator_min)
-{
-	ControlAllocation::setActuatorMin(actuator_min);
-	_standard_problem_update_needed = true;
-}
-
-void
-ControlAllocationLPCA::setActuatorMax(const ActuatorVector &actuator_max)
-{
-	ControlAllocation::setActuatorMax(actuator_max);
-	_standard_problem_update_needed = true;
-}
-
-void
 ControlAllocationLPCA::allocate()
 {
 	updateStandardProblem();
@@ -273,10 +260,6 @@ ControlAllocationLPCA::allocate()
 	_diagnostics.active_rows = static_cast<uint8_t>(_num_active_rows);
 	_diagnostics.full_row_rank = _full_row_rank;
 
-	for (int i = 0; i < _num_active_rows; ++i) {
-		_diagnostics.active_axes_mask |= static_cast<uint8_t>(1u << _active_rows[i]);
-	}
-
 	bool allocated = false;
 	_used_fallback = false;
 
@@ -286,6 +269,12 @@ ControlAllocationLPCA::allocate()
 	} else if (_lpca_unavailable_reason != 0) {
 		_diagnostics.solver_status = -1;
 		_diagnostics.solver_err = _lpca_unavailable_reason;
+		_used_fallback = true;
+		allocated = allocateInv(actuator_delta);
+
+	} else if (_method == Method::PCA && !_control_sp_priority_valid) {
+		_diagnostics.solver_status = -1;
+		_diagnostics.solver_err = kPCAUnavailablePriority;
 		_used_fallback = true;
 		allocated = allocateInv(actuator_delta);
 
@@ -305,7 +294,7 @@ ControlAllocationLPCA::allocate()
 
 			if (_method == Method::PCA) {
 				_y_higher_par[i] = _control_sp_priority_higher(axis);
-				_y_lower_par[i] = _control_sp_priority_lower(axis) - _control_trim(axis);
+				_y_lower_par[i] = _y_par[i] - _y_higher_par[i];
 			}
 		}
 
@@ -561,11 +550,11 @@ ControlAllocationLPCA::lpcaUnavailableReason() const
 		return kLPCAUnavailableRank;
 	}
 
-	if (_num_active_rows < 2) {
+	if (_num_active_rows != 3 && _num_active_rows != 4) {
 		return kLPCAUnavailableRows;
 	}
 
-	if (_num_actuators < _num_active_rows) {
+	if (_num_actuators < 4 || _num_actuators > 9 || _num_actuators < _num_active_rows) {
 		return kLPCAUnavailableActuators;
 	}
 

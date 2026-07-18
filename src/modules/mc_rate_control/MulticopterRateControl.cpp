@@ -61,15 +61,8 @@ bool allocationFeedbackValid(const allocation_value_s &allocation_value)
 		return false;
 	}
 
-	for (int axis = 0; axis < 3; axis++) {
-		if (!PX4_ISFINITE(allocation_value.allocated_wrench[axis])
-		    || !PX4_ISFINITE(allocation_value.control_allocation_scale[axis])
-		    || allocation_value.control_allocation_scale[axis] <= FLT_EPSILON) {
-			return false;
-		}
-	}
-
-	return true;
+	return Vector3f(allocation_value.allocated_torque).isAllFinite()
+	       && Vector3f(allocation_value.torque_setpoint_scale).isAllFinite();
 }
 } // namespace
 
@@ -80,7 +73,6 @@ MulticopterRateControl::MulticopterRateControl(bool vtol) :
 	WorkItem(MODULE_NAME, px4::wq_configurations::rate_ctrl),
 	_vehicle_thrust_setpoint_pub(vtol ? ORB_ID(vehicle_thrust_setpoint_virtual_mc) : ORB_ID(vehicle_thrust_setpoint)),
 	_vehicle_torque_setpoint_pub(vtol ? ORB_ID(vehicle_torque_setpoint_virtual_mc) : ORB_ID(vehicle_torque_setpoint)),
-	_vtol(vtol),
 	_loop_perf(perf_alloc(PC_ELAPSED, MODULE_NAME": cycle"))
 {
 	_vehicle_status.vehicle_type = vehicle_status_s::VEHICLE_TYPE_ROTARY_WING;
@@ -130,120 +122,36 @@ MulticopterRateControl::parameters_updated()
 				  radians(_param_mc_acro_y_max.get()));
 
 	_output_lpf_yaw.setCutoffFreq(_param_mc_yaw_tq_cutoff.get());
-	_indi_feedback_lpf_yaw.setCutoffFreq(_param_mc_yaw_tq_cutoff.get());
 
 	_indi_control.setParams(Vector3f(_param_mc_indi_roll_p.get(), _param_mc_indi_pitch_p.get(),
 					 _param_mc_indi_yaw_p.get()),
 				Vector3f(_param_mc_j_x.get(), _param_mc_j_y.get(), _param_mc_j_z.get()));
-	_torque_allocation_instance = torqueAllocationInstance(_param_ca_airframe.get());
-	_use_indi = _param_mc_indi_rate_en.get() == 1
-		    && indiAllocationFeedbackSupported(_param_ca_airframe.get())
-		    && _indi_control.paramsValid();
-}
-
-void
-MulticopterRateControl::updateSaturationStatus()
-{
-	control_allocator_status_s control_allocator_status;
-
-	if (_control_allocator_status_subs[_torque_allocation_instance].update(&control_allocator_status)) {
-		Vector<bool, 3> saturation_positive{};
-		Vector<bool, 3> saturation_negative{};
-
-		if (!control_allocator_status.torque_setpoint_achieved) {
-			for (size_t i = 0; i < 3; i++) {
-				if (control_allocator_status.unallocated_torque[i] > FLT_EPSILON) {
-					saturation_positive(i) = true;
-
-				} else if (control_allocator_status.unallocated_torque[i] < -FLT_EPSILON) {
-					saturation_negative(i) = true;
-				}
-			}
-		}
-
-		// TODO: send the unallocated value directly for better anti-windup
-		_rate_control.setSaturationStatus(saturation_positive, saturation_negative);
-	}
+	const int32_t airframe = _param_ca_airframe.get();
+	_torque_allocation_instance = torqueAllocationInstance(airframe);
+	_indi_enabled = _param_mc_indi_rate_en.get() == 1
+			&& indiAllocationFeedbackSupported(airframe)
+			&& _indi_control.paramsValid();
 }
 
 bool
-MulticopterRateControl::updateIndiTorqueSetpoint(const Vector3f &rates, const Vector3f &rates_setpoint,
-		const Vector3f &angular_accel, IndiOutput &output)
+MulticopterRateControl::computeIndiTorqueSetpoint(const Vector3f &rates, const Vector3f &rates_setpoint,
+		const Vector3f &angular_accel, Vector3f &torque_setpoint, Vector3f &indi_feedback)
 {
-	if (!_use_indi || !rates.isAllFinite() || !rates_setpoint.isAllFinite() || !angular_accel.isAllFinite()) {
-		return false;
-	}
-
 	allocation_value_s allocation_value;
 
-	if (!_allocation_value_subs[_torque_allocation_instance].copy(&allocation_value)
+	if (!_allocation_value_sub.copy(&allocation_value)
 	    || !allocationFeedbackValid(allocation_value)) {
 		return false;
 	}
 
-	const Vector3f allocated_torque(allocation_value.allocated_wrench);
-	const Vector3f output_scale(allocation_value.control_allocation_scale);
+	const Vector3f allocated_torque(allocation_value.allocated_torque);
+	const Vector3f output_scale(allocation_value.torque_setpoint_scale);
 	const IndiControl::Output physical_output =
 		_indi_control.update(rates, rates_setpoint, angular_accel, allocated_torque);
 
-	output.rate_error = output_scale.emult(physical_output.rate_error_torque);
-	output.feedback = output_scale.emult(physical_output.feedback_torque);
-
-	return output.rate_error.isAllFinite() && output.feedback.isAllFinite();
-}
-
-void
-MulticopterRateControl::setPrioritySplit(vehicle_torque_setpoint_s &setpoint,
-		const IndiOutput &indi_output, const Vector3f &filtered_torque, bool indi_active, float dt)
-{
-	if (!indi_active) {
-		_indi_feedback_lpf_yaw.update(0.f, dt);
-
-		for (int axis = 0; axis < 3; axis++) {
-			setpoint.xyz_indi_feedback[axis] = 0.f;
-			setpoint.xyz_rate_error_feedback[axis] = setpoint.xyz[axis];
-		}
-
-		return;
-	}
-
-	Vector3f indi_feedback = indi_output.feedback;
-	indi_feedback(2) = _indi_feedback_lpf_yaw.update(indi_feedback(2), dt);
-
-	const float battery_scale = (_param_mc_bat_scale_en.get() && _battery_status_scale > 0.f) ?
-				    _battery_status_scale : 1.f;
-	indi_feedback *= battery_scale;
-	const Vector3f split_total = filtered_torque * battery_scale;
-
-	for (int axis = 0; axis < 3; axis++) {
-		const float final_torque = setpoint.xyz[axis];
-
-		if (fabsf(split_total(axis)) > FLT_EPSILON) {
-			indi_feedback(axis) *= final_torque / split_total(axis);
-		}
-
-		setpoint.xyz_indi_feedback[axis] = indi_feedback(axis);
-		setpoint.xyz_rate_error_feedback[axis] = final_torque - indi_feedback(axis);
-	}
-}
-
-void
-MulticopterRateControl::publishTorqueSetpoint(const vehicle_torque_setpoint_s &setpoint)
-{
-	if (!_vtol && _torque_allocation_instance == 1) {
-		// CA16 allocates thrust on matrix 0 and torque on matrix 1. Keep the
-		// allocator callback on instance 0 and confine this routing to publication.
-		_vehicle_torque_setpoint_pub.advertise();
-		_vehicle_torque_setpoint1_pub.publish(setpoint);
-
-		vehicle_torque_setpoint_s trigger{};
-		trigger.timestamp_sample = setpoint.timestamp_sample;
-		trigger.timestamp = setpoint.timestamp;
-		_vehicle_torque_setpoint_pub.publish(trigger);
-
-	} else {
-		_vehicle_torque_setpoint_pub.publish(setpoint);
-	}
+	indi_feedback = output_scale.emult(physical_output.feedback_torque);
+	torque_setpoint = output_scale.emult(physical_output.rate_error_torque + physical_output.feedback_torque);
+	return true;
 }
 
 void
@@ -338,25 +246,35 @@ MulticopterRateControl::Run()
 				_rate_control.resetIntegral();
 			}
 
-			updateSaturationStatus();
+			// update saturation status from control allocation feedback
+			control_allocator_status_s control_allocator_status;
 
-			IndiOutput indi_output{};
-			const bool indi_active = updateIndiTorqueSetpoint(rates, _rates_setpoint, angular_accel, indi_output);
-			Vector3f torque_setpoint;
+			if (_control_allocator_status_subs[_torque_allocation_instance].update(&control_allocator_status)) {
+				Vector<bool, 3> saturation_positive;
+				Vector<bool, 3> saturation_negative;
 
-			if (indi_active) {
-				torque_setpoint = indi_output.torque();
+				if (!control_allocator_status.torque_setpoint_achieved) {
+					for (size_t i = 0; i < 3; i++) {
+						if (control_allocator_status.unallocated_torque[i] > FLT_EPSILON) {
+							saturation_positive(i) = true;
 
-				if (!_indi_was_active) {
-					_rate_control.resetIntegral();
+						} else if (control_allocator_status.unallocated_torque[i] < -FLT_EPSILON) {
+							saturation_negative(i) = true;
+						}
+					}
 				}
 
-			} else {
-				torque_setpoint = _rate_control.update(rates, _rates_setpoint, angular_accel, dt,
-									_maybe_landed || _landed);
+				// TODO: send the unallocated value directly for better anti-windup
+				_rate_control.setSaturationStatus(saturation_positive, saturation_negative);
 			}
 
-			_indi_was_active = indi_active;
+			// Keep the original PID controller running as a hot standby.
+			Vector3f torque_setpoint =
+				_rate_control.update(rates, _rates_setpoint, angular_accel, dt, _maybe_landed || _landed);
+			Vector3f indi_feedback{};
+			const bool indi_active = _indi_enabled && computeIndiTorqueSetpoint(rates, _rates_setpoint,
+						 angular_accel, torque_setpoint, indi_feedback);
+			const Vector3f torque_setpoint_before_output_processing = torque_setpoint;
 
 			// apply low-pass filtering on yaw axis to reduce high frequency torque caused by rotor acceleration
 			torque_setpoint(2) = _output_lpf_yaw.update(torque_setpoint(2), dt);
@@ -395,7 +313,15 @@ MulticopterRateControl::Run()
 				}
 			}
 
-			setPrioritySplit(vehicle_torque_setpoint, indi_output, torque_setpoint, indi_active, dt);
+			if (indi_active) {
+				vehicle_torque_setpoint.xyz_indi_feedback_valid = true;
+
+				for (int axis = 0; axis < 3; axis++) {
+					const float total = torque_setpoint_before_output_processing(axis);
+					vehicle_torque_setpoint.xyz_indi_feedback[axis] = fabsf(total) > FLT_EPSILON ?
+							indi_feedback(axis) * vehicle_torque_setpoint.xyz[axis] / total : 0.f;
+				}
+			}
 
 			vehicle_thrust_setpoint.timestamp_sample = angular_velocity.timestamp_sample;
 			vehicle_thrust_setpoint.timestamp = hrt_absolute_time();
@@ -403,12 +329,10 @@ MulticopterRateControl::Run()
 
 			vehicle_torque_setpoint.timestamp_sample = angular_velocity.timestamp_sample;
 			vehicle_torque_setpoint.timestamp = hrt_absolute_time();
-			publishTorqueSetpoint(vehicle_torque_setpoint);
+			_vehicle_torque_setpoint_pub.publish(vehicle_torque_setpoint);
 
 			updateActuatorControlsStatus(vehicle_torque_setpoint, dt);
 
-		} else {
-			_indi_was_active = false;
 		}
 	}
 
@@ -487,7 +411,7 @@ int MulticopterRateControl::print_usage(const char *reason)
 This implements the multicopter rate controller. It takes rate setpoints (in acro mode
 via `manual_control_setpoint` topic) as inputs and outputs actuator control messages.
 
-The controller has a PID loop for angular rate error and optional INDI control.
+The controller has a PID loop for angular rate error.
 
 )DESCR_STR");
 

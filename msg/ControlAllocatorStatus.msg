@@ -1,9 +1,6 @@
 uint64 timestamp                        # time since system start (microseconds)
-uint64 timestamp_sample                 # timestamp of the control setpoint sample
 
-uint8 num_actuators                    # Number of configured actuators in this allocation matrix
-uint8 feedback_axes_mask              # Bit i is set when the solver matrix retains authority on body-FRD axis i
-bool fallback                         # Requested LPCA/PCA method fell back to INV
+bool fallback                          # Requested LPCA/PCA method fell back to INV
 
 int8 SOLVER_STATUS_NOT_RUN = 0
 int8 SOLVER_STATUS_OK = 1

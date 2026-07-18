@@ -66,9 +66,8 @@ parameters:
 
           The configured B*U columns must therefore represent physical moment
           in N m per normalized actuator delta. This project publishes INDI
-          allocation feedback only for CA_AIRFRAME 0, 9, 16 and 17. The unit
-          contract is supplied by the airframe configuration and is not inferred
-          from the matrix values.
+          allocation feedback only for CA_AIRFRAME 0, 9, 16 and 17. CA0/9 use
+          matrix 0; CA16/17 use matrix 0 for force and matrix 1 for torque.
 
           With a supported CA type, valid parameters and recent finite allocator
           feedback, INDI is used. Otherwise the standard rate controller is used.
