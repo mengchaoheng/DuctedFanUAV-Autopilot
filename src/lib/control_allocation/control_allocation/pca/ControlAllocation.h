@@ -1427,7 +1427,15 @@ public:
                     for (int r = 0; r < ControlSize - 1; ++r) {
                         for (int c = 0; c < ControlSize - 1; ++c) {
                             const int variable = (c == basis_row) ? candidate : result_init.inB[c];
-                            float value = DPscaled_LPCA_problem.A[r][variable];
+
+                            if (variable < 0 || variable >= Pre_DPscaled_LPCA_problem.n) {
+                                return false;
+                            }
+
+                            // The phase-I basis can still contain artificial variables while
+                            // they are being replaced. Only the phase-I matrix contains both
+                            // original and artificial columns.
+                            float value = Pre_DPscaled_LPCA_problem.A[r][variable];
 
                             if (!result_init.e[variable]) {
                                 value = -value;
@@ -1458,29 +1466,34 @@ public:
             return true;
         };
 
-        const bool cleaned_init_basis = cleanup_zero_artificial_basis();
+        const bool phase_one_iteration_limit = result_init.iters >= Pre_DPscaled_LPCA_problem.itlim;
+        const bool phase_one_solver_error = result_init.errout;
+        const bool cleaned_init_basis = !phase_one_iteration_limit && !phase_one_solver_error
+                                        && cleanup_zero_artificial_basis();
 
-        // Check that Feasible Solution was found
-        if(result_init.iters>=Pre_DPscaled_LPCA_problem.itlim){
+        // Check that a feasible solution was found. Match LPwrap.m precedence:
+        // its final solver-error check overwrites the earlier iteration-limit
+        // and artificial-basis errors.
+        if (phase_one_solver_error) {
+            err = -1;
+
+        } else if (phase_one_iteration_limit) {
             err = -3;
             // std::cout << "Pre Too Many Iterations Finding Final Solution"<< std::endl;
             // for (int i = 0; i < ControlSize; ++i) {
             //     std::cout << this->generalizedMoment[i] << std::endl;
             // }
-        }
-        for(int i=0;i<ControlSize-1;++i){
-            if(result_init.inB[i]> EffectorSize-1) // DPscaled_LPCA_problem is origin problem, k=DPscaled_LPCA_problem.n-1 = EffectorSize
-            {
-                // which mean inital basic index is out of the origin problem.
-                err = -2;
-                break;
+        } else {
+            for (int i = 0; i < ControlSize - 1; ++i) {
+                if (result_init.inB[i] > EffectorSize - 1) { // An artificial variable is still basic.
+                    err = -2;
+                    break;
+                }
             }
-        }
-        if(!cleaned_init_basis){
-            err = -2;
-        }
-        if(result_init.errout && !cleaned_init_basis){
-            err = -1;
+
+            if (!cleaned_init_basis) {
+                err = -2;
+            }
         }
         // solve Pre_DPscaled_LPCA_problem but proccess DPscaled_LPCA_problem
         float xout[EffectorSize];

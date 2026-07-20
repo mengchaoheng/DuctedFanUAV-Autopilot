@@ -546,16 +546,18 @@ ControlAllocationLPCA::allocateLPCA(ActuatorVector &actuator_delta)
 int8_t
 ControlAllocationLPCA::lpcaUnavailableReason() const
 {
-	if (!_full_row_rank) {
-		return kLPCAUnavailableRank;
-	}
-
+	// Check the statically supported dispatch dimensions before numerical
+	// properties so diagnostics report the primary structural limitation.
 	if (_num_active_rows != 3 && _num_active_rows != 4) {
 		return kLPCAUnavailableRows;
 	}
 
 	if (_num_actuators < 4 || _num_actuators > 9 || _num_actuators < _num_active_rows) {
 		return kLPCAUnavailableActuators;
+	}
+
+	if (!_full_row_rank) {
+		return kLPCAUnavailableRank;
 	}
 
 	return 0;

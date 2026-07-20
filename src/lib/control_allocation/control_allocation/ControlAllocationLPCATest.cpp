@@ -72,16 +72,18 @@ EffectivenessMatrix makeEffectiveness(int rows, int actuators)
 	return effectiveness;
 }
 
-void configure(ControlAllocationLPCA &allocator, const EffectivenessMatrix &effectiveness, int actuators)
+void configure(ControlAllocationLPCA &allocator, const EffectivenessMatrix &effectiveness, int actuators,
+	       bool metric_allocation = false, float actuator_minimum = -1.f)
 {
 	ActuatorVector actuator_min;
 	ActuatorVector actuator_max;
 	ActuatorVector actuator_trim;
 	ActuatorVector linearization_point;
-	actuator_min.setAll(-1.f);
+	actuator_min.setAll(actuator_minimum);
 	actuator_max.setAll(1.f);
 	actuator_trim.setZero();
 	linearization_point.setZero();
+	allocator.setMetricAllocation(metric_allocation);
 	allocator.setActuatorMin(actuator_min);
 	allocator.setActuatorMax(actuator_max);
 	allocator.setEffectivenessMatrix(effectiveness, actuator_trim, linearization_point, actuators, false);
@@ -139,6 +141,46 @@ TEST(ControlAllocationLPCATest, AllSupportedDimensions)
 			}
 		}
 	}
+}
+
+TEST(ControlAllocationLPCATest, DPscaledCleansDegenerateArtificialBasis)
+{
+	ControlAllocationDPscaledLPCA allocator;
+	EffectivenessMatrix effectiveness;
+	effectiveness.setZero();
+
+	// Phase I ends with two zero-valued artificial variables in the basis.
+	// Replacing them with original columns must use the complete phase-I matrix.
+	const float b[3][4] = {
+		{ 0.f,  0.f,  1.f,  1.f},
+		{ 0.f,  0.f,  1.f, -1.f},
+		{-1.f, -1.f, -1.f,  1.f},
+	};
+
+	for (int row = 0; row < 3; ++row) {
+		for (int actuator = 0; actuator < 4; ++actuator) {
+			effectiveness(row, actuator) = b[row][actuator];
+		}
+	}
+
+	configure(allocator, effectiveness, 4, true, 0.f);
+
+	ControlVector setpoint;
+	setpoint.setZero();
+	setpoint(ControlAllocation::ROLL) = 1.f;
+	allocator.setControlSetpoint(setpoint);
+	allocator.allocate();
+
+	EXPECT_FALSE(allocator.usedFallback());
+	EXPECT_EQ(allocator.getDiagnostics().solver_status, 1);
+	EXPECT_EQ(allocator.getDiagnostics().solver_err, 0);
+	EXPECT_NEAR(allocator.getDiagnostics().solver_rho, 2.f, 1e-5f);
+
+	const ActuatorVector &output = allocator.getActuatorSetpoint();
+	EXPECT_NEAR(output(0), 0.f, 1e-5f);
+	EXPECT_NEAR(output(1), 0.f, 1e-5f);
+	EXPECT_NEAR(output(2), 0.5f, 1e-5f);
+	EXPECT_NEAR(output(3), 0.5f, 1e-5f);
 }
 
 TEST(ControlAllocationLPCATest, PriorityAllocation)
