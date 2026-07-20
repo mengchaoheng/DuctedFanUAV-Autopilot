@@ -41,6 +41,23 @@
 
 using namespace matrix;
 
+namespace
+{
+bool indiAllocationFeedbackSupported(int32_t airframe)
+{
+	return airframe == 0 || airframe == 9 || airframe == 16 || airframe == 17;
+}
+
+bool allocationForceValid(const allocation_value_s &allocation_value)
+{
+	if (allocation_value.timestamp == 0 || hrt_elapsed_time(&allocation_value.timestamp) >= 100_ms) {
+		return false;
+	}
+
+	return Vector3f(allocation_value.allocated_force).isAllFinite();
+}
+} // namespace
+
 ModuleBase::Descriptor MulticopterPositionControl::desc{task_spawn, custom_command, print_usage};
 
 MulticopterPositionControl::MulticopterPositionControl(bool vtol) :
@@ -82,6 +99,12 @@ void MulticopterPositionControl::parameters_update(bool force)
 
 		// update parameters from storage
 		ModuleParams::updateParams();
+		const float mass = _param_mpc_mass.get();
+		const bool mass_valid = PX4_ISFINITE(mass) && mass > FLT_EPSILON;
+		_indi_inverse_mass = mass_valid ? 1.f / mass : 0.f;
+		_use_indi = _param_mpc_indi_acc_en.get() == 1
+			    && indiAllocationFeedbackSupported(_param_ca_airframe.get())
+			    && mass_valid;
 
 		float sample_freq_hz = 1.f / _sample_interval_s.mean();
 
@@ -416,6 +439,7 @@ void MulticopterPositionControl::Run()
 		}
 
 		_vehicle_land_detected_sub.update(&_vehicle_land_detected);
+		_vehicle_attitude_sub.update(&_vehicle_attitude);
 
 		if (_hover_thrust_estimate_sub.updated()) {
 			hover_thrust_estimate_s hte;
@@ -569,6 +593,10 @@ void MulticopterPositionControl::Run()
 				_control.resetIntegralXY();
 			}
 
+			if (_use_indi) {
+				states.allocated_thrust_acceleration = getAllocatedThrustAcceleration();
+			}
+
 			_control.setState(states);
 
 			const hrt_abstime now = hrt_absolute_time();
@@ -634,6 +662,21 @@ void MulticopterPositionControl::Run()
 	}
 
 	perf_end(_cycle_perf);
+}
+
+Vector3f MulticopterPositionControl::getAllocatedThrustAcceleration()
+{
+	allocation_value_s allocation_value;
+
+	if (_vehicle_attitude.timestamp == 0 || hrt_elapsed_time(&_vehicle_attitude.timestamp) >= 100_ms
+	    || !_allocation_value_sub.copy(&allocation_value) || !allocationForceValid(allocation_value)) {
+		return Vector3f{NAN, NAN, NAN};
+	}
+
+	const Vector3f force_body(allocation_value.allocated_force);
+
+	Dcmf R_to_ned(Quatf(_vehicle_attitude.q));
+	return (R_to_ned * force_body) * _indi_inverse_mass;
 }
 
 trajectory_setpoint_s MulticopterPositionControl::generateFailsafeSetpoint(const hrt_abstime &now,

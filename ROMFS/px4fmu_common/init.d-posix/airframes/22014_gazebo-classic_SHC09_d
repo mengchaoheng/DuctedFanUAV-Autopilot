@@ -1,0 +1,96 @@
+#!/bin/sh
+#
+# @name SHC09_d
+#
+# @type Ducted Fan
+#
+# Author: Chaoheng Meng <chaohengmeng@163.com>
+
+
+
+. ${R}etc/init.d/rc.mc_defaults
+
+param set-default CA_AIRFRAME 9 #  9 or 16
+
+# Standard-controller comparison profile: the values below are a legacy
+# normalized shape matrix, not physical B*U. The calibrated SHC09 contract is
+# v=[tau;F]=(B*U)*u_norm with tau [N m], F [N], CT=T_max and surface moments
+# already including delta_max; see airframe 22005. CA_AIRFRAME=9 does not
+# publish calibrated physical-wrench feedback, so do not enable INDI in this file.
+param set-default MPC_MASS 2.1
+param set-default MC_J_X 0.0438
+param set-default MC_J_Y 0.0436
+param set-default MC_J_Z 0.005006
+
+
+param set-default MC_ROLLRATE_P 0.4
+param set-default MC_ROLLRATE_I 0.2
+
+param set-default MC_PITCHRATE_P 0.4
+param set-default MC_PITCHRATE_I 0.2
+
+param set-default MC_YAWRATE_P 0.2
+param set-default MC_YAWRATE_I 0.1
+
+# param set-default MC_PITCH_P 5
+# param set-default MC_ROLL_P 5
+# param set-default MC_YAW_P 3
+
+# param set-default MPC_XY_VEL_P_ACC 1.8
+# param set-default MPC_XY_VEL_I_ACC 0.4
+# param set-default MPC_XY_VEL_D_ACC 0.0
+
+# param set-default MPC_Z_VEL_P_ACC 4.0
+# param set-default MPC_Z_VEL_I_ACC 2.0
+# param set-default MPC_Z_VEL_D_ACC 0.0
+
+
+param set-default MPC_THR_HOVER 0.4865
+param set-default THR_MDL_FAC 1
+param set-default RTL_RETURN_ALT 2.5
+param set-default RTL_DESCEND_ALT 2.5
+
+
+param set-default CA_ROTOR_COUNT 1
+param set-default CA_ROTOR0_AX 0
+param set-default CA_ROTOR0_AY 0
+param set-default CA_ROTOR0_AZ -1
+param set-default CA_ROTOR0_PX 0
+param set-default CA_ROTOR0_PY 0
+param set-default CA_ROTOR0_PZ 0.1
+param set-default CA_ROTOR0_CT 1
+param set-default CA_ROTOR0_KM 0
+
+
+param set-default CA_SV_CS_COUNT 6
+param set-default CA_SV_CS0_TRQ_R -0.5
+param set-default CA_SV_CS0_TRQ_P 0
+param set-default CA_SV_CS0_TRQ_Y 0.207
+param set-default CA_SV_CS1_TRQ_R -0.25
+param set-default CA_SV_CS1_TRQ_P 0.433
+param set-default CA_SV_CS1_TRQ_Y 0.207
+param set-default CA_SV_CS2_TRQ_R 0.25
+param set-default CA_SV_CS2_TRQ_P 0.433
+param set-default CA_SV_CS2_TRQ_Y 0.207
+param set-default CA_SV_CS3_TRQ_R 0.5
+param set-default CA_SV_CS3_TRQ_P 0
+param set-default CA_SV_CS3_TRQ_Y 0.207
+param set-default CA_SV_CS4_TRQ_R 0.25
+param set-default CA_SV_CS4_TRQ_P -0.433
+param set-default CA_SV_CS4_TRQ_Y 0.207
+param set-default CA_SV_CS5_TRQ_R -0.25
+param set-default CA_SV_CS5_TRQ_P -0.433
+param set-default CA_SV_CS5_TRQ_Y 0.207
+
+
+param set-default PWM_MAIN_FUNC1 101
+
+param set-default PWM_MAIN_FUNC2 201
+param set-default PWM_MAIN_FUNC3 202
+param set-default PWM_MAIN_FUNC4 203
+param set-default PWM_MAIN_FUNC5 204
+param set-default PWM_MAIN_FUNC6 205
+param set-default PWM_MAIN_FUNC7 206
+
+# param set-default SDLOG_PROFILE 17
+param set-default SDLOG_MODE 0

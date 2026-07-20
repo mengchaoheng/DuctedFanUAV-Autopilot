@@ -73,6 +73,8 @@ public:
 	void blendThrottleBeginningBackTransition(float scale);
 
 private:
+	static constexpr int kDuctedFanTailsitterVtolAirframe = 17;
+
 	enum class vtol_mode {
 		MC_MODE = 0,			/**< vtol is in multicopter mode */
 		TRANSITION_FRONT_P1,	/**< vtol is in front transition part 1 mode */
@@ -92,7 +94,10 @@ private:
 
 	bool isFrontTransitionCompletedBase() override;
 
+	bool _use_mc_torque_for_control_surfaces{false};
+
 	DEFINE_PARAMETERS_CUSTOM_PARENT(VtolType,
+					(ParamInt<px4::params::CA_AIRFRAME>) _param_ca_airframe,
 					(ParamFloat<px4::params::FW_PSP_OFF>) _param_fw_psp_off
 				       )
 

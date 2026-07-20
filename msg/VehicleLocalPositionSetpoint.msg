@@ -17,3 +17,5 @@ float32[3] thrust	# normalized thrust vector in NED
 
 float32 yaw		# in radians NED -PI..+PI
 float32 yawspeed	# in radians/sec
+
+bool acc_indi_active	# true when acceleration INDI produced this thrust setpoint

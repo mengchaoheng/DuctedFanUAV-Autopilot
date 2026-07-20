@@ -34,6 +34,8 @@ parameters:
                 13: Rover (Mecanum)
                 14: Spacecraft 2D
                 15: Spacecraft 3D
+                16: Ducted Fan
+                17: Ducted Fan Tailsitter VTOL
             default: 0
 
         CA_METHOD:
@@ -47,6 +49,10 @@ parameters:
                 0: Pseudo-inverse with output clipping
                 1: Pseudo-inverse with sequential desaturation technique
                 2: Automatic
+                3: INV
+                4: DP_LPCA
+                5: DPscaled_LPCA
+                6: PCA
             default: 2
 
         # Motor parameters
@@ -196,11 +202,15 @@ parameters:
 
         CA_ROTOR${i}_CT:
             description:
-                short: Thrust coefficient of rotor ${i}
+                short: Rotor ${i} thrust effectiveness at normalized input 1
                 long: |
-                  The thrust coefficient if defined as Thrust = CT * u^2,
-                  where u (with value between actuator minimum and maximum)
-                  is the output signal sent to the motor controller.
+                  The rotor effectiveness column contains CT times the configured
+                  axis, plus the corresponding position and KM moments. For an
+                  airframe using the physical B*U contract, set CT to the maximum
+                  rotor thrust in N represented by normalized rotor thrust u=1.
+                  Legacy normalized airframes may retain a relative coefficient.
+                  The motor output model separately converts normalized thrust to
+                  the signal sent to the motor controller.
             type: float
             decimal: 1
             increment: 1
@@ -286,6 +296,7 @@ parameters:
         CA_SV_CS${i}_TRQ_R:
             description:
                 short: Control Surface ${i} roll torque scaling
+                long: Roll effectiveness at normalized surface delta +1. Under the physical B*U contract this is a moment in N m and already includes the maximum deflection.
             type: float
             decimal: 2
             num_instances: *max_num_control_surfaces
@@ -295,6 +306,7 @@ parameters:
         CA_SV_CS${i}_TRQ_P:
             description:
                 short: Control Surface ${i} pitch torque scaling
+                long: Pitch effectiveness at normalized surface delta +1. Under the physical B*U contract this is a moment in N m and already includes the maximum deflection.
             type: float
             decimal: 2
             num_instances: *max_num_control_surfaces
@@ -304,6 +316,7 @@ parameters:
         CA_SV_CS${i}_TRQ_Y:
             description:
                 short: Control Surface ${i} yaw torque scaling
+                long: Yaw effectiveness at normalized surface delta +1. Under the physical B*U contract this is a moment in N m and already includes the maximum deflection.
             type: float
             decimal: 2
             num_instances: *max_num_control_surfaces
@@ -635,6 +648,54 @@ parameters:
             increment: 0.1
             min: 0.0
             default: 0.0
+
+    - group: Multicopter Rate INDI
+      definitions:
+        CA_TORQ_CUTOFF:
+            description:
+                short: Allocated moment feedback cutoff
+                long: |
+                  Low-pass cutoff applied after computing the physical allocated
+                  moment (B*U)*u_norm for each allocation matrix. No actuator
+                  dynamics are simulated.
+                  0 publishes the unfiltered allocated moment.
+            type: float
+            min: 0
+            unit: Hz
+            decimal: 2
+            default: 8.0
+
+    - group: Ducted Fan Effectiveness
+      definitions:
+        DF_FW_CS_GAIN:
+            description:
+                short: Forward-flight ducted fan surface effectiveness gain
+                long: |
+                  Gain applied to the first six duct tail control-surface
+                  effectiveness columns in transition and forward flight.
+                  This models the higher dynamic pressure in forward flight
+                  relative to hover. It is only used by ducted fan tailsitter
+                  VTOL effectiveness.
+            type: float
+            min: 0.0
+            decimal: 4
+            default: 1.0
+
+    - group: Multicopter Acceleration INDI
+      definitions:
+        CA_FORCE_CUTOFF:
+            description:
+                short: Allocated force feedback cutoff
+                long: |
+                  Low-pass cutoff applied after computing the physical allocated
+                  force (B*U)*u_norm for each allocation matrix. No actuator
+                  dynamics are simulated.
+                  0 publishes the unfiltered allocated force.
+            type: float
+            min: 0
+            unit: Hz
+            decimal: 2
+            default: 8.0
 
 # Mixer
 mixer:
@@ -1019,6 +1080,53 @@ mixer:
 
             4: # Tailsitter VTOL
                 title: 'Tailsitter VTOL'
+                actuators:
+                  - actuator_type: 'motor'
+                    group_label: 'MC Motors'
+                    count: 'CA_ROTOR_COUNT'
+                    per_item_parameters:
+                        standard:
+                            position: [ 'CA_ROTOR${i}_PX', 'CA_ROTOR${i}_PY', 'CA_ROTOR${i}_PZ' ]
+                        extra:
+                          - name: 'CA_ROTOR${i}_KM'
+                            label: 'Direction CCW'
+                            function: 'spin-dir'
+                            show_as: 'true-if-positive'
+                  - actuator_type: 'servo'
+                    group_label: 'Control Surfaces'
+                    count: 'CA_SV_CS_COUNT'
+                    item_label_prefix: 'Surface ${i}'
+                    per_item_parameters:
+                        extra:
+                          - name: 'CA_SV_CS${i}_TYPE'
+                            label: 'Type'
+                            function: 'type'
+                            identifier: 'servo-type-tailsitter'
+                          - name: 'CA_SV_CS${i}_TRQ_R'
+                            label: 'Roll Scale'
+                            identifier: 'servo-torque-roll-tailsitter'
+                          - name: 'CA_SV_CS${i}_TRQ_P'
+                            label: 'Pitch Scale'
+                            identifier: 'servo-torque-pitch-tailsitter'
+                          - name: 'CA_SV_CS${i}_TRQ_Y'
+                            label: 'Yaw Scale'
+                            identifier: 'servo-torque-yaw-tailsitter'
+                          - name: 'CA_SV_CS${i}_TRIM'
+                            label: 'Trim'
+                          - name: 'CA_SV_CS${i}_FLAP'
+                            label: 'Flaps Scale'
+                            advanced: true
+                            identifier: 'servo-scale-flap'
+                          - name: 'CA_SV_CS${i}_SPOIL'
+                            label: 'Spoiler Scale'
+                            advanced: true
+                            identifier: 'servo-scale-spoiler'
+                    parameters:
+                      - label: 'Lock control surfaces in hover'
+                        name: VT_ELEV_MC_LOCK
+
+            17: # Ducted Fan Tailsitter VTOL
+                title: 'Ducted Fan Tailsitter VTOL'
                 actuators:
                   - actuator_type: 'motor'
                     group_label: 'MC Motors'

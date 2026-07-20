@@ -49,6 +49,8 @@
 #include <ActuatorEffectivenessFixedWing.hpp>
 #include <ActuatorEffectivenessMCTilt.hpp>
 #include <ActuatorEffectivenessCustom.hpp>
+#include <ActuatorEffectivenessDuctedFan.hpp>
+#include <ActuatorEffectivenessDuctedFanTailsitterVTOL.hpp>
 #include <ActuatorEffectivenessUUV.hpp>
 #include <ActuatorEffectivenessHelicopter.hpp>
 #include <ActuatorEffectivenessHelicopterCoaxial.hpp>
@@ -57,10 +59,12 @@
 #include "ActuatorGroupPreflightCheck.hpp"
 
 #include <ControlAllocation.hpp>
+#include <ControlAllocationLPCA.hpp>
 #include <ControlAllocationPseudoInverse.hpp>
 #include <ControlAllocationSequentialDesaturation.hpp>
 
 #include <lib/matrix/matrix/math.hpp>
+#include <mathlib/math/filter/LowPassFilter2p.hpp>
 #include <lib/perf/perf_counter.h>
 #include <px4_platform_common/px4_config.h>
 #include <px4_platform_common/module.h>
@@ -73,6 +77,7 @@
 #include <uORB/topics/actuator_motors.h>
 #include <uORB/topics/actuator_servos.h>
 #include <uORB/topics/actuator_servos_trim.h>
+#include <uORB/topics/allocation_value.h>
 #include <uORB/topics/control_allocator_status.h>
 #include <uORB/topics/parameter_update.h>
 #include <uORB/topics/vehicle_control_mode.h>
@@ -151,7 +156,15 @@ private:
 
 	float get_ice_shedding_output(hrt_abstime now);
 
+	bool indi_feedback_supported() const;
+	int indi_torque_matrix() const;
+	bool calculate_allocation_wrench(int matrix_index, matrix::Vector<float, NUM_AXES> &wrench) const;
+	void publish_allocation_value();
+	void filter_allocation_wrench(const matrix::Vector<float, NUM_AXES> &raw_wrench, float sample_interval_s,
+				       matrix::Vector<float, NUM_AXES> &filtered_wrench);
+
 	AllocationMethod _allocation_method_id{AllocationMethod::NONE};
+	AllocationMethod _allocation_methods[ActuatorEffectiveness::MAX_NUM_MATRICES] {};
 	ControlAllocation *_control_allocation[ActuatorEffectiveness::MAX_NUM_MATRICES] {}; 	///< class for control allocation calculations
 	int _num_control_allocation{0};
 	hrt_abstime _last_effectiveness_update{0};
@@ -173,6 +186,8 @@ private:
 		HELICOPTER_COAXIAL = 12,
 		ROVER_MECANUM = 13,
 		SPACECRAFT_2D = 14,
+		DUCTED_FAN = 16,
+		DUCTED_FAN_TAILSITTER_VTOL = 17,
 	};
 
 	enum class FailureMode {
@@ -206,6 +221,7 @@ private:
 	uORB::Publication<actuator_motors_s>	_actuator_motors_pub{ORB_ID(actuator_motors)};
 	uORB::Publication<actuator_servos_s>	_actuator_servos_pub{ORB_ID(actuator_servos)};
 	uORB::Publication<actuator_servos_trim_s>	_actuator_servos_trim_pub{ORB_ID(actuator_servos_trim)};
+	uORB::Publication<allocation_value_s>	_allocation_value_pub{ORB_ID(allocation_value)};
 
 	uORB::SubscriptionInterval _parameter_update_sub{ORB_ID(parameter_update), 1_s};
 
@@ -214,6 +230,8 @@ private:
 	uORB::Subscription _failure_detector_status_sub{ORB_ID(failure_detector_status)};
 
 	matrix::Vector3f _torque_sp;
+	matrix::Vector3f _torque_sp_indi_feedback;
+	bool _torque_sp_indi_feedback_valid{false};
 	matrix::Vector3f _thrust_sp;
 	bool _publish_controls{true};
 
@@ -221,6 +239,7 @@ private:
 	// For example, the system might report two motor failures, but only the first one is handled by CA
 	uint16_t _handled_motor_failure_bitmask{0};
 	uint16_t _motor_stop_mask{0};
+	ActuatorBitmask _stopped_motors{0};
 
 	ActuatorGroupPreflightCheck _actuator_group_preflight_check;
 
@@ -231,10 +250,30 @@ private:
 	hrt_abstime _last_run{0};
 	hrt_abstime _timestamp_sample{0};
 	hrt_abstime _last_status_pub{0};
+	hrt_abstime _allocation_running_time_us[ActuatorEffectiveness::MAX_NUM_MATRICES] {};
+	float _allocation_running_time_avg_us[ActuatorEffectiveness::MAX_NUM_MATRICES] {};
+	uint32_t _allocation_running_time_count[ActuatorEffectiveness::MAX_NUM_MATRICES] {};
 
 	ParamHandles _param_handles{};
 	Params _params{};
 	bool _has_slew_rate{false};
+
+	// Physical B*U used for INDI feedback: failed columns removed, weak-row suppression not applied.
+	ActuatorEffectiveness::EffectivenessMatrix
+		_allocation_effectiveness_bu[ActuatorEffectiveness::MAX_NUM_MATRICES] {};
+	matrix::Vector<float, NUM_AXES> _allocation_wrench_feedback{};
+	math::LowPassFilter2p<float> _allocation_wrench_feedback_filter[NUM_AXES] {};
+	float _allocation_feedback_torque_cutoff{0.f};
+	float _allocation_feedback_force_cutoff{0.f};
+
+	void reset_allocation_feedback_state();
+	void update_allocation_feedback_sample_rate(float sample_interval_s);
+	void update_allocation_feedback_filter_config(float sample_freq);
+
+	bool _allocation_feedback_filters_configured{false};
+	hrt_abstime _last_allocation_feedback_update{0};
+	float _allocation_feedback_sample_interval_s{NAN};
+	float _allocation_feedback_filter_sample_freq{NAN};
 
 
 	DEFINE_PARAMETERS(
@@ -242,7 +281,9 @@ private:
 		(ParamInt<px4::params::CA_METHOD>) _param_ca_method,
 		(ParamInt<px4::params::CA_FAILURE_MODE>) _param_ca_failure_mode,
 		(ParamInt<px4::params::CA_R_REV>) _param_r_rev,
-		(ParamFloat<px4::params::CA_ICE_PERIOD>) _param_ice_shedding_period
+		(ParamFloat<px4::params::CA_ICE_PERIOD>) _param_ice_shedding_period,
+		(ParamFloat<px4::params::CA_TORQ_CUTOFF>) _param_ca_torque_cutoff,
+		(ParamFloat<px4::params::CA_FORCE_CUTOFF>) _param_ca_force_cutoff
 	)
 
 };

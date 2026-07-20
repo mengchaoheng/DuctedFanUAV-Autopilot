@@ -1,0 +1,31 @@
+module_name: mc_pos_control
+parameters:
+- group: Multicopter Acceleration INDI
+  definitions:
+    MPC_INDI_ACC_EN:
+      description:
+        short: Enable acceleration INDI control
+        long: |-
+          When enabled, mc_pos_control keeps the PX4 position/velocity PID loop and
+          replaces the final acceleration-to-thrust conversion with an acceleration
+          INDI correction based on the allocated physical force. The configured
+          B*U force rows must be in N per normalized actuator delta. This project
+          publishes INDI allocation feedback only for CA_AIRFRAME 0, 9, 16 and
+          17. Force feedback comes from matrix 0.
+
+          With a supported CA type, a valid mass and recent finite force feedback,
+          INDI is used. Otherwise the standard path is used.
+      type: boolean
+      default: 0
+    MPC_MASS:
+      description:
+        short: Vehicle mass for acceleration INDI
+        long: |-
+          Vehicle mass used by acceleration INDI in
+          F_c = F_0 + mass * (a_c - a_0). F is the signed PX4 thrust-force
+          vector in N, F = -T*b_z, and is opposite to the paper's T*b_z vector.
+      type: float
+      default: 1.0
+      min: 0.01
+      unit: kg
+      decimal: 4

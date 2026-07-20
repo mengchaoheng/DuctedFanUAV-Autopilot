@@ -51,6 +51,40 @@ parameters:
       max: 1.0
       decimal: 2
       increment: 0.1
+    MC_ATT_ERR_MODE:
+      description:
+        short: Attitude error calculation mode
+        long: |-
+          Selects the attitude error vector used by the multicopter attitude controller.
+
+          0: PX4 default reduced attitude with yaw weighting. This is the original PX4/Brescianini 2013 style implementation. It prioritizes roll and pitch by constructing a reduced desired attitude and then applying yaw weighting. Error scale: 2*n*sin(theta/2).
+
+          1: Full quaternion imaginary-vector error. This uses qe = q^(-1) * qd and 2*imag(qe). Error scale: 2*n*sin(theta/2).
+
+          2: Full quaternion logarithm-map error. This uses qe = q^(-1) * qd and converts qe to an axis-angle vector. Error scale: n*theta.
+
+          3: Full DCM logarithm-map error. This uses Re = R^T * Rd and log(Re).vee(). Error scale: n*theta.
+
+          4: Full DCM vee-map error. This uses 0.5*(R^T*Rd - Rd^T*R).vee(), corresponding to the Lee et al. geometric attitude error with PX4 body-rate sign convention. Error scale: n*sin(theta).
+
+          5: Tal and Karaman incremental attitude command error. This constructs the incremental attitude command from the current attitude to the desired thrust direction and yaw reference. Error scale: n*theta.
+
+          6: Tilt-prioritized quaternion error. This uses the Brescianini and D'Andrea / Sun et al. split into reduced-attitude and yaw errors, adapted to the PX4 convention qe = q^(-1) * qd. Error scale: 2*n*sin(theta/2).
+
+          7: Tilt-torsion SO(3) logarithm-map error. This uses the Yu et al. tilt-torsion decomposition with Re = R^T * Rd, computes tilt and torsion errors separately, and applies yaw weighting to torsion. Error scale: n*theta.
+      type: enum
+      default: 0
+      min: 0
+      max: 7
+      values:
+        0: PX4 default reduced attitude with yaw weighting
+        1: Full quaternion imaginary-vector error
+        2: Full quaternion logarithm-map error
+        3: Full DCM logarithm-map error
+        4: Full DCM vee-map error
+        5: Tal and Karaman incremental attitude command error
+        6: Tilt-prioritized quaternion error
+        7: Tilt-torsion SO(3) logarithm-map error
     MC_ROLLRATE_MAX:
       description:
         short: Max roll rate

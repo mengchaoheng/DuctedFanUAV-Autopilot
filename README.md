@@ -1,141 +1,163 @@
-<p align="center">
-  <a href="https://px4.io">
-    <img src="docs/assets/site/px4_logo.svg" alt="PX4 Autopilot" width="240">
-  </a>
-</p>
+# DuctedFanUAV Autopilot
 
-<p align="center">
-  <em>The autopilot stack the industry builds on.</em>
-</p>
+This repository is forked from [PX4-Autopilot](https://github.com/PX4/PX4-Autopilot.git) and holds the PX4 flight control solution for DuctedFanUAV.
 
-<p align="center">
-  <a href="https://github.com/PX4/PX4-Autopilot/releases"><img src="https://img.shields.io/github/release/PX4/PX4-Autopilot.svg" alt="Release"></a>
-  <a href="https://zenodo.org/badge/latestdoi/22634/PX4/PX4-Autopilot"><img src="https://zenodo.org/badge/22634/PX4/PX4-Autopilot.svg" alt="DOI"></a>
-  <a href="https://discord.gg/dronecode"><img src="https://img.shields.io/discord/1022170275984457759?label=discord&logo=discord&logoColor=white&color=5865F2" alt="Discord"></a>
-</p>
+<img src="DFUAV.jpg" width="90%" />
 
-<p align="center">
-  <a href="https://www.bestpractices.dev/projects/6520"><img src="https://www.bestpractices.dev/projects/6520/badge" alt="OpenSSF Best Practices"></a>
-  <a href="https://insights.linuxfoundation.org/project/px4"><img src="https://insights.linuxfoundation.org/api/badge/health-score?project=px4" alt="LFX Health Score"></a>
-  <a href="https://insights.linuxfoundation.org/project/px4"><img src="https://insights.linuxfoundation.org/api/badge/contributors?project=px4" alt="LFX Contributors"></a>
-  <a href="https://insights.linuxfoundation.org/project/px4"><img src="https://insights.linuxfoundation.org/api/badge/active-contributors?project=px4" alt="LFX Active Contributors"></a>
-</p>
+![image](https://github.com/user-attachments/assets/3823e609-8981-4734-9921-8ac6dc98e9be)
 
----
+## Feature
+Development is now centered on the `df-main` branch, which tracks PX4 `main` after the `df-1.15.4` migration. The older `df-1.x.x` branches keep the PX4-versioned history, including the early `df-1.12.3` INDI and LPCA work documented in [PINDI](https://github.com/mengchaoheng/PINDI).
 
-## About
+Compared with the upstream PX4 baseline around commit `82e3322e0cf0afc9ad640f37a0a8b639077b3fa4`, this workspace adds three connected pieces:
 
-PX4 is an open-source autopilot stack for drones and unmanned vehicles. It supports multirotors, fixed-wing, VTOL, rovers, and many more experimental platforms from racing quads to industrial survey aircraft. It runs on [NuttX](https://nuttx.apache.org/), Linux, and macOS. Licensed under [BSD 3-Clause](LICENSE).
+* INDI control: the generic angular-rate law is integrated directly into PX4 [mc_rate_control](src/modules/mc_rate_control), which keeps the normal angular-rate PID fallback and supports an explicit MC torque-allocation matrix route. The acceleration-to-thrust correction is integrated in [mc_pos_control](src/modules/mc_pos_control). The controller design follows **Full-Mode Flight Control Framework for a Ducted-Fan Tail-Sitter UAV**.
+* LPCA/PCA control allocation: [ControlAllocationLPCA.cpp](src/lib/control_allocation/control_allocation/ControlAllocationLPCA.cpp) adapts INV/DP_LPCA/DPscaled_LPCA/PCA to PX4, and [pca/ControlAllocation.h](src/lib/control_allocation/control_allocation/pca/ControlAllocation.h) contains the bounded LP implementation. The allocation algorithms follow **Aircraft control allocation** and the reference implementation in [control_allocation](https://github.com/mengchaoheng/control_allocation).
+* Ducted-fan effectiveness backends: [ActuatorEffectivenessDuctedFan.cpp](src/modules/control_allocator/VehicleActuatorEffectiveness/ActuatorEffectivenessDuctedFan.cpp) supports non-VTOL ducted-fan airframes, and [ActuatorEffectivenessDuctedFanTailsitterVTOL.cpp](src/modules/control_allocator/VehicleActuatorEffectiveness/ActuatorEffectivenessDuctedFanTailsitterVTOL.cpp) supports ducted-fan tailsitter VTOL. These backends provide the physical force/torque effectiveness matrices used by allocation feedback and INDI.
 
-## Why PX4
+Supported Gazebo Classic airframes include `ductedfan2`, `ductedfan4`, `ductedfan6`, `ductedfan_mini`, `SHC09`, `SHW09_vtol`, and `tilt_multirotor`. See [airframe startup scripts](ROMFS/px4fmu_common/init.d-posix/airframes) and [SITL targets](src/modules/simulation/simulator_mavlink/sitl_targets_gazebo-classic.cmake).
 
-**Modular architecture.** PX4 is built around [uORB](https://docs.px4.io/main/en/middleware/uorb.html), a [DDS](https://docs.px4.io/main/en/middleware/uxrce_dds.html)-compatible publish/subscribe middleware. Modules are fully parallelized and thread safe. You can build custom configurations and trim what you don't need.
+The simulator includes Gazebo Classic ducted-fan dynamics in [ductedfan_plugin.cpp](Tools/simulation/gazebo-classic/sitl_gazebo-classic/src/ductedfan_plugin/ductedfan_plugin.cpp), with spline-based duct/wing aerodynamics and a control-surface moment model.
 
-**Wide hardware support.** PX4 runs on a wide range of [autopilot boards](https://docs.px4.io/main/en/flight_controller/) and supports an extensive set of sensors, telemetry radios, and actuators through the [Pixhawk](https://pixhawk.org/) ecosystem.
+<img src="sitl_gazebo_df4.png" width="60%" />
+<img src="flight_test.png" width="30%" />
 
-**Developer friendly.** First-class support for [MAVLink](https://mavlink.io/) and [DDS / ROS 2](https://docs.px4.io/main/en/ros2/) integration. Comprehensive [SITL simulation](https://docs.px4.io/main/en/simulation/), hardware-in-the-loop testing, and [log analysis](https://docs.px4.io/main/en/log/flight_log_analysis.html) tools. An active developer community on [Discord](https://discord.gg/dronecode) and the [weekly dev call](https://docs.px4.io/main/en/contribute/).
+## Control Allocation and INDI
 
-**Vendor neutral governance.** PX4 is hosted under the [Dronecode Foundation](https://www.dronecode.org/), part of the Linux Foundation. Business-friendly BSD-3 license. No single vendor controls the roadmap.
+The physical-unit conventions, normalized control allocation, feedback semantics, INDI laws, PCA conditions, MC/VTOL instance routing, and current applicability limits are documented in [Control Allocation and INDI Integration](CONTROL_ALLOCATION_AND_INDI.md).
 
-## Supported Vehicles
+## Installation
+Before running this project, you need to deploy the development environment. Please refer to the [PX4 official website](https://docs.px4.io/main/en/) (`main`) to ensure that your computer (macOS/Linux) can open the default model simulation by executing the `make px4_sitl gazebo-classic` command and take off through QGC or terminal commands. It's recommended to use Ubuntu 20.04 and QGC 5.x.
 
-<table>
-  <tr>
-    <td align="center">
-      <a href="https://docs.px4.io/main/en/frames_multicopter/">
-        <img src="docs/assets/airframes/types/QuadRotorX.svg" width="50" alt="Multicopter"><br>
-        <sub>Multicopter</sub>
-      </a>
-    </td>
-    <td align="center">
-      <a href="https://docs.px4.io/main/en/frames_plane/">
-        <img src="docs/assets/airframes/types/Plane.svg" width="50" alt="Fixed Wing"><br>
-        <sub>Fixed Wing</sub>
-      </a>
-    </td>
-    <td align="center">
-      <a href="https://docs.px4.io/main/en/frames_vtol/">
-        <img src="docs/assets/airframes/types/VTOLPlane.svg" width="50" alt="VTOL"><br>
-        <sub>VTOL</sub>
-      </a>
-    </td>
-    <td align="center">
-      <a href="https://docs.px4.io/main/en/frames_rover/">
-        <img src="docs/assets/airframes/types/Rover.svg" width="50" alt="Rover"><br>
-        <sub>Rover</sub>
-      </a>
-    </td>
-  </tr>
-</table>
+> It's easy to upgrade this project to the latest version of px4, just make sure that the [Gazebo Classic environment](https://docs.px4.io/main/en/sim_gazebo_classic/#installation) is deployed in a supported ubuntu version, but we need a lot of testing before doing so.
 
-<sub>…and many more: helicopters, autogyros, airships, submarines, boats, and other experimental platforms. These frames have basic support but are not part of the regular flight-test program. See the <a href="https://docs.px4.io/main/en/airframes/airframe_reference.html">full airframe reference</a>.</sub>
+> Due to [Ubuntu 22.04 or later with Arm64 architecture cannot install gazebo](https://github.com/osrf/gazebo_tutorials/pull/169), Gazebo Classic may not run on arm64-based Ubuntu 22 and later versions. However, AMD64 (x86-64) should still support it. As long as the PX4 official Gazebo Classic simulation can run, the code in this repository can be executed. Most users do not need to pay attention to this. We will soon migrate to the latest gz simulation.
 
-## Try PX4
+> This repository supports both Gazebo Classic and Gazebo (gz) simulation. At present, development and testing are still mainly focused on Gazebo Classic, and the GZ models are not yet fully polished. Nevertheless, all models support gz.
 
-Run PX4 in simulation with a single command. No build tools, no dependencies beyond Docker:
+The [PX4 User Guide](https://docs.px4.io/main/en/) explains how to assemble [supported vehicles](https://docs.px4.io/main/en/airframes/airframe_reference) and fly drones with PX4.
+See the [forum and chat](https://docs.px4.io/main/en/#support) if you need help!
+
+For Ubuntu 20.04, installing the simulation environment is quite straightforward:
+1. Install git:
 
 ```bash
-docker run --rm -it -p 14550:14550/udp px4io/px4-sitl:latest
+sudo apt install git
 ```
 
-Open [QGroundControl](https://qgroundcontrol.com) and fly. See [PX4 Simulation Quickstart](https://docs.px4.io/main/en/simulation/px4_simulation_quickstart) for more options.
-
-## Build from Source
+2. Clone code:
 
 ```bash
-git clone https://github.com/PX4/PX4-Autopilot.git --recursive
-cd PX4-Autopilot
-make px4_sitl
+git clone https://github.com/mengchaoheng/DuctedFanUAV-Autopilot --recursive
 ```
 
-> [!NOTE]
-> See the [Development Guide](https://docs.px4.io/main/en/development/development.html) for toolchain setup and build options.
+3. Go to the path of the code:
 
-## Documentation & Resources
-
-| Resource | Description |
-| --- | --- |
-| [User Guide](https://docs.px4.io/main/en/) | Build, configure, and fly with PX4 |
-| [Developer Guide](https://docs.px4.io/main/en/development/development.html) | Modify the flight stack, add peripherals, port to new hardware |
-| [Airframe Reference](https://docs.px4.io/main/en/airframes/airframe_reference.html) | Full list of supported frames |
-| [Autopilot Hardware](https://docs.px4.io/main/en/flight_controller/) | Compatible flight controllers |
-| [Release Notes](https://docs.px4.io/main/en/releases/) | What's new in each release |
-| [Contribution Guide](https://docs.px4.io/main/en/contribute/) | How to contribute to PX4 |
-
-## Community
-
-- **Weekly Dev Call** — open to all developers ([Dronecode calendar](https://www.dronecode.org/calendar/))
-- **Discord** — [Join the Dronecode server](https://discord.gg/dronecode)
-- **Discussion Forum** — [PX4 Discuss](https://discuss.px4.io/)
-- **Maintainers** — see [`MAINTAINERS.md`](MAINTAINERS.md)
-- **Contributor Stats** — [LFX Insights](https://insights.lfx.linuxfoundation.org/foundation/dronecode)
-
-## Contributing
-
-We welcome contributions of all kinds — bug reports, documentation, new features, and code reviews. Please read the [Contribution Guide](https://docs.px4.io/main/en/contribute/) to get started.
-
-## Citation
-
-If you use PX4 in academic work, please cite it. BibTeX:
-
-```bibtex
-@software{px4_autopilot,
-  author    = {Meier, Lorenz and {The PX4 Contributors}},
-  title     = {{PX4 Autopilot}},
-  publisher = {Zenodo},
-  doi       = {10.5281/zenodo.595432},
-  url       = {https://px4.io}
-}
+```bash
+cd DuctedFanUAV-Autopilot
 ```
 
-The DOI above is a Zenodo concept DOI that always resolves to the latest release. For a version-pinned citation, see the [Zenodo record](https://doi.org/10.5281/zenodo.595432) or our [`CITATION.cff`](CITATION.cff).
+4. Run the ubuntu.sh with no arguments (in a bash shell) to install everything:
 
-## Governance
+```bash
+# For arm64-based ubuntu. See https://github.com/PX4/PX4-Autopilot/issues/21117
+bash ./Tools/setup/ubuntu.sh
+```
 
-The PX4 Autopilot project is hosted by the [Dronecode Foundation](https://www.dronecode.org/), a [Linux Foundation](https://www.linuxfoundation.org/) Collaborative Project. Dronecode holds all PX4 trademarks and serves as the project's legal guardian, ensuring vendor-neutral stewardship — no single company owns the name or controls the roadmap. The source code is licensed under the [BSD 3-Clause](LICENSE) license, so you are free to use, modify, and distribute it in your own projects.
+Or download the development environment deployment script from the official website.
 
-<p align="center">
-  <a href="https://www.dronecode.org/">
-    <img src="docs/assets/site/dronecode_logo.svg" alt="Dronecode Logo" width="180">
-  </a>
-</p>
+```bash
+wget https://raw.githubusercontent.com/PX4/PX4-Autopilot/main/Tools/setup/ubuntu.sh
+wget https://raw.githubusercontent.com/PX4/PX4-Autopilot/main/Tools/setup/requirements.txt
+bash ubuntu.sh
+```
+
+5. Start Gazebo SITL using the following command:
+
+
+5.1 Test the built-in quadcopter simulation:
+
+```bash
+make px4_sitl gazebo-classic
+```
+5.2 Test the simulation of this project:
+```bash
+make px4_sitl gazebo-classic_ductedfan4
+```
+
+> **Note:**  In Ubuntu 22.04 and higher versions, Gazebo Classic is no longer supported on arm64 Ubuntu. If Gazebo was installed using a script on amd64 Ubuntu, it needs to be uninstalled and reinstalled:
+```bash
+sudo apt remove gz-harmonic
+sudo apt install aptitude
+sudo aptitude install gazebo libgazebo11 libgazebo-dev
+```
+
+## Usage
+Clone this repository:
+```
+git clone https://github.com/mengchaoheng/DuctedFanUAV-Autopilot.git
+
+cd DuctedFanUAV-Autopilot
+```
+
+Make sure you're on the `df-main` branch. You can use `git status` to check it.
+```
+git checkout df-main
+```
+
+Ensure that the required submodules for loading the `df-main` branch are loaded.
+```
+git submodule update --init --recursive
+```
+
+> Note: If submodule update error, first switch to `main`, then run the above command, and then switch back to `df-main`, and then run the aforementioned command to update submodules.
+
+When switching branches or wishing to recompile, you can use
+```
+make distclean
+```
+to keep a clean compilation, and then run
+```
+git submodule update --init --recursive
+
+```
+again to rebuild, The compilation command is as follows.
+
+> **Note:** px4 is not sensitive to the Python environment, but you need to ensure that you have installed the required Python packages. Refer to [Development Environment Deployment](https://docs.px4.io/main/en/dev_setup/dev_env)
+### Simulation
+1. ductedfan2
+```
+make px4_sitl gazebo-classic_ductedfan2
+```
+2. ductedfan4
+```
+make px4_sitl gazebo-classic_ductedfan4
+```
+3. ductedfan6
+```
+make px4_sitl gazebo-classic_ductedfan6
+```
+4. ductedfan_mini
+```
+make px4_sitl gazebo-classic_ductedfan_mini
+```
+5. SHC09
+```
+make px4_sitl gazebo-classic_SHC09
+```
+6. SHW09_vtol
+```
+make px4_sitl gazebo-classic_SHW09_vtol
+```
+7. Multirotor with tilt
+```
+make px4_sitl gazebo-classic_tilt_multirotor
+```
+### Flight with pixhawk
+
+Taking pixhawk 4 as an example, the upload command is:
+
+```
+make px4_fmu-v5 upload
+```
+Other versions are similar, please refer to the official website for more details.

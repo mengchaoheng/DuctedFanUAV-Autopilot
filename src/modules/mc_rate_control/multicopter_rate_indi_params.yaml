@@ -1,0 +1,75 @@
+module_name: mc_rate_control
+parameters:
+- group: Multicopter Rate INDI
+  definitions:
+    MC_INDI_R_P:
+      description:
+        short: INDI roll rate proportional gain
+        long: Maps roll-rate error to commanded roll angular acceleration.
+      type: float
+      default: 10.0
+      min: 0
+      unit: 1/s
+      decimal: 3
+    MC_INDI_P_P:
+      description:
+        short: INDI pitch rate proportional gain
+        long: Maps pitch-rate error to commanded pitch angular acceleration.
+      type: float
+      default: 10.0
+      min: 0
+      unit: 1/s
+      decimal: 3
+    MC_INDI_Y_P:
+      description:
+        short: INDI yaw rate proportional gain
+        long: Maps yaw-rate error to commanded yaw angular acceleration.
+      type: float
+      default: 10.0
+      min: 0
+      unit: 1/s
+      decimal: 3
+    MC_J_X:
+      description:
+        short: Vehicle roll-axis moment of inertia
+        long: Diagonal Jxx term used by rate INDI to convert angular acceleration to moment.
+      type: float
+      default: 0.01
+      min: 0.000001
+      unit: kg m^2
+      decimal: 6
+    MC_J_Y:
+      description:
+        short: Vehicle pitch-axis moment of inertia
+        long: Diagonal Jyy term used by rate INDI to convert angular acceleration to moment.
+      type: float
+      default: 0.01
+      min: 0.000001
+      unit: kg m^2
+      decimal: 6
+    MC_J_Z:
+      description:
+        short: Vehicle yaw-axis moment of inertia
+        long: Diagonal Jzz term used by rate INDI to convert angular acceleration to moment.
+      type: float
+      default: 0.01
+      min: 0.000001
+      unit: kg m^2
+      decimal: 6
+    MC_INDI_RATE_EN:
+      description:
+        short: Enable rate INDI control
+        long: |-
+          Uses tau_c=tau_0+J*(Kp*(omega_sp-omega)-alpha_0). The physical
+          torque command is multiplied by the allocator torque scale D before
+          it is published as a normalized torque setpoint.
+
+          The configured B*U columns must therefore represent physical moment
+          in N m per normalized actuator delta. This project publishes INDI
+          allocation feedback only for CA_AIRFRAME 0, 9, 16 and 17. CA0/9 use
+          matrix 0; CA16/17 use matrix 0 for force and matrix 1 for torque.
+
+          With a supported CA type, valid parameters and recent finite allocator
+          feedback, INDI is used. Otherwise the standard rate controller is used.
+      type: boolean
+      default: 0

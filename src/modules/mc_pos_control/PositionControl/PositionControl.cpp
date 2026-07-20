@@ -97,6 +97,7 @@ void PositionControl::setState(const PositionControlStates &states)
 	_vel = states.velocity;
 	_yaw = states.yaw;
 	_vel_dot = states.acceleration;
+	_allocated_thrust_acceleration = states.allocated_thrust_acceleration;
 }
 
 void PositionControl::setInputSetpoint(const trajectory_setpoint_s &setpoint)
@@ -110,6 +111,7 @@ void PositionControl::setInputSetpoint(const trajectory_setpoint_s &setpoint)
 
 bool PositionControl::update(const float dt)
 {
+	_acceleration_indi_active = false;
 	bool valid = _inputValid();
 
 	if (valid) {
@@ -206,6 +208,19 @@ void PositionControl::_velocityControl(const float dt)
 
 void PositionControl::_accelerationControl()
 {
+	// Paper: Full-Mode Flight Control Framework for a Ducted-Fan Tail-Sitter UAV
+	if (_allocated_thrust_acceleration.isAllFinite() && _vel_dot.isAllFinite()) {
+		_acceleration_indi_active = true;
+
+		// f_T,c/m = f_T,0/m + (a_c - a_0), all expressed in NED.
+		const Vector3f acceleration_error = _acc_sp - _vel_dot;
+		const Vector3f thrust_acceleration_sp = _allocated_thrust_acceleration + acceleration_error;
+
+		// Convert f_T,c/m to PX4's inertial-acceleration convention, then continue
+		// through the original hover-thrust mapping and thrust limits.
+		_acc_sp = thrust_acceleration_sp + Vector3f(0.f, 0.f, CONSTANTS_ONE_G);
+	}
+
 	// Assume standard acceleration due to gravity in vertical direction for attitude generation
 	float z_specific_force = -CONSTANTS_ONE_G;
 
@@ -264,6 +279,7 @@ void PositionControl::getLocalPositionSetpoint(vehicle_local_position_setpoint_s
 	local_position_setpoint.vz = _vel_sp(2);
 	_acc_sp.copyTo(local_position_setpoint.acceleration);
 	_thr_sp.copyTo(local_position_setpoint.thrust);
+	local_position_setpoint.acc_indi_active = _acceleration_indi_active;
 }
 
 void PositionControl::getAttitudeSetpoint(vehicle_attitude_setpoint_s &attitude_setpoint) const

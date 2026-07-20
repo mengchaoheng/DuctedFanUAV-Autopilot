@@ -1,0 +1,113 @@
+#!/bin/sh
+#
+# @name SHC09
+#
+# @type Ducted Fan
+#
+# Author: Chaoheng Meng <chaohengmeng@163.com>
+
+
+
+. ${R}etc/init.d/rc.mc_defaults
+param set-default CA_AIRFRAME 16 #  9 or 16
+
+# Effectiveness unit contract (control_allocation/SHC09.m):
+#   v = [tau; F] = B*u, with tau [N m], F [N]. Physical u contains rotor
+#   thrust [N] and surface deflection [rad]. Writing u = U*u_norm gives
+#   v = (B*U)*u_norm; therefore the parameter matrix below is B*U.
+#   CA_ROTOR0_CT is maximum thrust [N]. CA_SV_CSx_TRQ_* is the moment at
+#   normalized surface command +1 [N m] and already includes delta_max=40 deg.
+
+param set-default MC_ROLLRATE_P 0.4
+param set-default MC_ROLLRATE_I 0.2
+
+param set-default MC_PITCHRATE_P 0.4
+param set-default MC_PITCHRATE_I 0.2
+
+param set-default MC_YAWRATE_P 0.2
+param set-default MC_YAWRATE_I 0.1
+
+param set-default MC_PITCH_P 2
+param set-default MC_ROLL_P 2
+param set-default MC_YAW_P 2
+
+param set-default MPC_XY_VEL_P_ACC 1.8
+param set-default MPC_XY_VEL_I_ACC 0.4
+param set-default MPC_XY_VEL_D_ACC 0.0
+
+param set-default MPC_Z_VEL_P_ACC 4.0
+param set-default MPC_Z_VEL_I_ACC 2.0
+param set-default MPC_Z_VEL_D_ACC 0.0
+
+# Force and motor-output contract.
+#
+# The controller publishes normalized thrust demand. The allocator solves for
+# normalized motor thrust u_T, and FunctionMotors converts u_T to a motor
+# command x using:
+#   u_T = THR_MDL_FAC * x^2 + (1 - THR_MDL_FAC) * x
+# For this Gazebo rotor the physical model is:
+#   omega = x * maxRotVelocity
+#   F = motorConstant * omega^2
+#
+# With THR_MDL_FAC=1, u_T is exactly F/Fmax.
+#   Fmax = motorConstant * maxRotVelocity^2 = 2.937612e-5 * 1200^2 = 42.3016 N
+#   hover = mg/Fmax = 2.1 * 9.8 / 42.3016 = 0.4865
+param set-default MPC_THR_HOVER 0.4865
+param set-default THR_MDL_FAC 1
+param set-default RTL_RETURN_ALT 2.5
+param set-default RTL_DESCEND_ALT 2.5
+
+
+param set-default CA_ROTOR_COUNT 1
+param set-default CA_ROTOR0_AX 0
+param set-default CA_ROTOR0_AY 0
+param set-default CA_ROTOR0_AZ -1
+param set-default CA_ROTOR0_PX 0
+param set-default CA_ROTOR0_PY 0
+param set-default CA_ROTOR0_PZ 0.1
+param set-default CA_ROTOR0_CT 42.3016
+param set-default CA_ROTOR0_KM 0
+
+# The allocator computes (B*U)*u_norm first, then low-pass filters the physical
+# force/moment feedback. It does not simulate individual actuator dynamics.
+param set-default CA_FORCE_CUTOFF 6
+param set-default CA_TORQ_CUTOFF 8
+param set-default IMU_DGYRO_CUTOFF 10
+param set-default MPC_MASS 2.1
+param set-default MC_J_X 0.0438
+param set-default MC_J_Y 0.0436
+param set-default MC_J_Z 0.005006
+
+param set-default CA_SV_CS_COUNT 6
+param set-default CA_SV_CS0_TRQ_R -0.343572
+param set-default CA_SV_CS0_TRQ_P 0
+param set-default CA_SV_CS0_TRQ_Y 0.084928
+param set-default CA_SV_CS1_TRQ_R -0.171786
+param set-default CA_SV_CS1_TRQ_P 0.297542
+param set-default CA_SV_CS1_TRQ_Y 0.084928
+param set-default CA_SV_CS2_TRQ_R 0.171786
+param set-default CA_SV_CS2_TRQ_P 0.297542
+param set-default CA_SV_CS2_TRQ_Y 0.084928
+param set-default CA_SV_CS3_TRQ_R 0.343572
+param set-default CA_SV_CS3_TRQ_P 0
+param set-default CA_SV_CS3_TRQ_Y 0.084928
+param set-default CA_SV_CS4_TRQ_R 0.171786
+param set-default CA_SV_CS4_TRQ_P -0.297542
+param set-default CA_SV_CS4_TRQ_Y 0.084928
+param set-default CA_SV_CS5_TRQ_R -0.171786
+param set-default CA_SV_CS5_TRQ_P -0.297542
+param set-default CA_SV_CS5_TRQ_Y 0.084928
+
+# param set-default VT_ELEV_MC_LOCK 0
+
+param set-default PWM_MAIN_FUNC1 101
+
+param set-default PWM_MAIN_FUNC2 201
+param set-default PWM_MAIN_FUNC3 202
+param set-default PWM_MAIN_FUNC4 203
+param set-default PWM_MAIN_FUNC5 204
+param set-default PWM_MAIN_FUNC6 205
+param set-default PWM_MAIN_FUNC7 206
+
+# param set-default SDLOG_PROFILE 17
+param set-default SDLOG_MODE 0

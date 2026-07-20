@@ -53,6 +53,7 @@ px4_add_module(
 		multicopter_responsiveness_params.yaml
 		multicopter_stabilized_mode_params.yaml
 		multicopter_takeoff_land_params.yaml
+		multicopter_acceleration_indi_params.yaml
 	DEPENDS
 		GotoControl
 		PositionControl

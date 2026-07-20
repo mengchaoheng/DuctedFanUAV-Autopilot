@@ -74,6 +74,28 @@ public:
 	void setFeedForwardLimit(float limit) { _ff_max = math::max(limit, 0.f); }
 
 	/**
+	 * Select attitude error calculation mode
+	 *
+	 * 0: PX4 default reduced attitude with yaw weighting, Brescianini et al. 2013 style,
+	 *    error scale 2 * n * sin(theta / 2).
+	 * 1: Full quaternion imaginary-vector error,
+	 *    error scale 2 * n * sin(theta / 2).
+	 * 2: Full quaternion logarithm-map error,
+	 *    error scale n * theta.
+	 * 3: Full DCM logarithm-map error,
+	 *    error scale n * theta.
+	 * 4: Full DCM vee-map error, Lee et al. 2010 style,
+	 *    error scale n * sin(theta).
+	 * 5: Tal and Karaman incremental attitude command error,
+	 *    error scale n * theta.
+	 * 6: Tilt-prioritized quaternion error, Brescianini and D'Andrea 2020 / Sun et al. 2022 style,
+	 *    error scale 2 * n * sin(theta / 2).
+	 * 7: Tilt-torsion SO(3) logarithm-map error, Yu et al. 2015 style,
+	 *    error scale n * theta.
+	 */
+	void setAttitudeErrorMode(int mode);
+
+	/**
 	 * Set hard limit for output rate setpoints
 	 * @param rate_limit [rad/s] 3D vector containing limits for roll, pitch, yaw
 	 */
@@ -115,9 +137,31 @@ private:
 	 */
 	void propagateReferenceModel(const matrix::Quatf &qd, const float yawspeed_setpoint, const float dt);
 
+	enum AttitudeErrorMode {
+		ATTITUDE_ERROR_DEFAULT = 0,
+		ATTITUDE_ERROR_QUATERNION_IMAG = 1,
+		ATTITUDE_ERROR_QUATERNION_LOG = 2,
+		ATTITUDE_ERROR_DCM_LOG = 3,
+		ATTITUDE_ERROR_DCM_VEE = 4,
+		ATTITUDE_ERROR_EZRA_TAL = 5,
+		ATTITUDE_ERROR_TILT_PRIORITIZED = 6,
+		ATTITUDE_ERROR_TILT_TORSION = 7,
+	};
+
+	matrix::Vector3f calculateAttitudeErrorDefault(const matrix::Quatf &q, matrix::Quatf qd) const;
+	matrix::Vector3f calculateAttitudeErrorQuaternionImag(const matrix::Quatf &q, const matrix::Quatf &qd) const;
+	matrix::Vector3f calculateAttitudeErrorQuaternionLog(const matrix::Quatf &q, const matrix::Quatf &qd) const;
+	matrix::Vector3f calculateAttitudeErrorDcmLog(const matrix::Quatf &q, const matrix::Quatf &qd) const;
+	matrix::Vector3f calculateAttitudeErrorDcmVee(const matrix::Quatf &q, const matrix::Quatf &qd) const;
+	matrix::Vector3f calculateAttitudeErrorEzraTal(const matrix::Quatf &q, const matrix::Quatf &qd) const;
+	matrix::Vector3f calculateAttitudeErrorTiltPrioritized(const matrix::Quatf &q, const matrix::Quatf &qd) const;
+	matrix::Vector3f calculateAttitudeErrorTiltTorsion(const matrix::Quatf &q, const matrix::Quatf &qd) const;
+	matrix::Vector3f calculateAttitudeError(const matrix::Quatf &q, const matrix::Quatf &qd) const;
+
 	matrix::Vector3f _proportional_gain;
 	matrix::Vector3f _rate_limit;
 	float _yaw_w{0.f}; ///< yaw weight [0,1] to deprioritize compared to roll and pitch
+	int _attitude_error_mode{ATTITUDE_ERROR_DEFAULT}; ///< selected attitude error calculation mode
 
 	matrix::Quatf _q_ref;                  ///< reference attitude tracked by the 2nd-order ref model
 	matrix::Vector3f _omega_correction;    ///< error-driven correction (2nd-order state); reference rate = _omega_correction + _omega_command

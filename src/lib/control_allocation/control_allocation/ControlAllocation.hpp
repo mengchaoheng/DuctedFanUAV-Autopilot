@@ -94,6 +94,17 @@ public:
 		THRUST_Z
 	};
 
+	struct Diagnostics {
+		int8_t solver_status{0};
+		int8_t solver_err{0};
+		bool full_row_rank{false};
+		uint8_t active_rows{0};
+		float solver_rho{0.f};
+		float solver_prepare_time{0.f};
+		float solver_core_time{0.f};
+		float solver_post_time{0.f};
+	};
+
 	/**
 	 * Allocate control setpoint to actuators
 	 */
@@ -129,7 +140,24 @@ public:
 	 *
 	 * @param Control vector
 	 */
-	void setControlSetpoint(const matrix::Vector<float, NUM_AXES> &control) { _control_sp = control; }
+	void setControlSetpoint(const matrix::Vector<float, NUM_AXES> &control)
+	{
+		_control_sp = control;
+		_control_sp_priority_higher.setZero();
+		_control_sp_priority_valid = false;
+	}
+
+	/**
+	 * Set the optional higher-priority component of the desired control vector.
+	 *
+	 * The lower-priority component is derived from control minus higher. Calling
+	 * this explicitly also marks the priority split valid, even when higher is zero.
+	 */
+	void setControlSetpointPriorityHigher(const matrix::Vector<float, NUM_AXES> &higher)
+	{
+		_control_sp_priority_higher = higher;
+		_control_sp_priority_valid = true;
+	}
 
 	/**
 	 * Get the desired control vector
@@ -245,6 +273,10 @@ public:
 
 	int numConfiguredActuators() const { return _num_actuators; }
 
+	virtual bool usedFallback() const { return false; }
+
+	const Diagnostics &getDiagnostics() const { return _diagnostics; }
+
 	void setNormalizeRPY(bool normalize_rpy) { _normalize_rpy = normalize_rpy; }
 
 protected:
@@ -259,8 +291,11 @@ protected:
 	ActuatorVector _prev_actuator_sp;  	///< Previous actuator setpoint
 	ActuatorVector _actuator_sp;  	///< Actuator setpoint
 	matrix::Vector<float, NUM_AXES> _control_sp;   		///< Control setpoint
+	matrix::Vector<float, NUM_AXES> _control_sp_priority_higher;	///< Higher-priority control component
+	bool _control_sp_priority_valid{false};			///< Higher-priority component was explicitly supplied
 	matrix::Vector<float, NUM_AXES> _control_trim; 		///< Control at trim actuator values
 	int _num_actuators{0};
+	Diagnostics _diagnostics{};
 	bool _normalize_rpy{false};				///< if true, normalize roll, pitch and yaw columns
 	bool _had_actuator_failure{false};
 };
