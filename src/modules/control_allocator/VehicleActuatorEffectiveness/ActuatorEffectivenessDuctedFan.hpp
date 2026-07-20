@@ -17,7 +17,7 @@ public:
 	// The current ducted-fan airframes use two allocation instances because
 	// their force and torque allocation are physically decoupled: motors provide
 	// force, and control surfaces provide torque. This also lets PCA consume the
-	// existing torque-only INDI priority split on instance 1 while instance 0
+	// explicitly routed torque-only INDI priority split on instance 1 while instance 0
 	// handles force without a priority split.
 	//
 	// If a future ducted-fan geometry has motors or surfaces that both produce

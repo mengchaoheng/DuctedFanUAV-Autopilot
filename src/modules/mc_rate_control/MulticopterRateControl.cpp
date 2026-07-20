@@ -45,14 +45,18 @@ using math::radians;
 
 namespace
 {
+constexpr int32_t kDuctedFanAirframe = 16;
+constexpr int32_t kDuctedFanTailsitterVtolAirframe = 17;
+
 bool indiAllocationFeedbackSupported(int32_t airframe)
 {
-	return airframe == 0 || airframe == 9 || airframe == 16 || airframe == 17;
+	return airframe == 0 || airframe == 9 || airframe == kDuctedFanAirframe
+	       || airframe == kDuctedFanTailsitterVtolAirframe;
 }
 
 uint8_t torqueAllocationInstance(int32_t airframe)
 {
-	return (airframe == 16 || airframe == 17) ? 1 : 0;
+	return (airframe == kDuctedFanAirframe || airframe == kDuctedFanTailsitterVtolAirframe) ? 1 : 0;
 }
 
 bool allocationFeedbackValid(const allocation_value_s &allocation_value)
@@ -89,6 +93,16 @@ MulticopterRateControl::~MulticopterRateControl()
 bool
 MulticopterRateControl::init()
 {
+	if (_route_torque_to_instance1) {
+		// Reserve instance 0 first, then verify that the CA16 torque publisher owns
+		// instance 1. The allocator callback remains on instance 0.
+		if (!_vehicle_torque_setpoint_pub.advertise()
+		    || _vehicle_torque_setpoint1_pub.get_instance() != 1) {
+			PX4_ERR("failed to configure CA16 torque routing");
+			return false;
+		}
+	}
+
 	if (!_vehicle_angular_velocity_sub.registerCallback()) {
 		PX4_ERR("callback registration failed");
 		return false;
@@ -128,9 +142,29 @@ MulticopterRateControl::parameters_updated()
 				Vector3f(_param_mc_j_x.get(), _param_mc_j_y.get(), _param_mc_j_z.get()));
 	const int32_t airframe = _param_ca_airframe.get();
 	_torque_allocation_instance = torqueAllocationInstance(airframe);
+	_route_torque_to_instance1 = airframe == kDuctedFanAirframe;
 	_indi_enabled = _param_mc_indi_rate_en.get() == 1
 			&& indiAllocationFeedbackSupported(airframe)
 			&& _indi_control.paramsValid();
+}
+
+void
+MulticopterRateControl::publishTorqueSetpoint(const vehicle_torque_setpoint_s &vehicle_torque_setpoint)
+{
+	if (_route_torque_to_instance1) {
+		// CA16 matrix 0 produces force only. Publish the complete MC torque and
+		// optional PCA priority split on matrix 1 before instance 0 triggers the
+		// allocator, matching the explicit routing used by CA17.
+		_vehicle_torque_setpoint1_pub.publish(vehicle_torque_setpoint);
+
+		vehicle_torque_setpoint_s force_matrix_torque_setpoint{};
+		force_matrix_torque_setpoint.timestamp_sample = vehicle_torque_setpoint.timestamp_sample;
+		force_matrix_torque_setpoint.timestamp = vehicle_torque_setpoint.timestamp;
+		_vehicle_torque_setpoint_pub.publish(force_matrix_torque_setpoint);
+
+	} else {
+		_vehicle_torque_setpoint_pub.publish(vehicle_torque_setpoint);
+	}
 }
 
 bool
@@ -329,7 +363,7 @@ MulticopterRateControl::Run()
 
 			vehicle_torque_setpoint.timestamp_sample = angular_velocity.timestamp_sample;
 			vehicle_torque_setpoint.timestamp = hrt_absolute_time();
-			_vehicle_torque_setpoint_pub.publish(vehicle_torque_setpoint);
+			publishTorqueSetpoint(vehicle_torque_setpoint);
 
 			updateActuatorControlsStatus(vehicle_torque_setpoint, dt);
 

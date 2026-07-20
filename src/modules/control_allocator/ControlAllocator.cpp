@@ -640,16 +640,7 @@ ControlAllocator::Run()
 		torque_sp_indi_feedback_valid[0] = _torque_sp_indi_feedback_valid;
 
 		if (_num_control_allocation > 1) {
-			if (_effectiveness_source_id == EffectivenessSource::DUCTED_FAN) {
-				// CA16 receives the normal MC setpoint on instance 0, while its
-				// torque actuators belong to matrix 1.
-				c[1](0) = _torque_sp(0);
-				c[1](1) = _torque_sp(1);
-				c[1](2) = _torque_sp(2);
-				torque_sp_indi_feedback[1] = _torque_sp_indi_feedback;
-				torque_sp_indi_feedback_valid[1] = _torque_sp_indi_feedback_valid;
-
-			} else if (_vehicle_torque_setpoint1_sub.copy(&vehicle_torque_setpoint)) {
+			if (_vehicle_torque_setpoint1_sub.copy(&vehicle_torque_setpoint)) {
 				c[1](0) = vehicle_torque_setpoint.xyz[0];
 				c[1](1) = vehicle_torque_setpoint.xyz[1];
 				c[1](2) = vehicle_torque_setpoint.xyz[2];

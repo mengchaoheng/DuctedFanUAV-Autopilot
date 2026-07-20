@@ -396,7 +396,16 @@ Tailsitter 的内置 `fill_actuator_outputs()` 在 rotary-wing 与 transition �
 | 16 | matrix 0 | matrix 1 | 单电机 force 与 control-surface torque 分离 |
 | 17 | matrix 0 | matrix 1 | tailsitter force 与 MC control-surface torque 分离 |
 
-CA16 是 MC module：`mc_rate_control` 发布 instance 0，allocator 将其中的完整 torque setpoint、INDI higher 和 valid 同步写入 matrix 1 的控制目标。Matrix 0 的单电机 effectiveness 只包含 force，matrix 1 的舵面 effectiveness 只包含 torque。
+CA16 是 MC module：`mc_rate_control` 保持 thrust 在 instance 0，将 instance 0 torque 清零，并把完整 torque setpoint、INDI higher 和 valid 显式发布到 instance 1。Allocator 因而保持通用的 instance 0 / 1 到 matrix 0 / 1 路由。Matrix 0 的单电机 effectiveness 只包含 force，matrix 1 的舵面 effectiveness 只包含 torque。
+
+因此 CA16 每周期交给两个 allocation matrix 的完整目标为：
+
+| | matrix 0 / instance 0 | matrix 1 / instance 1 |
+|---|---|---|
+| Torque target | $\boldsymbol{0}$ | MC torque setpoint，以及 PCA 使用的 INDI higher 和 valid |
+| Force target | MC thrust setpoint | $\boldsymbol{0}$ |
+
+即 matrix 0 target 为 `[0 torque, MC thrust]`，matrix 1 target 为 `[MC torque, 0 thrust]`。CA16 不发布 `vehicle_thrust_setpoint[1]`；allocator 中 matrix 1 的 force 分量保持零值。相应地，日志中的 `vehicle_thrust_setpoint_0` 与 `control_allocator_status_0` 用于检查 force 路径，`vehicle_torque_setpoint_1` 与 `control_allocator_status_1` 用于检查 torque/PCA 路径。
 
 CA17 是 VTOL module：`mc_rate_control` 发布 virtual MC setpoint，tailsitter 路由把 matrix 0 torque 设为零，并在所有 VTOL 阶段将 virtual MC 的完整 torque setpoint、INDI higher 和 valid 作为 instance 1 / matrix 1 的控制目标。Matrix 0 thrust 继续采用 tailsitter 内置分阶段路由。Acceleration INDI 的消费周期属于 multicopter position-control 模式。
 

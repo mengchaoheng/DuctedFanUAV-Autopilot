@@ -98,6 +98,7 @@ private:
 	bool computeIndiTorqueSetpoint(const matrix::Vector3f &rates, const matrix::Vector3f &rates_setpoint,
 				       const matrix::Vector3f &angular_accel, matrix::Vector3f &torque_setpoint,
 				       matrix::Vector3f &indi_feedback);
+	void publishTorqueSetpoint(const vehicle_torque_setpoint_s &vehicle_torque_setpoint);
 	void updateActuatorControlsStatus(const vehicle_torque_setpoint_s &vehicle_torque_setpoint, float dt);
 
 	RateControl _rate_control; ///< class for rate control calculations
@@ -122,6 +123,7 @@ private:
 	uORB::Publication<vehicle_rates_setpoint_s>	_vehicle_rates_setpoint_pub{ORB_ID(vehicle_rates_setpoint)};
 	uORB::Publication<vehicle_thrust_setpoint_s>	_vehicle_thrust_setpoint_pub;
 	uORB::Publication<vehicle_torque_setpoint_s>	_vehicle_torque_setpoint_pub;
+	uORB::PublicationMulti<vehicle_torque_setpoint_s> _vehicle_torque_setpoint1_pub{ORB_ID(vehicle_torque_setpoint)};
 
 	vehicle_control_mode_s	_vehicle_control_mode{};
 	vehicle_status_s	_vehicle_status{};
@@ -129,6 +131,7 @@ private:
 	bool _landed{true};
 	bool _maybe_landed{true};
 	bool _indi_enabled{false};
+	bool _route_torque_to_instance1{false};
 	uint8_t _torque_allocation_instance{0};
 
 	hrt_abstime _last_run{0};
