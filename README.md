@@ -161,3 +161,87 @@ Taking pixhawk 4 as an example, the upload command is:
 make px4_fmu-v5 upload
 ```
 Other versions are similar, please refer to the official website for more details.
+
+### DuctedFan4 HITL (Hardware-in-the-Loop)
+
+The following procedure runs DuctedFan4 HITL with Gazebo Classic. For other flight controller boards, refer to the [PX4 HITL documentation](https://docs.px4.io/main/en/simulation/hitl).
+
+#### First-time setup
+
+1. For FMUv5, ensure that `boards/px4/fmu-v5/default.px4board` contains:
+
+   ```text
+   CONFIG_MODULES_SIMULATION_PWM_OUT_SIM=y
+   ```
+
+   Build and upload the firmware:
+
+   ```bash
+   make px4_fmu-v5_default upload
+   ```
+
+2. First calibrate the sensors and radio using any normal airframe. Then select the DF4 HITL airframe from the QGC Parameters page:
+
+   ```text
+   SYS_AUTOSTART = 22002
+   SYS_HITL      = 1
+   ```
+
+   Restart the flight controller after changing these parameters. The graphical airframe selection page in QGC is not required.
+
+3. Build Gazebo Classic:
+
+   ```bash
+   source ~/px4_build_env.sh
+   DONT_RUN=1 make px4_sitl_default gazebo-classic
+   ```
+
+4. Identify the flight controller USB serial port during the first setup. Close QGC, then run the appropriate command both before and after connecting the flight controller.
+
+   macOS:
+
+   ```bash
+   ls /dev/tty.usbmodem*
+   ```
+
+   Ubuntu/Linux:
+
+   ```bash
+   dmesg | grep tty
+   ls -l /dev/serial/by-id/
+   ```
+
+   The macOS device may be `/dev/tty.usbmodem01`, while Linux commonly uses `/dev/ttyACM0`. Set the detected path in:
+
+   ```text
+   Tools/simulation/gazebo-classic/sitl_gazebo-classic/models/ductedfan4_hitl/ductedfan4_hitl.sdf
+   ```
+
+   ```xml
+   <serialDevice>/dev/tty.usbmodem01</serialDevice>
+   ```
+
+5. In QGC, disable automatic Pixhawk USB and serial connections, leaving only UDP enabled. After this configuration, QGC can remain open: Gazebo owns the USB serial port and forwards the connection to QGC over UDP port 14550.
+
+6. Set up the Gazebo environment and start DF4 HITL:
+
+   ```bash
+   cd /Users/mch/Proj/Mac_DF/PX4-Autopilot
+
+   source Tools/simulation/gazebo-classic/setup_gazebo.bash \
+       "$(pwd)" \
+       "$(pwd)/build/px4_sitl_default"
+
+   gazebo Tools/simulation/gazebo-classic/sitl_gazebo-classic/worlds/hitl_ductedfan4.world
+   ```
+
+#### Starting HITL after the first-time setup
+
+1. Connect the flight controller and turn on the transmitter.
+2. In a terminal where `setup_gazebo.bash` has already been sourced, run:
+
+   ```bash
+   gazebo Tools/simulation/gazebo-classic/sitl_gazebo-classic/worlds/hitl_ductedfan4.world
+   ```
+
+3. Use QGC with only its UDP connection enabled. In a new terminal, source `setup_gazebo.bash` again before starting Gazebo. If the USB device name changes, update `serialDevice` in the SDF file accordingly.

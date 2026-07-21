@@ -45,6 +45,7 @@ if(CONFIG_MODULES_SIMULATION_PWM_OUT_SIM)
 		# [1000, 1999] Simulation setups
 		1001_rc_quad_x.hil
 		1002_standard_vtol.hil
+		22002_ductedfan4.hil
 		1100_rc_quad_x_sih.hil
 		1101_rc_plane_sih.hil
 		1102_tailsitter_duo_sih.hil
