@@ -9,13 +9,14 @@ This repository is forked from [PX4-Autopilot](https://github.com/PX4/PX4-Autopi
 ## Feature
 Development is now centered on the `df-main` branch, which tracks PX4 `main` after the `df-1.15.4` migration. The older `df-1.x.x` branches keep the PX4-versioned history, including the early `df-1.12.3` INDI and LPCA work documented in [PINDI](https://github.com/mengchaoheng/PINDI).
 
-Compared with the upstream PX4 baseline around commit `82e3322e0cf0afc9ad640f37a0a8b639077b3fa4`, this workspace adds three connected pieces:
+Compared with the upstream PX4 baseline around commit `82e3322e0cf0afc9ad640f37a0a8b639077b3fa4`, this workspace adds four connected pieces:
 
 * INDI control: the generic angular-rate law is integrated directly into PX4 [mc_rate_control](src/modules/mc_rate_control), which keeps the normal angular-rate PID fallback and supports an explicit MC torque-allocation matrix route. The acceleration-to-thrust correction is integrated in [mc_pos_control](src/modules/mc_pos_control). The controller design follows **Full-Mode Flight Control Framework for a Ducted-Fan Tail-Sitter UAV**.
+* Selectable attitude errors: [mc_att_control](src/modules/mc_att_control) adds the `MC_ATT_ERR_MODE` parameter for selecting among eight attitude-error formulations, including the PX4 reduced-attitude method, quaternion and SO(3) logarithm methods, DCM vee error, Tal-Karaman incremental error, tilt-prioritized quaternion error, and Yu tilt-torsion error. The default value `0` preserves the original PX4 behavior.
 * LPCA/PCA control allocation: [ControlAllocationLPCA.cpp](src/lib/control_allocation/control_allocation/ControlAllocationLPCA.cpp) adapts INV/DP_LPCA/DPscaled_LPCA/PCA to PX4, and [pca/ControlAllocation.h](src/lib/control_allocation/control_allocation/pca/ControlAllocation.h) contains the bounded LP implementation. The allocation algorithms follow **Aircraft control allocation** and the reference implementation in [control_allocation](https://github.com/mengchaoheng/control_allocation).
 * Ducted-fan effectiveness backends: [ActuatorEffectivenessDuctedFan.cpp](src/modules/control_allocator/VehicleActuatorEffectiveness/ActuatorEffectivenessDuctedFan.cpp) supports non-VTOL ducted-fan airframes, and [ActuatorEffectivenessDuctedFanTailsitterVTOL.cpp](src/modules/control_allocator/VehicleActuatorEffectiveness/ActuatorEffectivenessDuctedFanTailsitterVTOL.cpp) supports ducted-fan tailsitter VTOL. These backends provide the physical force/torque effectiveness matrices used by allocation feedback and INDI.
 
-Supported Gazebo Classic airframes include `ductedfan2`, `ductedfan4`, `ductedfan6`, `ductedfan_mini`, `SHC09`, `SHW09_vtol`, and `tilt_multirotor`. See [airframe startup scripts](ROMFS/px4fmu_common/init.d-posix/airframes) and [SITL targets](src/modules/simulation/simulator_mavlink/sitl_targets_gazebo-classic.cmake).
+Both Gazebo Classic and Gazebo (gz) support `ductedfan2`, `ductedfan4`, `ductedfan6`, `ductedfan_mini`, `SHC09`, and `SHW09_vtol`. The tilted vehicle is named `tilt_multirotor` in Gazebo Classic and `tiltrotor` in gz. See the [airframe startup scripts](ROMFS/px4fmu_common/init.d-posix/airframes), [Gazebo Classic SITL targets](src/modules/simulation/simulator_mavlink/sitl_targets_gazebo-classic.cmake), and [gz models](Tools/simulation/gz/models).
 
 The simulator includes Gazebo Classic ducted-fan dynamics in [ductedfan_plugin.cpp](Tools/simulation/gazebo-classic/sitl_gazebo-classic/src/ductedfan_plugin/ductedfan_plugin.cpp), with spline-based duct/wing aerodynamics and a control-surface moment model.
 
@@ -27,18 +28,28 @@ The simulator includes Gazebo Classic ducted-fan dynamics in [ductedfan_plugin.c
 The physical-unit conventions, normalized control allocation, feedback semantics, INDI laws, PCA conditions, MC/VTOL instance routing, and current applicability limits are documented in [Control Allocation and INDI Integration](CONTROL_ALLOCATION_AND_INDI.md).
 
 ## Installation
-Before running this project, you need to deploy the development environment. Please refer to the [PX4 official website](https://docs.px4.io/main/en/) (`main`) to ensure that your computer (macOS/Linux) can open the default model simulation by executing the `make px4_sitl gazebo-classic` command and take off through QGC or terminal commands. It's recommended to use Ubuntu 20.04 and QGC 5.x.
+Before running this project, deploy the development environment by following the [PX4 User Guide](https://docs.px4.io/main/en/) (`main`). Verify that your computer can launch a default PX4 vehicle and take off through QGC or terminal commands using either simulation backend:
 
-> It's easy to upgrade this project to the latest version of px4, just make sure that the [Gazebo Classic environment](https://docs.px4.io/main/en/sim_gazebo_classic/#installation) is deployed in a supported ubuntu version, but we need a lot of testing before doing so.
+```bash
+# Gazebo Classic
+make px4_sitl gazebo-classic
 
-> Due to [Ubuntu 22.04 or later with Arm64 architecture cannot install gazebo](https://github.com/osrf/gazebo_tutorials/pull/169), Gazebo Classic may not run on arm64-based Ubuntu 22 and later versions. However, AMD64 (x86-64) should still support it. As long as the PX4 official Gazebo Classic simulation can run, the code in this repository can be executed. Most users do not need to pay attention to this. We will soon migrate to the latest gz simulation.
+# Gazebo (gz)
+make px4_sitl gz_x500
+```
+
+Gazebo Classic is recommended on Ubuntu 20.04, while Gazebo (gz) is recommended on Ubuntu 22.04. QGC 5.x is recommended for both backends.
+
+> Before upgrading this project to a newer PX4 version, ensure that either the [Gazebo Classic environment](https://docs.px4.io/main/en/sim_gazebo_classic/#installation) or the [Gazebo (gz) environment](https://docs.px4.io/main/en/sim_gazebo_gz/) works with the corresponding default PX4 simulation. The project-specific models still require regression testing after an upgrade.
+
+> Due to [Ubuntu 22.04 or later with Arm64 architecture cannot install gazebo](https://github.com/osrf/gazebo_tutorials/pull/169), Gazebo Classic may not run on Arm64-based Ubuntu 22.04 and later. Use Ubuntu 20.04 for Gazebo Classic or Ubuntu 22.04 with Gazebo (gz). AMD64 systems may still support Gazebo Classic on newer Ubuntu releases.
 
 > This repository supports both Gazebo Classic and Gazebo (gz) simulation. At present, development and testing are still mainly focused on Gazebo Classic, and the GZ models are not yet fully polished. Nevertheless, all models support gz.
 
 The [PX4 User Guide](https://docs.px4.io/main/en/) explains how to assemble [supported vehicles](https://docs.px4.io/main/en/airframes/airframe_reference) and fly drones with PX4.
 See the [forum and chat](https://docs.px4.io/main/en/#support) if you need help!
 
-For Ubuntu 20.04, installing the simulation environment is quite straightforward:
+The following setup applies to Ubuntu 20.04 for Gazebo Classic and Ubuntu 22.04 for Gazebo (gz):
 1. Install git:
 
 ```bash
@@ -72,17 +83,24 @@ wget https://raw.githubusercontent.com/PX4/PX4-Autopilot/main/Tools/setup/requir
 bash ubuntu.sh
 ```
 
-5. Start Gazebo SITL using the following command:
-
-
-5.1 Test the built-in quadcopter simulation:
+5. Test the built-in quadcopter simulation:
 
 ```bash
+# Ubuntu 20.04: Gazebo Classic
 make px4_sitl gazebo-classic
+
+# Ubuntu 22.04: Gazebo (gz)
+make px4_sitl gz_x500
 ```
-5.2 Test the simulation of this project:
+
+6. Test the DuctedFan4 simulation:
+
 ```bash
+# Ubuntu 20.04: Gazebo Classic
 make px4_sitl gazebo-classic_ductedfan4
+
+# Ubuntu 22.04: Gazebo (gz)
+make px4_sitl gz_ductedfan4
 ```
 
 > **Note:**  In Ubuntu 22.04 and higher versions, Gazebo Classic is no longer supported on arm64 Ubuntu. If Gazebo was installed using a script on amd64 Ubuntu, it needs to be uninstalled and reinstalled:
@@ -129,29 +147,57 @@ again to rebuild, The compilation command is as follows.
 ```
 make px4_sitl gazebo-classic_ductedfan2
 ```
+Or, to run the Gazebo (gz) simulation:
+```
+make px4_sitl gz_ductedfan2
+```
 2. ductedfan4
 ```
 make px4_sitl gazebo-classic_ductedfan4
+```
+Or, to run the Gazebo (gz) simulation:
+```
+make px4_sitl gz_ductedfan4
 ```
 3. ductedfan6
 ```
 make px4_sitl gazebo-classic_ductedfan6
 ```
+Or, to run the Gazebo (gz) simulation:
+```
+make px4_sitl gz_ductedfan6
+```
 4. ductedfan_mini
 ```
 make px4_sitl gazebo-classic_ductedfan_mini
+```
+Or, to run the Gazebo (gz) simulation:
+```
+make px4_sitl gz_ductedfan_mini
 ```
 5. SHC09
 ```
 make px4_sitl gazebo-classic_SHC09
 ```
+Or, to run the Gazebo (gz) simulation:
+```
+make px4_sitl gz_SHC09
+```
 6. SHW09_vtol
 ```
 make px4_sitl gazebo-classic_SHW09_vtol
 ```
+Or, to run the Gazebo (gz) simulation:
+```
+make px4_sitl gz_SHW09_vtol
+```
 7. Multirotor with tilt
 ```
 make px4_sitl gazebo-classic_tilt_multirotor
+```
+Or, to run the Gazebo (gz) tiltrotor simulation:
+```
+make px4_sitl gz_tiltrotor
 ```
 ### Flight with pixhawk
 
@@ -192,7 +238,6 @@ The following procedure runs DuctedFan4 HITL with Gazebo Classic. For other flig
 3. Build Gazebo Classic:
 
    ```bash
-   source ~/px4_build_env.sh
    DONT_RUN=1 make px4_sitl_default gazebo-classic
    ```
 
@@ -226,8 +271,7 @@ The following procedure runs DuctedFan4 HITL with Gazebo Classic. For other flig
 6. Set up the Gazebo environment and start DF4 HITL:
 
    ```bash
-   cd /Users/mch/Proj/Mac_DF/PX4-Autopilot
-
+   # Run from the repository root
    source Tools/simulation/gazebo-classic/setup_gazebo.bash \
        "$(pwd)" \
        "$(pwd)/build/px4_sitl_default"
