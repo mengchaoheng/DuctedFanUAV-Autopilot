@@ -2,6 +2,135 @@ module_name: rc_update
 parameters:
 - group: Radio Calibration
   definitions:
+    # QGroundControl 5.0.8 still consumes RCn_DZ when it determines which
+    # flight-mode slot is active. These compatibility-only parameters are
+    # exposed to QGC but are intentionally not applied by PX4 rc_update.
+    RC1_DZ:
+      description: {short: RC channel 1 dead zone compatibility value, long: Compatibility value for legacy QGroundControl. PX4 does not apply it to RC channel normalization.}
+      type: float
+      default: 0.0
+      min: 0.0
+      max: 100.0
+      unit: us
+    RC2_DZ:
+      description: {short: RC channel 2 dead zone compatibility value, long: Compatibility value for legacy QGroundControl. PX4 does not apply it to RC channel normalization.}
+      type: float
+      default: 0.0
+      min: 0.0
+      max: 100.0
+      unit: us
+    RC3_DZ:
+      description: {short: RC channel 3 dead zone compatibility value, long: Compatibility value for legacy QGroundControl. PX4 does not apply it to RC channel normalization.}
+      type: float
+      default: 0.0
+      min: 0.0
+      max: 100.0
+      unit: us
+    RC4_DZ:
+      description: {short: RC channel 4 dead zone compatibility value, long: Compatibility value for legacy QGroundControl. PX4 does not apply it to RC channel normalization.}
+      type: float
+      default: 0.0
+      min: 0.0
+      max: 100.0
+      unit: us
+    RC5_DZ:
+      description: {short: RC channel 5 dead zone compatibility value, long: Compatibility value for legacy QGroundControl. PX4 does not apply it to RC channel normalization.}
+      type: float
+      default: 0.0
+      min: 0.0
+      max: 100.0
+      unit: us
+    RC6_DZ:
+      description: {short: RC channel 6 dead zone compatibility value, long: Compatibility value for legacy QGroundControl. PX4 does not apply it to RC channel normalization.}
+      type: float
+      default: 0.0
+      min: 0.0
+      max: 100.0
+      unit: us
+    RC7_DZ:
+      description: {short: RC channel 7 dead zone compatibility value, long: Compatibility value for legacy QGroundControl. PX4 does not apply it to RC channel normalization.}
+      type: float
+      default: 0.0
+      min: 0.0
+      max: 100.0
+      unit: us
+    RC8_DZ:
+      description: {short: RC channel 8 dead zone compatibility value, long: Compatibility value for legacy QGroundControl. PX4 does not apply it to RC channel normalization.}
+      type: float
+      default: 0.0
+      min: 0.0
+      max: 100.0
+      unit: us
+    RC9_DZ:
+      description: {short: RC channel 9 dead zone compatibility value, long: Compatibility value for legacy QGroundControl. PX4 does not apply it to RC channel normalization.}
+      type: float
+      default: 0.0
+      min: 0.0
+      max: 100.0
+      unit: us
+    RC10_DZ:
+      description: {short: RC channel 10 dead zone compatibility value, long: Compatibility value for legacy QGroundControl. PX4 does not apply it to RC channel normalization.}
+      type: float
+      default: 0.0
+      min: 0.0
+      max: 100.0
+      unit: us
+    RC11_DZ:
+      description: {short: RC channel 11 dead zone compatibility value, long: Compatibility value for legacy QGroundControl. PX4 does not apply it to RC channel normalization.}
+      type: float
+      default: 0.0
+      min: 0.0
+      max: 100.0
+      unit: us
+    RC12_DZ:
+      description: {short: RC channel 12 dead zone compatibility value, long: Compatibility value for legacy QGroundControl. PX4 does not apply it to RC channel normalization.}
+      type: float
+      default: 0.0
+      min: 0.0
+      max: 100.0
+      unit: us
+    RC13_DZ:
+      description: {short: RC channel 13 dead zone compatibility value, long: Compatibility value for legacy QGroundControl. PX4 does not apply it to RC channel normalization.}
+      type: float
+      default: 0.0
+      min: 0.0
+      max: 100.0
+      unit: us
+    RC14_DZ:
+      description: {short: RC channel 14 dead zone compatibility value, long: Compatibility value for legacy QGroundControl. PX4 does not apply it to RC channel normalization.}
+      type: float
+      default: 0.0
+      min: 0.0
+      max: 100.0
+      unit: us
+    RC15_DZ:
+      description: {short: RC channel 15 dead zone compatibility value, long: Compatibility value for legacy QGroundControl. PX4 does not apply it to RC channel normalization.}
+      type: float
+      default: 0.0
+      min: 0.0
+      max: 100.0
+      unit: us
+    RC16_DZ:
+      description: {short: RC channel 16 dead zone compatibility value, long: Compatibility value for legacy QGroundControl. PX4 does not apply it to RC channel normalization.}
+      type: float
+      default: 0.0
+      min: 0.0
+      max: 100.0
+      unit: us
+    RC17_DZ:
+      description: {short: RC channel 17 dead zone compatibility value, long: Compatibility value for legacy QGroundControl. PX4 does not apply it to RC channel normalization.}
+      type: float
+      default: 0.0
+      min: 0.0
+      max: 100.0
+      unit: us
+    RC18_DZ:
+      description: {short: RC channel 18 dead zone compatibility value, long: Compatibility value for legacy QGroundControl. PX4 does not apply it to RC channel normalization.}
+      type: float
+      default: 0.0
+      min: 0.0
+      max: 100.0
+      unit: us
     RC1_MIN:
       description:
         short: RC channel 1 minimum
