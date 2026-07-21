@@ -176,7 +176,9 @@ bool FlightTaskOrbit::activate(const trajectory_setpoint_s &last_setpoint)
 	bool ret = FlightTaskManualAltitudeSmoothVel::activate(last_setpoint);
 	_currently_orbiting = false;
 	_orbit_radius = _radius_min;
-	_orbit_velocity = 1.f;
+	// Initial tangential speed. A finite MAV_CMD_DO_ORBIT param2 can override it,
+	// and the pilot can continue adjusting it with the sticks while orbiting.
+	_orbit_velocity = _param_mc_orbit_vel.get();
 	_center = _position;
 	_initial_heading = _yaw;
 	_heading_smoothing.reset(PX4_ISFINITE(last_setpoint.yaw) ? last_setpoint.yaw : _yaw,
