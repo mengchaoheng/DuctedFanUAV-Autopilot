@@ -52,6 +52,7 @@ bool FlightTaskFigureEight::activate(const trajectory_setpoint_s &last_setpoint)
 	_major_radius = kInitialMajorRadius;
 	_trajectory_velocity = _param_mc_f8_vel.get();
 	_sanitizeParameters(_major_radius, _trajectory_velocity);
+	_started_clockwise = _trajectory_velocity > 0.f;
 	_minor_ratio = _param_mc_f8_ratio.get();
 	_minor_radius = _major_radius * _minor_ratio;
 	_heading_offset = math::radians(_param_mc_f8_heading.get());
@@ -101,6 +102,7 @@ bool FlightTaskFigureEight::applyCommandParameters(const vehicle_command_s &comm
 	_major_radius = new_radius;
 	_minor_radius = _major_radius * _minor_ratio;
 	_trajectory_velocity = direction * new_velocity;
+	_started_clockwise = direction > 0.f;
 
 	if (PX4_ISFINITE(command.param3)) {
 		if (static_cast<uint8_t>(lroundf(command.param3)) == vehicle_command_s::ORBIT_YAW_BEHAVIOUR_UNCHANGED) {
@@ -186,8 +188,27 @@ void FlightTaskFigureEight::_sanitizeParameters(float &radius, float &velocity) 
 
 void FlightTaskFigureEight::_adjustParametersByStick()
 {
-	float radius = _major_radius - _sticks.getPitchExpo() * _deltatime * _param_mpc_xy_cruise.get();
-	float velocity = _trajectory_velocity + _sticks.getRollExpo() * _deltatime * _param_mpc_acc_hor.get();
+	float radius = _major_radius;
+	float velocity = _trajectory_velocity;
+
+	switch (_yaw_behaviour) {
+	case orbit_status_s::ORBIT_YAW_BEHAVIOUR_HOLD_FRONT_TANGENT_TO_CIRCLE:
+		// Match Orbit stick semantics when the vehicle nose follows the path:
+		// roll changes the lateral path size and pitch changes tangential speed.
+		radius -= signFromBool(_started_clockwise) * _sticks.getRollExpo() * _deltatime * _param_mpc_xy_cruise.get();
+		velocity += signFromBool(_started_clockwise) * _sticks.getPitchExpo() * _deltatime * _param_mpc_acc_hor.get();
+		break;
+
+	case orbit_status_s::ORBIT_YAW_BEHAVIOUR_HOLD_INITIAL_HEADING:
+	case orbit_status_s::ORBIT_YAW_BEHAVIOUR_UNCONTROLLED:
+	case orbit_status_s::ORBIT_YAW_BEHAVIOUR_RC_CONTROLLED:
+	case orbit_status_s::ORBIT_YAW_BEHAVIOUR_HOLD_FRONT_TO_CIRCLE_CENTER:
+	default:
+		radius -= _sticks.getPitchExpo() * _deltatime * _param_mpc_xy_cruise.get();
+		velocity += _sticks.getRollExpo() * _deltatime * _param_mpc_acc_hor.get();
+		break;
+	}
+
 	const float direction = math::signNoZero(velocity);
 	float absolute_velocity = fabsf(velocity);
 
@@ -272,18 +293,15 @@ void FlightTaskFigureEight::_generateTrackingSetpoints()
 	 *   theta_ddot = a_t / ||p_theta||
 	 *                 - (p_theta dot p_theta_theta) / ||p_theta||^2 * theta_dot^2
 	 *
-	 * Therefore the exact kinematic feed-forward references are
+	 * Therefore the exact kinematic references are
 	 *
+	 *   position_sp     = p(theta)
 	 *   velocity_ff     = p_theta theta_dot
 	 *   acceleration_ff = p_theta_theta theta_dot^2 + p_theta theta_ddot
 	 *
-	 * and the commanded horizontal velocity additionally closes path error:
-	 *
-	 *   velocity_sp = velocity_ff + MPC_XY_TRAJ_P (p(theta) - position)
-	 *
-	 * Horizontal position_sp stays NAN in tracking so that velocity and
-	 * acceleration feed-forward are not combined with an additional outer
-	 * position loop. MC_F8_ACC limits v through the local curvature kappa:
+	 * The finite position reference enables the normal multicopter position
+	 * outer loop, while velocity and acceleration are feed-forward terms only.
+	 * MC_F8_ACC limits v through the local curvature kappa:
 	 *
 	 *   kappa = |p_theta x p_theta_theta| / ||p_theta||^3
 	 *   |v| <= sqrt(MC_F8_ACC / kappa)
@@ -312,22 +330,9 @@ void FlightTaskFigureEight::_generateTrackingSetpoints()
 	const Vector2f feedforward_velocity = first_derivative * phase_rate;
 	const Vector2f feedforward_acceleration = second_derivative * phase_rate * phase_rate
 						 + first_derivative * phase_acceleration;
-	Vector2f correction_velocity = (path_position - _position.xy()) * _param_mpc_xy_traj_p.get();
-	const float correction_limit = math::min(_param_mpc_xy_cruise.get(), _param_mpc_xy_vel_max.get());
 
-	if (correction_velocity.norm() > correction_limit) {
-		correction_velocity = correction_velocity.unit_or_zero() * correction_limit;
-	}
-
-	Vector2f velocity_setpoint = feedforward_velocity + correction_velocity;
-
-	if (velocity_setpoint.norm() > _param_mpc_xy_vel_max.get()) {
-		velocity_setpoint = velocity_setpoint.unit_or_zero() * _param_mpc_xy_vel_max.get();
-	}
-
-	_position_setpoint(0) = NAN;
-	_position_setpoint(1) = NAN;
-	_velocity_setpoint.xy() = velocity_setpoint;
+	_position_setpoint.xy() = path_position;
+	_velocity_setpoint.xy() = feedforward_velocity;
 	_acceleration_setpoint.xy() = feedforward_acceleration;
 	_jerk_setpoint(0) = NAN;
 	_jerk_setpoint(1) = NAN;

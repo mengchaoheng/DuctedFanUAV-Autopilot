@@ -123,6 +123,10 @@ bool FlightTaskOrbit::applyCommandParameters(const vehicle_command_s &command, b
 		}
 	}
 
+	if (success) {
+		_setOrbitPhaseFromPosition();
+	}
+
 	// perpendicularly approach the orbit circle again when new parameters get commanded
 	if (!_is_position_on_circle() && !_in_circle_approach) {
 		_in_circle_approach = true;
@@ -180,6 +184,10 @@ bool FlightTaskOrbit::activate(const trajectory_setpoint_s &last_setpoint)
 	// and the pilot can continue adjusting it with the sticks while orbiting.
 	_orbit_velocity = _param_mc_orbit_vel.get();
 	_center = _position;
+	_orbit_phase = 0.f;
+	// Keep the placeholder circle reference at the current position until the
+	// MAV_CMD_DO_ORBIT geometry is applied (mode and command can arrive apart).
+	_center(0) -= _orbit_radius;
 	_initial_heading = _yaw;
 	_heading_smoothing.reset(PX4_ISFINITE(last_setpoint.yaw) ? last_setpoint.yaw : _yaw,
 				 PX4_ISFINITE(last_setpoint.yawspeed) ? last_setpoint.yawspeed : 0.f);
@@ -219,6 +227,7 @@ bool FlightTaskOrbit::update()
 	if (_is_position_on_circle()) {
 		if (_in_circle_approach) {
 			_in_circle_approach = false;
+			_setOrbitPhaseFromPosition();
 			_slew_rate_velocity.setForcedValue(0.f); // reset the slew rate when moving between orbits.
 			FlightTaskManualAltitudeSmoothVel::_smoothing.reset(
 				PX4_ISFINITE(_acceleration_setpoint(2)) ? _acceleration_setpoint(2) : _acceleration(2),
@@ -318,8 +327,11 @@ void FlightTaskOrbit::_generate_circle_approach_setpoints()
 {
 	const Vector2f center2d = Vector2f(_center);
 	const Vector2f position_to_center_xy = center2d - Vector2f(_position);
-	Vector2f closest_point_on_circle = Vector2f(_position) + position_to_center_xy.unit_or_zero() *
-					   (position_to_center_xy.norm() - _orbit_radius);
+	const Vector2f center_to_position_xy = -position_to_center_xy;
+	const Vector2f radial_direction = center_to_position_xy.norm() > FLT_EPSILON
+					  ? center_to_position_xy.unit_or_zero()
+					  : Vector2f{cosf(_orbit_phase), sinf(_orbit_phase)};
+	const Vector2f closest_point_on_circle = center2d + radial_direction * _orbit_radius;
 
 	const Vector3f target_circle_point{closest_point_on_circle(0), closest_point_on_circle(1), _center(2)};
 
@@ -337,24 +349,59 @@ void FlightTaskOrbit::_generate_circle_approach_setpoints()
 
 void FlightTaskOrbit::_generate_circle_setpoints()
 {
-	Vector3f center_to_position = _position - _center;
-	// xy velocity to go around in a circle
-	Vector2f velocity_xy(-center_to_position(1), center_to_position(0));
+	/*
+	 * The ideal horizontal circle is parameterized by
+	 *
+	 *   p(phi) = center + R [cos(phi), sin(phi)]^T
+	 *   v(phi) = v_t [-sin(phi), cos(phi)]^T
+	 *   a(phi) = -(v_t^2 / R) [cos(phi), sin(phi)]^T
+	 *            + a_t [-sin(phi), cos(phi)]^T
+	 *   phi_dot = v_t / R
+	 *
+	 * A finite position setpoint enables the multicopter position outer loop.
+	 * Velocity and acceleration remain the exact kinematic feed-forward terms;
+	 * path-error feedback is therefore not duplicated in this flight task.
+	 */
+	const Vector2f radial_direction{cosf(_orbit_phase), sinf(_orbit_phase)};
+	const Vector2f tangent_direction{-radial_direction(1), radial_direction(0)};
 
-	// slew rate is used to reduce the jerk when starting an orbit.
-	_slew_rate_velocity.update(_orbit_velocity, _deltatime);
+	// Slew rate reduces tangential jerk when entering an orbit or changing speed.
+	const float previous_velocity = _slew_rate_velocity.getState();
+	const float tangential_velocity = _slew_rate_velocity.update(_orbit_velocity, _deltatime);
+	const float tangential_acceleration = _deltatime > FLT_EPSILON
+					      ? (tangential_velocity - previous_velocity) / _deltatime : 0.f;
 
-	velocity_xy = velocity_xy.unit_or_zero();
-	velocity_xy *= _slew_rate_velocity.getState();
+	_position_setpoint.xy() = _center.xy() + radial_direction * _orbit_radius;
+	_velocity_setpoint.xy() = tangent_direction * tangential_velocity;
+	_acceleration_setpoint.xy() = -radial_direction * tangential_velocity * tangential_velocity / _orbit_radius
+				      + tangent_direction * tangential_acceleration;
+	_orbit_phase = wrap_2pi(_orbit_phase + tangential_velocity / _orbit_radius * _deltatime);
+}
 
-	// xy velocity adjustment to stay on the radius distance
-	velocity_xy += (_orbit_radius - center_to_position.xy().norm()) * Vector2f(center_to_position).unit_or_zero();
+void FlightTaskOrbit::_setOrbitPhaseFromPosition()
+{
+	const Vector2f center_to_position = (_position - _center).xy();
 
-	_position_setpoint(0) = _position_setpoint(1) = NAN;
-	_velocity_setpoint.xy() = velocity_xy;
-	_acceleration_setpoint.xy() = -Vector2f(center_to_position.unit_or_zero()) * _slew_rate_velocity.getState() *
-				      _slew_rate_velocity.getState() /
-				      _orbit_radius;
+	if (center_to_position.norm() > FLT_EPSILON) {
+		_orbit_phase = wrap_2pi(atan2f(center_to_position(1), center_to_position(0)));
+	}
+}
+
+void FlightTaskOrbit::_ekfResetHandlerPositionXY(const Vector2f &delta_xy)
+{
+	_center.xy() += delta_xy;
+	Vector3f smoothed_position = _position_smoothing.getCurrentPosition();
+	smoothed_position.xy() += delta_xy;
+	_position_smoothing.forceSetPosition(smoothed_position);
+}
+
+void FlightTaskOrbit::_ekfResetHandlerPositionZ(float delta_z)
+{
+	FlightTaskManualAltitudeSmoothVel::_ekfResetHandlerPositionZ(delta_z);
+	_center(2) += delta_z;
+	Vector3f smoothed_position = _position_smoothing.getCurrentPosition();
+	smoothed_position(2) += delta_z;
+	_position_smoothing.forceSetPosition(smoothed_position);
 }
 
 void FlightTaskOrbit::_generate_circle_yaw_setpoints()
