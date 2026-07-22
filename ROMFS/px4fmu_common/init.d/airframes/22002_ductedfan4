@@ -161,12 +161,48 @@ param set-default MAV_0_CONFIG 101
 param set-default SER_TEL1_BAUD 921600 # CUAV 57600, other 921600
 
 # Run one EKF instance. The sensor hub selects one primary IMU and magnetometer.
+# Single EKF
 param set-default EKF2_MULTI_IMU 0
 param set-default EKF2_MULTI_MAG 0
 param set-default SENS_IMU_MODE 1
 param set-default SENS_MAG_MODE 1
+
+# Enable only GNSS0 + barometer + magnetometer
+param set-default EKF2_SENS_EN 1281
+
+# IMU state estimation
+param set-default EKF2_IMU_CTRL 7
+
+# GNSS: horizontal position + altitude + 3D velocity
+param set-default EKF2_GPS_CTRL 7
+
+# Barometer height aiding
+param set-default EKF2_BARO_CTRL 1
+
+# Automatic magnetometer fusion
+param set-default EKF2_MAG_TYPE 0
+
+# GPS is the primary height reference
+param set-default EKF2_HGT_REF 1
+
+# Explicitly disable unused aiding
+param set-default EKF2_OF_CTRL 0
+param set-default EKF2_EV_CTRL 0
+param set-default EKF2_RNG_CTRL 0
+param set-default EKF2_RNGBC_CTRL 0
+param set-default EKF2_DRAG_CTRL 0
+
+# The CUAV V5 Nano is upright with its heading arrow pointing aft.
+param set-default SENS_BOARD_ROT 4 # Yaw 180 deg
+
+# CUAV V5 Nano IMUs and the GNSS antenna are mounted directly above the
+# centre of gravity. PX4 body axes are FRD, so 12 cm above is Z = -0.12 m.
+param set-default EKF2_IMU_POS_X 0
+param set-default EKF2_IMU_POS_Y 0
 param set-default EKF2_IMU_POS_Z -0.12
-param set-default EKF2_GPS_POS_Z -0.13
+param set-default SENS_GPS0_OFFX 0
+param set-default SENS_GPS0_OFFY 0
+param set-default SENS_GPS0_OFFZ -0.13
 
 
 param set-default SDLOG_PROFILE  17
