@@ -118,11 +118,12 @@ param set-default PWM_AUX_FUNC6 202
 param set-default PWM_AUX_FUNC7 203
 param set-default PWM_AUX_FUNC8 204
 
-# AUX1-4, AUX5-6 and AUX7-8 are separate FMU timer groups. Use the current PX4
-# PWM default for the ESC group and the documented common rate for PWM servos.
+# AUX1-4, AUX5-6 and AUX7-8 are separate FMU timer groups. Use PX4's current
+# 400 Hz PWM default for the ESC group. KST X08H V6.0 digital servos are
+# specified for 1520 us / 333 Hz operation.
 param set-default PWM_AUX_TIM0 400
-param set-default PWM_AUX_TIM1 50
-param set-default PWM_AUX_TIM2 50
+param set-default PWM_AUX_TIM1 333
+param set-default PWM_AUX_TIM2 333
 
 # Effective M1 motor values from the flown 15003 configuration.
 param set-default PWM_AUX_DIS1 900
@@ -206,3 +207,9 @@ param set-default SENS_GPS0_OFFZ -0.13
 
 
 param set-default SDLOG_PROFILE  17
+
+
+# For future
+# param set-default RPM_CAP_ENABLE 1
+# param set-default PWM_AUX_FUNC9 2070   # A1 / Capture 1 = RPM Input
+# param set-default RPM_PULS_PER_REV N # motor
