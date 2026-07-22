@@ -130,19 +130,27 @@ git submodule update --init --recursive
 
 > Note: If submodule update error, first switch to `main`, then run the above command, and then switch back to `df-main`, and then run the aforementioned command to update submodules.
 
-When switching branches or wishing to recompile, you can use
-```
-make distclean
-```
-to keep a clean compilation, and then run
-```
-git submodule update --init --recursive
+When switching branches, follow the [PX4 source-tree switching procedure](https://docs.px4.io/main/en/contribute/git_examples#changing-source-trees):
 
-```
-again to rebuild, The compilation command is as follows. Or for the new version (df-main)
-```
-make submodulesclean
-```
+1. Clean up the current branch, de-initializing its submodules and removing all build artifacts:
+
+   ```
+   make clean
+   make distclean
+   ```
+
+2. Switch to the new branch or tag. For example:
+
+   ```
+   git fetch upstream PR_test_branch
+   git checkout PR_test_branch
+   ```
+
+3. Get the submodules for the new branch:
+
+   ```
+   make submodulesclean
+   ```
 
 > **Note:** px4 is not sensitive to the Python environment, but you need to ensure that you have installed the required Python packages. Refer to [Development Environment Deployment](https://docs.px4.io/main/en/dev_setup/dev_env)
 ### Simulation
@@ -232,7 +240,7 @@ The following procedure runs DuctedFan4 HITL with Gazebo Classic. For other flig
 2. First calibrate the sensors and radio using any normal airframe. Then select the DF4 HITL airframe from the QGC Parameters page:
 
    ```text
-   SYS_AUTOSTART = 22002
+   SYS_AUTOSTART = 1003
    SYS_HITL      = 1
    ```
 
