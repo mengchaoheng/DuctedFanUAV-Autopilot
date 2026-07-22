@@ -139,7 +139,10 @@ to keep a clean compilation, and then run
 git submodule update --init --recursive
 
 ```
-again to rebuild, The compilation command is as follows.
+again to rebuild, The compilation command is as follows. Or for the new version (df-main)
+```
+make submodulesclean
+```
 
 > **Note:** px4 is not sensitive to the Python environment, but you need to ensure that you have installed the required Python packages. Refer to [Development Environment Deployment](https://docs.px4.io/main/en/dev_setup/dev_env)
 ### Simulation

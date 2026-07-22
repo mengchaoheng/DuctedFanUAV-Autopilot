@@ -1,6 +1,6 @@
 #!/bin/sh
 #
-# @name HIL Ducted Fan 4
+# @name HIL Ducted Fan 4 (Gazebo Classic)
 #
 # @type Ducted Fan
 # @class DuctedFan
