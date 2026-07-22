@@ -126,8 +126,8 @@ param set-default PWM_AUX_TIM2 50
 
 # Effective M1 motor values from the flown 15003 configuration.
 param set-default PWM_AUX_DIS1 900
-param set-default PWM_AUX_MIN1 1000
-param set-default PWM_AUX_MAX1 2000
+param set-default PWM_AUX_MIN1 1075
+param set-default PWM_AUX_MAX1 1950
 
 # Per-servo PWM calibration from the flown 15003 configuration. CENTER preserves
 # each legacy midpoint, and DIS keeps the surfaces centered while disarmed.
@@ -168,40 +168,40 @@ param set-default SENS_IMU_MODE 1
 param set-default SENS_MAG_MODE 1
 
 # Enable only GNSS0 + barometer + magnetometer
-param set-default EKF2_SENS_EN 1281
+# param set-default EKF2_SENS_EN 1281
 
 # IMU state estimation
-param set-default EKF2_IMU_CTRL 7
+# param set-default EKF2_IMU_CTRL 7
 
 # GNSS: horizontal position + altitude + 3D velocity
-param set-default EKF2_GPS_CTRL 7
+# param set-default EKF2_GPS_CTRL 7
 
 # Barometer height aiding
-param set-default EKF2_BARO_CTRL 1
+# param set-default EKF2_BARO_CTRL 1
 
 # Automatic magnetometer fusion
-param set-default EKF2_MAG_TYPE 0
+# param set-default EKF2_MAG_TYPE 0
 
 # GPS is the primary height reference
-param set-default EKF2_HGT_REF 1
+# param set-default EKF2_HGT_REF 1
 
 # Explicitly disable unused aiding
-param set-default EKF2_OF_CTRL 0
-param set-default EKF2_EV_CTRL 0
-param set-default EKF2_RNG_CTRL 0
-param set-default EKF2_RNGBC_CTRL 0
-param set-default EKF2_DRAG_CTRL 0
+# param set-default EKF2_OF_CTRL 0
+# param set-default EKF2_EV_CTRL 0
+# param set-default EKF2_RNG_CTRL 0
+# param set-default EKF2_RNGBC_CTRL 0
+# param set-default EKF2_DRAG_CTRL 0
 
 # The CUAV V5 Nano is upright with its heading arrow pointing aft.
 param set-default SENS_BOARD_ROT 4 # Yaw 180 deg
 
 # CUAV V5 Nano IMUs and the GNSS antenna are mounted directly above the
 # centre of gravity. PX4 body axes are FRD, so 12 cm above is Z = -0.12 m.
-param set-default EKF2_IMU_POS_X 0
-param set-default EKF2_IMU_POS_Y 0
+# param set-default EKF2_IMU_POS_X 0
+# param set-default EKF2_IMU_POS_Y 0
 param set-default EKF2_IMU_POS_Z -0.12
-param set-default SENS_GPS0_OFFX 0
-param set-default SENS_GPS0_OFFY 0
+# param set-default SENS_GPS0_OFFX 0
+# param set-default SENS_GPS0_OFFY 0
 param set-default SENS_GPS0_OFFZ -0.13
 
 
