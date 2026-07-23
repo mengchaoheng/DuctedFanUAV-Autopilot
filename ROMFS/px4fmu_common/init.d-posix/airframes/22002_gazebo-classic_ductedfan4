@@ -41,6 +41,12 @@ param set-default MC_YAWRATE_I 0.3
 param set-default MC_YAWRATE_D 0
 param set-default MC_YAWRATE_FF 0
 
+param set-default MPC_YAWRAUTO_ACC 180
+param set-default MPC_YAWRAUTO_MAX 90
+param set-default MC_F8_ACC 10
+param set-default MC_F8_VEL 2
+param set-default MC_ORBIT_YAW_MOD 3
+
 param set-default MPC_THR_HOVER 0.49
 param set-default THR_MDL_FAC 1
 param set-default RTL_RETURN_ALT 2.5
