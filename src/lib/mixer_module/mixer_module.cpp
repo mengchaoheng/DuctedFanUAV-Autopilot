@@ -82,12 +82,10 @@ Allocator_PID(df_4_PID)
 	test_motor_pub.publish(test);
 	_motor_test.test_motor_sub.subscribe();
 
-	// filter init
-	// last_delta_cmd_rad
-	for (size_t i = 0; i < 4; ++i) {
-		_lp_filter_actuator[i].set_cutoff_frequency(_sample_freq, _param_cs_cutoff.get());
-		_lp_filter_actuator[i].reset(0);
-	}
+	// Initialize the actuator-feedback filter once. Mixer dt can alternate between
+	// values, so the filter itself is updated with the actual dt instead of being
+	// reconfigured and reset on every sample-rate change.
+	CheckAndUpdateFilters();
 	Allocator_INDI.aircraft.controlEffectMatrix[0][0]= -_L_1*_k/_I_x;
 	Allocator_INDI.aircraft.controlEffectMatrix[0][2]= _L_1*_k/_I_x;
 	Allocator_INDI.aircraft.controlEffectMatrix[1][1]= -_L_1*_k/_I_y;
@@ -186,23 +184,73 @@ void MixingOutput::printStatus() const
 
 void MixingOutput::CheckAndUpdateFilters()
 {
-	// update software low pass filters
-	bool filter_reset = false;
+	const bool requested_fix = _param_chain_fix.get() == 1;
+	const bool mode_changed = requested_fix != _chain_fix_active;
+	_chain_fix_active = requested_fix;
+	const float requested_cutoff = _param_cs_cutoff.get() > 0.0f
+				       ? math::constrain(_param_cs_cutoff.get(), 0.3f, 1000.0f)
+				       : 0.0f;
 
-	// last_delta_cmd_rad
-	for (size_t i = 0; i < 4; ++i) {
-		if ( _sample_rate_changed || (fabsf(_lp_filter_actuator[i].get_cutoff_freq() - _param_cs_cutoff.get()) > 0.1f)) {
-			_lp_filter_actuator[i].set_cutoff_frequency(_sample_freq, _param_cs_cutoff.get());
-			_lp_filter_actuator[i].reset(_delta_prev[i]);
-			filter_reset = true;
+	if (_chain_fix_active) {
+		if (mode_changed || fabsf(_filter_cutoff_hz - requested_cutoff) > 0.01f) {
+			_filter_cutoff_hz = requested_cutoff;
+
+			for (size_t i = 0; i < 4; ++i) {
+				_lp_filter_output[i] = _delta_prev[i];
+				_lp_filter_velocity[i] = 0.0f;
+			}
+
+			_filter_reset_count++;
 		}
-	}
 
-	if (filter_reset) {
-		_filter_reset_count++;
+	} else {
+		bool filter_reset = false;
+
+		for (size_t i = 0; i < 4; ++i) {
+			if (mode_changed || _sample_rate_changed
+			    || fabsf(_lp_filter_actuator[i].get_cutoff_freq() - requested_cutoff) > 0.1f) {
+				_lp_filter_actuator[i].set_cutoff_frequency(_sample_freq, requested_cutoff);
+				_lp_filter_actuator[i].reset(_delta_prev[i]);
+				filter_reset = true;
+			}
+		}
+
+		if (filter_reset) {
+			_filter_reset_count++;
+		}
+
+		_filter_cutoff_hz = _lp_filter_actuator[0].get_cutoff_freq();
 	}
 
 	_sample_rate_changed = false;
+}
+
+float MixingOutput::applyActuatorLowPass(float input, size_t channel)
+{
+	if (_filter_cutoff_hz <= 0.0f) {
+		_lp_filter_output[channel] = input;
+		_lp_filter_velocity[channel] = 0.0f;
+		return input;
+	}
+
+	const float dt = math::constrain(_mixer_dt_us * 1e-6f, 0.0001f, 0.02f);
+	const float alpha = sqrtf(2.0f) * M_PI_F * _filter_cutoff_hz;
+	const float alpha_dt = alpha * dt;
+	const float decay = expf(-alpha_dt);
+	const float sine = sinf(alpha_dt);
+	const float cosine = cosf(alpha_dt);
+	const float error = _lp_filter_output[channel] - input;
+
+	// Exact ZOH update of y'' + sqrt(2)*w*y' + w^2*y = w^2*u,
+	// where w=2*pi*cutoff. The physical states remain valid when dt changes.
+	const float next_error = decay * ((cosine + sine) * error
+					 + sine / alpha * _lp_filter_velocity[channel]);
+	const float next_velocity = decay * (-2.0f * alpha * sine * error
+					     + (cosine - sine) * _lp_filter_velocity[channel]);
+
+	_lp_filter_output[channel] = input + next_error;
+	_lp_filter_velocity[channel] = next_velocity;
+	return _lp_filter_output[channel];
 }
 
 void MixingOutput::updateParams()
@@ -845,7 +893,7 @@ bool MixingOutput::update()
 				// PX4_INFO("not use actuator");
 				_u_cmd[i] = _u[i]; // 实际中，_u_cmd 为舵指令， _u_estimate 是舵实际值的估计。
 			}
-			_last_u[i] = _u_cmd[i]; // save last u for first order update
+			_last_u[i] = _chain_fix_active ? _u_estimate[i] : _u_cmd[i];
 			allocation_value.u_ultimate[i] = _u_cmd[i];
 		}
 
@@ -931,7 +979,7 @@ bool MixingOutput::update()
 					// PX4_INFO("not use actuator");
 					_u_cmd[i] = _u[i];
 				}
-				_last_u[i] = _u_cmd[i]; // save last u for first order update
+				_last_u[i] = _chain_fix_active ? _u_estimate[i] : _u_cmd[i];
 				allocation_value.u_ultimate[i] = _u_cmd[i];
 			}
 			for (size_t i = 0; i < 4; i++){
@@ -961,7 +1009,10 @@ bool MixingOutput::update()
 	allocation_value.control_generation = _control_subs[0].get_last_generation();
 	allocation_value.topic_update_interval_us = _max_topic_update_interval_us;
 	allocation_value.mixer_sample_freq_hz = _sample_freq;
-	allocation_value.filter_cutoff_hz = _lp_filter_actuator[0].get_cutoff_freq();
+	allocation_value.filter_cutoff_hz = _filter_cutoff_hz;
+	allocation_value.actuator_time_constant_s = _time_const;
+	allocation_value.actuator_simulation_enabled = _param_use_actuator.get() == 1;
+	allocation_value.chain_fix_enabled = _chain_fix_active;
 	_allocation_value_pub.publish(allocation_value);
 
 	/* the output limit call takes care of out of band errors, NaN and constrains */ // [-1, 1] -> [min_rad, max_rad] == [min_pwm, max_pwm]
@@ -1026,7 +1077,10 @@ MixingOutput::setAndPublishActuatorOutputs(unsigned num_outputs, actuator_output
 	actuator_outputs_value_s actuator_outputs_value{};
 	for (size_t i = 0; i < 4; ++i) {
 		actuator_outputs_value.estimate[i] = _u_estimate[i];
-		actuator_outputs_value.delta[i] = math::constrain(_lp_filter_actuator[i].apply(actuator_outputs_value.estimate[i]), (float) (_uMin[i]), (float) (_uMax[i]));// indi使用的u总是基于估计值，仿真中即为真值，实际中是执行器位置的估计值。
+		const float filtered = _chain_fix_active
+				       ? applyActuatorLowPass(actuator_outputs_value.estimate[i], i)
+				       : _lp_filter_actuator[i].apply(actuator_outputs_value.estimate[i]);
+		actuator_outputs_value.delta[i] = math::constrain(filtered, (float) (_uMin[i]), (float) (_uMax[i]));// indi使用的u总是基于估计值，仿真中即为真值，实际中是执行器位置的估计值。
 		_delta_prev[i] = actuator_outputs_value.delta[i];
 	}
 	actuator_outputs_value.timestamp = hrt_absolute_time();

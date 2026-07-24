@@ -196,6 +196,7 @@ protected:
 private:
 
 	void CheckAndUpdateFilters();
+	float applyActuatorLowPass(float input, size_t channel);
 	void handleCommands();
 
 	bool armNoThrottle() const
@@ -270,10 +271,19 @@ private:
 	uint64_t _sample_freq_change_count{0};
 
 	float _delta_prev[4]={0.0, 0.0, 0.0, 0.0};
-	bool _sample_rate_changed = false;
+	float _lp_filter_output[4] {};
+	float _lp_filter_velocity[4] {};
+	float _filter_cutoff_hz{0.0f};
+	bool _sample_rate_changed{false};
+	bool _chain_fix_active{false};
 
-	// angular velocity filters
-	math::LowPassFilter2p<float> _lp_filter_actuator[4]={math::LowPassFilter2p<float>{250,20.f},math::LowPassFilter2p<float>{250,20.f},math::LowPassFilter2p<float>{250,20.f},math::LowPassFilter2p<float>{250,20.f}};
+	// Legacy online filter retained for a controlled A/B flight.
+	math::LowPassFilter2p<float> _lp_filter_actuator[4] = {
+		math::LowPassFilter2p<float>{250, 20.f},
+		math::LowPassFilter2p<float>{250, 20.f},
+		math::LowPassFilter2p<float>{250, 20.f},
+		math::LowPassFilter2p<float>{250, 20.f}
+	};
 
 
 	unsigned _max_topic_update_interval_us{0}; ///< max _control_subs topic update interval (0=unlimited)
@@ -396,6 +406,7 @@ private:
 		(ParamFloat<px4::params::USER_DIST_MAG>) _param_dist_mag,
 		(ParamFloat<px4::params::USER_TIME_CONST>) _param_time_const,
 		(ParamInt<px4::params::USER_ACTUATOR>) _param_use_actuator,
+		(ParamInt<px4::params::USER_CHAIN_FIX>) _param_chain_fix,
 		(ParamFloat<px4::params::USER_OMEGA_2_F>) _param_k,
 		(ParamInt<px4::params::USER_AC_TEST>) _param_ac_test
 	)

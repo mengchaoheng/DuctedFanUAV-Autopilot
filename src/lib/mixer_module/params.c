@@ -136,6 +136,22 @@ PARAM_DEFINE_FLOAT(USER_DIST_MAG, 0.0f);
 PARAM_DEFINE_FLOAT(USER_TIME_CONST, 0.03f);
 
 /**
+ * Use corrected actuator-estimate and low-pass chain
+ *
+ * 0 preserves the original flight-code behavior for an A/B experiment:
+ * USER_ACTUATOR=0 stores the raw command as the next estimator state, and
+ * mixer sample-rate changes reconfigure/reset LowPassFilter2p.
+ *
+ * 1 stores the recursive actuator estimate and uses an exact variable-dt
+ * Butterworth filter whose state is not reset by 800/400 Hz timing changes.
+ *
+ * @value 0 Original chain
+ * @value 1 Corrected chain
+ * @group Mixer Output
+ */
+PARAM_DEFINE_INT32(USER_CHAIN_FIX, 0);
+
+/**
  * USER_ACTUATOR
  *
  * use ACTUATOR simulate or not.
