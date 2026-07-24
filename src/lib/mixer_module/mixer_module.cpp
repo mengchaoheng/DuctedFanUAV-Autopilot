@@ -187,14 +187,21 @@ void MixingOutput::printStatus() const
 void MixingOutput::CheckAndUpdateFilters()
 {
 	// update software low pass filters
+	bool filter_reset = false;
 
 	// last_delta_cmd_rad
 	for (size_t i = 0; i < 4; ++i) {
 		if ( _sample_rate_changed || (fabsf(_lp_filter_actuator[i].get_cutoff_freq() - _param_cs_cutoff.get()) > 0.1f)) {
 			_lp_filter_actuator[i].set_cutoff_frequency(_sample_freq, _param_cs_cutoff.get());
 			_lp_filter_actuator[i].reset(_delta_prev[i]);
+			filter_reset = true;
 		}
 	}
+
+	if (filter_reset) {
+		_filter_reset_count++;
+	}
+
 	_sample_rate_changed = false;
 }
 
@@ -439,14 +446,23 @@ void MixingOutput::updateOutputSlewrateMultirotorMixer()
 void MixingOutput::updateOutputSlewrateSimplemixer()
 {
 	const hrt_abstime now = hrt_absolute_time();
-	const float dt = math::constrain((now - _time_last_dt_update_simple_mixer) / 1e6f, 0.0001f, 0.02f);
+	const hrt_abstime elapsed_us = now - _time_last_dt_update_simple_mixer;
+	const float dt = math::constrain(elapsed_us / 1e6f, 0.0001f, 0.02f);
 	_time_last_dt_update_simple_mixer = now;
+	_mixer_dt_us = elapsed_us;
+	_mixer_update_count++;
+
+	if (elapsed_us >= 2000) {
+		_mixer_long_dt_count++;
+	}
+
 	float tmp=1.0f / dt; // (Hz)
 
 	if((fabsf(tmp - _sample_freq) / _sample_freq) > 0.01f){
 		// PX4_INFO("tmp: %f \n", (double)  tmp);
 		// PX4_INFO("_sample_freq: %f \n", (double)  _sample_freq);
 		_sample_freq = tmp;
+		_sample_freq_change_count++;
 		_sample_rate_changed = true;
 		CheckAndUpdateFilters();
 	}
@@ -936,6 +952,16 @@ bool MixingOutput::update()
 	_allocation_runing_time_us = (timestamp_ca_end - timestamp_ca_start); //us
 	allocation_value.timestamp = timestamp_ca_end;
 	allocation_value.timestamp_sample=_allocation_runing_time_us;
+	allocation_value.control_timestamp_sample = _controls[0].timestamp_sample;
+	allocation_value.mixer_update_count = _mixer_update_count;
+	allocation_value.mixer_dt_us = _mixer_dt_us;
+	allocation_value.mixer_long_dt_count = _mixer_long_dt_count;
+	allocation_value.filter_reset_count = _filter_reset_count;
+	allocation_value.sample_freq_change_count = _sample_freq_change_count;
+	allocation_value.control_generation = _control_subs[0].get_last_generation();
+	allocation_value.topic_update_interval_us = _max_topic_update_interval_us;
+	allocation_value.mixer_sample_freq_hz = _sample_freq;
+	allocation_value.filter_cutoff_hz = _lp_filter_actuator[0].get_cutoff_freq();
 	_allocation_value_pub.publish(allocation_value);
 
 	/* the output limit call takes care of out of band errors, NaN and constrains */ // [-1, 1] -> [min_rad, max_rad] == [min_pwm, max_pwm]
@@ -999,7 +1025,8 @@ MixingOutput::setAndPublishActuatorOutputs(unsigned num_outputs, actuator_output
 	// publish cs delta for indi controller
 	actuator_outputs_value_s actuator_outputs_value{};
 	for (size_t i = 0; i < 4; ++i) {
-		actuator_outputs_value.delta[i] = math::constrain(_lp_filter_actuator[i].apply(_u_estimate[i]), (float) (_uMin[i]), (float) (_uMax[i]));// indi使用的u总是基于估计值，仿真中即为真值，实际中是执行器位置的估计值。
+		actuator_outputs_value.estimate[i] = _u_estimate[i];
+		actuator_outputs_value.delta[i] = math::constrain(_lp_filter_actuator[i].apply(actuator_outputs_value.estimate[i]), (float) (_uMin[i]), (float) (_uMax[i]));// indi使用的u总是基于估计值，仿真中即为真值，实际中是执行器位置的估计值。
 		_delta_prev[i] = actuator_outputs_value.delta[i];
 	}
 	actuator_outputs_value.timestamp = hrt_absolute_time();

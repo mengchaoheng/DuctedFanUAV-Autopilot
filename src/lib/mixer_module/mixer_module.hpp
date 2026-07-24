@@ -263,6 +263,11 @@ private:
 
 	hrt_abstime _time_last_dt_update_multicopter{0};
 	hrt_abstime _time_last_dt_update_simple_mixer{0};
+	uint64_t _mixer_update_count{0};
+	uint64_t _mixer_dt_us{0};
+	uint64_t _mixer_long_dt_count{0};
+	uint64_t _filter_reset_count{0};
+	uint64_t _sample_freq_change_count{0};
 
 	float _delta_prev[4]={0.0, 0.0, 0.0, 0.0};
 	bool _sample_rate_changed = false;
