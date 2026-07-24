@@ -97,6 +97,17 @@ TEST_F(LowPassFilter2pVector3fTest, setGet)
 	EXPECT_EQ(_lpf.get_cutoff_freq(), cutoff_freq);
 }
 
+TEST_F(LowPassFilter2pVector3fTest, minimumCutoff)
+{
+	const float sample_freq = 800.f;
+
+	_lpf.set_cutoff_frequency(sample_freq, 0.1f);
+	EXPECT_EQ(_lpf.get_cutoff_freq(), 0.3f);
+
+	_lpf.set_cutoff_frequency(sample_freq, 1.f);
+	EXPECT_EQ(_lpf.get_cutoff_freq(), 1.f);
+}
+
 TEST_F(LowPassFilter2pVector3fTest, simulate80HzCutoff)
 {
 	const float sample_freqs[4] = {400.f, 1000.f, 8000.f, 16000.f};

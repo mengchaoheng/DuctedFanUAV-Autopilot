@@ -98,6 +98,7 @@ PARAM_DEFINE_INT32(USER_ADD_DIST, 0);
 * This only affects the deflection angular sent to the controllers.
 *
 * A value of 0 disables the filter.
+* Positive values below 0.3 Hz are limited to 0.3 Hz.
 *
 * @min 0
 * @max 1000
