@@ -86,6 +86,7 @@ param set-default IMU_GYRO_CUTOFF  110
 
 param set-default COM_PREARM_MODE  1
 #param set-default CBRK_IO_SAFETY  22027
+# param set-default CBRK_BUZZER 782097
 param set-default IMU_GYRO_RATEMAX 800
 
 param set-default EKF2_MULTI_IMU 0
