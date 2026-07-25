@@ -53,17 +53,17 @@ param set-default MPC_Z_VEL_P_ACC 2
 param set-default NAV_ACC_RAD 2
 
 param set-default PWM_DISARMED 900
-param set-default PWM_MIN 1000
-param set-default PWM_MAX 2000
-param set-default PWM_MAIN_MIN5 1275
-param set-default PWM_MAIN_MIN6 1277
-param set-default PWM_MAIN_MIN7 1360
-param set-default PWM_MAIN_MIN8 1320
+param set-default PWM_MAIN_MIN 1075
+param set-default PWM_MAIN_MAX 1950
+param set-default PWM_MAIN_MIN5 1360
+param set-default PWM_MAIN_MIN6 1250
+param set-default PWM_MAIN_MIN7 1320
+param set-default PWM_MAIN_MIN8 1310
 
-param set-default PWM_MAIN_MAX5 1635
-param set-default PWM_MAIN_MAX6 1637
-param set-default PWM_MAIN_MAX7 1720
-param set-default PWM_MAIN_MAX8 1680
+param set-default PWM_MAIN_MAX5 1720
+param set-default PWM_MAIN_MAX6 1610
+param set-default PWM_MAIN_MAX7 1680
+param set-default PWM_MAIN_MAX8 1670
 param set-default PWM_MAIN_RATE 333
 
 param set-default RTL_RETURN_ALT 2.5
