@@ -145,6 +145,10 @@ PARAM_DEFINE_FLOAT(USER_TIME_CONST, 0.03f);
  * 1 stores the recursive actuator estimate and uses an exact variable-dt
  * Butterworth filter whose state is not reset by 800/400 Hz timing changes.
  *
+ * RC channel 11 can also select the chain: low selects the original chain,
+ * while middle/high selects the corrected chain. Set this parameter to 0
+ * when using RC11, because a value of 1 forces the corrected chain.
+ *
  * @value 0 Original chain
  * @value 1 Corrected chain
  * @group Mixer Output

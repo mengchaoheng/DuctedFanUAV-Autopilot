@@ -80,12 +80,19 @@ param set-default MAV_0_FORWARD 1
 param set-default SER_TEL1_BAUD 921600
 
 param set-default SDLOG_PROFILE  1
-param set-default USER_CS_CUTOFF  3
-param set-default IMU_DGYRO_CUTOFF  5
+param set-default USER_CS_CUTOFF  10
+param set-default IMU_DGYRO_CUTOFF  10
+param set-default IMU_GYRO_CUTOFF  110
 
 param set-default COM_PREARM_MODE  1
 #param set-default CBRK_IO_SAFETY  22027
-#param set-default IMU_GYRO_RATEMAX 400
+param set-default IMU_GYRO_RATEMAX 800
+
+param set-default EKF2_MULTI_IMU 0
+param set-default EKF2_MULTI_MAG 0
+param set-default SENS_IMU_MODE 1
+param set-default SENS_MAG_MODE 1
+#
 
 set MAV_TYPE 3
 

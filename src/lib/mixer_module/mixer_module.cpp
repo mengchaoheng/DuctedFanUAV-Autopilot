@@ -184,7 +184,9 @@ void MixingOutput::printStatus() const
 
 void MixingOutput::CheckAndUpdateFilters()
 {
-	const bool requested_fix = _param_chain_fix.get() == 1;
+	// USER_CHAIN_FIX and RC11 independently enable the corrected chain.
+	// Keep USER_CHAIN_FIX=0 when RC11 is used for an in-flight A/B test.
+	const bool requested_fix = _param_chain_fix.get() == 1 || _rc_chain_fix_flag;
 	const bool mode_changed = requested_fix != _chain_fix_active;
 	_chain_fix_active = requested_fix;
 	const float requested_cutoff = _param_cs_cutoff.get() > 0.0f
@@ -682,7 +684,7 @@ bool MixingOutput::update()
 	// 9-12通道在正面
 	// channels[8]:  -1	0       1	=servo disturb
 	// channels[9]:  -1	0       1	=
-	// channels[10]: -1	0       1	=
+	// channels[10]: -1	0       1	=original/corrected actuator chain
 	// channels[11]: -1	0       1	=pid or indi
 	if (_rc_channels_sub.update(&_rc_channels))
 	{
@@ -695,6 +697,17 @@ bool MixingOutput::update()
 		{
 			_rc_dist_flag = true;
 			// PX4_INFO("dist !");
+		}
+
+		// RC11 low selects the original chain; middle/high selects the corrected
+		// chain. Ignore an unavailable channel instead of changing mode.
+		if (PX4_ISFINITE(_rc_channels.channels[10])) {
+			const bool rc_chain_fix = _rc_channels.channels[10] >= 0.f;
+
+			if (rc_chain_fix != _rc_chain_fix_flag) {
+				_rc_chain_fix_flag = rc_chain_fix;
+				CheckAndUpdateFilters();
+			}
 		}
 	}
 	if(_pre_rc_dist_flag!=_rc_dist_flag)

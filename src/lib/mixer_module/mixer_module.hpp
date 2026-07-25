@@ -324,6 +324,7 @@ private:
 	uORB::Subscription _rc_channels_sub{ORB_ID(rc_channels)};
 	rc_channels_s		_rc_channels{};
 	bool _rc_dist_flag{false};
+	bool _rc_chain_fix_flag{false};
 
 	float _dist_mag{0.0f};
 	float pert_to_cs{0.0f};
