@@ -176,7 +176,20 @@ void FlightModeManager::start_flight_task()
 		FlightTaskError error = FlightTaskError::InvalidTask;
 
 #if !defined(CONSTRAINED_FLASH)
-		error = switchTask(FlightTaskIndex::Orbit);
+		const bool orbit_task_active = (_current_task.index == FlightTaskIndex::Orbit);
+		const bool figure_eight_task_active = (_current_task.index == FlightTaskIndex::FigureEight);
+
+		// Latch the selected shape on entry. Parameter changes while Orbit is active
+		// only take effect after leaving and re-entering the mode.
+		if (orbit_task_active || figure_eight_task_active) {
+			error = FlightTaskError::NoError;
+
+		} else if (_param_mc_orbit_shape.get() == 1) {
+			error = switchTask(FlightTaskIndex::FigureEight);
+
+		} else {
+			error = switchTask(FlightTaskIndex::Orbit);
+		}
 #endif // !CONSTRAINED_FLASH
 
 		if (error != FlightTaskError::NoError) {

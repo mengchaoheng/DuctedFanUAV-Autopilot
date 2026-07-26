@@ -43,6 +43,33 @@ using namespace matrix;
 using namespace time_literals;
 using math::radians;
 
+namespace
+{
+constexpr int32_t kDuctedFanAirframe = 16;
+constexpr int32_t kDuctedFanTailsitterVtolAirframe = 17;
+
+bool indiAllocationFeedbackSupported(int32_t airframe)
+{
+	return airframe == 0 || airframe == 9 || airframe == kDuctedFanAirframe
+	       || airframe == kDuctedFanTailsitterVtolAirframe;
+}
+
+uint8_t torqueAllocationInstance(int32_t airframe)
+{
+	return (airframe == kDuctedFanAirframe || airframe == kDuctedFanTailsitterVtolAirframe) ? 1 : 0;
+}
+
+bool allocationFeedbackValid(const allocation_value_s &allocation_value)
+{
+	if (allocation_value.timestamp == 0 || hrt_elapsed_time(&allocation_value.timestamp) >= 100_ms) {
+		return false;
+	}
+
+	return Vector3f(allocation_value.allocated_torque).isAllFinite()
+	       && Vector3f(allocation_value.torque_setpoint_scale).isAllFinite();
+}
+} // namespace
+
 MulticopterRateControl::MulticopterRateControl(bool vtol) :
 	ModuleParams(nullptr),
 	WorkItem(MODULE_NAME, px4::wq_configurations::rate_ctrl),
@@ -64,6 +91,16 @@ MulticopterRateControl::~MulticopterRateControl()
 bool
 MulticopterRateControl::init()
 {
+	if (_route_torque_to_instance1) {
+		// Reserve instance 0 first, then verify that the CA16 torque publisher owns
+		// instance 1. The allocator callback remains on instance 0.
+		if (!_vehicle_torque_setpoint_pub.advertise()
+		    || _vehicle_torque_setpoint1_pub.get_instance() != 1) {
+			PX4_ERR("failed to configure CA16 torque routing");
+			return false;
+		}
+	}
+
 	if (!_vehicle_angular_velocity_sub.registerCallback()) {
 		PX4_ERR("callback registration failed");
 		return false;
@@ -97,6 +134,56 @@ MulticopterRateControl::parameters_updated()
 				  radians(_param_mc_acro_y_max.get()));
 
 	_output_lpf_yaw.setCutoffFreq(_param_mc_yaw_tq_cutoff.get());
+
+	_indi_control.setParams(Vector3f(_param_mc_indi_roll_p.get(), _param_mc_indi_pitch_p.get(),
+					 _param_mc_indi_yaw_p.get()),
+				Vector3f(_param_mc_j_x.get(), _param_mc_j_y.get(), _param_mc_j_z.get()));
+	const int32_t airframe = _param_ca_airframe.get();
+	_torque_allocation_instance = torqueAllocationInstance(airframe);
+	_route_torque_to_instance1 = airframe == kDuctedFanAirframe;
+	_indi_enabled = _param_mc_indi_rate_en.get() == 1
+			&& indiAllocationFeedbackSupported(airframe)
+			&& _indi_control.paramsValid();
+}
+
+void
+MulticopterRateControl::publishTorqueSetpoint(const vehicle_torque_setpoint_s &vehicle_torque_setpoint)
+{
+	if (_route_torque_to_instance1) {
+		// CA16 matrix 0 produces force only. Publish the complete MC torque and
+		// optional PCA priority split on matrix 1 before instance 0 triggers the
+		// allocator, matching the explicit routing used by CA17.
+		_vehicle_torque_setpoint1_pub.publish(vehicle_torque_setpoint);
+
+		vehicle_torque_setpoint_s force_matrix_torque_setpoint{};
+		force_matrix_torque_setpoint.timestamp_sample = vehicle_torque_setpoint.timestamp_sample;
+		force_matrix_torque_setpoint.timestamp = vehicle_torque_setpoint.timestamp;
+		_vehicle_torque_setpoint_pub.publish(force_matrix_torque_setpoint);
+
+	} else {
+		_vehicle_torque_setpoint_pub.publish(vehicle_torque_setpoint);
+	}
+}
+
+bool
+MulticopterRateControl::computeIndiTorqueSetpoint(const Vector3f &rates, const Vector3f &rates_setpoint,
+		const Vector3f &angular_accel, Vector3f &torque_setpoint, Vector3f &indi_feedback)
+{
+	allocation_value_s allocation_value;
+
+	if (!_allocation_value_sub.copy(&allocation_value)
+	    || !allocationFeedbackValid(allocation_value)) {
+		return false;
+	}
+
+	const Vector3f allocated_torque(allocation_value.allocated_torque);
+	const Vector3f output_scale(allocation_value.torque_setpoint_scale);
+	const IndiControl::Output physical_output =
+		_indi_control.update(rates, rates_setpoint, angular_accel, allocated_torque);
+
+	indi_feedback = output_scale.emult(physical_output.feedback_torque);
+	torque_setpoint = output_scale.emult(physical_output.rate_error_torque + physical_output.feedback_torque);
+	return true;
 }
 
 void
@@ -196,7 +283,7 @@ MulticopterRateControl::Run()
 			// update saturation status from control allocation feedback
 			control_allocator_status_s control_allocator_status;
 
-			if (_control_allocator_status_sub.update(&control_allocator_status)) {
+			if (_control_allocator_status_subs[_torque_allocation_instance].update(&control_allocator_status)) {
 				Vector<bool, 3> saturation_positive;
 				Vector<bool, 3> saturation_negative;
 
@@ -215,9 +302,13 @@ MulticopterRateControl::Run()
 				_rate_control.setSaturationStatus(saturation_positive, saturation_negative);
 			}
 
-			// run rate controller
+			// Keep the original PID controller running as a hot standby.
 			Vector3f torque_setpoint =
 				_rate_control.update(rates, _rates_setpoint, angular_accel, dt, _maybe_landed || _landed);
+			Vector3f indi_feedback{};
+			const bool indi_active = _indi_enabled && computeIndiTorqueSetpoint(rates, _rates_setpoint,
+						 angular_accel, torque_setpoint, indi_feedback);
+			const Vector3f torque_setpoint_before_output_processing = torque_setpoint;
 
 			// apply low-pass filtering on yaw axis to reduce high frequency torque caused by rotor acceleration
 			torque_setpoint(2) = _output_lpf_yaw.update(torque_setpoint(2), dt);
@@ -225,6 +316,7 @@ MulticopterRateControl::Run()
 			// publish rate controller status
 			rate_ctrl_status_s rate_ctrl_status{};
 			_rate_control.getRateControlStatus(rate_ctrl_status);
+			rate_ctrl_status.indi_active = indi_active;
 			rate_ctrl_status.timestamp = hrt_absolute_time();
 			_controller_status_pub.publish(rate_ctrl_status);
 
@@ -255,13 +347,23 @@ MulticopterRateControl::Run()
 				}
 			}
 
+			if (indi_active) {
+				vehicle_torque_setpoint.xyz_indi_feedback_valid = true;
+
+				for (int axis = 0; axis < 3; axis++) {
+					const float total = torque_setpoint_before_output_processing(axis);
+					vehicle_torque_setpoint.xyz_indi_feedback[axis] = fabsf(total) > FLT_EPSILON ?
+							indi_feedback(axis) * vehicle_torque_setpoint.xyz[axis] / total : 0.f;
+				}
+			}
+
 			vehicle_thrust_setpoint.timestamp_sample = angular_velocity.timestamp_sample;
 			vehicle_thrust_setpoint.timestamp = hrt_absolute_time();
 			_vehicle_thrust_setpoint_pub.publish(vehicle_thrust_setpoint);
 
 			vehicle_torque_setpoint.timestamp_sample = angular_velocity.timestamp_sample;
 			vehicle_torque_setpoint.timestamp = hrt_absolute_time();
-			_vehicle_torque_setpoint_pub.publish(vehicle_torque_setpoint);
+			publishTorqueSetpoint(vehicle_torque_setpoint);
 
 			updateActuatorControlsStatus(vehicle_torque_setpoint, dt);
 

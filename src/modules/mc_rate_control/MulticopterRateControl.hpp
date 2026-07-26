@@ -33,6 +33,8 @@
 
 #pragma once
 
+#include "IndiControl/IndiControl.hpp"
+
 #include <lib/rate_control/rate_control.hpp>
 #include <lib/mathlib/math/filter/AlphaFilter.hpp>
 #include <lib/matrix/matrix/math.hpp>
@@ -47,7 +49,9 @@
 #include <uORB/PublicationMulti.hpp>
 #include <uORB/Subscription.hpp>
 #include <uORB/SubscriptionCallback.hpp>
+#include <uORB/SubscriptionMultiArray.hpp>
 #include <uORB/topics/actuator_controls_status.h>
+#include <uORB/topics/allocation_value.h>
 #include <uORB/topics/battery_status.h>
 #include <uORB/topics/control_allocator_status.h>
 #include <uORB/topics/manual_control_setpoint.h>
@@ -88,17 +92,25 @@ private:
 	 */
 	void parameters_updated();
 
+	/** Compute INDI output from allocation feedback. Returns false if feedback is unavailable or stale. */
+	bool computeIndiTorqueSetpoint(const matrix::Vector3f &rates, const matrix::Vector3f &rates_setpoint,
+				       const matrix::Vector3f &angular_accel, matrix::Vector3f &torque_setpoint,
+				       matrix::Vector3f &indi_feedback);
+	void publishTorqueSetpoint(const vehicle_torque_setpoint_s &vehicle_torque_setpoint);
 	void updateActuatorControlsStatus(const vehicle_torque_setpoint_s &vehicle_torque_setpoint, float dt);
 
 	RateControl _rate_control; ///< class for rate control calculations
+	IndiControl _indi_control; ///< INDI angular rate control
 
 	uORB::Subscription _battery_status_sub{ORB_ID(battery_status)};
-	uORB::Subscription _control_allocator_status_sub{ORB_ID(control_allocator_status)};
 	uORB::Subscription _manual_control_setpoint_sub{ORB_ID(manual_control_setpoint)};
 	uORB::Subscription _vehicle_control_mode_sub{ORB_ID(vehicle_control_mode)};
 	uORB::Subscription _vehicle_land_detected_sub{ORB_ID(vehicle_land_detected)};
 	uORB::Subscription _vehicle_rates_setpoint_sub{ORB_ID(vehicle_rates_setpoint)};
 	uORB::Subscription _vehicle_status_sub{ORB_ID(vehicle_status)};
+	uORB::Subscription _allocation_value_sub{ORB_ID(allocation_value)};
+	uORB::SubscriptionMultiArray<control_allocator_status_s, 2> _control_allocator_status_subs{
+		ORB_ID::control_allocator_status};
 
 	uORB::SubscriptionInterval _parameter_update_sub{ORB_ID(parameter_update), 1_s};
 
@@ -109,12 +121,16 @@ private:
 	uORB::Publication<vehicle_rates_setpoint_s>	_vehicle_rates_setpoint_pub{ORB_ID(vehicle_rates_setpoint)};
 	uORB::Publication<vehicle_thrust_setpoint_s>	_vehicle_thrust_setpoint_pub;
 	uORB::Publication<vehicle_torque_setpoint_s>	_vehicle_torque_setpoint_pub;
+	uORB::PublicationMulti<vehicle_torque_setpoint_s> _vehicle_torque_setpoint1_pub{ORB_ID(vehicle_torque_setpoint)};
 
 	vehicle_control_mode_s	_vehicle_control_mode{};
 	vehicle_status_s	_vehicle_status{};
 
 	bool _landed{true};
 	bool _maybe_landed{true};
+	bool _indi_enabled{false};
+	bool _route_torque_to_instance1{false};
+	uint8_t _torque_allocation_instance{0};
 
 	hrt_abstime _last_run{0};
 
@@ -163,6 +179,15 @@ private:
 		(ParamFloat<px4::params::MC_ACRO_SUPEXPO>) _param_mc_acro_supexpo,		/**< superexpo stick curve shape (roll & pitch) */
 		(ParamFloat<px4::params::MC_ACRO_SUPEXPOY>) _param_mc_acro_supexpoy,		/**< superexpo stick curve shape (yaw) */
 
-		(ParamBool<px4::params::MC_BAT_SCALE_EN>) _param_mc_bat_scale_en
+		(ParamBool<px4::params::MC_BAT_SCALE_EN>) _param_mc_bat_scale_en,
+
+		(ParamFloat<px4::params::MC_INDI_R_P>) _param_mc_indi_roll_p,
+		(ParamFloat<px4::params::MC_INDI_P_P>) _param_mc_indi_pitch_p,
+		(ParamFloat<px4::params::MC_INDI_Y_P>) _param_mc_indi_yaw_p,
+		(ParamFloat<px4::params::MC_J_X>) _param_mc_j_x,
+		(ParamFloat<px4::params::MC_J_Y>) _param_mc_j_y,
+		(ParamFloat<px4::params::MC_J_Z>) _param_mc_j_z,
+		(ParamInt<px4::params::MC_INDI_RATE_EN>) _param_mc_indi_rate_en,
+		(ParamInt<px4::params::CA_AIRFRAME>) _param_ca_airframe
 	)
 };

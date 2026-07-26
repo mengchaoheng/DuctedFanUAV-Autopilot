@@ -198,10 +198,36 @@ The yaw rate controller also helps to counteract [adverse yaw effects](https://y
 
 ## VTOL Flight Controller
 
-![VTOL Attitude Controller Diagram](../../assets/diagrams/VTOL_controller_diagram.png)
+```mermaid
+graph TD
+  MC_Pos[MC Position Controller]
+  FW_Pos[FW Position Controller]
 
-<!-- The drawing is on draw.io: https://drive.google.com/file/d/1tVpmFhLosYjAtVI46lfZkxBz_vTNi8VH/view?usp=sharing
-Request access from dev team. -->
+  VAC[VTOL Attitude Controller]
+
+  MC_Att[MC Attitude Controller]
+  FW_Att[FW Attitude Controller]
+
+  MC_Rate[MC Rates Controller]
+  FW_Rate[FW Rates Controller]
+
+  Allocator[Control Allocator]
+
+  MC_Pos -->|mc_virtual_attitude_setpoint| VAC
+  FW_Pos -->|fw_virtual_attitude_setpoint| VAC
+
+  VAC -->|vehicle_attitude_setpoint| MC_Att
+  VAC -->|vehicle_attitude_setpoint| FW_Att
+
+  MC_Att -->|vehicle_rates_setpoint| MC_Rate
+  FW_Att -->|vehicle_rates_setpoint| FW_Rate
+
+  MC_Rate -->|vehicle_torque/thrust_setpoint_virtual_mc| VAC
+  FW_Rate -->|vehicle_torque/thrust_setpoint_virtual_fw| VAC
+
+  VAC -->|vehicle_torque/thrust_setpoint_0| Allocator
+  VAC -->|vehicle_torque/thrust_setpoint_1| Allocator
+```
 
 This section gives a short overview on the control structure of Vertical Take-off and Landing (VTOL) aircraft.
 The VTOL flight controller consists of both the multicopter and fixed-wing controllers, either running separately in the corresponding VTOL modes, or together during transitions.

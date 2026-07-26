@@ -65,6 +65,20 @@ public:
 	void setProportionalGain(const matrix::Vector3f &proportional_gain, const float yaw_weight);
 
 	/**
+	 * Select attitude error calculation mode
+	 *
+	 * 0: PX4 default reduced attitude with yaw weighting.
+	 * 1: Full quaternion imaginary-vector error.
+	 * 2: Full quaternion logarithm-map error.
+	 * 3: Full DCM logarithm-map error.
+	 * 4: Full DCM vee-map error.
+	 * 5: Tal and Karaman incremental attitude command error.
+	 * 6: Tilt-prioritized quaternion error.
+	 * 7: Tilt-torsion SO(3) logarithm-map error.
+	 */
+	void setAttitudeErrorMode(int mode);
+
+	/**
 	 * Set hard limit for output rate setpoints
 	 * @param rate_limit [rad/s] 3D vector containing limits for roll, pitch, yaw
 	 */
@@ -101,9 +115,31 @@ public:
 	matrix::Vector3f update(const matrix::Quatf &q) const;
 
 private:
+	enum AttitudeErrorMode {
+		ATTITUDE_ERROR_DEFAULT = 0,
+		ATTITUDE_ERROR_QUATERNION_IMAG = 1,
+		ATTITUDE_ERROR_QUATERNION_LOG = 2,
+		ATTITUDE_ERROR_DCM_LOG = 3,
+		ATTITUDE_ERROR_DCM_VEE = 4,
+		ATTITUDE_ERROR_EZRA_TAL = 5,
+		ATTITUDE_ERROR_TILT_PRIORITIZED = 6,
+		ATTITUDE_ERROR_TILT_TORSION = 7,
+	};
+
+	matrix::Vector3f calculateAttitudeErrorDefault(const matrix::Quatf &q, matrix::Quatf qd) const;
+	matrix::Vector3f calculateAttitudeErrorQuaternionImag(const matrix::Quatf &q, const matrix::Quatf &qd) const;
+	matrix::Vector3f calculateAttitudeErrorQuaternionLog(const matrix::Quatf &q, const matrix::Quatf &qd) const;
+	matrix::Vector3f calculateAttitudeErrorDcmLog(const matrix::Quatf &q, const matrix::Quatf &qd) const;
+	matrix::Vector3f calculateAttitudeErrorDcmVee(const matrix::Quatf &q, const matrix::Quatf &qd) const;
+	matrix::Vector3f calculateAttitudeErrorEzraTal(const matrix::Quatf &q, const matrix::Quatf &qd) const;
+	matrix::Vector3f calculateAttitudeErrorTiltPrioritized(const matrix::Quatf &q, const matrix::Quatf &qd) const;
+	matrix::Vector3f calculateAttitudeErrorTiltTorsion(const matrix::Quatf &q, const matrix::Quatf &qd) const;
+	matrix::Vector3f calculateAttitudeError(const matrix::Quatf &q, const matrix::Quatf &qd) const;
+
 	matrix::Vector3f _proportional_gain;
 	matrix::Vector3f _rate_limit;
 	float _yaw_w{0.f}; ///< yaw weight [0,1] to deprioritize caompared to roll and pitch
+	int _attitude_error_mode{ATTITUDE_ERROR_DEFAULT};
 
 	matrix::Quatf _attitude_setpoint_q; ///< latest known attitude setpoint e.g. from position control
 	float _yawspeed_setpoint{0.f}; ///< latest known yawspeed feed-forward setpoint

@@ -39,6 +39,188 @@
  */
 
 /**
+ * RC channel 1 dead zone compatibility value
+ *
+ * Compatibility value for legacy QGroundControl. PX4 does not apply it to RC channel normalization.
+ *
+ * @unit us
+ * @min 0.0
+ * @max 100.0
+ * @group Radio Calibration
+ */
+PARAM_DEFINE_FLOAT(RC1_DZ, 0.0f);
+
+/**
+ * RC channel 2 dead zone compatibility value
+ *
+ * @unit us
+ * @min 0.0
+ * @max 100.0
+ * @group Radio Calibration
+ */
+PARAM_DEFINE_FLOAT(RC2_DZ, 0.0f);
+
+/**
+ * RC channel 3 dead zone compatibility value
+ *
+ * @unit us
+ * @min 0.0
+ * @max 100.0
+ * @group Radio Calibration
+ */
+PARAM_DEFINE_FLOAT(RC3_DZ, 0.0f);
+
+/**
+ * RC channel 4 dead zone compatibility value
+ *
+ * @unit us
+ * @min 0.0
+ * @max 100.0
+ * @group Radio Calibration
+ */
+PARAM_DEFINE_FLOAT(RC4_DZ, 0.0f);
+
+/**
+ * RC channel 5 dead zone compatibility value
+ *
+ * @unit us
+ * @min 0.0
+ * @max 100.0
+ * @group Radio Calibration
+ */
+PARAM_DEFINE_FLOAT(RC5_DZ, 0.0f);
+
+/**
+ * RC channel 6 dead zone compatibility value
+ *
+ * @unit us
+ * @min 0.0
+ * @max 100.0
+ * @group Radio Calibration
+ */
+PARAM_DEFINE_FLOAT(RC6_DZ, 0.0f);
+
+/**
+ * RC channel 7 dead zone compatibility value
+ *
+ * @unit us
+ * @min 0.0
+ * @max 100.0
+ * @group Radio Calibration
+ */
+PARAM_DEFINE_FLOAT(RC7_DZ, 0.0f);
+
+/**
+ * RC channel 8 dead zone compatibility value
+ *
+ * @unit us
+ * @min 0.0
+ * @max 100.0
+ * @group Radio Calibration
+ */
+PARAM_DEFINE_FLOAT(RC8_DZ, 0.0f);
+
+/**
+ * RC channel 9 dead zone compatibility value
+ *
+ * @unit us
+ * @min 0.0
+ * @max 100.0
+ * @group Radio Calibration
+ */
+PARAM_DEFINE_FLOAT(RC9_DZ, 0.0f);
+
+/**
+ * RC channel 10 dead zone compatibility value
+ *
+ * @unit us
+ * @min 0.0
+ * @max 100.0
+ * @group Radio Calibration
+ */
+PARAM_DEFINE_FLOAT(RC10_DZ, 0.0f);
+
+/**
+ * RC channel 11 dead zone compatibility value
+ *
+ * @unit us
+ * @min 0.0
+ * @max 100.0
+ * @group Radio Calibration
+ */
+PARAM_DEFINE_FLOAT(RC11_DZ, 0.0f);
+
+/**
+ * RC channel 12 dead zone compatibility value
+ *
+ * @unit us
+ * @min 0.0
+ * @max 100.0
+ * @group Radio Calibration
+ */
+PARAM_DEFINE_FLOAT(RC12_DZ, 0.0f);
+
+/**
+ * RC channel 13 dead zone compatibility value
+ *
+ * @unit us
+ * @min 0.0
+ * @max 100.0
+ * @group Radio Calibration
+ */
+PARAM_DEFINE_FLOAT(RC13_DZ, 0.0f);
+
+/**
+ * RC channel 14 dead zone compatibility value
+ *
+ * @unit us
+ * @min 0.0
+ * @max 100.0
+ * @group Radio Calibration
+ */
+PARAM_DEFINE_FLOAT(RC14_DZ, 0.0f);
+
+/**
+ * RC channel 15 dead zone compatibility value
+ *
+ * @unit us
+ * @min 0.0
+ * @max 100.0
+ * @group Radio Calibration
+ */
+PARAM_DEFINE_FLOAT(RC15_DZ, 0.0f);
+
+/**
+ * RC channel 16 dead zone compatibility value
+ *
+ * @unit us
+ * @min 0.0
+ * @max 100.0
+ * @group Radio Calibration
+ */
+PARAM_DEFINE_FLOAT(RC16_DZ, 0.0f);
+
+/**
+ * RC channel 17 dead zone compatibility value
+ *
+ * @unit us
+ * @min 0.0
+ * @max 100.0
+ * @group Radio Calibration
+ */
+PARAM_DEFINE_FLOAT(RC17_DZ, 0.0f);
+
+/**
+ * RC channel 18 dead zone compatibility value
+ *
+ * @unit us
+ * @min 0.0
+ * @max 100.0
+ * @group Radio Calibration
+ */
+PARAM_DEFINE_FLOAT(RC18_DZ, 0.0f);
+
+/**
  * RC channel 1 minimum
  *
  * Minimum value for RC channel 1

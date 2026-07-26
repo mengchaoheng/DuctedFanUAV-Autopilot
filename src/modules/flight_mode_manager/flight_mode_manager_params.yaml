@@ -1,0 +1,13 @@
+module_name: flight_mode_manager
+parameters:
+- group: Flight Mode Manager
+  definitions:
+    MC_ORBIT_SHAPE:
+      description:
+        short: Multicopter orbit trajectory shape
+        long: Selects the trajectory task when entering Orbit mode. The selection is latched until Orbit mode is exited.
+      type: enum
+      values:
+        0: Circle
+        1: Figure Eight
+      default: 0

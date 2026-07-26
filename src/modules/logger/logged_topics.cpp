@@ -213,6 +213,8 @@ void LoggedTopics::add_default_topics()
 	// additional control allocation logging
 	add_topic("actuator_motors", 100);
 	add_topic("actuator_servos", 100);
+	add_topic("allocation_value", 20);
+	add_topic("allocation_feedback_filter_status");
 	add_topic_multi("vehicle_thrust_setpoint", 20, 2);
 	add_topic_multi("vehicle_torque_setpoint", 20, 2);
 
@@ -270,6 +272,7 @@ void LoggedTopics::add_default_topics()
 void LoggedTopics::add_high_rate_topics()
 {
 	// maximum rate to analyze fast maneuvers (e.g. for racing)
+	add_topic("allocation_value");
 	add_topic("manual_control_setpoint");
 	add_topic_multi("rate_ctrl_status", 20, 2);
 	add_topic("sensor_combined");

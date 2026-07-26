@@ -51,6 +51,77 @@
 PARAM_DEFINE_FLOAT(MC_ROLLRATE_P, 0.15f);
 
 /**
+ * INDI roll rate proportional gain
+ *
+ * @unit 1/s
+ * @min 0
+ * @decimal 3
+ * @group Multicopter Rate INDI
+ */
+PARAM_DEFINE_FLOAT(MC_INDI_R_P, 10.0f);
+
+/**
+ * INDI pitch rate proportional gain
+ *
+ * @unit 1/s
+ * @min 0
+ * @decimal 3
+ * @group Multicopter Rate INDI
+ */
+PARAM_DEFINE_FLOAT(MC_INDI_P_P, 10.0f);
+
+/**
+ * INDI yaw rate proportional gain
+ *
+ * @unit 1/s
+ * @min 0
+ * @decimal 3
+ * @group Multicopter Rate INDI
+ */
+PARAM_DEFINE_FLOAT(MC_INDI_Y_P, 10.0f);
+
+/**
+ * Vehicle roll-axis moment of inertia
+ *
+ * @unit kg m^2
+ * @min 0.000001
+ * @decimal 6
+ * @group Multicopter Rate INDI
+ */
+PARAM_DEFINE_FLOAT(MC_J_X, 0.01f);
+
+/**
+ * Vehicle pitch-axis moment of inertia
+ *
+ * @unit kg m^2
+ * @min 0.000001
+ * @decimal 6
+ * @group Multicopter Rate INDI
+ */
+PARAM_DEFINE_FLOAT(MC_J_Y, 0.01f);
+
+/**
+ * Vehicle yaw-axis moment of inertia
+ *
+ * @unit kg m^2
+ * @min 0.000001
+ * @decimal 6
+ * @group Multicopter Rate INDI
+ */
+PARAM_DEFINE_FLOAT(MC_J_Z, 0.01f);
+
+/**
+ * Enable rate INDI control
+ *
+ * Uses recent physical allocated moment feedback. Unsupported allocation
+ * types or invalid feedback fall back to the standard rate controller.
+ *
+ * @boolean
+ * @group Multicopter Rate INDI
+ */
+PARAM_DEFINE_INT32(MC_INDI_RATE_EN, 0);
+
+/**
  * Roll rate I gain
  *
  * Roll rate integral gain. Can be set to compensate static thrust difference or gravity center offset.

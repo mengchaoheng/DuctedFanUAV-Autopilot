@@ -54,9 +54,12 @@ list(APPEND flight_tasks_all
 if(NOT px4_constrained_flash_build)
 	list(APPEND flight_tasks_all
 		AutoFollowTarget
+		FigureEight
 		Orbit
 	)
 endif()
+
+set_property(GLOBAL APPEND PROPERTY PX4_MODULE_CONFIG_FILES ${CMAKE_CURRENT_SOURCE_DIR}/flight_mode_manager_params.yaml)
 
 # set the files to be generated
 set(files_to_generate

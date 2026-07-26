@@ -12,19 +12,80 @@
 
 param set-default CA_AIRFRAME 0
 
+# Effectiveness unit contract (control_allocation/iris.m):
+#   v = [tau; F] = B*u, with tau [N m], F [N], and physical rotor thrusts
+#   u [N]. Writing u = U*u_norm makes the configured matrix B*U, so allocation
+#   uses v = (B*U)*u_norm. For the rotor geometry below CA_ROTORx_CT is the
+#   per-rotor maximum thrust (8.5 N), while position [m] and KM [m] construct
+#   the corresponding full-scale moment columns. The internal row scale D
+#   converts physical v to PX4's normalized torque/thrust setpoints.
+#
+# Gazebo writes these vehicle properties directly on base_link. The IMU adds no
+# inertial link; the GPS and four rotor-link inertias are kept negligible.
+param set-default MPC_MASS 0.75
+param set-default MC_J_X 0.0025
+param set-default MC_J_Y 0.0021
+param set-default MC_J_Z 0.0043
+
+param set-default MC_INDI_P_P 20.0
+param set-default MC_INDI_R_P 20.0
+param set-default MC_INDI_Y_P 8.0
+
+# Tuned for this Gazebo Iris model.
+param set-default MC_ROLL_P 6.5
+param set-default MC_PITCH_P 6.5
+param set-default MC_YAW_P 6.5
+param set-default MC_YAW_WEIGHT 1.0
+
+param set-default MC_ROLLRATE_P 0.038
+param set-default MC_ROLLRATE_I 0.042
+param set-default MC_ROLLRATE_D 0.0
+
+param set-default MC_PITCHRATE_P 0.037
+param set-default MC_PITCHRATE_I 0.040
+param set-default MC_PITCHRATE_D 0.0
+
+param set-default MC_YAWRATE_P 0.047
+param set-default MC_YAWRATE_I 0.096
+param set-default MC_YAWRATE_D 0.0
+
+param set-default THR_MDL_FAC 1.0
+# 0.75 kg * 9.8066 m/s^2 / (4 * 8.5 N)
+param set-default MPC_THR_HOVER 0.2163
+
+param set-default MPC_XY_P 1.6667
+param set-default MPC_Z_P 1.6667
+param set-default MPC_XY_VEL_P_ACC 6.0
+param set-default MPC_Z_VEL_P_ACC 6.0
+param set-default MPC_XY_VEL_I_ACC 0.0
+param set-default MPC_Z_VEL_I_ACC 0.0
+param set-default MPC_XY_VEL_D_ACC 0.0
+param set-default MPC_Z_VEL_D_ACC 0.0
+
+param set-default MPC_XY_VEL_MAX 20.0
+
+
+
 param set-default CA_ROTOR_COUNT 4
-param set-default CA_ROTOR0_PX 0.1515
-param set-default CA_ROTOR0_PY 0.245
-param set-default CA_ROTOR0_KM 0.05
-param set-default CA_ROTOR1_PX -0.1515
-param set-default CA_ROTOR1_PY -0.1875
-param set-default CA_ROTOR1_KM 0.05
-param set-default CA_ROTOR2_PX 0.1515
-param set-default CA_ROTOR2_PY -0.245
-param set-default CA_ROTOR2_KM -0.05
-param set-default CA_ROTOR3_PX -0.1515
-param set-default CA_ROTOR3_PY 0.1875
-param set-default CA_ROTOR3_KM -0.05
+param set-default CA_ROTOR0_PX 0.13
+param set-default CA_ROTOR0_PY 0.22
+param set-default CA_ROTOR0_KM 0.0157
+param set-default CA_ROTOR0_CT 8.5
+
+param set-default CA_ROTOR1_PX -0.13
+param set-default CA_ROTOR1_PY -0.20
+param set-default CA_ROTOR1_KM 0.0157
+param set-default CA_ROTOR1_CT 8.5
+
+param set-default CA_ROTOR2_PX 0.13
+param set-default CA_ROTOR2_PY -0.22
+param set-default CA_ROTOR2_KM -0.0157
+param set-default CA_ROTOR2_CT 8.5
+
+param set-default CA_ROTOR3_PX -0.13
+param set-default CA_ROTOR3_PY 0.20
+param set-default CA_ROTOR3_KM -0.0157
+param set-default CA_ROTOR3_CT 8.5
 
 param set-default PWM_MAIN_FUNC1 101
 param set-default PWM_MAIN_FUNC2 102

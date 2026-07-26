@@ -44,6 +44,20 @@
 PARAM_DEFINE_FLOAT(MC_ORBIT_RAD_MAX, 1000.0f);
 
 /**
+ * Default orbit velocity
+ *
+ * Initial tangential ground speed when Orbit is activated.
+ *
+ * @unit m/s
+ * @min 0.0
+ * @max 20.0
+ * @increment 0.1
+ * @decimal 1
+ * @group Flight Task Orbit
+ */
+PARAM_DEFINE_FLOAT(MC_ORBIT_VEL, 1.0f);
+
+/**
  * Yaw behaviour during orbit flight.
  *
  * @value 0 Front to Circle Center

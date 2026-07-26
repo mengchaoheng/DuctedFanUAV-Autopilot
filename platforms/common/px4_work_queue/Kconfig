@@ -6,7 +6,7 @@ menu "Work Queue Configuration"
 
 config WQ_RATE_CTRL_STACKSIZE
 	int "Stack size for wq:rate_ctrl"
-	default 3150
+	default 5750
 	range 1000 10000
 	help
 	  Sets the stack size in bytes for the rate_ctrl work queue.
@@ -22,7 +22,7 @@ menu "SPI Bus Work Queues"
 
 config WQ_SPI_STACKSIZE
 	int "Stack size for SPI work queues"
-	default 2392
+	default 2092
 	range 1000 10000
 	help
 	  Sets the stack size for all SPI work queues (SPI0-SPI6).
@@ -82,7 +82,7 @@ menu "I2C Bus Work Queues"
 
 config WQ_I2C_STACKSIZE
 	int "Stack size for I2C work queues"
-	default 2336
+	default 2036
 	range 1000 10000
 	help
 	  Sets the stack size for all I2C work queues (I2C0-I2C4).
@@ -142,7 +142,7 @@ menu "INS Work Queues"
 
 config WQ_INS_STACKSIZE
 	int "Stack size for INS work queues"
-	default 6000
+	default 4500
 	range 1000 10000
 	help
 	  Sets the stack size for all INS work queues (INS0-INS3).
@@ -302,7 +302,7 @@ endmenu # TTY Bus Work Queues
 
 config WQ_LP_DEFAULT_STACKSIZE
 	int "Stack size for lp_default"
-	default 3500
+	default 3000
 	range 1000 10000
 	help
 	  Sets the stack size for the lp_default work queue.

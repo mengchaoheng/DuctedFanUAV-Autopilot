@@ -8,8 +8,8 @@
 	branch = main
 [submodule "Tools/simulation/gazebo-classic/sitl_gazebo-classic"]
 	path = Tools/simulation/gazebo-classic/sitl_gazebo-classic
-	url = https://github.com/PX4/PX4-SITL_gazebo-classic.git
-	branch = main
+	url = https://github.com/mengchaoheng/DF_gazebo.git
+	branch = gazebo-df-main
 [submodule "src/drivers/gps/devices"]
 	path = src/drivers/gps/devices
 	url = https://github.com/PX4/PX4-GPSDrivers.git
@@ -74,8 +74,8 @@
 	branch = px4
 [submodule "Tools/simulation/gz"]
 	path = Tools/simulation/gz
-	url = https://github.com/PX4/PX4-gazebo-models.git
-	branch = main
+	url = https://github.com/mengchaoheng/PX4-gazebo-models.git
+	branch = gz-df-main
 [submodule "boards/modalai/voxl2/libfc-sensor-api"]
 	path = boards/modalai/voxl2/libfc-sensor-api
 	url = https://gitlab.com/voxl-public/voxl-sdk/core-libs/libfc-sensor-api.git

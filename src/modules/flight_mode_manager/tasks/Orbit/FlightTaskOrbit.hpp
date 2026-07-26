@@ -114,9 +114,14 @@ private:
 	void _generate_circle_setpoints();
 	/** generates yaw setpoints to control the vehicle's heading */
 	void _generate_circle_yaw_setpoints();
+	/** set the circle phase to the point closest to the current vehicle position */
+	void _setOrbitPhaseFromPosition();
+	void _ekfResetHandlerPositionXY(const matrix::Vector2f &delta_xy) override;
+	void _ekfResetHandlerPositionZ(float delta_z) override;
 
 	float _orbit_velocity{};
 	float _orbit_radius{};
+	float _orbit_phase{};
 	matrix::Vector3f _center; /**< local frame coordinates of the center point */
 
 	bool _in_circle_approach = false;
@@ -135,6 +140,7 @@ private:
 
 	DEFINE_PARAMETERS(
 		(ParamFloat<px4::params::MC_ORBIT_RAD_MAX>) _param_mc_orbit_rad_max,
+		(ParamFloat<px4::params::MC_ORBIT_VEL>) _param_mc_orbit_vel,
 		(ParamInt<px4::params::MC_ORBIT_YAW_MOD>) _param_mc_orbit_yaw_mod,
 		(ParamFloat<px4::params::MPC_XY_CRUISE>) _param_mpc_xy_cruise, /**< cruise speed for circle approach */
 		(ParamFloat<px4::params::MPC_YAWRAUTO_MAX>) _param_mpc_yawrauto_max,

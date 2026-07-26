@@ -50,6 +50,7 @@ if(gazebo_FOUND)
 			-DCMAKE_INSTALL_PREFIX=${CMAKE_INSTALL_PREFIX}
 			-DSEND_ODOMETRY_DATA=ON
 			-DGENERATE_ROS_MODELS=ON
+			-DMAVLINK_DEVELOPMENT=ON
 		BINARY_DIR ${PX4_BINARY_DIR}/build_gazebo-classic
 		INSTALL_COMMAND ""
 		DEPENDS git_sitl_gazebo-classic
@@ -71,6 +72,7 @@ if(gazebo_FOUND)
 	)
 
 	set(models
+		advanced_tailsitter
 		advanced_plane
 		believer
 		boat
@@ -101,6 +103,15 @@ if(gazebo_FOUND)
 		typhoon_h480
 		uuv_bluerov2_heavy
 		uuv_hippocampus
+		ductedfan2
+		ductedfan4
+		ductedfan6
+		ductedfan_mini
+		SHC09
+		SHC09_d # default setup for SHC09
+		SHW09_vtol
+		SHW09_vtol_d # default setup for SHW09_vtol
+		tilt_multirotor
 	)
 
 	set(worlds

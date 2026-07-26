@@ -87,6 +87,15 @@ RCUpdate::RCUpdate() :
 		/* channel reverse */
 		snprintf(nbuf, sizeof(nbuf), "RC%d_REV", i + 1);
 		_parameter_handles.rev[i] = param_find(nbuf);
+
+		/*
+		 * QGroundControl 5.0.8 expects every RCn_DZ parameter while setting up
+		 * flight modes. param_find() marks it as used so it is included in the
+		 * MAVLink parameter list. The value intentionally does not affect RC
+		 * normalization; deadzones are handled by the higher-level controllers.
+		 */
+		snprintf(nbuf, sizeof(nbuf), "RC%d_DZ", i + 1);
+		(void)param_find(nbuf);
 	}
 
 	// RC to parameter mapping for changing parameters with RC

@@ -97,6 +97,25 @@ PARAM_DEFINE_FLOAT(MC_YAW_P, 2.8f);
 PARAM_DEFINE_FLOAT(MC_YAW_WEIGHT, 0.4f);
 
 /**
+ * Attitude error calculation mode
+ *
+ * Selects the attitude error vector used by the multicopter attitude controller.
+ *
+ * @value 0 PX4 default reduced attitude with yaw weighting
+ * @value 1 Full quaternion imaginary-vector error
+ * @value 2 Full quaternion logarithm-map error
+ * @value 3 Full DCM logarithm-map error
+ * @value 4 Full DCM vee-map error
+ * @value 5 Tal and Karaman incremental attitude command error
+ * @value 6 Tilt-prioritized quaternion error
+ * @value 7 Tilt-torsion SO(3) logarithm-map error
+ * @min 0
+ * @max 7
+ * @group Multicopter Attitude Control
+ */
+PARAM_DEFINE_INT32(MC_ATT_ERR_MODE, 0);
+
+/**
  * Max roll rate
  *
  * Limit for roll rate in manual and auto modes (except acro).

@@ -130,3 +130,27 @@ PARAM_DEFINE_FLOAT(MPC_VEL_NF_BW, 5.0f);
  * @group Multicopter Position Control
  */
 PARAM_DEFINE_FLOAT(MPC_VELD_LP, 5.0f);
+/**
+ * Enable acceleration INDI control
+ *
+ * When enabled, the standard position and velocity loop is retained and the
+ * final acceleration-to-thrust conversion is corrected using recent allocated
+ * physical force feedback. Unsupported allocation types or invalid feedback
+ * fall back to the standard controller.
+ *
+ * @boolean
+ * @group Multicopter Acceleration INDI
+ */
+PARAM_DEFINE_INT32(MPC_INDI_ACC_EN, 0);
+
+/**
+ * Vehicle mass for acceleration INDI
+ *
+ * Used in F_c = F_0 + mass * (a_c - a_0).
+ *
+ * @unit kg
+ * @min 0.01
+ * @decimal 4
+ * @group Multicopter Acceleration INDI
+ */
+PARAM_DEFINE_FLOAT(MPC_MASS, 1.0f);
