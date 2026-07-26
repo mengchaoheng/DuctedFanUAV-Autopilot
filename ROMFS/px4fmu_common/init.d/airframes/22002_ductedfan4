@@ -105,7 +105,7 @@ param set-default IMU_GYRO_CUTOFF 110
 param set-default IMU_GYRO_RATEMAX 800
 param set-default IMU_GYRO_NF0_FRQ 35
 
-param set-default MPC_MASS 1.39
+param set-default MPC_MASS 1.56
 param set-default MC_J_X 0.01149
 param set-default MC_J_Y 0.01153
 param set-default MC_J_Z 0.00487
@@ -130,27 +130,28 @@ param set-default PWM_AUX_DIS1 900
 param set-default PWM_AUX_MIN1 1075
 param set-default PWM_AUX_MAX1 1950
 
-# Per-servo PWM calibration from the flown 15003 configuration. CENTER preserves
-# each legacy midpoint, and DIS keeps the surfaces centered while disarmed.
-param set-default PWM_AUX_DIS5 1455
-param set-default PWM_AUX_MIN5 1275
-param set-default PWM_AUX_CENT5 1455
-param set-default PWM_AUX_MAX5 1635
+# Latest flown v1.12.3 per-servo calibration used PWM_MAIN5-8. On the CUAV
+# V5 Nano these physical M5-M8 outputs are PWM_AUX5-8. CENTER is the midpoint
+# of each legacy MIN/MAX pair, and DIS keeps the surfaces centered while disarmed.
+param set-default PWM_AUX_DIS5 1540
+param set-default PWM_AUX_MIN5 1360
+param set-default PWM_AUX_CENT5 1540
+param set-default PWM_AUX_MAX5 1720
 
-param set-default PWM_AUX_DIS6 1457
-param set-default PWM_AUX_MIN6 1277
-param set-default PWM_AUX_CENT6 1457
-param set-default PWM_AUX_MAX6 1637
+param set-default PWM_AUX_DIS6 1430
+param set-default PWM_AUX_MIN6 1250
+param set-default PWM_AUX_CENT6 1430
+param set-default PWM_AUX_MAX6 1610
 
-param set-default PWM_AUX_DIS7 1540
-param set-default PWM_AUX_MIN7 1360
-param set-default PWM_AUX_CENT7 1540
-param set-default PWM_AUX_MAX7 1720
+param set-default PWM_AUX_DIS7 1500
+param set-default PWM_AUX_MIN7 1320
+param set-default PWM_AUX_CENT7 1500
+param set-default PWM_AUX_MAX7 1680
 
-param set-default PWM_AUX_DIS8 1500
-param set-default PWM_AUX_MIN8 1320
-param set-default PWM_AUX_CENT8 1500
-param set-default PWM_AUX_MAX8 1680
+param set-default PWM_AUX_DIS8 1490
+param set-default PWM_AUX_MIN8 1310
+param set-default PWM_AUX_CENT8 1490
+param set-default PWM_AUX_MAX8 1670
 
 param set-default CBRK_USB_CHK 197848
 
@@ -159,7 +160,7 @@ param set-default BAT1_V_CHARGED 4.2
 
 # Companion computer on TELEM1 or sik radio
 param set-default MAV_0_CONFIG 101
-param set-default SER_TEL1_BAUD 921600 # CUAV 57600, other 921600
+param set-default SER_TEL1_BAUD 57600 # CUAV 57600, other 921600
 
 # Run one EKF instance. The sensor hub selects one primary IMU and magnetometer.
 # Single EKF

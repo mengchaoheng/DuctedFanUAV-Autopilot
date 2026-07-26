@@ -64,6 +64,7 @@
 #include <ControlAllocationSequentialDesaturation.hpp>
 
 #include <lib/matrix/matrix/math.hpp>
+#include <lib/mathlib/math/WelfordMean.hpp>
 #include <mathlib/math/filter/LowPassFilter2p.hpp>
 #include <lib/perf/perf_counter.h>
 #include <px4_platform_common/px4_config.h>
@@ -78,6 +79,7 @@
 #include <uORB/topics/actuator_servos.h>
 #include <uORB/topics/actuator_servos_trim.h>
 #include <uORB/topics/allocation_value.h>
+#include <uORB/topics/allocation_feedback_filter_status.h>
 #include <uORB/topics/control_allocator_status.h>
 #include <uORB/topics/parameter_update.h>
 #include <uORB/topics/vehicle_control_mode.h>
@@ -159,7 +161,8 @@ private:
 	bool indi_feedback_supported() const;
 	int indi_torque_matrix() const;
 	bool calculate_allocation_wrench(int matrix_index, matrix::Vector<float, NUM_AXES> &wrench) const;
-	void publish_allocation_value();
+	void publish_allocation_value(float sample_interval_s);
+	void publish_allocation_feedback_filter_status(hrt_abstime now);
 	void filter_allocation_wrench(const matrix::Vector<float, NUM_AXES> &raw_wrench, float sample_interval_s,
 				       matrix::Vector<float, NUM_AXES> &filtered_wrench);
 
@@ -222,6 +225,8 @@ private:
 	uORB::Publication<actuator_servos_s>	_actuator_servos_pub{ORB_ID(actuator_servos)};
 	uORB::Publication<actuator_servos_trim_s>	_actuator_servos_trim_pub{ORB_ID(actuator_servos_trim)};
 	uORB::Publication<allocation_value_s>	_allocation_value_pub{ORB_ID(allocation_value)};
+	uORB::Publication<allocation_feedback_filter_status_s> _allocation_feedback_filter_status_pub{
+		ORB_ID(allocation_feedback_filter_status)};
 
 	uORB::SubscriptionInterval _parameter_update_sub{ORB_ID(parameter_update), 1_s};
 
@@ -266,14 +271,18 @@ private:
 	float _allocation_feedback_torque_cutoff{0.f};
 	float _allocation_feedback_force_cutoff{0.f};
 
-	void reset_allocation_feedback_state();
+	void reset_allocation_feedback_state(uint8_t event_flag);
 	void update_allocation_feedback_sample_rate(float sample_interval_s);
-	void update_allocation_feedback_filter_config(float sample_freq);
+	void update_allocation_feedback_filter_config(float sample_freq, uint8_t event_flag);
 
 	bool _allocation_feedback_filters_configured{false};
-	hrt_abstime _last_allocation_feedback_update{0};
-	float _allocation_feedback_sample_interval_s{NAN};
+	math::WelfordMean<float> _allocation_feedback_sample_interval{};
 	float _allocation_feedback_filter_sample_freq{NAN};
+	uint32_t _allocation_feedback_filter_reset_count{0};
+	uint32_t _allocation_feedback_filter_reconfigure_count{0};
+	uint8_t _allocation_feedback_filter_event_reason{0};
+	hrt_abstime _allocation_feedback_filter_event_timestamp{0};
+	hrt_abstime _allocation_feedback_status_last_publish{0};
 
 
 	DEFINE_PARAMETERS(

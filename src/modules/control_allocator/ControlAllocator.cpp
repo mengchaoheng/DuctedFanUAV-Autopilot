@@ -54,10 +54,8 @@ using namespace time_literals;
 
 namespace
 {
-constexpr float kAllocationFeedbackSampleIntervalMinS = 0.0001f;
-constexpr float kAllocationFeedbackSampleIntervalMaxS = 0.02f;
-constexpr float kAllocationFeedbackSampleIntervalFilterTcS = 0.25f;
 constexpr float kAllocationFeedbackSampleRateChangeThreshold = 0.1f;
+constexpr hrt_abstime kAllocationFeedbackFilterStatusPublishInterval = 1_s;
 
 hrt_abstime runtimeMeasurementTimeUs()
 {
@@ -239,7 +237,7 @@ ControlAllocator::ControlAllocator() :
 		_param_handles.slew_rate_servos[i] = param_find(buffer);
 	}
 
-	reset_allocation_feedback_state();
+	reset_allocation_feedback_state(allocation_feedback_filter_status_s::FILTER_EVENT_INITIAL);
 	parameters_updated();
 }
 
@@ -280,6 +278,8 @@ ControlAllocator::parameters_updated()
 		_allocation_feedback_torque_cutoff = torque_cutoff;
 		_allocation_feedback_force_cutoff = force_cutoff;
 		_allocation_feedback_filters_configured = false;
+		_allocation_feedback_filter_event_reason = allocation_feedback_filter_status_s::FILTER_EVENT_PARAMETER;
+		_allocation_feedback_filter_event_timestamp = hrt_absolute_time();
 	}
 
 	_has_slew_rate = false;
@@ -588,13 +588,21 @@ ControlAllocator::Run()
 		vehicle_control_mode_s vehicle_control_mode;
 
 		if (_vehicle_control_mode_sub.update(&vehicle_control_mode)) {
+			const bool publish_controls_prev = _publish_controls;
 			_publish_controls = vehicle_control_mode.flag_control_allocation_enabled;
+
+			if (publish_controls_prev && !_publish_controls) {
+				reset_allocation_feedback_state(allocation_feedback_filter_status_s::FILTER_EVENT_GAP);
+			}
 		}
 	}
 
 	// Guard against too small (< 0.2ms) and too large (> 20ms) dt's.
 	const hrt_abstime now = hrt_absolute_time();
-	const float dt = math::constrain(((now - _last_run) / 1e6f), 0.0002f, 0.02f);
+	const bool previous_run_valid = _last_run != 0;
+	const float dt_unconstrained = static_cast<float>(now - _last_run) * 1e-6f;
+	const float dt = math::constrain(dt_unconstrained, 0.0002f, 0.02f);
+	const bool allocation_feedback_gap = previous_run_valid && dt_unconstrained > 0.1f;
 
 	_actuator_group_preflight_check.handleCommand(now, _effectiveness_source_id == EffectivenessSource::TILTROTOR_VTOL);
 	_actuator_group_preflight_check.updateState(now);
@@ -700,7 +708,11 @@ ControlAllocator::Run()
 		// Form one physical INDI feedback sample from the final post-processed
 		// setpoints. CA0/9 use matrix 0; CA16/17 use force matrix 0 and torque matrix 1.
 		if (_publish_controls && indi_feedback_supported()) {
-			publish_allocation_value();
+			if (allocation_feedback_gap) {
+				reset_allocation_feedback_state(allocation_feedback_filter_status_s::FILTER_EVENT_GAP);
+			}
+
+			publish_allocation_value(previous_run_valid && !allocation_feedback_gap ? dt : NAN);
 		}
 	}
 
@@ -854,10 +866,6 @@ ControlAllocator::update_effectiveness_matrix_if_needed(EffectivenessUpdateReaso
 
 		trims.timestamp = hrt_absolute_time();
 		_actuator_servos_trim_pub.publish(trims);
-
-		if (reason != EffectivenessUpdateReason::NO_EXTERNAL_UPDATE) {
-			reset_allocation_feedback_state();
-		}
 	}
 }
 
@@ -1039,10 +1047,9 @@ ControlAllocator::publish_actuator_controls()
 }
 
 void
-ControlAllocator::reset_allocation_feedback_state()
+ControlAllocator::reset_allocation_feedback_state(uint8_t event_flag)
 {
-	_last_allocation_feedback_update = 0;
-	_allocation_feedback_sample_interval_s = NAN;
+	_allocation_feedback_sample_interval.reset();
 	_allocation_feedback_filter_sample_freq = NAN;
 	_allocation_feedback_filters_configured = false;
 	_allocation_wrench_feedback.setAll(NAN);
@@ -1050,6 +1057,10 @@ ControlAllocator::reset_allocation_feedback_state()
 	for (int axis = 0; axis < NUM_AXES; axis++) {
 		_allocation_wrench_feedback_filter[axis].reset(0.f);
 	}
+
+	_allocation_feedback_filter_reset_count++;
+	_allocation_feedback_filter_event_reason = event_flag;
+	_allocation_feedback_filter_event_timestamp = hrt_absolute_time();
 }
 
 void
@@ -1059,39 +1070,36 @@ ControlAllocator::update_allocation_feedback_sample_rate(float sample_interval_s
 		return;
 	}
 
-	sample_interval_s = math::constrain(sample_interval_s,
-			    kAllocationFeedbackSampleIntervalMinS,
-			    kAllocationFeedbackSampleIntervalMaxS);
+	_allocation_feedback_sample_interval.update(sample_interval_s);
 
-	if (PX4_ISFINITE(_allocation_feedback_sample_interval_s)) {
-		const float alpha = sample_interval_s
-				    / (kAllocationFeedbackSampleIntervalFilterTcS + sample_interval_s);
-		_allocation_feedback_sample_interval_s += alpha
-				* (sample_interval_s - _allocation_feedback_sample_interval_s);
-
-	} else {
-		_allocation_feedback_sample_interval_s = sample_interval_s;
+	if (!_allocation_feedback_sample_interval.valid()) {
+		return;
 	}
 
-	const float sample_freq = 1.f / _allocation_feedback_sample_interval_s;
+	const float sample_freq = 1.f / _allocation_feedback_sample_interval.mean();
 	const bool sample_rate_changed = !PX4_ISFINITE(_allocation_feedback_filter_sample_freq)
 					 || fabsf(sample_freq - _allocation_feedback_filter_sample_freq)
 					 > kAllocationFeedbackSampleRateChangeThreshold
 					 * _allocation_feedback_filter_sample_freq;
 
 	if (!_allocation_feedback_filters_configured || sample_rate_changed) {
-		update_allocation_feedback_filter_config(sample_freq);
+		const uint8_t event_flag = sample_rate_changed && PX4_ISFINITE(_allocation_feedback_filter_sample_freq)
+					   ? allocation_feedback_filter_status_s::FILTER_EVENT_SAMPLE_RATE : 0;
+		update_allocation_feedback_filter_config(sample_freq, event_flag);
 	}
 }
 
 void
-ControlAllocator::update_allocation_feedback_filter_config(float sample_freq)
+ControlAllocator::update_allocation_feedback_filter_config(float sample_freq, uint8_t event_flag)
 {
 	for (int axis = 0; axis < NUM_AXES; axis++) {
 		const float cutoff = axis < 3 ? _allocation_feedback_torque_cutoff : _allocation_feedback_force_cutoff;
 
 		if (cutoff > FLT_EPSILON) {
 			_allocation_wrench_feedback_filter[axis].set_cutoff_frequency(sample_freq, cutoff);
+
+		} else {
+			_allocation_wrench_feedback_filter[axis].disable();
 		}
 
 		// set_cutoff_frequency() clears the delay state. Preserve the current value.
@@ -1102,6 +1110,12 @@ ControlAllocator::update_allocation_feedback_filter_config(float sample_freq)
 
 	_allocation_feedback_filter_sample_freq = sample_freq;
 	_allocation_feedback_filters_configured = true;
+	_allocation_feedback_filter_reconfigure_count++;
+
+	if (event_flag != 0) {
+		_allocation_feedback_filter_event_reason = event_flag;
+		_allocation_feedback_filter_event_timestamp = hrt_absolute_time();
+	}
 }
 
 void
@@ -1109,6 +1123,7 @@ ControlAllocator::filter_allocation_wrench(const matrix::Vector<float, NUM_AXES>
 		float sample_interval_s, matrix::Vector<float, NUM_AXES> &filtered_wrench)
 {
 	update_allocation_feedback_sample_rate(sample_interval_s);
+	bool axis_reinitialized = false;
 
 	for (int axis = 0; axis < NUM_AXES; axis++) {
 		const float cutoff = axis < 3 ? _allocation_feedback_torque_cutoff : _allocation_feedback_force_cutoff;
@@ -1122,6 +1137,7 @@ ControlAllocator::filter_allocation_wrench(const matrix::Vector<float, NUM_AXES>
 		if (cutoff > FLT_EPSILON && _allocation_feedback_filters_configured) {
 			if (!PX4_ISFINITE(_allocation_wrench_feedback(axis))) {
 				_allocation_wrench_feedback_filter[axis].reset(raw_wrench(axis));
+				axis_reinitialized = true;
 			}
 
 			_allocation_wrench_feedback(axis) = _allocation_wrench_feedback_filter[axis].apply(raw_wrench(axis));
@@ -1131,6 +1147,12 @@ ControlAllocator::filter_allocation_wrench(const matrix::Vector<float, NUM_AXES>
 		}
 
 		filtered_wrench(axis) = _allocation_wrench_feedback(axis);
+	}
+
+	if (axis_reinitialized) {
+		_allocation_feedback_filter_reset_count++;
+		_allocation_feedback_filter_event_reason = allocation_feedback_filter_status_s::FILTER_EVENT_AXIS_RECOVERY;
+		_allocation_feedback_filter_event_timestamp = hrt_absolute_time();
 	}
 }
 
@@ -1188,20 +1210,9 @@ ControlAllocator::indi_torque_matrix() const
 }
 
 void
-ControlAllocator::publish_allocation_value()
+ControlAllocator::publish_allocation_value(float sample_interval_s)
 {
 	const hrt_abstime now = hrt_absolute_time();
-	float sample_interval_s = NAN;
-
-	if (_last_allocation_feedback_update != 0 && now - _last_allocation_feedback_update > 100_ms) {
-		// Restart the stateful filter and sample-rate estimator after a feedback gap.
-		reset_allocation_feedback_state();
-
-	} else if (_last_allocation_feedback_update != 0) {
-		sample_interval_s = static_cast<float>(now - _last_allocation_feedback_update) * 1e-6f;
-	}
-
-	_last_allocation_feedback_update = now;
 	matrix::Vector<float, NUM_AXES> force_matrix_wrench;
 	matrix::Vector<float, NUM_AXES> torque_matrix_wrench;
 	matrix::Vector<float, NUM_AXES> raw_wrench;
@@ -1242,6 +1253,41 @@ ControlAllocator::publish_allocation_value()
 	}
 
 	_allocation_value_pub.publish(msg);
+	publish_allocation_feedback_filter_status(now);
+}
+
+void
+ControlAllocator::publish_allocation_feedback_filter_status(hrt_abstime now)
+{
+	if (_allocation_feedback_status_last_publish == 0) {
+		_allocation_feedback_status_last_publish = now;
+		return;
+	}
+
+	if (now - _allocation_feedback_status_last_publish < kAllocationFeedbackFilterStatusPublishInterval) {
+		return;
+	}
+
+	allocation_feedback_filter_status_s status{};
+	status.timestamp = now;
+	status.sample_interval = _allocation_feedback_sample_interval.valid()
+				 ? _allocation_feedback_sample_interval.mean() : NAN;
+	status.filter_sample_rate_hz = _allocation_feedback_filter_sample_freq;
+	status.torque_filter_cutoff_hz = _allocation_feedback_filters_configured
+					 && _allocation_feedback_torque_cutoff > FLT_EPSILON
+					 ? _allocation_wrench_feedback_filter[0].get_cutoff_freq() : 0.f;
+	status.force_filter_cutoff_hz = _allocation_feedback_filters_configured
+					&& _allocation_feedback_force_cutoff > FLT_EPSILON
+					? _allocation_wrench_feedback_filter[3].get_cutoff_freq() : 0.f;
+	status.filter_reset_count = _allocation_feedback_filter_reset_count;
+	status.filter_reconfigure_count = _allocation_feedback_filter_reconfigure_count;
+	status.filter_event_timestamp = _allocation_feedback_filter_event_timestamp;
+	status.filter_event_reason = _allocation_feedback_filter_event_reason;
+	status.filters_configured = _allocation_feedback_filters_configured;
+
+	_allocation_feedback_filter_status_pub.publish(status);
+
+	_allocation_feedback_status_last_publish = now;
 }
 
 void
