@@ -52,14 +52,9 @@ constexpr hrt_abstime kRcSignalTimeout = 500_ms;
 
 bool rcChannelEnabled(const rc_channels_s &rc_channels, unsigned channel)
 {
-	const hrt_abstime now = hrt_absolute_time();
-
-	return !rc_channels.signal_lost
-	       && (rc_channels.channel_count > channel)
-	       && (rc_channels.timestamp_last_valid > 0)
-	       && (now >= rc_channels.timestamp_last_valid)
-	       && ((now - rc_channels.timestamp_last_valid) < kRcSignalTimeout)
-	       && PX4_ISFINITE(rc_channels.channels[channel])
+	return (rc_channels.channel_count > channel)
+	       && !rc_channels.signal_lost
+	       && (hrt_elapsed_time(&rc_channels.timestamp) < kRcSignalTimeout)
 	       && (rc_channels.channels[channel] >= 0.f);
 }
 
