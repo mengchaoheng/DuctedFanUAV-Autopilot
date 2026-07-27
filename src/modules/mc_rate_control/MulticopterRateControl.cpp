@@ -47,6 +47,21 @@ namespace
 {
 constexpr int32_t kDuctedFanAirframe = 16;
 constexpr int32_t kDuctedFanTailsitterVtolAirframe = 17;
+constexpr unsigned kRateIndiRcChannel = 11; // RC12
+constexpr hrt_abstime kRcSignalTimeout = 500_ms;
+
+bool rcChannelEnabled(const rc_channels_s &rc_channels, unsigned channel)
+{
+	const hrt_abstime now = hrt_absolute_time();
+
+	return !rc_channels.signal_lost
+	       && (rc_channels.channel_count > channel)
+	       && (rc_channels.timestamp_last_valid > 0)
+	       && (now >= rc_channels.timestamp_last_valid)
+	       && ((now - rc_channels.timestamp_last_valid) < kRcSignalTimeout)
+	       && PX4_ISFINITE(rc_channels.channels[channel])
+	       && (rc_channels.channels[channel] >= 0.f);
+}
 
 bool indiAllocationFeedbackSupported(int32_t airframe)
 {
@@ -143,9 +158,7 @@ MulticopterRateControl::parameters_updated()
 	const int32_t airframe = _param_ca_airframe.get();
 	_torque_allocation_instance = torqueAllocationInstance(airframe);
 	_route_torque_to_instance1 = airframe == kDuctedFanAirframe;
-	_indi_enabled = _param_mc_indi_rate_en.get() == 1
-			&& indiAllocationFeedbackSupported(airframe)
-			&& _indi_control.paramsValid();
+	_indi_capable = indiAllocationFeedbackSupported(airframe) && _indi_control.paramsValid();
 }
 
 void
@@ -236,6 +249,7 @@ MulticopterRateControl::Run()
 		}
 
 		_vehicle_status_sub.update(&_vehicle_status);
+		_rc_channels_sub.update(&_rc_channels);
 
 		// use rates setpoint topic
 		vehicle_rates_setpoint_s vehicle_rates_setpoint{};
@@ -306,7 +320,9 @@ MulticopterRateControl::Run()
 			Vector3f torque_setpoint =
 				_rate_control.update(rates, _rates_setpoint, angular_accel, dt, _maybe_landed || _landed);
 			Vector3f indi_feedback{};
-			const bool indi_active = _indi_enabled && computeIndiTorqueSetpoint(rates, _rates_setpoint,
+			const bool indi_requested = (_param_mc_indi_rate_en.get() == 1)
+						    || rcChannelEnabled(_rc_channels, kRateIndiRcChannel);
+			const bool indi_active = _indi_capable && indi_requested && computeIndiTorqueSetpoint(rates, _rates_setpoint,
 						 angular_accel, torque_setpoint, indi_feedback);
 			const Vector3f torque_setpoint_before_output_processing = torque_setpoint;
 

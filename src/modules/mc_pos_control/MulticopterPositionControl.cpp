@@ -43,6 +43,22 @@ using namespace matrix;
 
 namespace
 {
+constexpr unsigned kAccelerationIndiRcChannel = 10; // RC11
+constexpr hrt_abstime kRcSignalTimeout = 500_ms;
+
+bool rcChannelEnabled(const rc_channels_s &rc_channels, unsigned channel)
+{
+	const hrt_abstime now = hrt_absolute_time();
+
+	return !rc_channels.signal_lost
+	       && (rc_channels.channel_count > channel)
+	       && (rc_channels.timestamp_last_valid > 0)
+	       && (now >= rc_channels.timestamp_last_valid)
+	       && ((now - rc_channels.timestamp_last_valid) < kRcSignalTimeout)
+	       && PX4_ISFINITE(rc_channels.channels[channel])
+	       && (rc_channels.channels[channel] >= 0.f);
+}
+
 bool indiAllocationFeedbackSupported(int32_t airframe)
 {
 	return airframe == 0 || airframe == 9 || airframe == 16 || airframe == 17;
@@ -102,9 +118,7 @@ void MulticopterPositionControl::parameters_update(bool force)
 		const float mass = _param_mpc_mass.get();
 		const bool mass_valid = PX4_ISFINITE(mass) && mass > FLT_EPSILON;
 		_indi_inverse_mass = mass_valid ? 1.f / mass : 0.f;
-		_use_indi = _param_mpc_indi_acc_en.get() == 1
-			    && indiAllocationFeedbackSupported(_param_ca_airframe.get())
-			    && mass_valid;
+		_indi_capable = indiAllocationFeedbackSupported(_param_ca_airframe.get()) && mass_valid;
 
 		float sample_freq_hz = 1.f / _sample_interval_s.mean();
 
@@ -412,6 +426,7 @@ void MulticopterPositionControl::Run()
 	ScheduleDelayed(100_ms);
 
 	parameters_update(false);
+	_rc_channels_sub.update(&_rc_channels);
 
 	perf_begin(_cycle_perf);
 	vehicle_local_position_s vehicle_local_position;
@@ -593,7 +608,11 @@ void MulticopterPositionControl::Run()
 				_control.resetIntegralXY();
 			}
 
-			if (_use_indi) {
+			const bool use_indi = _indi_capable
+					      && ((_param_mpc_indi_acc_en.get() == 1)
+						  || rcChannelEnabled(_rc_channels, kAccelerationIndiRcChannel));
+
+			if (use_indi) {
 				states.allocated_thrust_acceleration = getAllocatedThrustAcceleration();
 			}
 

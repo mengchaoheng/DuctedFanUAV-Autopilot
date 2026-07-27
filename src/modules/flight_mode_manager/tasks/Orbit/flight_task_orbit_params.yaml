@@ -12,10 +12,36 @@ parameters:
       max: 10000.0
       increment: 0.5
       decimal: 1
+    MC_ORBIT_RAD:
+      description:
+        short: Orbit trajectory radius
+        long: Horizontal radius used when MC_ORBIT_SRC selects Parameter. It is the circle radius, the Figure Eight major radius, or the Sine Line y amplitude. The value is latched on mode entry.
+      type: float
+      default: 5.0
+      unit: m
+      min: 1.0
+      max: 10000.0
+      increment: 0.5
+      decimal: 1
+    MC_ORBIT_SRC:
+      description:
+        short: Orbit trajectory geometry source
+        long: Selects whether orbit geometry comes from MAV_CMD_DO_ORBIT or from MC_ORBIT_RAD with the position at mode entry as the trajectory origin. The selection is latched until Orbit mode is exited.
+      type: enum
+      values:
+        0: MAVLink Command
+        1: Parameter
+      default: 0
+    MC_ORBIT_EN:
+      description:
+        short: Enable parameterized Orbit
+        long: Enables Orbit when MC_ORBIT_SRC is set to Parameter. The parameter and RC channel 7 are combined with OR logic, so either one can start the trajectory. Disabling both returns an Orbit started by these triggers to Position mode.
+      type: boolean
+      default: 0
     MC_ORBIT_VEL:
       description:
         short: Default orbit velocity
-        long: Initial tangential ground speed when Orbit is activated. A finite MAV_CMD_DO_ORBIT velocity command overrides this value, and the pilot can subsequently adjust the speed with the sticks.
+        long: Initial tangential circle speed or peak sine-line speed when Orbit is activated. A finite MAV_CMD_DO_ORBIT velocity command overrides this value, and the pilot can subsequently adjust the speed with the sticks.
       type: float
       default: 1.0
       unit: m/s

@@ -351,6 +351,7 @@ private:
 		(ParamBool<px4::params::COM_ARM_ON_BOOT>)   _param_com_arm_on_boot,
 		(ParamInt<px4::params::COM_FLTMODE_BOOT>)   _param_com_fltmode_boot,
 		(ParamInt<px4::params::COM_ARM_TRAFF>)      _param_com_arm_traff,
-		(ParamInt<px4::params::NAV_RCL_ACT>)        _param_nav_rcl_act
+		(ParamInt<px4::params::NAV_RCL_ACT>)        _param_nav_rcl_act,
+		(ParamInt<px4::params::MC_ORBIT_SRC>)       _param_mc_orbit_src
 	)
 };

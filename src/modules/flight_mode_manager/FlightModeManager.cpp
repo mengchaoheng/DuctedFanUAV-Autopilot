@@ -41,6 +41,25 @@ using namespace time_literals;
 
 ModuleBase::Descriptor FlightModeManager::desc{task_spawn, custom_command, print_usage};
 
+namespace
+{
+constexpr unsigned kOrbitRcChannel = 6; // RC7
+constexpr hrt_abstime kRcSignalTimeout = 500_ms;
+
+bool rcChannelEnabled(const rc_channels_s &rc_channels, unsigned channel)
+{
+	const hrt_abstime now = hrt_absolute_time();
+
+	return !rc_channels.signal_lost
+	       && (rc_channels.channel_count > channel)
+	       && (rc_channels.timestamp_last_valid > 0)
+	       && (now >= rc_channels.timestamp_last_valid)
+	       && ((now - rc_channels.timestamp_last_valid) < kRcSignalTimeout)
+	       && PX4_ISFINITE(rc_channels.channels[channel])
+	       && (rc_channels.channels[channel] >= 0.f);
+}
+} // namespace
+
 FlightModeManager::FlightModeManager() :
 	ModuleParams(nullptr),
 	WorkItem(MODULE_NAME, px4::wq_configurations::nav_and_controllers)
@@ -110,6 +129,7 @@ void FlightModeManager::Run()
 		_vehicle_land_detected_sub.update();
 		_vehicle_status_sub.update();
 
+		updateOrbitTrigger();
 		start_flight_task();
 
 		if (_vehicle_command_sub.updated()) {
@@ -125,6 +145,58 @@ void FlightModeManager::Run()
 	}
 
 	perf_end(_loop_perf);
+}
+
+void FlightModeManager::publishModeChange(uint8_t nav_state)
+{
+	action_request_s action_request{};
+	action_request.timestamp = hrt_absolute_time();
+	action_request.action = action_request_s::ACTION_SWITCH_MODE;
+	action_request.source = action_request_s::SOURCE_RC_SWITCH;
+	action_request.mode = nav_state;
+	_action_request_pub.publish(action_request);
+}
+
+void FlightModeManager::updateOrbitTrigger()
+{
+	_rc_channels_sub.update(&_rc_channels);
+
+	const bool trigger_active = (_param_mc_orbit_src.get() == 1)
+				    && (_param_mc_orbit_en.get() || rcChannelEnabled(_rc_channels, kOrbitRcChannel));
+	const uint8_t nav_state = _vehicle_status_sub.get().nav_state;
+
+	if (trigger_active && !_orbit_trigger_active) {
+		if (nav_state != vehicle_status_s::NAVIGATION_STATE_ORBIT) {
+			publishModeChange(vehicle_status_s::NAVIGATION_STATE_ORBIT);
+			_orbit_trigger_owns_mode = true;
+			_orbit_trigger_mode_entered = false;
+
+		} else {
+			// Orbit was entered through another path (for example QGC).
+			_orbit_trigger_owns_mode = false;
+		}
+	}
+
+	if (trigger_active && _orbit_trigger_owns_mode) {
+		if (nav_state == vehicle_status_s::NAVIGATION_STATE_ORBIT) {
+			_orbit_trigger_mode_entered = true;
+
+		} else if (_orbit_trigger_mode_entered) {
+			// A separate mode switch has overridden this trigger.
+			_orbit_trigger_owns_mode = false;
+		}
+	}
+
+	if (!trigger_active && _orbit_trigger_active) {
+		if (_orbit_trigger_owns_mode && (nav_state == vehicle_status_s::NAVIGATION_STATE_ORBIT)) {
+			publishModeChange(vehicle_status_s::NAVIGATION_STATE_POSCTL);
+		}
+
+		_orbit_trigger_owns_mode = false;
+		_orbit_trigger_mode_entered = false;
+	}
+
+	_orbit_trigger_active = trigger_active;
 }
 
 void FlightModeManager::updateParams()
@@ -181,14 +253,18 @@ void FlightModeManager::start_flight_task()
 #if !defined(CONSTRAINED_FLASH)
 		const bool orbit_task_active = (_current_task.index == FlightTaskIndex::Orbit);
 		const bool figure_eight_task_active = (_current_task.index == FlightTaskIndex::FigureEight);
+		const bool sine_line_task_active = (_current_task.index == FlightTaskIndex::SineLine);
 
 		// Latch the selected shape on entry. Parameter changes while Orbit is active
 		// only take effect after leaving and re-entering the mode.
-		if (orbit_task_active || figure_eight_task_active) {
+		if (orbit_task_active || figure_eight_task_active || sine_line_task_active) {
 			error = FlightTaskError::NoError;
 
 		} else if (_param_mc_orbit_shape.get() == 1) {
 			error = switchTask(FlightTaskIndex::FigureEight);
+
+		} else if (_param_mc_orbit_shape.get() == 2) {
+			error = switchTask(FlightTaskIndex::SineLine);
 
 		} else {
 			error = switchTask(FlightTaskIndex::Orbit);
@@ -305,6 +381,12 @@ void FlightModeManager::start_flight_task()
 
 void FlightModeManager::tryApplyCommandIfAny()
 {
+	if (_param_mc_orbit_src.get() != 0
+	    && _current_command.command == vehicle_command_s::VEHICLE_CMD_DO_ORBIT) {
+		_current_command.command = 0;
+		return;
+	}
+
 	if (isAnyTaskActive() && _current_command.command != 0 && hrt_absolute_time() < _current_command.timestamp + 200_ms) {
 		bool success = false;
 
@@ -328,10 +410,17 @@ void FlightModeManager::handleCommand()
 
 		switch (command.command) {
 		case vehicle_command_s::VEHICLE_CMD_DO_ORBIT:
-			// The command might trigger a mode switch, and the mode switch can happen before or
-			// after we receive the command here, so we store it for later.
-			memcpy(&_current_command, &command, sizeof(vehicle_command_s));
-			_command_failed = false;
+			if (_param_mc_orbit_src.get() == 0) {
+				// The command might trigger a mode switch, and the mode switch can happen before or
+				// after we receive the command here, so we store it for later.
+				memcpy(&_current_command, &command, sizeof(vehicle_command_s));
+				_command_failed = false;
+
+			} else {
+				// Parameter/RC mode must not inherit any MAV_CMD_DO_ORBIT values.
+				_current_command.command = 0;
+			}
+
 			break;
 		}
 

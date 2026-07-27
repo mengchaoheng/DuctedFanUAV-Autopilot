@@ -1322,6 +1322,10 @@ Commander::handle_command(const vehicle_command_s &cmd)
 					main_ret = TRANSITION_DENIED;
 				}
 
+			} else if (_param_mc_orbit_src.get() != 0) {
+				// Parameter/RC-triggered multicopter orbit is independent of MAV_CMD_DO_ORBIT.
+				main_ret = TRANSITION_DENIED;
+
 			} else {
 				// Switch to orbit state and let the orbit task handle the command further
 				if (_user_mode_intention.change(vehicle_status_s::NAVIGATION_STATE_ORBIT, getSourceFromCommand(cmd))) {

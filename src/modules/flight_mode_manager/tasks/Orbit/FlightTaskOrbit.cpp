@@ -56,17 +56,19 @@ bool FlightTaskOrbit::applyCommandParameters(const vehicle_command_s &command, b
 	}
 
 	success = true;
+
+	if (_use_parameterized_geometry) {
+		return true;
+	}
+
 	// save previous velocity and rotation direction
 	bool new_is_clockwise = _orbit_velocity > 0;
 	float new_radius = _orbit_radius;
 	float new_absolute_velocity = fabsf(_orbit_velocity);
 
-	// commanded radius
 	if (PX4_ISFINITE(command.param1)) {
-		// Note: Radius sign is defined as orbit direction in MAVLINK
-		const float radius_parameter = command.param1;
-		new_is_clockwise = radius_parameter > 0;
-		new_radius = fabsf(radius_parameter);
+		new_is_clockwise = command.param1 > 0.f;
+		new_radius = fabsf(command.param1);
 	}
 
 	// commanded velocity, take sign of radius as rotation direction
@@ -103,7 +105,6 @@ bool FlightTaskOrbit::applyCommandParameters(const vehicle_command_s &command, b
 	// save current yaw estimate for ORBIT_YAW_BEHAVIOUR_HOLD_INITIAL_HEADING
 	_initial_heading = _yaw;
 
-	// commanded center coordinates
 	if (PX4_ISFINITE(command.param5) && PX4_ISFINITE(command.param6)) {
 		if (_geo_projection.isInitialized()) {
 			_center.xy() = _geo_projection.project(command.param5, command.param6);
@@ -113,7 +114,6 @@ bool FlightTaskOrbit::applyCommandParameters(const vehicle_command_s &command, b
 		}
 	}
 
-	// commanded altitude
 	if (PX4_ISFINITE(command.param7)) {
 		if (_geo_projection.isInitialized()) {
 			_center(2) = _global_local_alt0 - command.param7;
@@ -179,15 +179,28 @@ bool FlightTaskOrbit::activate(const trajectory_setpoint_s &last_setpoint)
 {
 	bool ret = FlightTaskManualAltitudeSmoothVel::activate(last_setpoint);
 	_currently_orbiting = false;
-	_orbit_radius = _radius_min;
+	_use_parameterized_geometry = _param_mc_orbit_source.get() == 1;
+	_orbit_radius = _use_parameterized_geometry
+			? math::constrain(_param_mc_orbit_rad.get(), _radius_min, _param_mc_orbit_rad_max.get())
+			: _radius_min;
 	// Initial tangential speed. A finite MAV_CMD_DO_ORBIT param2 can override it,
 	// and the pilot can continue adjusting it with the sticks while orbiting.
 	_orbit_velocity = _param_mc_orbit_vel.get();
+	_started_clockwise = _orbit_velocity >= 0.f;
 	_center = _position;
 	_orbit_phase = 0.f;
-	// Keep the placeholder circle reference at the current position until the
-	// MAV_CMD_DO_ORBIT geometry is applied (mode and command can arrive apart).
-	_center(0) -= _orbit_radius;
+
+	if (_use_parameterized_geometry) {
+		// Parameter and RC entry do not carry MAV_CMD_DO_ORBIT param3. Use the
+		// existing Orbit default without changing command-driven yaw semantics.
+		_yaw_behaviour = _param_mc_orbit_yaw_mod.get();
+
+	} else {
+		// Keep the placeholder circle reference at the current position until
+		// MAV_CMD_DO_ORBIT supplies the geometry.
+		_center(0) -= _orbit_radius;
+	}
+
 	_initial_heading = _yaw;
 	_heading_smoothing.reset(PX4_ISFINITE(last_setpoint.yaw) ? last_setpoint.yaw : _yaw,
 				 PX4_ISFINITE(last_setpoint.yawspeed) ? last_setpoint.yawspeed : 0.f);

@@ -10,4 +10,5 @@ parameters:
       values:
         0: Circle
         1: Figure Eight
+        2: Sine Line
       default: 0

@@ -42,15 +42,6 @@ param set-default MC_YAWRATE_FF 0
 param set-default MC_ATT_ERR_MODE 3
 param set-default MC_YAW_WEIGHT 1
 
-# The 1.56 kg airframe hovered at motor signal x=0.7146 with THR_MDL_FAC=0.
-# Preserve that measured signal with the quadratic thrust model:
-#   MPC_THR_HOVER = x^2 = 0.510653
-#   Fmax = mass*g/MPC_THR_HOVER = 29.9584 N
-param set-default MPC_THR_HOVER 0.510653
-param set-default THR_MDL_FAC 1
-param set-default RTL_RETURN_ALT 2.5
-param set-default RTL_DESCEND_ALT 2.5
-
 param set-default MPC_VEL_MANUAL 6
 # param set-default MPC_XY_CRUISE 5
 # param set-default MPC_XY_P 0.95
@@ -64,6 +55,27 @@ param set-default MPC_XY_VEL_MAX 8
 # param set-default MPC_Z_VEL_MAX_UP 3
 # param set-default MPC_Z_VEL_P_ACC 4
 
+# INDI
+param set-default CA_FORCE_CUTOFF 5
+param set-default CA_TORQ_CUTOFF 8
+param set-default IMU_DGYRO_CUTOFF 10
+param set-default IMU_GYRO_CUTOFF 110
+param set-default IMU_GYRO_RATEMAX 800
+param set-default IMU_GYRO_NF0_FRQ 35
+
+param set-default MPC_MASS 1.56
+param set-default MC_J_X 0.01149
+param set-default MC_J_Y 0.01153
+param set-default MC_J_Z 0.00487
+
+# The 1.56 kg airframe hovered at motor signal x=0.7146 with THR_MDL_FAC=0.
+# Preserve that measured signal with the quadratic thrust model:
+#   MPC_THR_HOVER = x^2 = 0.510653
+#   Fmax = mass*g/MPC_THR_HOVER = 29.9584 N
+param set-default MPC_THR_HOVER 0.510653
+param set-default THR_MDL_FAC 1
+param set-default RTL_RETURN_ALT 2.5
+param set-default RTL_DESCEND_ALT 2.5
 param set-default NAV_ACC_RAD 2
 
 
@@ -98,17 +110,7 @@ param set-default CA_SV_CS3_TRQ_R 0
 param set-default CA_SV_CS3_TRQ_P 0.166227
 param set-default CA_SV_CS3_TRQ_Y 0.068681
 
-param set-default CA_FORCE_CUTOFF 5
-param set-default CA_TORQ_CUTOFF 8
-param set-default IMU_DGYRO_CUTOFF 10
-param set-default IMU_GYRO_CUTOFF 110
-param set-default IMU_GYRO_RATEMAX 800
-param set-default IMU_GYRO_NF0_FRQ 35
 
-param set-default MPC_MASS 1.56
-param set-default MC_J_X 0.01149
-param set-default MC_J_Y 0.01153
-param set-default MC_J_Z 0.00487
 
 # CUAV V5 Nano has no PX4IO. With the px4_fmu-v5 build its physical M1-M8
 # outputs are the FMU outputs exposed by PX4 as PWM AUX. M2-M4 are unused.
@@ -207,7 +209,7 @@ param set-default EKF2_IMU_POS_Z -0.12
 param set-default SENS_GPS0_OFFZ -0.13
 
 
-param set-default SDLOG_PROFILE  17
+param set-default SDLOG_PROFILE  1
 
 
 # For future

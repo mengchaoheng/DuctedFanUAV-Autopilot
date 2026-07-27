@@ -61,6 +61,7 @@
 #include <uORB/topics/allocation_value.h>
 #include <uORB/topics/hover_thrust_estimate.h>
 #include <uORB/topics/parameter_update.h>
+#include <uORB/topics/rc_channels.h>
 #include <uORB/topics/trajectory_setpoint.h>
 #include <uORB/topics/vehicle_attitude.h>
 #include <uORB/topics/vehicle_attitude_setpoint.h>
@@ -109,6 +110,7 @@ private:
 
 	uORB::Subscription _allocation_value_sub{ORB_ID(allocation_value), 0};
 	uORB::Subscription _hover_thrust_estimate_sub{ORB_ID(hover_thrust_estimate)};
+	uORB::Subscription _rc_channels_sub{ORB_ID(rc_channels)};
 	uORB::Subscription _trajectory_setpoint_sub{ORB_ID(trajectory_setpoint)};
 	uORB::Subscription _vehicle_attitude_sub{ORB_ID(vehicle_attitude)};
 	uORB::Subscription _vehicle_constraints_sub{ORB_ID(vehicle_constraints)};
@@ -120,8 +122,9 @@ private:
 
 	trajectory_setpoint_s _setpoint{PositionControl::empty_trajectory_setpoint};
 	trajectory_setpoint_s _last_valid_setpoint{PositionControl::empty_trajectory_setpoint};
-	bool _use_indi{false};
+	bool _indi_capable{false};
 	float _indi_inverse_mass{0.f};
+	rc_channels_s _rc_channels{};
 	vehicle_attitude_s _vehicle_attitude{};
 	vehicle_control_mode_s _vehicle_control_mode{};
 

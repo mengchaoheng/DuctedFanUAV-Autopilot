@@ -131,6 +131,7 @@ private:
 	int _yaw_behaviour = orbit_status_s::ORBIT_YAW_BEHAVIOUR_HOLD_FRONT_TO_CIRCLE_CENTER;
 	bool _started_clockwise{true};
 	bool _currently_orbiting{false};
+	bool _use_parameterized_geometry{false};
 	float _initial_heading = 0.f; /**< the heading of the drone when the orbit command was issued */
 	HeadingSmoothing _heading_smoothing;
 	SlewRate<float> _slew_rate_velocity;
@@ -140,6 +141,8 @@ private:
 
 	DEFINE_PARAMETERS(
 		(ParamFloat<px4::params::MC_ORBIT_RAD_MAX>) _param_mc_orbit_rad_max,
+		(ParamFloat<px4::params::MC_ORBIT_RAD>) _param_mc_orbit_rad,
+		(ParamInt<px4::params::MC_ORBIT_SRC>) _param_mc_orbit_source,
 		(ParamFloat<px4::params::MC_ORBIT_VEL>) _param_mc_orbit_vel,
 		(ParamInt<px4::params::MC_ORBIT_YAW_MOD>) _param_mc_orbit_yaw_mod,
 		(ParamFloat<px4::params::MPC_XY_CRUISE>) _param_mpc_xy_cruise, /**< cruise speed for circle approach */

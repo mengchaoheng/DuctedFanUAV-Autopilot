@@ -44,8 +44,10 @@
 #include <uORB/Subscription.hpp>
 #include <uORB/SubscriptionCallback.hpp>
 #include <uORB/Publication.hpp>
+#include <uORB/topics/action_request.h>
 #include <uORB/topics/landing_gear.h>
 #include <uORB/topics/parameter_update.h>
+#include <uORB/topics/rc_channels.h>
 #include <uORB/topics/takeoff_status.h>
 #include <uORB/topics/trajectory_setpoint.h>
 #include <uORB/topics/vehicle_attitude_setpoint.h>
@@ -90,6 +92,8 @@ public:
 private:
 	void Run() override;
 	void updateParams() override;
+	void updateOrbitTrigger();
+	void publishModeChange(uint8_t nav_state);
 	void start_flight_task();
 	void handleCommand();
 	void generateTrajectorySetpoint(const float dt, const vehicle_local_position_s &vehicle_local_position);
@@ -145,18 +149,27 @@ private:
 	uORB::Subscription _takeoff_status_sub{ORB_ID(takeoff_status)};
 	uORB::Subscription _vehicle_attitude_setpoint_sub{ORB_ID(vehicle_attitude_setpoint)};
 	uORB::Subscription _vehicle_command_sub{ORB_ID(vehicle_command)};
+	uORB::Subscription _rc_channels_sub{ORB_ID(rc_channels)};
 	uORB::SubscriptionData<vehicle_control_mode_s> _vehicle_control_mode_sub{ORB_ID(vehicle_control_mode)};
 	uORB::SubscriptionData<vehicle_land_detected_s> _vehicle_land_detected_sub{ORB_ID(vehicle_land_detected)};
 	uORB::SubscriptionCallbackWorkItem _vehicle_local_position_sub{this, ORB_ID(vehicle_local_position)};
 
 	uORB::SubscriptionData<vehicle_status_s> _vehicle_status_sub{ORB_ID(vehicle_status)};
 
+	uORB::Publication<action_request_s> _action_request_pub{ORB_ID(action_request)};
 	uORB::Publication<landing_gear_s> _landing_gear_pub{ORB_ID(landing_gear)};
 	uORB::Publication<trajectory_setpoint_s> _trajectory_setpoint_pub{ORB_ID(trajectory_setpoint)};
 	uORB::Publication<vehicle_constraints_s> _vehicle_constraints_pub{ORB_ID(vehicle_constraints)};
 
+	rc_channels_s _rc_channels{};
+	bool _orbit_trigger_active{false};
+	bool _orbit_trigger_owns_mode{false};
+	bool _orbit_trigger_mode_entered{false};
+
 	DEFINE_PARAMETERS(
 		(ParamInt<px4::params::MPC_POS_MODE>) _param_mpc_pos_mode,
-		(ParamInt<px4::params::MC_ORBIT_SHAPE>) _param_mc_orbit_shape
+		(ParamInt<px4::params::MC_ORBIT_SHAPE>) _param_mc_orbit_shape,
+		(ParamInt<px4::params::MC_ORBIT_SRC>) _param_mc_orbit_src,
+		(ParamBool<px4::params::MC_ORBIT_EN>) _param_mc_orbit_en
 	);
 };
