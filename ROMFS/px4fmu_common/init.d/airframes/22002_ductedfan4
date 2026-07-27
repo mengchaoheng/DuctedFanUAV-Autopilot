@@ -42,11 +42,11 @@ param set-default MC_YAWRATE_FF 0
 param set-default MC_ATT_ERR_MODE 3
 param set-default MC_YAW_WEIGHT 1
 
-# The flown df-1.12.3 airframe used a linear throttle model and hovered at an
-# output signal of approximately 0.7. With the current quadratic thrust model,
-# MPC_THR_HOVER=0.49 produces the same motor signal: sqrt(0.49)=0.7. It is also
-# consistent with mass*gravity/maximum_thrust = 1.39*9.81/27.8 ~= 0.49.
-param set-default MPC_THR_HOVER 0.49
+# The 1.56 kg airframe hovered at motor signal x=0.7146 with THR_MDL_FAC=0.
+# Preserve that measured signal with the quadratic thrust model:
+#   MPC_THR_HOVER = x^2 = 0.510653
+#   Fmax = mass*g/MPC_THR_HOVER = 29.9584 N
+param set-default MPC_THR_HOVER 0.510653
 param set-default THR_MDL_FAC 1
 param set-default RTL_RETURN_ALT 2.5
 param set-default RTL_DESCEND_ALT 2.5
@@ -81,7 +81,7 @@ param set-default CA_ROTOR0_AZ -1
 param set-default CA_ROTOR0_PX 0
 param set-default CA_ROTOR0_PY 0
 param set-default CA_ROTOR0_PZ 0.05
-param set-default CA_ROTOR0_CT 27.8
+param set-default CA_ROTOR0_CT 29.9584
 param set-default CA_ROTOR0_KM 0
 
 param set-default CA_SV_CS_COUNT 4
@@ -98,7 +98,7 @@ param set-default CA_SV_CS3_TRQ_R 0
 param set-default CA_SV_CS3_TRQ_P 0.166227
 param set-default CA_SV_CS3_TRQ_Y 0.068681
 
-param set-default CA_FORCE_CUTOFF 6
+param set-default CA_FORCE_CUTOFF 5
 param set-default CA_TORQ_CUTOFF 8
 param set-default IMU_DGYRO_CUTOFF 10
 param set-default IMU_GYRO_CUTOFF 110

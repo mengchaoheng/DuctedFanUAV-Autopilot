@@ -47,7 +47,9 @@ param set-default MC_F8_ACC 10
 param set-default MC_F8_VEL 2
 param set-default MC_ORBIT_YAW_MOD 3
 
-param set-default MPC_THR_HOVER 0.49
+# The 1.56 kg model hovers at motor signal x=0.7146. With the quadratic
+# thrust model MPC_THR_HOVER=x^2 and Fmax=mass*g/MPC_THR_HOVER.
+param set-default MPC_THR_HOVER 0.510653
 param set-default THR_MDL_FAC 1
 param set-default RTL_RETURN_ALT 2.5
 param set-default RTL_DESCEND_ALT 2.5
@@ -59,14 +61,14 @@ param set-default CA_ROTOR0_AZ -1
 param set-default CA_ROTOR0_PX 0
 param set-default CA_ROTOR0_PY 0
 param set-default CA_ROTOR0_PZ 0.05
-param set-default CA_ROTOR0_CT 27.8
+param set-default CA_ROTOR0_CT 29.9584
 param set-default CA_ROTOR0_KM 0
 
 param set-default CA_SV_CS_COUNT 4
 param set-default CA_FORCE_CUTOFF 6
 param set-default CA_TORQ_CUTOFF 8
 param set-default IMU_DGYRO_CUTOFF 10
-param set-default MPC_MASS 1.39
+param set-default MPC_MASS 1.56
 param set-default MC_J_X 0.01149
 param set-default MC_J_Y 0.01153
 param set-default MC_J_Z 0.00487
