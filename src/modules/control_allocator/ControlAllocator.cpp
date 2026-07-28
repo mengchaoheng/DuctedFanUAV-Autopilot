@@ -610,12 +610,20 @@ ControlAllocator::Run()
 	bool do_update = false;
 	vehicle_torque_setpoint_s vehicle_torque_setpoint;
 	vehicle_thrust_setpoint_s vehicle_thrust_setpoint;
+	control_allocator_priority_setpoint_s priority_setpoint;
 
 	// Run allocator on torque changes
 	if (_vehicle_torque_setpoint_sub.update(&vehicle_torque_setpoint)) {
 		_torque_sp = matrix::Vector3f(vehicle_torque_setpoint.xyz);
-		_torque_sp_indi_feedback = matrix::Vector3f(vehicle_torque_setpoint.xyz_indi_feedback);
-		_torque_sp_indi_feedback_valid = vehicle_torque_setpoint.xyz_indi_feedback_valid;
+		_torque_sp_indi_feedback.zero();
+		_torque_sp_indi_feedback_valid = false;
+
+		if (_control_allocator_priority_setpoint_sub.copy(&priority_setpoint)
+		    && priority_setpoint.valid
+		    && priority_setpoint.timestamp_sample == vehicle_torque_setpoint.timestamp_sample) {
+			_torque_sp_indi_feedback = matrix::Vector3f(priority_setpoint.xyz);
+			_torque_sp_indi_feedback_valid = true;
+		}
 
 		do_update = true;
 		_timestamp_sample = vehicle_torque_setpoint.timestamp_sample;
@@ -655,8 +663,13 @@ ControlAllocator::Run()
 				c[1](0) = vehicle_torque_setpoint.xyz[0];
 				c[1](1) = vehicle_torque_setpoint.xyz[1];
 				c[1](2) = vehicle_torque_setpoint.xyz[2];
-				torque_sp_indi_feedback[1] = matrix::Vector3f(vehicle_torque_setpoint.xyz_indi_feedback);
-				torque_sp_indi_feedback_valid[1] = vehicle_torque_setpoint.xyz_indi_feedback_valid;
+
+				if (_control_allocator_priority_setpoint1_sub.copy(&priority_setpoint)
+				    && priority_setpoint.valid
+				    && priority_setpoint.timestamp_sample == vehicle_torque_setpoint.timestamp_sample) {
+					torque_sp_indi_feedback[1] = matrix::Vector3f(priority_setpoint.xyz);
+					torque_sp_indi_feedback_valid[1] = true;
+				}
 			}
 
 			if (_vehicle_thrust_setpoint1_sub.copy(&vehicle_thrust_setpoint)) {

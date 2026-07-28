@@ -74,6 +74,7 @@
 #include <uORB/topics/tecs_status.h>
 #include <uORB/topics/vehicle_attitude.h>
 #include <uORB/topics/vehicle_attitude_setpoint.h>
+#include <uORB/topics/control_allocator_priority_setpoint.h>
 #include <uORB/topics/vehicle_command.h>
 #include <uORB/topics/vehicle_command_ack.h>
 #include <uORB/topics/vehicle_control_mode.h>
@@ -127,6 +128,8 @@ public:
 
 	struct vehicle_torque_setpoint_s		*get_vehicle_torque_setpoint_virtual_mc() {return &_vehicle_torque_setpoint_virtual_mc;}
 	struct vehicle_torque_setpoint_s		*get_vehicle_torque_setpoint_virtual_fw() {return &_vehicle_torque_setpoint_virtual_fw;}
+	struct control_allocator_priority_setpoint_s *get_control_allocator_priority_setpoint_virtual_mc()
+	{return &_control_allocator_priority_setpoint_virtual_mc;}
 	struct vehicle_thrust_setpoint_s		*get_vehicle_thrust_setpoint_virtual_mc() {return &_vehicle_thrust_setpoint_virtual_mc;}
 	struct vehicle_thrust_setpoint_s		*get_vehicle_thrust_setpoint_virtual_fw() {return &_vehicle_thrust_setpoint_virtual_fw;}
 
@@ -142,6 +145,8 @@ public:
 	struct vehicle_local_position_setpoint_s	*get_local_pos_sp() {return &_local_pos_sp;}
 	struct vehicle_torque_setpoint_s 		*get_torque_setpoint_0() {return &_torque_setpoint_0;}
 	struct vehicle_torque_setpoint_s 		*get_torque_setpoint_1() {return &_torque_setpoint_1;}
+	struct control_allocator_priority_setpoint_s *get_priority_setpoint_0() {return &_priority_setpoint_0;}
+	struct control_allocator_priority_setpoint_s *get_priority_setpoint_1() {return &_priority_setpoint_1;}
 	struct vehicle_thrust_setpoint_s 		*get_thrust_setpoint_0() {return &_thrust_setpoint_0;}
 	struct vehicle_thrust_setpoint_s 		*get_thrust_setpoint_1() {return &_thrust_setpoint_1;}
 	struct vtol_vehicle_status_s			*get_vtol_vehicle_status() {return &_vtol_vehicle_status;}
@@ -155,6 +160,8 @@ private:
 	uORB::SubscriptionCallbackWorkItem _vehicle_torque_setpoint_virtual_mc_sub{this, ORB_ID(vehicle_torque_setpoint_virtual_mc)};
 	uORB::Subscription _vehicle_thrust_setpoint_virtual_fw_sub{ORB_ID(vehicle_thrust_setpoint_virtual_fw)};
 	uORB::Subscription _vehicle_thrust_setpoint_virtual_mc_sub{ORB_ID(vehicle_thrust_setpoint_virtual_mc)};
+	uORB::Subscription _control_allocator_priority_setpoint_virtual_mc_sub{
+		ORB_ID(control_allocator_priority_setpoint_virtual_mc)};
 
 	uORB::SubscriptionInterval _parameter_update_sub{ORB_ID(parameter_update), 1_s};
 
@@ -181,6 +188,10 @@ private:
 	uORB::PublicationMulti<vehicle_thrust_setpoint_s>	_vehicle_thrust_setpoint1_pub{ORB_ID(vehicle_thrust_setpoint)};
 	uORB::PublicationMulti<vehicle_torque_setpoint_s>	_vehicle_torque_setpoint0_pub{ORB_ID(vehicle_torque_setpoint)};
 	uORB::PublicationMulti<vehicle_torque_setpoint_s>	_vehicle_torque_setpoint1_pub{ORB_ID(vehicle_torque_setpoint)};
+	uORB::PublicationMulti<control_allocator_priority_setpoint_s> _control_allocator_priority_setpoint0_pub{
+		ORB_ID(control_allocator_priority_setpoint)};
+	uORB::PublicationMulti<control_allocator_priority_setpoint_s> _control_allocator_priority_setpoint1_pub{
+		ORB_ID(control_allocator_priority_setpoint)};
 	uORB::Publication<vtol_vehicle_status_s>		_vtol_vehicle_status_pub{ORB_ID(vtol_vehicle_status)};
 
 	orb_advert_t	_mavlink_log_pub{nullptr};	// mavlink log uORB handle
@@ -191,11 +202,14 @@ private:
 
 	vehicle_torque_setpoint_s		_vehicle_torque_setpoint_virtual_mc{};
 	vehicle_torque_setpoint_s		_vehicle_torque_setpoint_virtual_fw{};
+	control_allocator_priority_setpoint_s	_control_allocator_priority_setpoint_virtual_mc{};
 	vehicle_thrust_setpoint_s		_vehicle_thrust_setpoint_virtual_mc{};
 	vehicle_thrust_setpoint_s		_vehicle_thrust_setpoint_virtual_fw{};
 
 	vehicle_torque_setpoint_s		_torque_setpoint_0{};
 	vehicle_torque_setpoint_s		_torque_setpoint_1{};
+	control_allocator_priority_setpoint_s	_priority_setpoint_0{};
+	control_allocator_priority_setpoint_s	_priority_setpoint_1{};
 	vehicle_thrust_setpoint_s		_thrust_setpoint_0{};
 	vehicle_thrust_setpoint_s		_thrust_setpoint_1{};
 

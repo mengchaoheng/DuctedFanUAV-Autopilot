@@ -237,6 +237,7 @@ void LoggedTopics::add_default_topics()
 	add_topic("actuator_servos", 100);
 	add_topic("allocation_value", 20);
 	add_topic("allocation_feedback_filter_status");
+	add_topic_multi("control_allocator_priority_setpoint", 20, 2);
 	add_topic_multi("vehicle_thrust_setpoint", 20, 2);
 	add_topic_multi("vehicle_torque_setpoint", 20, 2);
 
@@ -254,6 +255,7 @@ void LoggedTopics::add_default_topics()
 #ifdef CONFIG_ARCH_BOARD_PX4_SITL
 	add_topic("fw_virtual_attitude_setpoint");
 	add_topic("mc_virtual_attitude_setpoint");
+	add_optional_topic("control_allocator_priority_setpoint_virtual_mc");
 	add_optional_topic("vehicle_torque_setpoint_virtual_mc");
 	add_optional_topic("vehicle_torque_setpoint_virtual_fw");
 	add_optional_topic("vehicle_thrust_setpoint_virtual_mc");
@@ -307,6 +309,7 @@ void LoggedTopics::add_high_rate_topics()
 	add_topic("actuator_motors");
 	add_topic("actuator_outputs_debug");
 	add_topic("actuator_servos");
+	add_topic_multi("control_allocator_priority_setpoint", 0, 2);
 	add_topic_multi("vehicle_thrust_setpoint", 0, 2);
 	add_topic_multi("vehicle_torque_setpoint", 0, 2);
 }
