@@ -92,8 +92,6 @@ VtolAttitudeControl::VtolAttitudeControl() :
 	_vehicle_thrust_setpoint1_pub.advertise();
 	_vehicle_torque_setpoint0_pub.advertise();
 	_vehicle_torque_setpoint1_pub.advertise();
-	_control_allocator_priority_setpoint0_pub.advertise();
-	_control_allocator_priority_setpoint1_pub.advertise();
 }
 
 VtolAttitudeControl::~VtolAttitudeControl()
@@ -334,7 +332,6 @@ VtolAttitudeControl::Run()
 	updated_fw_in |= _vehicle_thrust_setpoint_virtual_fw_sub.update(&_vehicle_thrust_setpoint_virtual_fw);
 	bool updated_mc_in = _vehicle_torque_setpoint_virtual_mc_sub.update(&_vehicle_torque_setpoint_virtual_mc);
 	updated_mc_in |= _vehicle_thrust_setpoint_virtual_mc_sub.update(&_vehicle_thrust_setpoint_virtual_mc);
-	_control_allocator_priority_setpoint_virtual_mc_sub.update(&_control_allocator_priority_setpoint_virtual_mc);
 
 	// run on actuator publications corresponding to VTOL mode
 	bool should_run = false;
@@ -464,20 +461,11 @@ VtolAttitudeControl::Run()
 			break;
 		}
 
-		_priority_setpoint_0 = {};
-		_priority_setpoint_1 = {};
 		_vtol_type->fill_actuator_outputs();
-
-		_priority_setpoint_0.timestamp = _torque_setpoint_0.timestamp;
-		_priority_setpoint_0.timestamp_sample = _torque_setpoint_0.timestamp_sample;
-		_priority_setpoint_1.timestamp = _torque_setpoint_1.timestamp;
-		_priority_setpoint_1.timestamp_sample = _torque_setpoint_1.timestamp_sample;
 
 		_vehicle_thrust_setpoint0_pub.publish(_thrust_setpoint_0);
 		_vehicle_thrust_setpoint1_pub.publish(_thrust_setpoint_1);
-		_control_allocator_priority_setpoint0_pub.publish(_priority_setpoint_0);
 		_vehicle_torque_setpoint0_pub.publish(_torque_setpoint_0);
-		_control_allocator_priority_setpoint1_pub.publish(_priority_setpoint_1);
 		_vehicle_torque_setpoint1_pub.publish(_torque_setpoint_1);
 
 		// Advertise/publish vtol vehicle status -- immediately if changed, otherwise at 1 Hz

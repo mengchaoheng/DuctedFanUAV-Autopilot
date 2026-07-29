@@ -189,22 +189,22 @@ DP_LPCA 求解方向保持分配，DPscaled_LPCA 求解带 actuator-bound scalin
 PCA 的使用前提由两部分组成：
 
 1. active rows 恰好为 R/P/Y；
-2. 当前 torque setpoint 具有与之配对的显式 priority split。
+2. 当前 torque setpoint 携带显式 priority split。
 
-两个消息按 `timestamp_sample` 严格配对：
+`VehicleTorqueSetpoint` 中：
 
-- `VehicleTorqueSetpoint.xyz` 保存完整 normalized torque setpoint；
-- `ControlAllocatorPrioritySetpoint.xyz` 保存 higher-priority normalized torque；
-- `ControlAllocatorPrioritySetpoint.valid` 标记本周期已建立 priority split。
+- `xyz` 保存完整 normalized torque setpoint；
+- `xyz_indi_feedback` 保存 higher-priority normalized torque；
+- `xyz_indi_feedback_valid` 标记本周期已建立 priority split。
 
 PCA 构造：
 
 $$
-\mathrm{higher}=\texttt{ControlAllocatorPrioritySetpoint.xyz},
+\mathrm{higher}=\texttt{xyz\_indi\_feedback},
 $$
 
 $$
-\mathrm{lower}=\texttt{VehicleTorqueSetpoint.xyz}-\texttt{ControlAllocatorPrioritySetpoint.xyz}.
+\mathrm{lower}=\texttt{xyz}-\texttt{xyz\_indi\_feedback}.
 $$
 
 rate INDI active 周期填写 higher 与 valid。higher 恰好为零时，valid 仍然准确表达 priority split。PID 周期与其他 torque publisher 保持 valid 的默认值，PCA 随后选择 INV 路径。active axes、matrix rank、template range 或 solver result 进入异常状态时也选择 INV 路径。
@@ -467,7 +467,7 @@ Yaw output low-pass 与 battery scaling 作用于最终 torque。higher componen
 
 原 rate PID 每个 rate-control 周期都执行并更新 integrator，形成 hot standby。INDI feedback gate 成立时，INDI torque 覆盖本周期待发布 torque；反馈 gate 转换时，输出选择在 PID 与 INDI 之间逐周期切换。PID integrator 保持连续，disarmed 与 vehicle type 对应的原版 integral reset 规则持续生效。
 
-CA0/9 使用 `control_allocator_status` instance 0 更新 PID anti-windup；CA16/17 使用 instance 1。`control_allocator_priority_setpoint.valid` 同时记录 PCA priority split 的实际状态。
+CA0/9 使用 `control_allocator_status` instance 0 更新 PID anti-windup；CA16/17 使用 instance 1。`vehicle_torque_setpoint.xyz_indi_feedback_valid` 同时记录 PCA priority split 的实际状态。
 
 ## 7. Acceleration INDI
 
@@ -561,11 +561,10 @@ Allocator 在以下条件组合下发布 `AllocationValue`：
 | `allocation_value` | 1 instance，20 ms | raw/filtered physical wrench、torque scale |
 | `rate_ctrl_status` | 2 instances，200 ms | PID integrator 与 `indi_active` |
 | `vehicle_local_position_setpoint` | 100 ms | position-control output 与 `acc_indi_active` |
-| `vehicle_torque_setpoint` | 2 instances，20 ms | total torque |
-| `control_allocator_priority_setpoint` | 2 instances，20 ms | PCA higher 与 valid |
+| `vehicle_torque_setpoint` | 2 instances，20 ms | total torque、PCA higher 与 valid |
 | `actuator_motors`、`actuator_servos` | 原有策略 | 最终 actuator output |
 
-High-rate logger profile 以发布速率记录 `allocation_value`、`vehicle_torque_setpoint`、`control_allocator_priority_setpoint`、`actuator_motors` 和 `actuator_servos`。
+High-rate logger profile 以发布速率记录 `allocation_value`、`vehicle_torque_setpoint`、`actuator_motors` 和 `actuator_servos`。
 
 ## 9. 适用范围、标定责任与硬件资源
 
@@ -624,8 +623,7 @@ FMUv5 当前 board target 为 flash 预算裁剪 DShot、UAVCAN、camera capture
 - `src/modules/control_allocator/VehicleActuatorEffectiveness/*DuctedFan*`：CA16、CA17 effectiveness；
 - `msg/ControlAllocatorStatus.msg`：低频 solver 与 allocation diagnostics；
 - `msg/AllocationValue.msg`：高速 physical allocation feedback；
-- `msg/VehicleTorqueSetpoint.msg`：PX4 标准 normalized torque setpoint；
-- `msg/ControlAllocatorPrioritySetpoint.msg`：PCA higher component 与 valid；
+- `msg/VehicleTorqueSetpoint.msg`：PCA higher component 与 valid；
 - `src/modules/mc_rate_control/MulticopterRateControl.*`：PID hot standby、rate INDI selection、PCA split；
 - `src/modules/mc_rate_control/IndiControl/*`：rate INDI control law；
 - `src/modules/mc_pos_control/MulticopterPositionControl.*`：force subscription、freshness、body-to-NED 与 inverse mass；

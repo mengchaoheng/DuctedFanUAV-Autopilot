@@ -87,8 +87,6 @@ MulticopterRateControl::MulticopterRateControl(bool vtol) :
 	WorkItem(MODULE_NAME, px4::wq_configurations::rate_ctrl),
 	_vehicle_thrust_setpoint_pub(vtol ? ORB_ID(vehicle_thrust_setpoint_virtual_mc) : ORB_ID(vehicle_thrust_setpoint)),
 	_vehicle_torque_setpoint_pub(vtol ? ORB_ID(vehicle_torque_setpoint_virtual_mc) : ORB_ID(vehicle_torque_setpoint)),
-	_control_allocator_priority_setpoint_pub(vtol ? ORB_ID(control_allocator_priority_setpoint_virtual_mc) :
-			ORB_ID(control_allocator_priority_setpoint)),
 	_loop_perf(perf_alloc(PC_ELAPSED, MODULE_NAME": cycle"))
 {
 	_vehicle_status.vehicle_type = vehicle_status_s::VEHICLE_TYPE_ROTARY_WING;
@@ -109,9 +107,7 @@ MulticopterRateControl::init()
 		// Reserve instance 0 first, then verify that the CA16 torque publisher owns
 		// instance 1. The allocator callback remains on instance 0.
 		if (!_vehicle_torque_setpoint_pub.advertise()
-		    || _vehicle_torque_setpoint1_pub.get_instance() != 1
-		    || !_control_allocator_priority_setpoint_pub.advertise()
-		    || _control_allocator_priority_setpoint1_pub.get_instance() != 1) {
+		    || _vehicle_torque_setpoint1_pub.get_instance() != 1) {
 			PX4_ERR("failed to configure CA16 torque routing");
 			return false;
 		}
@@ -161,19 +157,13 @@ MulticopterRateControl::parameters_updated()
 }
 
 void
-MulticopterRateControl::publishTorqueSetpoint(const vehicle_torque_setpoint_s &vehicle_torque_setpoint,
-		const control_allocator_priority_setpoint_s &priority_setpoint)
+MulticopterRateControl::publishTorqueSetpoint(const vehicle_torque_setpoint_s &vehicle_torque_setpoint)
 {
 	if (_route_torque_to_instance1) {
 		// CA16 matrix 0 produces force only. Publish the complete MC torque and
-		// optional PCA priority split on matrix 1 before instance 0 triggers the allocator.
-		_control_allocator_priority_setpoint1_pub.publish(priority_setpoint);
+		// optional PCA priority split on matrix 1 before instance 0 triggers the
+		// allocator, matching the explicit routing used by CA17.
 		_vehicle_torque_setpoint1_pub.publish(vehicle_torque_setpoint);
-
-		control_allocator_priority_setpoint_s force_matrix_priority_setpoint{};
-		force_matrix_priority_setpoint.timestamp_sample = vehicle_torque_setpoint.timestamp_sample;
-		force_matrix_priority_setpoint.timestamp = vehicle_torque_setpoint.timestamp;
-		_control_allocator_priority_setpoint_pub.publish(force_matrix_priority_setpoint);
 
 		vehicle_torque_setpoint_s force_matrix_torque_setpoint{};
 		force_matrix_torque_setpoint.timestamp_sample = vehicle_torque_setpoint.timestamp_sample;
@@ -181,7 +171,6 @@ MulticopterRateControl::publishTorqueSetpoint(const vehicle_torque_setpoint_s &v
 		_vehicle_torque_setpoint_pub.publish(force_matrix_torque_setpoint);
 
 	} else {
-		_control_allocator_priority_setpoint_pub.publish(priority_setpoint);
 		_vehicle_torque_setpoint_pub.publish(vehicle_torque_setpoint);
 	}
 }
@@ -345,7 +334,6 @@ MulticopterRateControl::Run()
 			// publish thrust and torque setpoints
 			vehicle_thrust_setpoint_s vehicle_thrust_setpoint{};
 			vehicle_torque_setpoint_s vehicle_torque_setpoint{};
-			control_allocator_priority_setpoint_s priority_setpoint{};
 
 			_thrust_setpoint.copyTo(vehicle_thrust_setpoint.xyz);
 			vehicle_torque_setpoint.xyz[0] = PX4_ISFINITE(torque_setpoint(0)) ? torque_setpoint(0) : 0.f;
@@ -371,11 +359,11 @@ MulticopterRateControl::Run()
 			}
 
 			if (indi_active) {
-				priority_setpoint.valid = true;
+				vehicle_torque_setpoint.xyz_indi_feedback_valid = true;
 
 				for (int axis = 0; axis < 3; axis++) {
 					const float total = torque_setpoint_before_output_processing(axis);
-					priority_setpoint.xyz[axis] = fabsf(total) > FLT_EPSILON ?
+					vehicle_torque_setpoint.xyz_indi_feedback[axis] = fabsf(total) > FLT_EPSILON ?
 							indi_feedback(axis) * vehicle_torque_setpoint.xyz[axis] / total : 0.f;
 				}
 			}
@@ -386,9 +374,7 @@ MulticopterRateControl::Run()
 
 			vehicle_torque_setpoint.timestamp_sample = angular_velocity.timestamp_sample;
 			vehicle_torque_setpoint.timestamp = hrt_absolute_time();
-			priority_setpoint.timestamp_sample = vehicle_torque_setpoint.timestamp_sample;
-			priority_setpoint.timestamp = vehicle_torque_setpoint.timestamp;
-			publishTorqueSetpoint(vehicle_torque_setpoint, priority_setpoint);
+			publishTorqueSetpoint(vehicle_torque_setpoint);
 
 			updateActuatorControlsStatus(vehicle_torque_setpoint, dt);
 

@@ -53,7 +53,6 @@
 #include <uORB/topics/actuator_controls_status.h>
 #include <uORB/topics/allocation_value.h>
 #include <uORB/topics/battery_status.h>
-#include <uORB/topics/control_allocator_priority_setpoint.h>
 #include <uORB/topics/control_allocator_status.h>
 #include <uORB/topics/manual_control_setpoint.h>
 #include <uORB/topics/parameter_update.h>
@@ -100,8 +99,7 @@ private:
 	bool computeIndiTorqueSetpoint(const matrix::Vector3f &rates, const matrix::Vector3f &rates_setpoint,
 				       const matrix::Vector3f &angular_accel, matrix::Vector3f &torque_setpoint,
 				       matrix::Vector3f &indi_feedback);
-	void publishTorqueSetpoint(const vehicle_torque_setpoint_s &vehicle_torque_setpoint,
-				   const control_allocator_priority_setpoint_s &priority_setpoint);
+	void publishTorqueSetpoint(const vehicle_torque_setpoint_s &vehicle_torque_setpoint);
 	void updateActuatorControlsStatus(const vehicle_torque_setpoint_s &vehicle_torque_setpoint, float dt);
 
 	RateControl _rate_control; ///< class for rate control calculations
@@ -128,9 +126,6 @@ private:
 	uORB::Publication<vehicle_thrust_setpoint_s>	_vehicle_thrust_setpoint_pub;
 	uORB::Publication<vehicle_torque_setpoint_s>	_vehicle_torque_setpoint_pub;
 	uORB::PublicationMulti<vehicle_torque_setpoint_s> _vehicle_torque_setpoint1_pub{ORB_ID(vehicle_torque_setpoint)};
-	uORB::Publication<control_allocator_priority_setpoint_s> _control_allocator_priority_setpoint_pub;
-	uORB::PublicationMulti<control_allocator_priority_setpoint_s> _control_allocator_priority_setpoint1_pub{
-		ORB_ID(control_allocator_priority_setpoint)};
 
 	vehicle_control_mode_s	_vehicle_control_mode{};
 	vehicle_status_s	_vehicle_status{};

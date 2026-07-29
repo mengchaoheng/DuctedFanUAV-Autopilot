@@ -80,7 +80,6 @@
 #include <uORB/topics/actuator_servos_trim.h>
 #include <uORB/topics/allocation_value.h>
 #include <uORB/topics/allocation_feedback_filter_status.h>
-#include <uORB/topics/control_allocator_priority_setpoint.h>
 #include <uORB/topics/control_allocator_status.h>
 #include <uORB/topics/parameter_update.h>
 #include <uORB/topics/vehicle_control_mode.h>
@@ -215,11 +214,9 @@ private:
 	//   - https://github.com/PX4/PX4-Autopilot/issues/26971
 	uORB::SubscriptionCallbackWorkItem _vehicle_torque_setpoint_sub{this, ORB_ID(vehicle_torque_setpoint)};  /**< vehicle torque setpoint subscription */
 	uORB::Subscription _vehicle_thrust_setpoint_sub{ORB_ID(vehicle_thrust_setpoint)};  /**< vehicle thrust setpoint subscription, polled when torque is triggered*/
-	uORB::Subscription _control_allocator_priority_setpoint_sub{ORB_ID(control_allocator_priority_setpoint)};
 
 	uORB::Subscription _vehicle_torque_setpoint1_sub{ORB_ID(vehicle_torque_setpoint), 1};  /**< vehicle torque setpoint subscription (2. instance) */
 	uORB::Subscription _vehicle_thrust_setpoint1_sub{ORB_ID(vehicle_thrust_setpoint), 1};	 /**< vehicle thrust setpoint subscription (2. instance) */
-	uORB::Subscription _control_allocator_priority_setpoint1_sub{ORB_ID(control_allocator_priority_setpoint), 1};
 
 	// Outputs
 	uORB::PublicationMulti<control_allocator_status_s> _control_allocator_status_pub[2] {ORB_ID(control_allocator_status), ORB_ID(control_allocator_status)};

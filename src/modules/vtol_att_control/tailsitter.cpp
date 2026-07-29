@@ -46,20 +46,22 @@ using namespace matrix;
 
 namespace
 {
-void copy_torque_setpoint(vehicle_torque_setpoint_s *dst, const vehicle_torque_setpoint_s *src)
+void clear_torque_priority(vehicle_torque_setpoint_s *setpoint)
 {
+	setpoint->xyz_indi_feedback_valid = false;
+
 	for (int i = 0; i < 3; i++) {
-		dst->xyz[i] = src->xyz[i];
+		setpoint->xyz_indi_feedback[i] = 0.f;
 	}
 }
 
-void copy_priority_setpoint(control_allocator_priority_setpoint_s *dst,
-			    const control_allocator_priority_setpoint_s *src)
+void copy_torque_setpoint(vehicle_torque_setpoint_s *dst, const vehicle_torque_setpoint_s *src)
 {
-	dst->valid = src->valid;
+	dst->xyz_indi_feedback_valid = src->xyz_indi_feedback_valid;
 
 	for (int i = 0; i < 3; i++) {
 		dst->xyz[i] = src->xyz[i];
+		dst->xyz_indi_feedback[i] = src->xyz_indi_feedback[i];
 	}
 }
 }
@@ -285,12 +287,14 @@ void Tailsitter::fill_actuator_outputs()
 	_torque_setpoint_0->xyz[0] = 0.f;
 	_torque_setpoint_0->xyz[1] = 0.f;
 	_torque_setpoint_0->xyz[2] = 0.f;
+	clear_torque_priority(_torque_setpoint_0);
 
 	_torque_setpoint_1->timestamp = hrt_absolute_time();
 	_torque_setpoint_1->timestamp_sample = _vehicle_torque_setpoint_virtual_fw->timestamp_sample;
 	_torque_setpoint_1->xyz[0] = 0.f;
 	_torque_setpoint_1->xyz[1] = 0.f;
 	_torque_setpoint_1->xyz[2] = 0.f;
+	clear_torque_priority(_torque_setpoint_1);
 
 	_thrust_setpoint_0->timestamp = hrt_absolute_time();
 	_thrust_setpoint_0->timestamp_sample = _vehicle_thrust_setpoint_virtual_mc->timestamp_sample;
@@ -354,20 +358,10 @@ void Tailsitter::fill_actuator_outputs()
 
 	if (_use_mc_torque_for_control_surfaces) {
 		// CA17 uses matrix 0 for force and matrix 1 for MC torque in every VTOL phase.
-		const control_allocator_priority_setpoint_s *priority_setpoint_virtual_mc =
-			_attc->get_control_allocator_priority_setpoint_virtual_mc();
-		control_allocator_priority_setpoint_s *priority_setpoint_1 = _attc->get_priority_setpoint_1();
-
 		_torque_setpoint_0->xyz[0] = 0.f;
 		_torque_setpoint_0->xyz[1] = 0.f;
 		_torque_setpoint_0->xyz[2] = 0.f;
 		copy_torque_setpoint(_torque_setpoint_1, _vehicle_torque_setpoint_virtual_mc);
-
-		if (priority_setpoint_virtual_mc->timestamp_sample
-		    == _vehicle_torque_setpoint_virtual_mc->timestamp_sample) {
-			copy_priority_setpoint(priority_setpoint_1, priority_setpoint_virtual_mc);
-		}
-
 		_torque_setpoint_1->timestamp_sample = _vehicle_torque_setpoint_virtual_mc->timestamp_sample;
 	}
 }
