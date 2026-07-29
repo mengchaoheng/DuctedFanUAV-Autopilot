@@ -85,7 +85,7 @@ static constexpr uint32_t CONVERGENCE_WINDOW = 500;
 // of such events in a row will reset the filter. This usually happens only due to a time jump
 // on the remote system.
 // TODO : automatically determine these using ping statistics?
-static constexpr uint64_t MAX_RTT_SAMPLE = 10_ms;
+static constexpr uint64_t MAX_RTT_SAMPLE = 25_ms;
 static constexpr uint64_t MAX_DEVIATION_SAMPLE = 100_ms;
 static constexpr uint32_t MAX_CONSECUTIVE_HIGH_RTT = 10;
 static constexpr uint32_t MAX_CONSECUTIVE_HIGH_DEVIATION = 10;
