@@ -15,7 +15,10 @@ parameters:
     MC_ORBIT_RAD:
       description:
         short: Orbit trajectory radius
-        long: Horizontal radius used when MC_ORBIT_SRC selects Parameter. It is the circle radius, the Figure Eight major radius, or the Sine Line y amplitude. The value is latched on mode entry.
+        long: >
+          Horizontal radius used when MC_ORBIT_SRC selects Parameter. It is the
+          circle radius or the Figure Eight major radius. The value is latched
+          on mode entry.
       type: float
       default: 5.0
       unit: m
@@ -26,7 +29,12 @@ parameters:
     MC_ORBIT_SRC:
       description:
         short: Orbit trajectory geometry source
-        long: Selects whether orbit geometry comes from MAV_CMD_DO_ORBIT or from MC_ORBIT_RAD with the position at mode entry as the trajectory origin. The selection is latched until Orbit mode is exited.
+        long: >
+          Selects whether trajectory size and origin can be updated by
+          MAV_CMD_DO_ORBIT or are latched from shape-specific parameters and
+          the position at mode entry. For Ellipse or Line, a MAVLink radius
+          scales both configured semi-axes by the same factor and preserves
+          their ratio. The selection is latched until Orbit mode is exited.
       type: enum
       values:
         0: MAVLink Command
@@ -41,7 +49,14 @@ parameters:
     MC_ORBIT_VEL:
       description:
         short: Default orbit velocity
-        long: Initial tangential circle speed or peak sine-line speed when Orbit is activated. A finite MAV_CMD_DO_ORBIT velocity command overrides this value, and the pilot can subsequently adjust the speed with the sticks.
+        long: >
+          Initial tangential circle speed or maximum Ellipse or Line speed when
+          Orbit is activated. For an ellipse, phase rate is this value divided
+          by the larger semi-axis, so the speed varies along the curve and
+          reaches this value on the faster portions. For a line, it is the peak
+          speed and the vehicle slows to zero at each endpoint. A finite
+          MAV_CMD_DO_ORBIT velocity command overrides this value, and the pilot
+          can subsequently adjust the speed with the sticks.
       type: float
       default: 1.0
       unit: m/s

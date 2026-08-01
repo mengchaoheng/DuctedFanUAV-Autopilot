@@ -42,15 +42,17 @@
 #include <uORB/topics/orbit_status.h>
 
 /**
- * Multicopter sinusoidal straight-line trajectory task.
+ * Multicopter ellipse and degenerate straight-line trajectory task.
  *
- * The horizontal curve is a circle degenerated onto the local NED y axis:
+ * The horizontal curve is an axis-aligned ellipse in local NED:
  *
- *   p(phi) = center + [0, R sin(phi)]^T
- *   phi_dot = V / R
+ *   p(phi) = center + [Rx cos(phi), Ry sin(phi)]^T
+ *   phi_dot = V / max(Rx, Ry)
  *
- * R is the Orbit radius and V is the signed peak y velocity. Position,
- * velocity and acceleration setpoints use the analytical curve derivatives.
+ * Rx and Ry are position semi-axes (maximum displacement from the center).
+ * Equal non-zero semi-axes produce a circle and either zero semi-axis produces
+ * a sinusoidally traversed line. V is the signed maximum horizontal speed.
+ * Position, velocity and acceleration references use analytical derivatives.
  */
 class FlightTaskSineLine : public FlightTaskManualAltitudeSmoothVel
 {
@@ -75,7 +77,8 @@ private:
 	void _generateTrackingSetpoints();
 	void _generateYawSetpoint(const matrix::Vector2f &velocity);
 	void _resetApproachSmoothing();
-	void _sanitizeParameters(float &radius, float &velocity) const;
+	void _sanitizeParameters(matrix::Vector2f &radii, float &velocity) const;
+	float _referenceRadius(const matrix::Vector2f &radii) const;
 	bool _isAtApproachPoint() const;
 	bool _sendTelemetry();
 
@@ -88,7 +91,7 @@ private:
 	void _ekfResetHandlerHeading(float delta_psi) override;
 
 	matrix::Vector3f _center{};
-	float _radius{kInitialRadius};
+	matrix::Vector2f _radii{0.f, kInitialRadius};
 	float _trajectory_velocity{1.f};
 	float _phase{0.f};
 	float _initial_heading{0.f};
@@ -106,7 +109,8 @@ private:
 	DEFINE_PARAMETERS(
 		(ParamFloat<px4::params::MC_ORBIT_VEL>) _param_mc_orbit_vel,
 		(ParamFloat<px4::params::MC_ORBIT_RAD_MAX>) _param_mc_orbit_rad_max,
-		(ParamFloat<px4::params::MC_ORBIT_RAD>) _param_mc_orbit_rad,
+		(ParamFloat<px4::params::MC_ORBIT_X_RAD>) _param_mc_orbit_x_rad,
+		(ParamFloat<px4::params::MC_ORBIT_Y_RAD>) _param_mc_orbit_y_rad,
 		(ParamInt<px4::params::MC_ORBIT_SRC>) _param_mc_orbit_source,
 		(ParamInt<px4::params::MC_ORBIT_YAW_MOD>) _param_mc_orbit_yaw_mod,
 		(ParamFloat<px4::params::MPC_XY_CRUISE>) _param_mpc_xy_cruise,

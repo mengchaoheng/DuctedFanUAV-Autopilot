@@ -10,5 +10,35 @@ parameters:
       values:
         0: Circle
         1: Figure Eight
-        2: Sine Line
+        2: Ellipse or Line
       default: 0
+    MC_ORBIT_X_RAD:
+      description:
+        short: Ellipse local X semi-axis
+        long: >
+          Maximum local NED X displacement from the trajectory center for the
+          Ellipse or Line shape. Equal X and Y semi-axes produce a circle. Set
+          either semi-axis to zero to produce a line along the other axis. The
+          value is latched when entering Orbit mode.
+      type: float
+      default: 0.0
+      unit: m
+      min: 0.0
+      max: 10000.0
+      increment: 0.5
+      decimal: 1
+    MC_ORBIT_Y_RAD:
+      description:
+        short: Ellipse local Y semi-axis
+        long: >
+          Maximum local NED Y displacement from the trajectory center for the
+          Ellipse or Line shape. Equal X and Y semi-axes produce a circle. Set
+          either semi-axis to zero to produce a line along the other axis. The
+          value is latched when entering Orbit mode.
+      type: float
+      default: 5.0
+      unit: m
+      min: 0.0
+      max: 10000.0
+      increment: 0.5
+      decimal: 1
