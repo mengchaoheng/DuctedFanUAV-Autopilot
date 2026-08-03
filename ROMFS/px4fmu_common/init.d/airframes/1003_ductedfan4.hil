@@ -33,25 +33,36 @@ param set-default CA_AIRFRAME 16 # matrix 0: physical force, matrix 1: physical 
 #   already includes the 20 deg maximum deflection.
 
 param set-default MC_ROLL_P 6
-param set-default MC_ROLLRATE_P 0.45
+param set-default MC_ROLLRATE_P 0.4
 param set-default MC_ROLLRATE_I 0.3
 param set-default MC_ROLLRATE_D 0.0
 param set-default MC_ROLLRATE_FF 0
 
 param set-default MC_PITCH_P 6
-param set-default MC_PITCHRATE_P 0.45
+param set-default MC_PITCHRATE_P 0.4
 param set-default MC_PITCHRATE_I 0.3
 param set-default MC_PITCHRATE_D 0.0
 param set-default MC_PITCHRATE_FF 0
 
 param set-default MC_YAW_P 5
+param set-default MC_YAW_TQ_CUTOFF 0
 param set-default MC_YAWRATE_P 0.4
 param set-default MC_YAWRATE_I 0.3
 param set-default MC_YAWRATE_D 0
 param set-default MC_YAWRATE_FF 0
 
 param set-default MC_ATT_ERR_MODE 3
-param set-default MC_YAW_WEIGHT 1 # K_YAW=MC_YAW_P/MC_YAW_WEIGHT
+# v1.12.3 pindi.params used MC_YAW_P=5, MC_YAW_WEIGHT=0.4.  With the
+# current full-DCM-log attitude error (mode 3), keep P=5 and use a full
+# yaw weight: for a pure small yaw error this preserves the old yaw stiffness.
+param set-default MC_YAW_WEIGHT 1
+
+# v1.12.3 USER_INDI_* gains, mapped to the current MC_INDI_* names.
+# MC_INDI_RATE_EN remains disabled by its built-in default, matching
+# USER_USE_INDI=0 in pindi.params.
+param set-default MC_INDI_R_P 12
+param set-default MC_INDI_P_P 12
+param set-default MC_INDI_Y_P 12
 
 # The 1.56 kg model hovers at motor signal x=0.7146. With the quadratic
 # thrust model MPC_THR_HOVER=x^2 and Fmax=mass*g/MPC_THR_HOVER.

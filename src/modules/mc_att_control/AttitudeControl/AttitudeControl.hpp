@@ -61,6 +61,7 @@ public:
 	 * Set proportional attitude control gain
 	 * @param proportional_gain 3D vector containing gains for roll, pitch, yaw
 	 * @param yaw_weight A fraction [0,1] deprioritizing yaw compared to roll and pitch
+	 *                   for the tilt/yaw-decomposed error modes only.
 	 */
 	void setProportionalGain(const matrix::Vector3f &proportional_gain, const float yaw_weight);
 
@@ -157,7 +158,10 @@ private:
 	matrix::Vector3f calculateAttitudeErrorTiltPrioritized(const matrix::Quatf &q, const matrix::Quatf &qd) const;
 	matrix::Vector3f calculateAttitudeErrorTiltTorsion(const matrix::Quatf &q, const matrix::Quatf &qd) const;
 	matrix::Vector3f calculateAttitudeError(const matrix::Quatf &q, const matrix::Quatf &qd) const;
+	bool usesYawWeight() const;
+	void updateProportionalGain();
 
+	matrix::Vector3f _proportional_gain_unscaled;
 	matrix::Vector3f _proportional_gain;
 	matrix::Vector3f _rate_limit;
 	float _yaw_w{0.f}; ///< yaw weight [0,1] to deprioritize compared to roll and pitch

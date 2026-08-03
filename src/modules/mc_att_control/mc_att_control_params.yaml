@@ -45,6 +45,10 @@ parameters:
           stable hovering or 3D navigation.
 
           For yaw control tuning use MC_YAW_P. This ratio has no impact on the yaw gain.
+
+          MC_YAW_WEIGHT applies only to the yaw-decomposed attitude-error modes: 0
+          (PX4 default), 6 (tilt-prioritized), and 7 (tilt-torsion). Full-attitude
+          error modes 1 through 5 ignore it; use MC_YAW_WEIGHT=1 with these modes.
       type: float
       default: 0.4
       min: 0.0

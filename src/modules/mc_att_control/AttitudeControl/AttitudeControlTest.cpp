@@ -139,6 +139,23 @@ TEST(AttitudeControlTest, YawWeightScaling)
 	EXPECT_EQ(rate_setpoint, Vector3f());
 }
 
+TEST(AttitudeControlTest, YawWeightIgnoredForFullAttitudeError)
+{
+	// Full-attitude modes do not decompose tilt and yaw. Their yaw P must not
+	// depend on MC_YAW_WEIGHT, including when the gains are set before the mode.
+	AttitudeControl attitude_control;
+	const float yaw_gain = 2.8f;
+	const float yaw_sp = .1f;
+	Quatf pure_yaw_attitude(cosf(yaw_sp / 2.f), 0, 0, sinf(yaw_sp / 2.f));
+	attitude_control.setProportionalGain(Vector3f(6.5f, 6.5f, yaw_gain), .4f);
+	attitude_control.setAttitudeErrorMode(3); // full DCM log error
+	attitude_control.setRateLimit(Vector3f(1000.f, 1000.f, 1000.f));
+	attitude_control.setAttitudeSetpoint(pure_yaw_attitude, 0.f);
+
+	const Vector3f rate_setpoint = attitude_control.update(Quatf());
+	EXPECT_NEAR(rate_setpoint(2), yaw_sp * yaw_gain, 1e-4f);
+}
+
 class AttitudeControlFeedforwardTest : public ::testing::Test
 {
 public:

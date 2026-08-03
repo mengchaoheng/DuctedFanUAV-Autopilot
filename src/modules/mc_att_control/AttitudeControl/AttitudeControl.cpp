@@ -259,11 +259,25 @@ matrix::Vector3f logMapSO3(const matrix::Dcmf &R)
 
 void AttitudeControl::setProportionalGain(const matrix::Vector3f &proportional_gain, const float yaw_weight)
 {
-	_proportional_gain = proportional_gain;
+	_proportional_gain_unscaled = proportional_gain;
 	_yaw_w = math::constrain(yaw_weight, 0.f, 1.f);
+	updateProportionalGain();
+}
 
-	// compensate for the effect of the yaw weight rescaling the output
-	if (_yaw_w > 1e-4f) {
+bool AttitudeControl::usesYawWeight() const
+{
+	return _attitude_error_mode == ATTITUDE_ERROR_DEFAULT
+	       || _attitude_error_mode == ATTITUDE_ERROR_TILT_PRIORITIZED
+	       || _attitude_error_mode == ATTITUDE_ERROR_TILT_TORSION;
+}
+
+void AttitudeControl::updateProportionalGain()
+{
+	_proportional_gain = _proportional_gain_unscaled;
+
+	// The decomposed modes scale their yaw error by _yaw_w. Compensate only
+	// there, so MC_YAW_WEIGHT has no gain-side effect on full-attitude modes.
+	if (usesYawWeight() && _yaw_w > 1e-4f) {
 		_proportional_gain(2) /= _yaw_w;
 	}
 }
@@ -353,6 +367,7 @@ void AttitudeControl::setAttitudeErrorMode(const int mode)
 	_attitude_error_mode = math::constrain(mode,
 					       static_cast<int>(ATTITUDE_ERROR_DEFAULT),
 					       static_cast<int>(ATTITUDE_ERROR_TILT_TORSION));
+	updateProportionalGain();
 }
 
 matrix::Vector3f AttitudeControl::calculateAttitudeErrorDefault(const Quatf &q, Quatf qd) const
