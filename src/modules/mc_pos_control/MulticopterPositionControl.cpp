@@ -715,7 +715,7 @@ void MulticopterPositionControl::Run()
 			const bool indi_requested = (_param_mpc_indi_acc_en.get() == 1)
 						    || rcChannelEnabled(_rc_channels, kAccelerationIndiRcChannel);
 			const bool use_indi = _indi_capable && indi_requested;
-			const int acceleration_source = math::constrain(_param_mpc_indi_a_src.get(), 0, 2);
+			const int32_t acceleration_source = math::constrain<int32_t>(_param_mpc_indi_a_src.get(), 0, 2);
 			Vector3f selected_acceleration = _indi_acceleration_velocity_derivative;
 			uint8_t selected_acceleration_valid_bit = kIndiAccelerationVelocityValid;
 
@@ -868,7 +868,7 @@ void MulticopterPositionControl::Run()
 			indi_status.force_feedback_scale = _indi_force_feedback_scale;
 			indi_status.controller_transition_progress = _control.getAccelerationIndiTransitionProgress();
 			indi_status.hover_thrust_transition_progress = _indi_hover_thrust_transition_progress;
-			indi_status.acceleration_source = math::constrain(_param_mpc_indi_a_src.get(), 0, 2);
+			indi_status.acceleration_source = math::constrain<int32_t>(_param_mpc_indi_a_src.get(), 0, 2);
 			indi_status.acceleration_source_valid = _indi_acceleration_source_valid;
 			indi_status.feedback_valid = selected_acceleration_valid
 						     && delayed_allocated_thrust_acceleration.isAllFinite()
