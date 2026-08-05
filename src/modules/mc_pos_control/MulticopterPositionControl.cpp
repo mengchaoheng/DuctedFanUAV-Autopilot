@@ -33,6 +33,8 @@
 
 #include "MulticopterPositionControl.hpp"
 
+#include <geo/geo.h>
+
 #include <float.h>
 #include <lib/mathlib/mathlib.h>
 #include <lib/matrix/matrix/math.hpp>
@@ -45,6 +47,8 @@ namespace
 {
 constexpr unsigned kAccelerationIndiRcChannel = 10; // RC11
 constexpr hrt_abstime kRcSignalTimeout = 500_ms;
+constexpr float kIndiForceFeedbackScaleMin = 0.8f;
+constexpr float kIndiForceFeedbackScaleMax = 1.2f;
 
 bool rcChannelEnabled(const rc_channels_s &rc_channels, unsigned channel)
 {
@@ -78,6 +82,9 @@ MulticopterPositionControl::MulticopterPositionControl(bool vtol) :
 {
 	_sample_interval_s.update(0.01f); // 100 Hz default
 	parameters_update(true);
+	_indi_hover_thrust = _param_mpc_thr_hover.get();
+	_indi_hover_thrust_target = _indi_hover_thrust;
+	_indi_hover_thrust_transition_start = _indi_hover_thrust;
 	_tilt_limit_slew_rate.setSlewRate(.2f);
 	_takeoff_status_pub.advertise();
 }
@@ -114,6 +121,9 @@ void MulticopterPositionControl::parameters_update(bool force)
 		const bool mass_valid = PX4_ISFINITE(mass) && mass > FLT_EPSILON;
 		_indi_inverse_mass = mass_valid ? 1.f / mass : 0.f;
 		_indi_capable = indiAllocationFeedbackSupported(_param_ca_airframe.get()) && mass_valid;
+		_indi_force_scale_adaptation_supported =
+			(_param_ca_airframe.get() == 16 || _param_ca_airframe.get() == 17)
+			&& PX4_ISFINITE(_param_ca_rotor0_ct.get()) && _param_ca_rotor0_ct.get() > FLT_EPSILON;
 
 		float sample_freq_hz = 1.f / _sample_interval_s.mean();
 
@@ -129,24 +139,28 @@ void MulticopterPositionControl::parameters_update(bool force)
 
 		// velocity xy/z low pass filter
 		if (_param_mpc_vel_lp.get() > 0.f) {
-			_vel_xy_lp_filter.setCutoffFreq(sample_freq_hz, _param_mpc_vel_lp.get());
-			_vel_z_lp_filter.setCutoffFreq(sample_freq_hz, _param_mpc_vel_lp.get());
+			_vel_xy_lp_filter.set_cutoff_frequency(sample_freq_hz, _param_mpc_vel_lp.get());
+			_vel_z_lp_filter.set_cutoff_frequency(sample_freq_hz, _param_mpc_vel_lp.get());
+			_vel_xy_lp_filter.reset(_vel_xy_filtered);
+			_vel_z_lp_filter.reset(_vel_z_filtered);
 
 		} else {
 			// disable filtering
-			_vel_xy_lp_filter.setAlpha(1.f);
-			_vel_z_lp_filter.setAlpha(1.f);
+			_vel_xy_lp_filter.disable();
+			_vel_z_lp_filter.disable();
 		}
 
 		// velocity derivative xy/z low pass filter
 		if (_param_mpc_veld_lp.get() > 0.f) {
-			_vel_deriv_xy_lp_filter.setCutoffFreq(sample_freq_hz, _param_mpc_veld_lp.get());
-			_vel_deriv_z_lp_filter.setCutoffFreq(sample_freq_hz, _param_mpc_veld_lp.get());
+			_vel_deriv_xy_lp_filter.set_cutoff_frequency(sample_freq_hz, _param_mpc_veld_lp.get());
+			_vel_deriv_z_lp_filter.set_cutoff_frequency(sample_freq_hz, _param_mpc_veld_lp.get());
+			_vel_deriv_xy_lp_filter.reset(_vel_deriv_xy_filtered);
+			_vel_deriv_z_lp_filter.reset(_vel_deriv_z_filtered);
 
 		} else {
 			// disable filtering
-			_vel_deriv_xy_lp_filter.setAlpha(1.f);
-			_vel_deriv_z_lp_filter.setAlpha(1.f);
+			_vel_deriv_xy_lp_filter.disable();
+			_vel_deriv_z_lp_filter.disable();
 		}
 
 
@@ -233,6 +247,7 @@ void MulticopterPositionControl::parameters_update(bool force)
 			Vector3f(_param_mpc_xy_vel_i_acc.get(), _param_mpc_xy_vel_i_acc.get(), _param_mpc_z_vel_i_acc.get()),
 			Vector3f(_param_mpc_xy_vel_d_acc.get(), _param_mpc_xy_vel_d_acc.get(), _param_mpc_z_vel_d_acc.get()));
 		_control.setHorizontalThrustMargin(_param_mpc_thr_xy_marg.get());
+		_control.setAccelerationIndiTransitionTime(_param_mpc_indi_tr_t.get());
 		_control.decoupleHorizontalAndVecticalAcceleration(_param_mpc_acc_decouple.get());
 		_goto_control.setParamMpcAccHor(_param_mpc_acc_hor.get());
 		_goto_control.setParamMpcAccDownMax(_param_mpc_acc_down_max.get());
@@ -366,13 +381,15 @@ PositionControlStates MulticopterPositionControl::set_vehicle_states(const vehic
 	const Vector2f velocity_xy(vehicle_local_position.vx, vehicle_local_position.vy);
 
 	if (vehicle_local_position.v_xy_valid && velocity_xy.isAllFinite()) {
-		const Vector2f vel_xy_prev = _vel_xy_lp_filter.getState();
+		const Vector2f vel_xy_prev = _vel_xy_filtered;
 
 		// vel xy notch filter, then low pass filter
-		states.velocity.xy() = _vel_xy_lp_filter.update(_vel_xy_notch_filter.apply(velocity_xy));
+		_vel_xy_filtered = _vel_xy_lp_filter.apply(_vel_xy_notch_filter.apply(velocity_xy));
+		states.velocity.xy() = _vel_xy_filtered;
 
 		// vel xy derivative low pass filter
-		states.acceleration.xy() = _vel_deriv_xy_lp_filter.update((_vel_xy_lp_filter.getState() - vel_xy_prev) / dt_s);
+		_vel_deriv_xy_filtered = _vel_deriv_xy_lp_filter.apply((_vel_xy_filtered - vel_xy_prev) / dt_s);
+		states.acceleration.xy() = _vel_deriv_xy_filtered;
 
 	} else {
 		states.velocity(0) = states.velocity(1) = NAN;
@@ -380,19 +397,23 @@ PositionControlStates MulticopterPositionControl::set_vehicle_states(const vehic
 
 		// reset filters to prevent acceleration spikes when regaining velocity
 		_vel_xy_lp_filter.reset({});
+		_vel_xy_filtered = {};
 		_vel_xy_notch_filter.reset();
 		_vel_deriv_xy_lp_filter.reset({});
+		_vel_deriv_xy_filtered = {};
 	}
 
 	if (PX4_ISFINITE(vehicle_local_position.vz) && vehicle_local_position.v_z_valid) {
 
-		const float vel_z_prev = _vel_z_lp_filter.getState();
+		const float vel_z_prev = _vel_z_filtered;
 
 		// vel z notch filter, then low pass filter
-		states.velocity(2) = _vel_z_lp_filter.update(_vel_z_notch_filter.apply(vehicle_local_position.vz));
+		_vel_z_filtered = _vel_z_lp_filter.apply(_vel_z_notch_filter.apply(vehicle_local_position.vz));
+		states.velocity(2) = _vel_z_filtered;
 
 		// vel z derivative low pass filter
-		states.acceleration(2) = _vel_deriv_z_lp_filter.update((_vel_z_lp_filter.getState() - vel_z_prev) / dt_s);
+		_vel_deriv_z_filtered = _vel_deriv_z_lp_filter.apply((_vel_z_filtered - vel_z_prev) / dt_s);
+		states.acceleration(2) = _vel_deriv_z_filtered;
 
 	} else {
 		states.velocity(2) = NAN;
@@ -400,8 +421,10 @@ PositionControlStates MulticopterPositionControl::set_vehicle_states(const vehic
 
 		// reset filters to prevent acceleration spikes when regaining velocity
 		_vel_z_lp_filter.reset({});
+		_vel_z_filtered = 0.f;
 		_vel_z_notch_filter.reset();
 		_vel_deriv_z_lp_filter.reset({});
+		_vel_deriv_z_filtered = 0.f;
 	}
 
 	states.yaw = vehicle_local_position.heading;
@@ -450,14 +473,23 @@ void MulticopterPositionControl::Run()
 
 		_vehicle_land_detected_sub.update(&_vehicle_land_detected);
 		_vehicle_attitude_sub.update(&_vehicle_attitude);
+		updateAllocatedForceHistory();
+
+		bool indi_hover_thrust_changed = false;
+		bool hte_became_valid = false;
 
 		if (_hover_thrust_estimate_sub.updated()) {
 			hover_thrust_estimate_s hte;
 
-			if (_hover_thrust_estimate_sub.copy(&hte)) {
-				if (hte.valid) {
-					_control.updateHoverThrust(hte.hover_thrust);
-				}
+			if (_hover_thrust_estimate_sub.copy(&hte) && hte.valid && PX4_ISFINITE(hte.hover_thrust)) {
+				_indi_hover_thrust_target = hte.hover_thrust;
+				hte_became_valid = !_indi_hte_valid;
+				_indi_hte_valid = true;
+
+			} else {
+				_indi_hte_valid = false;
+				_indi_hover_thrust_transition_active = false;
+				_indi_hover_thrust_transition_progress = 1.f;
 			}
 		}
 
@@ -538,7 +570,14 @@ void MulticopterPositionControl::Run()
 			const bool flying_but_ground_contact = (flying && _vehicle_land_detected.ground_contact);
 
 			if (!flying) {
+				indi_hover_thrust_changed = fabsf(_indi_hover_thrust - _param_mpc_thr_hover.get()) > FLT_EPSILON;
 				_control.setHoverThrust(_param_mpc_thr_hover.get());
+				_indi_hover_thrust = _param_mpc_thr_hover.get();
+				_indi_hover_thrust_target = _indi_hover_thrust;
+				_indi_hover_thrust_transition_start = _indi_hover_thrust;
+				_indi_hover_thrust_transition_active = false;
+				_indi_hover_thrust_transition_progress = 1.f;
+				_indi_hte_valid = false;
 			}
 
 			// make sure takeoff ramp is not amended by acceleration feed-forward
@@ -603,12 +642,85 @@ void MulticopterPositionControl::Run()
 				_control.resetIntegralXY();
 			}
 
-			const bool use_indi = _indi_capable
-					      && ((_param_mpc_indi_acc_en.get() == 1)
-						  || rcChannelEnabled(_rc_channels, kAccelerationIndiRcChannel));
+			const bool indi_requested = (_param_mpc_indi_acc_en.get() == 1)
+						    || rcChannelEnabled(_rc_channels, kAccelerationIndiRcChannel);
+			const bool use_indi = _indi_capable && indi_requested;
+			updateIndiForceFeedbackScale(_indi_hover_thrust);
+			Vector3f delayed_allocated_thrust_acceleration =
+				getDelayedAllocatedThrustAcceleration(vehicle_local_position.timestamp_sample);
+			bool acceleration_indi_feedback_valid = use_indi
+					&& delayed_allocated_thrust_acceleration.isAllFinite()
+					&& states.acceleration.isAllFinite();
+
+			// PID already has updateHoverThrust() to preserve normalized thrust by
+			// compensating its vertical integrator. Only acceleration INDI needs a
+			// finite-time first-valid HTE transfer because the estimate also changes
+			// the physical F_0 feedback scale.
+			if (_indi_hte_valid) {
+				const float hover_thrust_previous = _indi_hover_thrust;
+
+				if (acceleration_indi_feedback_valid) {
+					const float transition_time = math::max(_param_mpc_indi_tr_t.get(), 0.f);
+
+					if (hte_became_valid) {
+						_indi_hover_thrust_transition_start = _indi_hover_thrust;
+						_indi_hover_thrust_transition_elapsed = 0.f;
+						_indi_hover_thrust_transition_progress = 0.f;
+						_indi_hover_thrust_transition_active = transition_time > FLT_EPSILON;
+					}
+
+					if (_indi_hover_thrust_transition_active && transition_time > FLT_EPSILON) {
+						const float ratio = math::constrain(_indi_hover_thrust_transition_elapsed / transition_time, 0.f, 1.f);
+						_indi_hover_thrust_transition_progress = ratio * ratio * (3.f - 2.f * ratio);
+						_indi_hover_thrust = math::lerp(_indi_hover_thrust_transition_start, _indi_hover_thrust_target,
+										 _indi_hover_thrust_transition_progress);
+						_indi_hover_thrust_transition_elapsed += math::max(dt, 0.f);
+
+						if (ratio >= 1.f) {
+							_indi_hover_thrust_transition_active = false;
+							_indi_hover_thrust_transition_progress = 1.f;
+							_indi_hover_thrust = _indi_hover_thrust_target;
+						}
+
+					} else {
+						_indi_hover_thrust_transition_progress = 1.f;
+						_indi_hover_thrust = _indi_hover_thrust_target;
+					}
+
+				} else {
+					// The conventional PID path applies HTE immediately through its own
+					// bumpless integrator compensation; no extra one-second model lag.
+					_indi_hover_thrust_transition_active = false;
+					_indi_hover_thrust_transition_progress = 1.f;
+					_indi_hover_thrust = _indi_hover_thrust_target;
+				}
+
+				indi_hover_thrust_changed = fabsf(_indi_hover_thrust - hover_thrust_previous) > FLT_EPSILON;
+			}
+
+			if (indi_hover_thrust_changed) {
+				// Recompute the delayed feedback with the exact hover-thrust scale
+				// applied by the controller in this same cycle.
+				updateIndiForceFeedbackScale(_indi_hover_thrust);
+				delayed_allocated_thrust_acceleration =
+					getDelayedAllocatedThrustAcceleration(vehicle_local_position.timestamp_sample);
+				acceleration_indi_feedback_valid = use_indi
+						&& delayed_allocated_thrust_acceleration.isAllFinite()
+						&& states.acceleration.isAllFinite();
+			}
 
 			if (use_indi) {
-				states.allocated_thrust_acceleration = getAllocatedThrustAcceleration();
+				states.allocated_thrust_acceleration = delayed_allocated_thrust_acceleration;
+			}
+
+			if (acceleration_indi_feedback_valid) {
+				// INDI uses the hover-thrust estimate directly together with the matching
+				// force-feedback scale. Do not inject a compensation into the PID integrator.
+				_control.setHoverThrust(_indi_hover_thrust);
+
+			} else if (indi_hover_thrust_changed) {
+				// Conventional PID hot standby keeps its original bumpless hover-thrust update.
+				_control.updateHoverThrust(_indi_hover_thrust);
 			}
 
 			_control.setState(states);
@@ -650,6 +762,24 @@ void MulticopterPositionControl::Run()
 			local_pos_sp.timestamp = hrt_absolute_time();
 			_local_pos_sp_pub.publish(local_pos_sp);
 
+			acceleration_indi_status_s indi_status{};
+			indi_status.timestamp_sample = vehicle_local_position.timestamp_sample;
+			indi_status.force_timestamp = _indi_delayed_force_timestamp;
+			states.acceleration.copyTo(indi_status.acceleration_feedback);
+			delayed_allocated_thrust_acceleration.copyTo(indi_status.allocated_thrust_acceleration);
+			_indi_undelayed_thrust_acceleration.copyTo(indi_status.allocated_thrust_acceleration_undelayed);
+			_control.getAccelerationIndiRawThrustSetpoint().copyTo(indi_status.raw_thrust_setpoint);
+			indi_status.hover_thrust = _indi_hover_thrust;
+			indi_status.force_feedback_scale = _indi_force_feedback_scale;
+			indi_status.controller_transition_progress = _control.getAccelerationIndiTransitionProgress();
+			indi_status.hover_thrust_transition_progress = _indi_hover_thrust_transition_progress;
+			indi_status.feedback_valid = delayed_allocated_thrust_acceleration.isAllFinite()
+						     && states.acceleration.isAllFinite();
+			indi_status.controller_transition_active = _control.accelerationIndiTransitionActive();
+			indi_status.hover_thrust_transition_active = _indi_hover_thrust_transition_active;
+			indi_status.timestamp = hrt_absolute_time();
+			_acceleration_indi_status_pub.publish(indi_status);
+
 			// Publish attitude setpoint output
 			vehicle_attitude_setpoint_s attitude_setpoint{};
 			_control.getAttitudeSetpoint(attitude_setpoint);
@@ -678,19 +808,127 @@ void MulticopterPositionControl::Run()
 	perf_end(_cycle_perf);
 }
 
-Vector3f MulticopterPositionControl::getAllocatedThrustAcceleration()
+void MulticopterPositionControl::updateAllocatedForceHistory()
 {
 	allocation_value_s allocation_value;
 
 	if (_vehicle_attitude.timestamp == 0 || hrt_elapsed_time(&_vehicle_attitude.timestamp) >= 100_ms
 	    || !_allocation_value_sub.copy(&allocation_value) || !allocationForceValid(allocation_value)) {
-		return Vector3f{NAN, NAN, NAN};
+		return;
+	}
+
+	if (allocation_value.timestamp == 0 || allocation_value.timestamp <= _indi_force_history_last_timestamp) {
+		return;
+	}
+
+	if (_indi_force_history_last_timestamp != 0
+	    && allocation_value.timestamp > _indi_force_history_last_timestamp + 100_ms) {
+		_indi_force_history.reset();
 	}
 
 	const Vector3f force_body(allocation_value.allocated_force);
-
 	Dcmf R_to_ned(Quatf(_vehicle_attitude.q));
-	return (R_to_ned * force_body) * _indi_inverse_mass;
+
+	IndiForceSample sample{};
+	sample.time_us = allocation_value.timestamp;
+	sample.force_ned = R_to_ned * force_body;
+	_indi_force_history.push(sample);
+	_indi_force_history_last_timestamp = sample.time_us;
+}
+
+Vector3f MulticopterPositionControl::getDelayedAllocatedThrustAcceleration(hrt_abstime reference_timestamp)
+{
+	_indi_delayed_force_timestamp = 0;
+	_indi_undelayed_thrust_acceleration = Vector3f{NAN, NAN, NAN};
+
+	if (_indi_force_history.empty()) {
+		return Vector3f{NAN, NAN, NAN};
+	}
+
+	if (hrt_elapsed_time(&_indi_force_history.get_newest().time_us) >= 100_ms) {
+		return Vector3f{NAN, NAN, NAN};
+	}
+
+	const float delay_s = PX4_ISFINITE(_param_mpc_indi_f_dly.get())
+			      ? math::constrain(_param_mpc_indi_f_dly.get(), 0.f, 0.1f) : 0.f;
+	const hrt_abstime delay_us = static_cast<hrt_abstime>(delay_s * 1e6f);
+	const hrt_abstime target_timestamp = reference_timestamp > delay_us ? reference_timestamp - delay_us : 0;
+	const IndiForceSample &newest = _indi_force_history.get_newest();
+	_indi_undelayed_thrust_acceleration = newest.force_ned * (_indi_inverse_mass * _indi_force_feedback_scale);
+
+	if (!_indi_undelayed_thrust_acceleration.isAllFinite()) {
+		return Vector3f{NAN, NAN, NAN};
+	}
+
+	if (target_timestamp >= newest.time_us) {
+		_indi_delayed_force_timestamp = newest.time_us;
+		return _indi_undelayed_thrust_acceleration;
+	}
+
+	IndiForceSample older{};
+	IndiForceSample newer{};
+	bool older_valid = false;
+	bool newer_valid = false;
+	uint8_t index = _indi_force_history.get_oldest_index();
+
+	for (int entry = 0; entry < _indi_force_history.entries(); entry++) {
+		const IndiForceSample &sample = _indi_force_history[index];
+
+		if (sample.time_us <= target_timestamp) {
+			older = sample;
+			older_valid = true;
+		}
+
+		if (sample.time_us >= target_timestamp) {
+			newer = sample;
+			newer_valid = true;
+			break;
+		}
+
+		index = _indi_force_history.next(index);
+	}
+
+	if (!older_valid) {
+		// The configured delay is not available yet. Keep the conventional PID
+		// path active until the force history covers the requested timestamp.
+		return Vector3f{NAN, NAN, NAN};
+	}
+
+	Vector3f delayed_force_ned = older.force_ned;
+	_indi_delayed_force_timestamp = older.time_us;
+
+	if (newer_valid && newer.time_us > older.time_us) {
+		const float interpolation = static_cast<float>(target_timestamp - older.time_us)
+					    / static_cast<float>(newer.time_us - older.time_us);
+		delayed_force_ned += (newer.force_ned - older.force_ned) * interpolation;
+		_indi_delayed_force_timestamp = target_timestamp;
+	}
+
+	const Vector3f delayed_acceleration = delayed_force_ned * (_indi_inverse_mass * _indi_force_feedback_scale);
+
+	if (!delayed_acceleration.isAllFinite()) {
+		return Vector3f{NAN, NAN, NAN};
+	}
+
+	return delayed_acceleration;
+}
+
+void MulticopterPositionControl::updateIndiForceFeedbackScale(float hover_thrust)
+{
+	_indi_force_feedback_scale = 1.f;
+
+	if (!_indi_force_scale_adaptation_supported || !PX4_ISFINITE(hover_thrust) || hover_thrust <= FLT_EPSILON) {
+		return;
+	}
+
+	const float nominal_max_thrust = _param_ca_rotor0_ct.get();
+	const float mass = _param_mpc_mass.get();
+	const float force_feedback_scale = mass * CONSTANTS_ONE_G / (hover_thrust * nominal_max_thrust);
+
+	if (PX4_ISFINITE(force_feedback_scale)) {
+		_indi_force_feedback_scale = math::constrain(force_feedback_scale,
+					     kIndiForceFeedbackScaleMin, kIndiForceFeedbackScaleMax);
+	}
 }
 
 trajectory_setpoint_s MulticopterPositionControl::generateFailsafeSetpoint(const hrt_abstime &now,
@@ -772,12 +1010,14 @@ void MulticopterPositionControl::adjustSetpointForEKFResets(const vehicle_local_
 	}
 
 	if (vehicle_local_position.vxy_reset_counter != _vxy_reset_counter) {
-		_vel_xy_lp_filter.reset(_vel_xy_lp_filter.getState() + Vector2f(vehicle_local_position.delta_vxy));
+		_vel_xy_filtered += Vector2f(vehicle_local_position.delta_vxy);
+		_vel_xy_lp_filter.reset(_vel_xy_filtered);
 		_vel_xy_notch_filter.reset();
 	}
 
 	if (vehicle_local_position.vz_reset_counter != _vz_reset_counter) {
-		_vel_z_lp_filter.reset(_vel_z_lp_filter.getState() + vehicle_local_position.delta_vz);
+		_vel_z_filtered += vehicle_local_position.delta_vz;
+		_vel_z_lp_filter.reset(_vel_z_filtered);
 		_vel_z_notch_filter.reset();
 	}
 

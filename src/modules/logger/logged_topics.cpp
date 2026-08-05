@@ -45,6 +45,7 @@ using namespace px4::logger;
 
 void LoggedTopics::add_default_topics()
 {
+	add_topic("acceleration_indi_status", 20);
 	add_topic("action_request");
 	add_topic("actuator_armed");
 	add_optional_topic("actuator_controls_status_0", 300);
@@ -81,7 +82,9 @@ void LoggedTopics::add_default_topics()
 	add_optional_topic("gripper");
 	add_optional_topic_multi("heater_status");
 	add_topic("home_position");
-	add_topic("hover_thrust_estimate", 100);
+	// Keep HTE at position-control timescales so its valid transition, estimate
+	// smoothness, variance and innovations can be assessed from every flight log.
+	add_topic("hover_thrust_estimate", 20);
 	add_topic("input_rc", 500);
 	add_optional_topic("internal_combustion_engine_control", 10);
 	add_optional_topic("internal_combustion_engine_status", 10);
@@ -294,6 +297,7 @@ void LoggedTopics::add_default_topics()
 void LoggedTopics::add_high_rate_topics()
 {
 	// maximum rate to analyze fast maneuvers (e.g. for racing)
+	add_topic("acceleration_indi_status");
 	add_topic("allocation_value");
 	add_topic("manual_control_setpoint");
 	add_topic_multi("rate_ctrl_status", 20, 2);

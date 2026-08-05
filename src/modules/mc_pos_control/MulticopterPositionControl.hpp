@@ -42,10 +42,12 @@
 #include "GotoControl/GotoControl.hpp"
 
 #include <drivers/drv_hrt.h>
-#include <lib/mathlib/math/filter/AlphaFilter.hpp>
+#include <lib/mathlib/math/filter/LowPassFilter2p.hpp>
 #include <lib/mathlib/math/filter/NotchFilter.hpp>
 #include <lib/mathlib/math/WelfordMean.hpp>
 #include <lib/perf/perf_counter.h>
+#include <lib/ringbuffer/TimestampedRingBuffer.hpp>
+#include <lib/slew_rate/SlewRate.hpp>
 #include <lib/slew_rate/SlewRateYaw.hpp>
 #include <lib/systemlib/mavlink_log.h>
 #include <px4_platform_common/px4_config.h>
@@ -58,6 +60,7 @@
 #include <uORB/Publication.hpp>
 #include <uORB/Subscription.hpp>
 #include <uORB/SubscriptionCallback.hpp>
+#include <uORB/topics/acceleration_indi_status.h>
 #include <uORB/topics/allocation_value.h>
 #include <uORB/topics/hover_thrust_estimate.h>
 #include <uORB/topics/parameter_update.h>
@@ -101,6 +104,7 @@ private:
 	orb_advert_t _mavlink_log_pub{nullptr};
 
 	uORB::PublicationData<takeoff_status_s>              _takeoff_status_pub{ORB_ID(takeoff_status)};
+	uORB::Publication<acceleration_indi_status_s>        _acceleration_indi_status_pub{ORB_ID(acceleration_indi_status)};
 	uORB::Publication<vehicle_attitude_setpoint_s>	     _vehicle_attitude_setpoint_pub{ORB_ID(vehicle_attitude_setpoint)};
 	uORB::Publication<vehicle_local_position_setpoint_s> _local_pos_sp_pub{ORB_ID(vehicle_local_position_setpoint)};	/**< vehicle local position setpoint publication */
 
@@ -123,7 +127,27 @@ private:
 	trajectory_setpoint_s _setpoint{PositionControl::empty_trajectory_setpoint};
 	trajectory_setpoint_s _last_valid_setpoint{PositionControl::empty_trajectory_setpoint};
 	bool _indi_capable{false};
+	bool _indi_force_scale_adaptation_supported{false};
 	float _indi_inverse_mass{0.f};
+	float _indi_hover_thrust{NAN};
+	float _indi_hover_thrust_target{NAN};
+	float _indi_hover_thrust_transition_start{NAN};
+	float _indi_hover_thrust_transition_elapsed{0.f};
+	float _indi_hover_thrust_transition_progress{1.f};
+	float _indi_force_feedback_scale{1.f};
+	bool _indi_hte_valid{false};
+	bool _indi_hover_thrust_transition_active{false};
+
+	struct IndiForceSample {
+		uint64_t time_us{0};
+		matrix::Vector3f force_ned{};
+	};
+
+	static constexpr size_t kIndiForceHistoryLength = 64;
+	TimestampedRingBuffer<IndiForceSample, kIndiForceHistoryLength> _indi_force_history{};
+	uint64_t _indi_force_history_last_timestamp{0};
+	uint64_t _indi_delayed_force_timestamp{0};
+	matrix::Vector3f _indi_undelayed_thrust_acceleration{NAN, NAN, NAN};
 	rc_channels_s _rc_channels{};
 	vehicle_attitude_s _vehicle_attitude{};
 	vehicle_control_mode_s _vehicle_control_mode{};
@@ -205,19 +229,26 @@ private:
 		// Multicopter acceleration INDI
 		(ParamInt<px4::params::MPC_INDI_ACC_EN>)   _param_mpc_indi_acc_en,
 		(ParamFloat<px4::params::MPC_MASS>)        _param_mpc_mass,
-		(ParamInt<px4::params::CA_AIRFRAME>)       _param_ca_airframe
+		(ParamFloat<px4::params::MPC_INDI_F_DLY>)  _param_mpc_indi_f_dly,
+		(ParamFloat<px4::params::MPC_INDI_TR_T>)    _param_mpc_indi_tr_t,
+		(ParamInt<px4::params::CA_AIRFRAME>)       _param_ca_airframe,
+		(ParamFloat<px4::params::CA_ROTOR0_CT>)     _param_ca_rotor0_ct
 	);
 
 	math::WelfordMean<float> _sample_interval_s{};
 
-	AlphaFilter<matrix::Vector2f> _vel_xy_lp_filter{};
-	AlphaFilter<float> _vel_z_lp_filter{};
+	math::LowPassFilter2p<matrix::Vector2f> _vel_xy_lp_filter{};
+	math::LowPassFilter2p<float> _vel_z_lp_filter{};
+	matrix::Vector2f _vel_xy_filtered{};
+	float _vel_z_filtered{0.f};
 
 	math::NotchFilter<matrix::Vector2f> _vel_xy_notch_filter{};
 	math::NotchFilter<float> _vel_z_notch_filter{};
 
-	AlphaFilter<matrix::Vector2f> _vel_deriv_xy_lp_filter{};
-	AlphaFilter<float> _vel_deriv_z_lp_filter{};
+	math::LowPassFilter2p<matrix::Vector2f> _vel_deriv_xy_lp_filter{};
+	math::LowPassFilter2p<float> _vel_deriv_z_lp_filter{};
+	matrix::Vector2f _vel_deriv_xy_filtered{};
+	float _vel_deriv_z_filtered{0.f};
 
 	GotoControl _goto_control; ///< class for handling smooth goto position setpoints
 	PositionControl _control; ///< class for core PID position control
@@ -273,7 +304,13 @@ private:
 					trajectory_setpoint_s &setpoint);
 
 	/**
-	 * Convert filtered physical allocated force into NED acceleration.
+	 * Add the newest valid allocated force to the NED force history.
 	 */
-	matrix::Vector3f getAllocatedThrustAcceleration();
+	void updateAllocatedForceHistory();
+
+	/** Get the time-aligned allocated thrust acceleration for acceleration INDI. */
+	matrix::Vector3f getDelayedAllocatedThrustAcceleration(hrt_abstime reference_timestamp);
+
+	/** Keep the INDI force feedback consistent with the runtime hover-thrust scale. */
+	void updateIndiForceFeedbackScale(float hover_thrust);
 };

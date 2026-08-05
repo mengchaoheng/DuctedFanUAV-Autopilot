@@ -32,8 +32,8 @@ parameters:
       increment: 0.01
     MPC_VEL_LP:
       description:
-        short: Velocity low pass cutoff frequency
-        long: A value of 0 disables the filter.
+        short: Velocity second-order low pass cutoff frequency
+        long: A value of 0 disables the second-order low pass filter.
       type: float
       default: 0.0
       unit: Hz
@@ -67,8 +67,8 @@ parameters:
       increment: 0.5
     MPC_VELD_LP:
       description:
-        short: Velocity derivative low pass cutoff frequency
-        long: A value of 0 disables the filter.
+        short: Velocity derivative second-order low pass cutoff frequency
+        long: A value of 0 disables the second-order low pass filter.
       type: float
       default: 5.0
       unit: Hz

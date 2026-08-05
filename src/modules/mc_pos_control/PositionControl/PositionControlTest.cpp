@@ -33,6 +33,7 @@
 
 #include <gtest/gtest.h>
 #include <PositionControl.hpp>
+#include <geo/geo.h>
 #include <px4_defines.h>
 
 using namespace matrix;
@@ -420,4 +421,111 @@ TEST_F(PositionControlBasicTest, IntegratorWindupWithInvalidSetpoint)
 	Eulerf euler_att(Quatf(_attitude.q_d));
 	EXPECT_FLOAT_EQ(euler_att.phi(), 0.f);
 	EXPECT_FLOAT_EQ(euler_att.theta(), 0.f);
+}
+
+TEST_F(PositionControlBasicTest, VelocityIntegralAndDerivativeAreExcludedFromAccelerationIndi)
+{
+	_position_control.setVelocityGains(Vector3f{}, Vector3f(1.f, 1.f, 1.f), Vector3f(2.f, 3.f, 4.f));
+	Vector3f{}.copyTo(_input_setpoint.velocity);
+
+	// First run the conventional PID with a velocity error to build a non-zero
+	// hot-standby integrator state.
+	PositionControlStates states{};
+	states.velocity = Vector3f(-1.f, -1.f, -1.f);
+	states.acceleration = Vector3f{};
+	_position_control.setState(states);
+	ASSERT_TRUE(runController());
+	EXPECT_FALSE(_output_setpoint.acc_indi_active);
+
+	// INDI must use neither the accumulated I term nor the configured D term.
+	states.velocity = Vector3f{};
+	states.acceleration = Vector3f(1.f, 2.f, 3.f);
+	states.allocated_thrust_acceleration = Vector3f(0.f, 0.f, -CONSTANTS_ONE_G);
+	_position_control.setState(states);
+
+	ASSERT_TRUE(runController());
+	EXPECT_TRUE(_output_setpoint.acc_indi_active);
+	EXPECT_FLOAT_EQ(_output_setpoint.acceleration[0], -1.f);
+	EXPECT_FLOAT_EQ(_output_setpoint.acceleration[1], -2.f);
+	EXPECT_FLOAT_EQ(_output_setpoint.acceleration[2], -3.f);
+
+	// Losing INDI feedback selects the hot-standby PID. Its integral state from
+	// before the switch must still be present; entering INDI must not clear it.
+	states.acceleration = Vector3f{};
+	states.allocated_thrust_acceleration = Vector3f{NAN, NAN, NAN};
+	_position_control.setState(states);
+	ASSERT_TRUE(runController());
+	EXPECT_FALSE(_output_setpoint.acc_indi_active);
+	EXPECT_NEAR(_output_setpoint.acceleration[0], 0.1f, 1e-6f);
+	EXPECT_NEAR(_output_setpoint.acceleration[1], 0.1f, 1e-6f);
+	EXPECT_NEAR(_output_setpoint.acceleration[2], 0.1f, 1e-6f);
+}
+
+TEST_F(PositionControlBasicTest, VelocityDerivativeGainIsRestoredWithoutAccelerationIndiFeedback)
+{
+	_position_control.setVelocityGains(Vector3f{}, Vector3f{}, Vector3f(2.f, 3.f, 4.f));
+	Vector3f{}.copyTo(_input_setpoint.velocity);
+
+	PositionControlStates states{};
+	states.acceleration = Vector3f(1.f, 2.f, 3.f);
+	_position_control.setState(states);
+
+	ASSERT_TRUE(runController());
+	EXPECT_FALSE(_output_setpoint.acc_indi_active);
+	EXPECT_FLOAT_EQ(_output_setpoint.acceleration[0], -2.f);
+	EXPECT_FLOAT_EQ(_output_setpoint.acceleration[1], -6.f);
+	EXPECT_FLOAT_EQ(_output_setpoint.acceleration[2], -12.f);
+}
+
+TEST_F(PositionControlBasicTest, AccelerationIndiControllerTransfersAreBumpless)
+{
+	_position_control.setVelocityGains(Vector3f{}, Vector3f{}, Vector3f{});
+	_position_control.setAccelerationIndiTransitionTime(0.5f);
+	Vector3f{}.copyTo(_input_setpoint.velocity);
+
+	PositionControlStates states{};
+	states.acceleration = Vector3f{};
+	_position_control.setState(states);
+	ASSERT_TRUE(runController());
+	ASSERT_FALSE(_output_setpoint.acc_indi_active);
+	const Vector3f pid_thrust(_output_setpoint.thrust);
+
+	// Select an intentionally different INDI equilibrium so an unprotected
+	// controller switch would produce an obvious thrust step.
+	states.allocated_thrust_acceleration = Vector3f(0.f, 0.f, -8.f);
+	_position_control.setState(states);
+	ASSERT_TRUE(runController());
+	EXPECT_TRUE(_output_setpoint.acc_indi_active);
+	EXPECT_TRUE(_position_control.accelerationIndiTransitionActive());
+	EXPECT_FLOAT_EQ(_position_control.getAccelerationIndiTransitionProgress(), 0.f);
+	EXPECT_EQ(Vector3f(_output_setpoint.thrust), pid_thrust);
+	const Vector3f indi_raw_thrust = _position_control.getAccelerationIndiRawThrustSetpoint();
+	EXPECT_GT((indi_raw_thrust - pid_thrust).norm(), 0.05f);
+
+	// After the configured transition the output is exactly the raw INDI law.
+	for (int i = 0; i < 6; i++) {
+		ASSERT_TRUE(runController());
+	}
+
+	EXPECT_FALSE(_position_control.accelerationIndiTransitionActive());
+	EXPECT_FLOAT_EQ(_position_control.getAccelerationIndiTransitionProgress(), 1.f);
+	EXPECT_NEAR(_output_setpoint.thrust[2], indi_raw_thrust(2), 1e-6f);
+	const Vector3f indi_thrust(_output_setpoint.thrust);
+
+	// Loss of feedback selects PID again and must be bumpless in that direction too.
+	states.allocated_thrust_acceleration = Vector3f{NAN, NAN, NAN};
+	_position_control.setState(states);
+	ASSERT_TRUE(runController());
+	EXPECT_FALSE(_output_setpoint.acc_indi_active);
+	EXPECT_TRUE(_position_control.accelerationIndiTransitionActive());
+	EXPECT_FLOAT_EQ(_position_control.getAccelerationIndiTransitionProgress(), 0.f);
+	EXPECT_EQ(Vector3f(_output_setpoint.thrust), indi_thrust);
+
+	for (int i = 0; i < 6; i++) {
+		ASSERT_TRUE(runController());
+	}
+
+	EXPECT_FALSE(_position_control.accelerationIndiTransitionActive());
+	EXPECT_FLOAT_EQ(_position_control.getAccelerationIndiTransitionProgress(), 1.f);
+	EXPECT_NEAR(_output_setpoint.thrust[2], pid_thrust(2), 1e-6f);
 }

@@ -45,6 +45,7 @@ param set-default MPC_YAWRAUTO_ACC 180
 param set-default MPC_YAWRAUTO_MAX 90
 
 param set-default CA_FORCE_CUTOFF 6
+param set-default MPC_INDI_F_DLY 0.05
 param set-default CA_TORQ_CUTOFF 8
 param set-default IMU_DGYRO_CUTOFF 10
 param set-default MPC_MASS 1.56

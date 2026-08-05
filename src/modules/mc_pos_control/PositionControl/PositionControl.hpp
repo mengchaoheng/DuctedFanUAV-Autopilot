@@ -127,6 +127,12 @@ public:
 	 */
 	void setHoverThrust(const float hover_thrust) { _hover_thrust = math::constrain(hover_thrust, HOVER_THRUST_MIN, HOVER_THRUST_MAX); }
 
+	/** Set the duration of the bumpless PID/acceleration-INDI thrust transition. */
+	void setAccelerationIndiTransitionTime(const float transition_time_s)
+	{
+		_acceleration_indi_transition_time = math::max(transition_time_s, 0.f);
+	}
+
 	/**
 	 * Update the hover thrust without immediately affecting the output
 	 * by adjusting the integrator. This prevents propagating the dynamics
@@ -186,6 +192,13 @@ public:
 	 */
 	void getAttitudeSetpoint(vehicle_attitude_setpoint_s &attitude_setpoint) const;
 
+	/** Raw normalized thrust from the selected PID/INDI law before bumpless transfer and common limits. */
+	const matrix::Vector3f &getAccelerationIndiRawThrustSetpoint() const { return _acceleration_indi_raw_thr_sp; }
+
+	/** 0 at transfer start, 1 when the selected controller has fully taken over. */
+	float getAccelerationIndiTransitionProgress() const { return _acceleration_indi_transition_progress; }
+	bool accelerationIndiTransitionActive() const { return _acceleration_indi_transition_active; }
+
 	/**
 	 * All setpoints are set to NAN (uncontrolled). Timestampt zero.
 	 */
@@ -201,6 +214,7 @@ private:
 	void _positionControl(); ///< Position proportional control
 	void _velocityControl(const float dt); ///< Velocity PID control
 	void _accelerationControl(); ///< Acceleration setpoint processing
+	void _accelerationIndiBumplessTransfer(float dt);
 
 	// Gains
 	matrix::Vector3f _gain_pos_p; ///< Position control proportional gain
@@ -229,6 +243,14 @@ private:
 
 	// Acceleration INDI feedback
 	bool _acceleration_indi_active{false};
+	bool _acceleration_indi_active_previous{false};
+	bool _acceleration_indi_transition_active{false};
+	float _acceleration_indi_transition_time{0.f};
+	float _acceleration_indi_transition_elapsed{0.f};
+	float _acceleration_indi_transition_progress{1.f};
+	matrix::Vector3f _acceleration_indi_transition_offset{};
+	matrix::Vector3f _acceleration_indi_raw_thr_sp{};
+	matrix::Vector3f _last_thr_sp{NAN, NAN, NAN};
 	matrix::Vector3f _allocated_thrust_acceleration{NAN, NAN, NAN}; ///< allocated thrust force / mass in NED [m/s^2]
 
 	// Setpoints

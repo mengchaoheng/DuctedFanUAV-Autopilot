@@ -29,3 +29,41 @@ parameters:
       min: 0.01
       unit: kg
       decimal: 4
+    MPC_INDI_F_DLY:
+      description:
+        short: Acceleration INDI allocated-force feedback delay
+        long: |-
+          Additional pure delay applied to the filtered physical allocated force
+          before it is used by acceleration INDI. The delay aligns F_0/m with the
+          filtered acceleration feedback a_0. It is implemented with a timestamped
+          history and interpolation; it does not block or slow the control loop.
+
+          This parameter compensates residual timing mismatch only. Use
+          CA_FORCE_CUTOFF to model actuator force build-up dynamics, and determine
+          this delay from high-rate F_0 and a_0 flight data.
+      type: float
+      default: 0.0
+      min: 0.0
+      max: 0.1
+      unit: s
+      decimal: 3
+      increment: 0.005
+    MPC_INDI_TR_T:
+      description:
+        short: Acceleration INDI bumpless transition time
+        long: |-
+          Smoothstep transition duration for PID to acceleration INDI and
+          acceleration INDI to PID transfers. The same duration is used only
+          when a hover-thrust estimate first becomes valid, to bring the hover
+          thrust and matching INDI force scale into use without a step.
+
+          This does not continuously low-pass valid hover-thrust estimates and
+          does not change acceleration INDI bandwidth after a transfer finishes.
+          Set to zero to disable these transitions.
+      type: float
+      default: 1.0
+      min: 0.0
+      max: 5.0
+      unit: s
+      decimal: 2
+      increment: 0.1

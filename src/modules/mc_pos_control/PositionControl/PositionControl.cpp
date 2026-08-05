@@ -147,14 +147,25 @@ void PositionControl::_velocityControl(const float dt)
 	// Constrain vertical velocity integral
 	_vel_int(2) = math::constrain(_vel_int(2), -CONSTANTS_ONE_G, CONSTANTS_ONE_G);
 
-	// PID velocity control
+	// Keep the conventional PID velocity controller running as a hot standby.
 	Vector3f vel_error = _vel_sp - _vel;
-	Vector3f acc_sp_velocity = vel_error.emult(_gain_vel_p) + _vel_int - _vel_dot.emult(_gain_vel_d);
+	const bool acceleration_indi_feedback_valid =
+		_allocated_thrust_acceleration.isAllFinite() && _vel_dot.isAllFinite();
+	const Vector3f acc_sp_velocity_pid =
+		vel_error.emult(_gain_vel_p) + _vel_int - _vel_dot.emult(_gain_vel_d);
+
+	// The acceleration INDI law already feeds back measured acceleration. Its desired
+	// acceleration therefore contains only the tracking P term (plus acceleration
+	// feed-forward below), matching a_c = K_p e_p + K_v e_v + a_ff.
+	const Vector3f acc_sp_velocity_indi = vel_error.emult(_gain_vel_p);
+	const Vector3f &acc_sp_velocity = acceleration_indi_feedback_valid ? acc_sp_velocity_indi : acc_sp_velocity_pid;
 
 	// No control input from setpoints or corresponding states which are NAN
 	ControlMath::addIfNotNanVector3f(_acc_sp, acc_sp_velocity);
 
 	_accelerationControl();
+	_acceleration_indi_raw_thr_sp = _thr_sp;
+	_accelerationIndiBumplessTransfer(dt);
 
 	// Integrator anti-windup in vertical direction
 	if ((_thr_sp(2) >= -_lim_thr_min && vel_error(2) >= 0.f) ||
@@ -204,6 +215,56 @@ void PositionControl::_velocityControl(const float dt)
 	ControlMath::setZeroIfNanVector3f(vel_error);
 	// Update integral part of velocity control
 	_vel_int += vel_error.emult(_gain_vel_i) * dt;
+
+	// Store the actual limited output. A later PID/INDI transfer is initialized
+	// from this value, including all common thrust and tilt constraints.
+	_last_thr_sp = _thr_sp;
+}
+
+void PositionControl::_accelerationIndiBumplessTransfer(const float dt)
+{
+	if (_acceleration_indi_active != _acceleration_indi_active_previous) {
+		_acceleration_indi_transition_elapsed = 0.f;
+		_acceleration_indi_transition_progress = 0.f;
+		_acceleration_indi_transition_active = _acceleration_indi_transition_time > FLT_EPSILON
+				&& _last_thr_sp.isAllFinite() && _thr_sp.isAllFinite();
+
+		if (_acceleration_indi_transition_active) {
+			// Rebase from the thrust that was actually sent in the preceding cycle.
+			// This also handles a reversal while another transfer is in progress.
+			_acceleration_indi_transition_offset = _last_thr_sp - _thr_sp;
+
+		} else {
+			_acceleration_indi_transition_offset.setZero();
+			_acceleration_indi_transition_progress = 1.f;
+		}
+
+		_acceleration_indi_active_previous = _acceleration_indi_active;
+	}
+
+	if (_acceleration_indi_transition_active) {
+		const float ratio = math::constrain(
+			_acceleration_indi_transition_elapsed / _acceleration_indi_transition_time, 0.f, 1.f);
+		// Smoothstep has zero slope at both ends of the transfer.
+		_acceleration_indi_transition_progress = ratio * ratio * (3.f - 2.f * ratio);
+		_thr_sp += (1.f - _acceleration_indi_transition_progress) * _acceleration_indi_transition_offset;
+		_acceleration_indi_transition_elapsed += math::max(dt, 0.f);
+
+		if (_acceleration_indi_transition_elapsed >= _acceleration_indi_transition_time) {
+			// Keep this cycle's continuous output. The next cycle starts at the
+			// zero-slope end point with the raw selected-controller output.
+			_acceleration_indi_transition_elapsed = _acceleration_indi_transition_time;
+
+			if (ratio >= 1.f) {
+				_acceleration_indi_transition_active = false;
+				_acceleration_indi_transition_progress = 1.f;
+				_acceleration_indi_transition_offset.setZero();
+			}
+		}
+
+	} else {
+		_acceleration_indi_transition_progress = 1.f;
+	}
 }
 
 void PositionControl::_accelerationControl()
