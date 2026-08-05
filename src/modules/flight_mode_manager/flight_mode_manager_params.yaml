@@ -1,7 +1,22 @@
 module_name: flight_mode_manager
 parameters:
-- group: Flight Mode Manager
+- group: Orbit - global control
   definitions:
+    MC_ORBIT_EN:
+      description:
+        short: Enable parameter-triggered trajectory
+        long: Enables the selected Orbit trajectory when MC_ORBIT_SRC is Parameter. Parameter and RC7 triggers are combined with OR logic.
+      type: boolean
+      default: 0
+    MC_ORBIT_SRC:
+      description:
+        short: Trajectory trigger source
+        long: Selects MAV_CMD_DO_ORBIT (0) or the parameter/RC7 trigger (1). This is a global trigger setting; geometry is selected by MC_ORBIT_SHAPE and configured in the corresponding shape group.
+      type: enum
+      values:
+        0: MAVLink command
+        1: Parameter or RC7
+      default: 0
     MC_ORBIT_SHAPE:
       description:
         short: Multicopter orbit trajectory shape
@@ -10,35 +25,28 @@ parameters:
       values:
         0: Circle
         1: Figure Eight
-        2: Ellipse or Line
+        2: Ellipse / Sine Line
       default: 0
-    MC_ORBIT_X_RAD:
+    MC_ORBIT_YAW_MOD:
       description:
-        short: Ellipse local X semi-axis
-        long: >
-          Maximum local NED X displacement from the trajectory center for the
-          Ellipse or Line shape. Equal X and Y semi-axes produce a circle. Set
-          either semi-axis to zero to produce a line along the other axis. The
-          value is latched when entering Orbit mode.
-      type: float
-      default: 0.0
-      unit: m
-      min: 0.0
-      max: 10000.0
-      increment: 0.5
-      decimal: 1
-    MC_ORBIT_Y_RAD:
+        short: Yaw mode during trajectory
+        long: Global yaw behavior used by Circle, Figure Eight and Sine Line tasks unless a MAVLink orbit command supplies another behavior.
+      type: enum
+      values:
+        0: Front to center
+        1: Hold initial heading
+        2: Uncontrolled
+        3: Front tangent to path
+        4: Manual yaw stick
+      default: 0
+    MC_ORBIT_RAD_MAX:
       description:
-        short: Ellipse local Y semi-axis
-        long: >
-          Maximum local NED Y displacement from the trajectory center for the
-          Ellipse or Line shape. Equal X and Y semi-axes produce a circle. Set
-          either semi-axis to zero to produce a line along the other axis. The
-          value is latched when entering Orbit mode.
+        short: Maximum trajectory semi-axis
+        long: Safety limit applied to every trajectory shape. Shape-specific semi-axes are constrained to this value.
       type: float
-      default: 5.0
+      default: 1000.0
       unit: m
-      min: 0.0
+      min: 1.0
       max: 10000.0
       increment: 0.5
       decimal: 1

@@ -36,6 +36,7 @@
 #include "FlightTaskManualAltitudeSmoothVel.hpp"
 
 #include <lib/motion_planning/HeadingSmoothing.hpp>
+#include <lib/motion_planning/HarmonicTrajectory2D.hpp>
 #include <lib/motion_planning/PositionSmoothing.hpp>
 #include <lib/slew_rate/SlewRate.hpp>
 #include <uORB/PublicationMulti.hpp>
@@ -47,9 +48,10 @@
  * The horizontal curve is an axis-aligned ellipse in local NED:
  *
  *   p(phi) = center + [Rx cos(phi), Ry sin(phi)]^T
- *   phi_dot = V / max(Rx, Ry)
+ *   phi_dot = MC_SL_OMEGA in parameter mode. A zero omega explicitly holds
+ *              the trajectory origin.
  *
- * Rx and Ry are position semi-axes (maximum displacement from the center).
+ * Rx, Ry and Rz are the independent MC_SL_AX/MC_SL_AY/MC_SL_AZ amplitudes.
  * Equal non-zero semi-axes produce a circle and either zero semi-axis produces
  * a sinusoidally traversed line. V is the signed maximum horizontal speed.
  * Position, velocity and acceleration references use analytical derivatives.
@@ -85,6 +87,9 @@ private:
 	matrix::Vector2f _curvePosition(float phase) const;
 	matrix::Vector2f _curveFirstDerivative(float phase) const;
 	matrix::Vector2f _curveSecondDerivative(float phase) const;
+	float _curveVerticalPosition(float phase) const;
+	float _curveVerticalFirstDerivative(float phase) const;
+	float _curveVerticalSecondDerivative(float phase) const;
 
 	void _ekfResetHandlerPositionXY(const matrix::Vector2f &delta_xy) override;
 	void _ekfResetHandlerPositionZ(float delta_z) override;
@@ -92,12 +97,17 @@ private:
 
 	matrix::Vector3f _center{};
 	matrix::Vector2f _radii{0.f, kInitialRadius};
+	float _vertical_amplitude{0.f};
 	float _trajectory_velocity{1.f};
+	float _trajectory_omega{0.f};
+	float _trajectory_acceleration_limit{0.f};
 	float _phase{0.f};
 	float _initial_heading{0.f};
 	int _yaw_behaviour{orbit_status_s::ORBIT_YAW_BEHAVIOUR_HOLD_FRONT_TANGENT_TO_CIRCLE};
 	bool _started_positive{true};
 	bool _use_parameterized_geometry{false};
+	bool _use_angular_frequency{false};
+	bool _hold_parameterized_origin{false};
 	bool _in_approach{true};
 
 	PositionSmoothing _position_smoothing;
@@ -107,10 +117,12 @@ private:
 	uORB::PublicationMulti<orbit_status_s> _orbit_status_pub{ORB_ID(orbit_status)};
 
 	DEFINE_PARAMETERS(
-		(ParamFloat<px4::params::MC_ORBIT_VEL>) _param_mc_orbit_vel,
+		(ParamFloat<px4::params::MC_SL_AX>) _param_mc_sine_x_amplitude,
+		(ParamFloat<px4::params::MC_SL_AY>) _param_mc_sine_y_amplitude,
+		(ParamFloat<px4::params::MC_SL_AZ>) _param_mc_sine_z_amplitude,
+		(ParamFloat<px4::params::MC_SL_OMEGA>) _param_mc_sine_omega,
+		(ParamFloat<px4::params::MC_SL_ACC>) _param_mc_sine_acceleration,
 		(ParamFloat<px4::params::MC_ORBIT_RAD_MAX>) _param_mc_orbit_rad_max,
-		(ParamFloat<px4::params::MC_ORBIT_X_RAD>) _param_mc_orbit_x_rad,
-		(ParamFloat<px4::params::MC_ORBIT_Y_RAD>) _param_mc_orbit_y_rad,
 		(ParamInt<px4::params::MC_ORBIT_SRC>) _param_mc_orbit_source,
 		(ParamInt<px4::params::MC_ORBIT_YAW_MOD>) _param_mc_orbit_yaw_mod,
 		(ParamFloat<px4::params::MPC_XY_CRUISE>) _param_mpc_xy_cruise,

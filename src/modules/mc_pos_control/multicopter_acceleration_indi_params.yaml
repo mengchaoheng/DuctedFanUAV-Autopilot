@@ -17,6 +17,36 @@ parameters:
           INDI is used. Otherwise the standard path is used.
       type: boolean
       default: 0
+    MPC_INDI_A_SRC:
+      description:
+        short: Acceleration INDI feedback source
+        long: |-
+          Selects the acceleration feedback a_0 used by acceleration INDI.
+          All three candidates are computed and logged in acceleration_indi_status
+          regardless of this selection. This parameter does not change the
+          conventional PID acceleration state when acceleration INDI is disabled
+          or the selected source is invalid.
+      type: enum
+      values:
+        0: Velocity derivative
+        1: EKF acceleration
+        2: IMU acceleration
+      default: 0
+    MPC_INDI_A_LP:
+      description:
+        short: Acceleration INDI direct-source low-pass cutoff
+        long: |-
+          Second-order low-pass cutoff applied independently to the EKF and
+          gravity-corrected IMU acceleration candidates. The existing velocity
+          derivative source keeps using MPC_VEL_LP and MPC_VELD_LP. Set to zero
+          to disable this additional filter.
+      type: float
+      default: 5.0
+      min: 0.0
+      max: 50.0
+      unit: Hz
+      decimal: 1
+      increment: 0.5
     MPC_MASS:
       description:
         short: Vehicle mass for acceleration INDI

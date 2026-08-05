@@ -1,32 +1,55 @@
 module_name: FigureEight
 parameters:
-- group: Flight Task Figure Eight
+- group: Orbit - figure eight
   definitions:
-    MC_F8_VEL:
+    MC_F8_AX:
       description:
-        short: Default figure-eight velocity
-        long: Ground speed used when figure-eight mode is entered without a MAV_CMD_DO_ORBIT command.
+        short: Figure-eight X amplitude
+        long: Fundamental sin(theta) amplitude in the local shape frame (m).
       type: float
-      default: 1.0
-      unit: m/s
+      default: 5.0
+      unit: m
       min: 0.0
+      max: 10000.0
+      increment: 0.5
+      decimal: 1
+    MC_F8_AY:
+      description:
+        short: Figure-eight Y amplitude
+        long: Second-harmonic sin(2 theta) amplitude in the local shape frame (m).
+      type: float
+      default: 2.5
+      unit: m
+      min: 0.0
+      max: 10000.0
+      increment: 0.5
+      decimal: 1
+    MC_F8_AZ:
+      description:
+        short: Figure-eight Z amplitude
+        long: Vertical sin(2 theta) amplitude in local NED (m); zero keeps altitude constant.
+      type: float
+      default: 0.0
+      unit: m
+      min: 0.0
+      max: 10000.0
+      increment: 0.5
+      decimal: 1
+    MC_F8_OMEGA:
+      description:
+        short: Figure-eight angular speed
+        long: Signed phase rate in rad/s. Zero means hold the figure-eight origin.
+      type: float
+      default: 0.4
+      unit: rad/s
+      min: -20.0
       max: 20.0
       increment: 0.1
-      decimal: 1
-    MC_F8_RAT:
-      description:
-        short: Figure-eight minor to major radius ratio
-        long: Ratio between the lateral amplitude and the main amplitude of the figure-eight trajectory.
-      type: float
-      default: 0.5
-      min: 0.1
-      max: 1.0
-      increment: 0.05
       decimal: 2
     MC_F8_HDG:
       description:
-        short: Figure-eight heading offset
-        long: Clockwise rotation of the initial trajectory tangent relative to the vehicle heading when the task is activated.
+        short: Figure-eight shape direction
+        long: Direction of the major axis in the local NED frame. Zero points North/X and positive angles rotate toward East/Y.
       type: float
       default: 0.0
       unit: deg
@@ -36,12 +59,12 @@ parameters:
       decimal: 1
     MC_F8_ACC:
       description:
-        short: Maximum figure-eight feed-forward acceleration
-        long: Maximum normal acceleration used to limit speed according to the local curvature of the reference trajectory.
+        short: Figure-eight acceleration limit
+        long: Maximum acceleration used to limit the configured phase rate.
       type: float
       default: 2.0
       unit: m/s^2
-      min: 0.5
-      max: 10.0
+      min: 0.0
+      max: 20.0
       increment: 0.5
       decimal: 1

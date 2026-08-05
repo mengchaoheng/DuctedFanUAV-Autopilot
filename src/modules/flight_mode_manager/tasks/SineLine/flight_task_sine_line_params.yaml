@@ -1,0 +1,59 @@
+module_name: SineLine
+parameters:
+- group: Orbit - ellipse and sine line
+  definitions:
+    MC_SL_AX:
+      description:
+        short: Sine-line X amplitude
+        long: X semi-axis of the harmonic ellipse in local NED (m); zero is a valid straight-line axis.
+      type: float
+      default: 0.0
+      unit: m
+      min: 0.0
+      max: 10000.0
+      increment: 0.5
+      decimal: 1
+    MC_SL_AY:
+      description:
+        short: Sine-line Y amplitude
+        long: Y semi-axis of the harmonic ellipse in local NED (m); zero is a valid straight-line axis.
+      type: float
+      default: 5.0
+      unit: m
+      min: 0.0
+      max: 10000.0
+      increment: 0.5
+      decimal: 1
+    MC_SL_AZ:
+      description:
+        short: Sine-line Z amplitude
+        long: Z amplitude of the harmonic ellipse in local NED (m); zero keeps altitude constant.
+      type: float
+      default: 0.0
+      unit: m
+      min: 0.0
+      max: 10000.0
+      increment: 0.5
+      decimal: 1
+    MC_SL_OMEGA:
+      description:
+        short: Ellipse or sine-line angular speed
+        long: Signed phase rate in rad/s. Zero means hold the trajectory origin.
+      type: float
+      default: 0.2
+      unit: rad/s
+      min: -20.0
+      max: 20.0
+      increment: 0.1
+      decimal: 2
+    MC_SL_ACC:
+      description:
+        short: Ellipse or sine-line acceleration limit
+        long: Maximum acceleration used to limit the configured phase rate.
+      type: float
+      default: 2.0
+      unit: m/s^2
+      min: 0.0
+      max: 20.0
+      increment: 0.1
+      decimal: 1

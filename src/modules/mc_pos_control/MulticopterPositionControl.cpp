@@ -49,6 +49,10 @@ constexpr unsigned kAccelerationIndiRcChannel = 10; // RC11
 constexpr hrt_abstime kRcSignalTimeout = 500_ms;
 constexpr float kIndiForceFeedbackScaleMin = 0.8f;
 constexpr float kIndiForceFeedbackScaleMax = 1.2f;
+constexpr uint8_t kIndiAccelerationVelocityValid = 1u << 0;
+constexpr uint8_t kIndiAccelerationEkfValid = 1u << 1;
+constexpr uint8_t kIndiAccelerationImuValid = 1u << 2;
+constexpr hrt_abstime kIndiAccelerationSampleMaxAge = 50_ms;
 
 bool rcChannelEnabled(const rc_channels_s &rc_channels, unsigned channel)
 {
@@ -162,6 +166,20 @@ void MulticopterPositionControl::parameters_update(bool force)
 			_vel_deriv_xy_lp_filter.disable();
 			_vel_deriv_z_lp_filter.disable();
 		}
+
+		// The direct EKF and IMU acceleration candidates use identical independent
+		// filters so they can be compared and selected without sharing filter state.
+		if (_param_mpc_indi_a_lp.get() > 0.f) {
+			_indi_acceleration_ekf_lp_filter.set_cutoff_frequency(sample_freq_hz, _param_mpc_indi_a_lp.get());
+			_indi_acceleration_imu_lp_filter.set_cutoff_frequency(sample_freq_hz, _param_mpc_indi_a_lp.get());
+
+		} else {
+			_indi_acceleration_ekf_lp_filter.disable();
+			_indi_acceleration_imu_lp_filter.disable();
+		}
+
+		_indi_acceleration_ekf_filter_initialized = false;
+		_indi_acceleration_imu_filter_initialized = false;
 
 
 
@@ -473,6 +491,7 @@ void MulticopterPositionControl::Run()
 
 		_vehicle_land_detected_sub.update(&_vehicle_land_detected);
 		_vehicle_attitude_sub.update(&_vehicle_attitude);
+		_vehicle_acceleration_sub.update(&_vehicle_acceleration);
 		updateAllocatedForceHistory();
 
 		bool indi_hover_thrust_changed = false;
@@ -494,6 +513,57 @@ void MulticopterPositionControl::Run()
 		}
 
 		PositionControlStates states{set_vehicle_states(vehicle_local_position, dt)};
+		_indi_acceleration_source_valid = 0;
+		_indi_acceleration_velocity_derivative = states.acceleration;
+
+		if (_indi_acceleration_velocity_derivative.isAllFinite()) {
+			_indi_acceleration_source_valid |= kIndiAccelerationVelocityValid;
+		}
+
+		const Vector3f acceleration_ekf_raw(vehicle_local_position.ax, vehicle_local_position.ay,
+				vehicle_local_position.az);
+
+		if (acceleration_ekf_raw.isAllFinite()) {
+			if (!_indi_acceleration_ekf_filter_initialized) {
+				_indi_acceleration_ekf_lp_filter.reset(acceleration_ekf_raw);
+				_indi_acceleration_ekf_filter_initialized = true;
+			}
+
+			_indi_acceleration_ekf = _indi_acceleration_ekf_lp_filter.apply(acceleration_ekf_raw);
+			_indi_acceleration_source_valid |= kIndiAccelerationEkfValid;
+
+		} else {
+			_indi_acceleration_ekf = Vector3f{NAN, NAN, NAN};
+			_indi_acceleration_ekf_filter_initialized = false;
+		}
+
+		const bool imu_recent = _vehicle_acceleration.timestamp_sample > 0
+					&& vehicle_local_position.timestamp_sample >= _vehicle_acceleration.timestamp_sample
+					&& vehicle_local_position.timestamp_sample - _vehicle_acceleration.timestamp_sample
+					<= kIndiAccelerationSampleMaxAge;
+		const bool attitude_recent = _vehicle_attitude.timestamp_sample > 0
+					     && vehicle_local_position.timestamp_sample >= _vehicle_attitude.timestamp_sample
+					     && vehicle_local_position.timestamp_sample - _vehicle_attitude.timestamp_sample
+					     <= kIndiAccelerationSampleMaxAge;
+		const Vector3f acceleration_imu_body(_vehicle_acceleration.xyz);
+		const Quatf attitude(_vehicle_attitude.q);
+
+		if (imu_recent && attitude_recent && acceleration_imu_body.isAllFinite() && attitude.isAllFinite()) {
+			Vector3f acceleration_imu_raw = Dcmf(attitude) * acceleration_imu_body;
+			acceleration_imu_raw(2) += CONSTANTS_ONE_G;
+
+			if (!_indi_acceleration_imu_filter_initialized) {
+				_indi_acceleration_imu_lp_filter.reset(acceleration_imu_raw);
+				_indi_acceleration_imu_filter_initialized = true;
+			}
+
+			_indi_acceleration_imu = _indi_acceleration_imu_lp_filter.apply(acceleration_imu_raw);
+			_indi_acceleration_source_valid |= kIndiAccelerationImuValid;
+
+		} else {
+			_indi_acceleration_imu = Vector3f{NAN, NAN, NAN};
+			_indi_acceleration_imu_filter_initialized = false;
+		}
 
 		// If a goto setpoint is available this publishes a trajectory setpoint to go there
 		// If trajectory_setpoint is published elsewhere, do not use the goto setpoint
@@ -645,10 +715,31 @@ void MulticopterPositionControl::Run()
 			const bool indi_requested = (_param_mpc_indi_acc_en.get() == 1)
 						    || rcChannelEnabled(_rc_channels, kAccelerationIndiRcChannel);
 			const bool use_indi = _indi_capable && indi_requested;
+			const int acceleration_source = math::constrain(_param_mpc_indi_a_src.get(), 0, 2);
+			Vector3f selected_acceleration = _indi_acceleration_velocity_derivative;
+			uint8_t selected_acceleration_valid_bit = kIndiAccelerationVelocityValid;
+
+			if (acceleration_source == 1) {
+				selected_acceleration = _indi_acceleration_ekf;
+				selected_acceleration_valid_bit = kIndiAccelerationEkfValid;
+
+			} else if (acceleration_source == 2) {
+				selected_acceleration = _indi_acceleration_imu;
+				selected_acceleration_valid_bit = kIndiAccelerationImuValid;
+			}
+
+			const bool selected_acceleration_valid =
+				(_indi_acceleration_source_valid & selected_acceleration_valid_bit) != 0;
+
+			if (use_indi && selected_acceleration_valid) {
+				states.acceleration = selected_acceleration;
+			}
+
 			updateIndiForceFeedbackScale(_indi_hover_thrust);
 			Vector3f delayed_allocated_thrust_acceleration =
 				getDelayedAllocatedThrustAcceleration(vehicle_local_position.timestamp_sample);
 			bool acceleration_indi_feedback_valid = use_indi
+					&& selected_acceleration_valid
 					&& delayed_allocated_thrust_acceleration.isAllFinite()
 					&& states.acceleration.isAllFinite();
 
@@ -705,6 +796,7 @@ void MulticopterPositionControl::Run()
 				delayed_allocated_thrust_acceleration =
 					getDelayedAllocatedThrustAcceleration(vehicle_local_position.timestamp_sample);
 				acceleration_indi_feedback_valid = use_indi
+						&& selected_acceleration_valid
 						&& delayed_allocated_thrust_acceleration.isAllFinite()
 						&& states.acceleration.isAllFinite();
 			}
@@ -766,6 +858,9 @@ void MulticopterPositionControl::Run()
 			indi_status.timestamp_sample = vehicle_local_position.timestamp_sample;
 			indi_status.force_timestamp = _indi_delayed_force_timestamp;
 			states.acceleration.copyTo(indi_status.acceleration_feedback);
+			_indi_acceleration_velocity_derivative.copyTo(indi_status.acceleration_velocity_derivative);
+			_indi_acceleration_ekf.copyTo(indi_status.acceleration_ekf);
+			_indi_acceleration_imu.copyTo(indi_status.acceleration_imu);
 			delayed_allocated_thrust_acceleration.copyTo(indi_status.allocated_thrust_acceleration);
 			_indi_undelayed_thrust_acceleration.copyTo(indi_status.allocated_thrust_acceleration_undelayed);
 			_control.getAccelerationIndiRawThrustSetpoint().copyTo(indi_status.raw_thrust_setpoint);
@@ -773,8 +868,11 @@ void MulticopterPositionControl::Run()
 			indi_status.force_feedback_scale = _indi_force_feedback_scale;
 			indi_status.controller_transition_progress = _control.getAccelerationIndiTransitionProgress();
 			indi_status.hover_thrust_transition_progress = _indi_hover_thrust_transition_progress;
-			indi_status.feedback_valid = delayed_allocated_thrust_acceleration.isAllFinite()
-						     && states.acceleration.isAllFinite();
+			indi_status.acceleration_source = math::constrain(_param_mpc_indi_a_src.get(), 0, 2);
+			indi_status.acceleration_source_valid = _indi_acceleration_source_valid;
+			indi_status.feedback_valid = selected_acceleration_valid
+						     && delayed_allocated_thrust_acceleration.isAllFinite()
+						     && selected_acceleration.isAllFinite();
 			indi_status.controller_transition_active = _control.accelerationIndiTransitionActive();
 			indi_status.hover_thrust_transition_active = _indi_hover_thrust_transition_active;
 			indi_status.timestamp = hrt_absolute_time();

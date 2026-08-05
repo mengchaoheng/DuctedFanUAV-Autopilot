@@ -48,22 +48,46 @@ bool FlightTaskSineLine::activate(const trajectory_setpoint_s &last_setpoint)
 	bool ret = FlightTaskManualAltitudeSmoothVel::activate(last_setpoint);
 
 	_use_parameterized_geometry = _param_mc_orbit_source.get() == 1;
-	_radii = Vector2f{_param_mc_orbit_x_rad.get(), _param_mc_orbit_y_rad.get()};
-	_trajectory_velocity = _param_mc_orbit_vel.get();
-	_sanitizeParameters(_radii, _trajectory_velocity);
+	_trajectory_acceleration_limit = _use_parameterized_geometry
+			? math::max(_param_mc_sine_acceleration.get(), 0.f) : _param_mpc_acc_hor.get();
+
+	const float configured_x = math::constrain(fabsf(_param_mc_sine_x_amplitude.get()), 0.f, _param_mc_orbit_rad_max.get());
+	const float configured_y = math::constrain(fabsf(_param_mc_sine_y_amplitude.get()), 0.f, _param_mc_orbit_rad_max.get());
+	_radii = Vector2f{configured_x, configured_y};
+	_vertical_amplitude = math::constrain(fabsf(_param_mc_sine_z_amplitude.get()), 0.f, _param_mc_orbit_rad_max.get());
+
+	_trajectory_omega = _param_mc_sine_omega.get();
+	_use_angular_frequency = _use_parameterized_geometry;
+	if (_use_parameterized_geometry && _trajectory_acceleration_limit > FLT_EPSILON) {
+		const float second_derivative_bound = sqrtf(_radii(0) * _radii(0) + _radii(1) * _radii(1)
+									 + _vertical_amplitude * _vertical_amplitude);
+		if (second_derivative_bound > FLT_EPSILON) {
+			const float omega_limit = sqrtf(_trajectory_acceleration_limit / second_derivative_bound);
+			_trajectory_omega = math::constrain(_trajectory_omega, -omega_limit, omega_limit);
+		}
+	}
+	_hold_parameterized_origin = _use_parameterized_geometry
+			&& (fabsf(_trajectory_omega) <= FLT_EPSILON || _referenceRadius(_radii) <= FLT_EPSILON);
+	_trajectory_velocity = _use_parameterized_geometry ? _trajectory_omega * _referenceRadius(_radii) : 1.f;
+	if (!_use_parameterized_geometry) {
+		_sanitizeParameters(_radii, _trajectory_velocity);
+	}
 	_started_positive = _trajectory_velocity >= 0.f;
 	_center = _position;
 	_phase = 0.f;
 	_findClosestPhase();
 	_initial_heading = _yaw;
 	_yaw_behaviour = _param_mc_orbit_yaw_mod.get();
-	_in_approach = true;
+	_in_approach = !_hold_parameterized_origin;
 
 	_heading_smoothing.reset(PX4_ISFINITE(last_setpoint.yaw) ? last_setpoint.yaw : _yaw,
 				 PX4_ISFINITE(last_setpoint.yawspeed) ? last_setpoint.yawspeed : 0.f);
 	_slew_rate_velocity.setForcedValue(0.f);
 	_slew_rate_velocity.setSlewRate(_param_mpc_acc_hor.get());
 	_resetApproachSmoothing();
+	if (_use_parameterized_geometry && !_hold_parameterized_origin) {
+		_findClosestPhase();
+	}
 
 	ret = ret && _position.isAllFinite() && _velocity.isAllFinite() && PX4_ISFINITE(_yaw);
 	return ret;
@@ -151,6 +175,25 @@ bool FlightTaskSineLine::update()
 	bool ret = true;
 	_configurePositionSmoothing();
 
+	if (_hold_parameterized_origin) {
+		ret = ret && FlightTaskManualAltitudeSmoothVel::update();
+		_position_setpoint = _center;
+		_velocity_setpoint.setAll(0.f);
+		_acceleration_setpoint.setAll(0.f);
+		_jerk_setpoint.setAll(0.f);
+		_yaw_setpoint = _initial_heading;
+		_yawspeed_setpoint = NAN;
+		if (PX4_ISFINITE(_yaw_setpoint)) {
+			_heading_smoothing.setMaxHeadingRate(math::radians(_param_mpc_yawrauto_max.get()));
+			_heading_smoothing.setMaxHeadingAccel(math::radians(_param_mpc_yawrauto_acc.get()));
+			_heading_smoothing.update(_yaw_setpoint, _deltatime);
+			_yaw_setpoint = _heading_smoothing.getSmoothedHeading();
+			_yawspeed_setpoint = _heading_smoothing.getSmoothedHeadingRate();
+		}
+		_sendTelemetry();
+		return ret;
+	}
+
 	if (_in_approach && _isAtApproachPoint()) {
 		_in_approach = false;
 		_slew_rate_velocity.setForcedValue(0.f);
@@ -199,7 +242,7 @@ void FlightTaskSineLine::_sanitizeParameters(Vector2f &radii, float &velocity) c
 
 	velocity = math::constrain(velocity, -fabsf(_param_mpc_xy_vel_max.get()), fabsf(_param_mpc_xy_vel_max.get()));
 
-	const float maximum_velocity = sqrtf(math::max(_param_mpc_acc_hor.get(), 0.f) * _referenceRadius(radii));
+	const float maximum_velocity = sqrtf(math::max(_trajectory_acceleration_limit, 0.f) * _referenceRadius(radii));
 
 	if (fabsf(velocity) > maximum_velocity) {
 		velocity = math::signNoZero(velocity) * maximum_velocity;
@@ -208,6 +251,12 @@ void FlightTaskSineLine::_sanitizeParameters(Vector2f &radii, float &velocity) c
 
 void FlightTaskSineLine::_adjustParametersByStick()
 {
+	// Parameter/RC-triggered trajectories keep their configured geometry and
+	// speed. Stick adjustment is reserved for MAVLink-commanded trajectories.
+	if (_use_parameterized_geometry) {
+		return;
+	}
+
 	const float reference_radius = _referenceRadius(_radii);
 	float new_reference_radius = reference_radius;
 	float velocity = _trajectory_velocity;
@@ -275,7 +324,7 @@ void FlightTaskSineLine::_findClosestPhase()
 void FlightTaskSineLine::_generateApproachSetpoints()
 {
 	const Vector2f target_xy = _curvePosition(_phase);
-	const Vector3f target{target_xy(0), target_xy(1), _center(2)};
+	const Vector3f target{target_xy(0), target_xy(1), _center(2) + _curveVerticalPosition(_phase)};
 	PositionSmoothing::PositionSmoothingSetpoints out_setpoints;
 	_position_smoothing.generateSetpoints(_position, target, Vector3f{}, _deltatime, false, out_setpoints);
 
@@ -315,8 +364,8 @@ void FlightTaskSineLine::_generateTrackingSetpoints()
 	const float velocity_derivative = _deltatime > FLT_EPSILON
 					  ? (velocity - previous_velocity) / _deltatime : 0.f;
 	const float reference_radius = _referenceRadius(_radii);
-	const float phase_rate = velocity / reference_radius;
-	const float phase_acceleration = velocity_derivative / reference_radius;
+	float phase_rate = _use_angular_frequency ? _trajectory_omega : velocity / math::max(reference_radius, FLT_EPSILON);
+	const float phase_acceleration = _use_angular_frequency ? 0.f : velocity_derivative / math::max(reference_radius, FLT_EPSILON);
 	const Vector2f first_derivative = _curveFirstDerivative(_phase);
 	const Vector2f second_derivative = _curveSecondDerivative(_phase);
 	const Vector2f feedforward_velocity = first_derivative * phase_rate;
@@ -326,6 +375,10 @@ void FlightTaskSineLine::_generateTrackingSetpoints()
 	_position_setpoint.xy() = _curvePosition(_phase);
 	_velocity_setpoint.xy() = feedforward_velocity;
 	_acceleration_setpoint.xy() = feedforward_acceleration;
+	_position_setpoint(2) = _center(2) + _curveVerticalPosition(_phase);
+	_velocity_setpoint(2) = _curveVerticalFirstDerivative(_phase) * phase_rate;
+	_acceleration_setpoint(2) = _curveVerticalSecondDerivative(_phase) * phase_rate * phase_rate
+					+ _curveVerticalFirstDerivative(_phase) * phase_acceleration;
 	_jerk_setpoint(0) = NAN;
 	_jerk_setpoint(1) = NAN;
 
@@ -402,22 +455,40 @@ bool FlightTaskSineLine::_isAtApproachPoint() const
 {
 	const Vector2f target_xy = _curvePosition(_phase);
 	return (target_xy - _position.xy()).norm() < kHorizontalAcceptanceRadius
-	       && fabsf(_position(2) - _center(2)) < _param_nav_mc_alt_rad.get();
+	       && fabsf(_position(2) - (_center(2) + _curveVerticalPosition(_phase))) < _param_nav_mc_alt_rad.get();
 }
 
 Vector2f FlightTaskSineLine::_curvePosition(float phase) const
 {
-	return _center.xy() + Vector2f{_radii(0) * cosf(phase), _radii(1) * sinf(phase)};
+	const auto curve = motion_planning::HarmonicTrajectory2D::ellipse(_radii(0), _radii(1));
+	return _center.xy() + curve.evaluate(phase, 0);
 }
 
 Vector2f FlightTaskSineLine::_curveFirstDerivative(float phase) const
 {
-	return {-_radii(0) * sinf(phase), _radii(1) * cosf(phase)};
+	const auto curve = motion_planning::HarmonicTrajectory2D::ellipse(_radii(0), _radii(1));
+	return curve.evaluate(phase, 1);
 }
 
 Vector2f FlightTaskSineLine::_curveSecondDerivative(float phase) const
 {
-	return {-_radii(0) * cosf(phase), -_radii(1) * sinf(phase)};
+	const auto curve = motion_planning::HarmonicTrajectory2D::ellipse(_radii(0), _radii(1));
+	return curve.evaluate(phase, 2);
+}
+
+float FlightTaskSineLine::_curveVerticalPosition(float phase) const
+{
+	return _vertical_amplitude * sinf(phase);
+}
+
+float FlightTaskSineLine::_curveVerticalFirstDerivative(float phase) const
+{
+	return _vertical_amplitude * cosf(phase);
+}
+
+float FlightTaskSineLine::_curveVerticalSecondDerivative(float phase) const
+{
+	return -_vertical_amplitude * sinf(phase);
 }
 
 void FlightTaskSineLine::_ekfResetHandlerPositionXY(const Vector2f &delta_xy)

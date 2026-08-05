@@ -83,6 +83,9 @@ bool FlightTaskOrbit::applyCommandParameters(const vehicle_command_s &command, b
 		_sanitizeParams(new_radius, new_velocity);
 		_orbit_radius = new_radius;
 		_orbit_velocity = new_velocity;
+		_radii = {new_radius, new_radius};
+		_vertical_amplitude = 0.f;
+		_use_angular_frequency = false;
 
 	} else {
 		mavlink_log_critical(&_mavlink_log_pub, "Orbit radius limit exceeded\t");
@@ -166,12 +169,12 @@ void FlightTaskOrbit::_sanitizeParams(float &radius, float &velocity) const
 	radius = math::constrain(radius, _radius_min, _param_mc_orbit_rad_max.get());
 	velocity = math::constrain(velocity, -fabsf(_param_mpc_xy_vel_max.get()), fabsf(_param_mpc_xy_vel_max.get()));
 
-	bool exceeds_maximum_acceleration = (velocity * velocity) >= _acceleration_max * radius;
+	bool exceeds_maximum_acceleration = (velocity * velocity) >= _trajectory_acceleration_max * radius;
 
 	// value combination is not valid. Reduce velocity instead of
 	// radius, as small radius + low velocity is better for safety
 	if (exceeds_maximum_acceleration) {
-		velocity = sign(velocity) * sqrtf(_acceleration_max * radius);
+		velocity = sign(velocity) * sqrtf(_trajectory_acceleration_max * radius);
 	}
 }
 
@@ -180,12 +183,39 @@ bool FlightTaskOrbit::activate(const trajectory_setpoint_s &last_setpoint)
 	bool ret = FlightTaskManualAltitudeSmoothVel::activate(last_setpoint);
 	_currently_orbiting = false;
 	_use_parameterized_geometry = _param_mc_orbit_source.get() == 1;
-	_orbit_radius = _use_parameterized_geometry
-			? math::constrain(_param_mc_orbit_rad.get(), _radius_min, _param_mc_orbit_rad_max.get())
-			: _radius_min;
-	// Initial tangential speed. A finite MAV_CMD_DO_ORBIT param2 can override it,
-	// and the pilot can continue adjusting it with the sticks while orbiting.
-	_orbit_velocity = _param_mc_orbit_vel.get();
+	_trajectory_acceleration_max = _use_parameterized_geometry
+			? math::max(_param_mc_circle_acceleration.get(), 0.f)
+			: _default_acceleration_max;
+
+	_radii = {_param_mc_circle_x_amplitude.get(), _param_mc_circle_y_amplitude.get()};
+	_radii(0) = math::constrain(fabsf(_radii(0)), 0.f, _param_mc_orbit_rad_max.get());
+	_radii(1) = math::constrain(fabsf(_radii(1)), 0.f, _param_mc_orbit_rad_max.get());
+	_vertical_amplitude = math::constrain(fabsf(_param_mc_circle_z_amplitude.get()), 0.f,
+						_param_mc_orbit_rad_max.get());
+	_orbit_radius = math::max(_radii(0), _radii(1));
+	_orbit_radius = _use_parameterized_geometry ? _orbit_radius : _radius_min;
+	_use_angular_frequency = _use_parameterized_geometry;
+	_trajectory_omega = _param_mc_circle_omega.get();
+	if (_use_parameterized_geometry && _trajectory_acceleration_max > FLT_EPSILON) {
+		const float second_derivative_bound = sqrtf(_radii(0) * _radii(0) + _radii(1) * _radii(1)
+									 + _vertical_amplitude * _vertical_amplitude);
+		if (second_derivative_bound > FLT_EPSILON) {
+			const float omega_limit = sqrtf(_trajectory_acceleration_max / second_derivative_bound);
+			_trajectory_omega = math::constrain(_trajectory_omega, -omega_limit, omega_limit);
+		}
+	}
+	_hold_parameterized_origin = _use_parameterized_geometry
+			&& (fabsf(_trajectory_omega) <= FLT_EPSILON || _orbit_radius <= FLT_EPSILON);
+	// Command mode keeps the original MAVLink radius/speed interface. It does
+	// not use the parameterized axes until a command supplies its geometry.
+	_orbit_velocity = _use_parameterized_geometry ? _trajectory_omega * _orbit_radius : 0.f;
+	if (!_use_parameterized_geometry) {
+		_radii = {_radius_min, _radius_min};
+		_vertical_amplitude = 0.f;
+	}
+	if (!_use_parameterized_geometry && _orbit_radius > FLT_EPSILON) {
+		_sanitizeParams(_orbit_radius, _orbit_velocity);
+	}
 	_started_clockwise = _orbit_velocity >= 0.f;
 	_center = _position;
 	_orbit_phase = 0.f;
@@ -202,6 +232,9 @@ bool FlightTaskOrbit::activate(const trajectory_setpoint_s &last_setpoint)
 	}
 
 	_initial_heading = _yaw;
+	if (_use_parameterized_geometry && !_hold_parameterized_origin) {
+		_setOrbitPhaseFromPosition();
+	}
 	_heading_smoothing.reset(PX4_ISFINITE(last_setpoint.yaw) ? last_setpoint.yaw : _yaw,
 				 PX4_ISFINITE(last_setpoint.yawspeed) ? last_setpoint.yawspeed : 0.f);
 	_slew_rate_velocity.setSlewRate(_param_mpc_acc_hor.get());
@@ -225,7 +258,7 @@ bool FlightTaskOrbit::activate(const trajectory_setpoint_s &last_setpoint)
 	}
 
 	_position_smoothing.reset(accel_prev, vel_prev, pos_prev);
-	_in_circle_approach = true;
+	_in_circle_approach = !_hold_parameterized_origin;
 
 	return ret;
 }
@@ -236,6 +269,25 @@ bool FlightTaskOrbit::update()
 	_currently_orbiting = true;
 	_updateTrajectoryBoundaries();
 	_adjustParametersByStick();
+
+	if (_hold_parameterized_origin) {
+		// A zero configured phase rate is an explicit stationary trajectory. Do
+		// not enter the legacy altitude/velocity mode or advance an old phase.
+		ret = ret && FlightTaskManualAltitudeSmoothVel::update();
+		_position_setpoint = _center;
+		_velocity_setpoint.setAll(0.f);
+		_acceleration_setpoint.setAll(0.f);
+		_jerk_setpoint.setAll(0.f);
+		_yaw_setpoint = _initial_heading;
+		_yawspeed_setpoint = NAN;
+		_heading_smoothing.setMaxHeadingRate(math::radians(_param_mpc_yawrauto_max.get()));
+		_heading_smoothing.setMaxHeadingAccel(math::radians(_param_mpc_yawrauto_acc.get()));
+		_heading_smoothing.update(_yaw_setpoint, _deltatime);
+		_yaw_setpoint = _heading_smoothing.getSmoothedHeading();
+		_yawspeed_setpoint = _heading_smoothing.getSmoothedHeadingRate();
+		sendTelemetry();
+		return ret;
+	}
 
 	if (_is_position_on_circle()) {
 		if (_in_circle_approach) {
@@ -304,6 +356,14 @@ void FlightTaskOrbit::_updateTrajectoryBoundaries()
 
 bool FlightTaskOrbit::_is_position_on_circle() const
 {
+	if (_use_parameterized_geometry) {
+		const motion_planning::HarmonicTrajectory3D curve{
+			{_radii(0), _radii(1), _vertical_amplitude},
+			{1.f, 1.f, 1.f},
+			{M_PI_2_F, 0.f, 0.f}};
+		return (_center + curve.evaluate(_orbit_phase, 0) - _position).norm() < _horizontal_acceptance_radius;
+	}
+
 	return (fabsf(Vector2f(_position - _center).length() - _orbit_radius) < _horizontal_acceptance_radius)
 	       && fabsf(_position(2) - _center(2)) < _param_nav_mc_alt_rad.get();
 
@@ -311,6 +371,12 @@ bool FlightTaskOrbit::_is_position_on_circle() const
 
 void FlightTaskOrbit::_adjustParametersByStick()
 {
+	// Parameter/RC-triggered Orbit uses latched geometry and speed. Only a
+	// MAVLink DO_ORBIT command is allowed to use the stick-based adjustments.
+	if (_use_parameterized_geometry) {
+		return;
+	}
+
 	float radius = _orbit_radius;
 	float velocity = _orbit_velocity;
 
@@ -338,6 +404,22 @@ void FlightTaskOrbit::_adjustParametersByStick()
 
 void FlightTaskOrbit::_generate_circle_approach_setpoints()
 {
+	if (_use_parameterized_geometry) {
+		const motion_planning::HarmonicTrajectory3D curve{
+			{_radii(0), _radii(1), _vertical_amplitude},
+			{1.f, 1.f, 1.f},
+			{M_PI_2_F, 0.f, 0.f}};
+		const Vector3f target = _center + curve.evaluate(_orbit_phase, 0);
+		PositionSmoothing::PositionSmoothingSetpoints out_setpoints;
+		_position_smoothing.generateSetpoints(_position, target, Vector3f{}, _deltatime, false, out_setpoints);
+		_position_setpoint = out_setpoints.position;
+		_velocity_setpoint = out_setpoints.velocity;
+		_acceleration_setpoint = out_setpoints.acceleration;
+		_jerk_setpoint = out_setpoints.jerk;
+		_yaw_setpoint = atan2f(target(1) - _position(1), target(0) - _position(0));
+		return;
+	}
+
 	const Vector2f center2d = Vector2f(_center);
 	const Vector2f position_to_center_xy = center2d - Vector2f(_position);
 	const Vector2f center_to_position_xy = -position_to_center_xy;
@@ -375,24 +457,41 @@ void FlightTaskOrbit::_generate_circle_setpoints()
 	 * Velocity and acceleration remain the exact kinematic feed-forward terms;
 	 * path-error feedback is therefore not duplicated in this flight task.
 	 */
-	const Vector2f radial_direction{cosf(_orbit_phase), sinf(_orbit_phase)};
-	const Vector2f tangent_direction{-radial_direction(1), radial_direction(0)};
+	const motion_planning::HarmonicTrajectory3D circle{
+		{_radii(0), _radii(1), _vertical_amplitude},
+		{1.f, 1.f, 1.f},
+		{M_PI_2_F, 0.f, 0.f}};
+	const Vector3f position_offset = circle.evaluate(_orbit_phase, 0);
+	const Vector3f phase_derivative = circle.evaluate(_orbit_phase, 1);
+	const Vector3f phase_second_derivative = circle.evaluate(_orbit_phase, 2);
 
 	// Slew rate reduces tangential jerk when entering an orbit or changing speed.
 	const float previous_velocity = _slew_rate_velocity.getState();
-	const float tangential_velocity = _slew_rate_velocity.update(_orbit_velocity, _deltatime);
+	const float tangential_velocity = _use_angular_frequency
+			? _orbit_velocity
+			: _slew_rate_velocity.update(_orbit_velocity, _deltatime);
 	const float tangential_acceleration = _deltatime > FLT_EPSILON
 					      ? (tangential_velocity - previous_velocity) / _deltatime : 0.f;
 
-	_position_setpoint.xy() = _center.xy() + radial_direction * _orbit_radius;
-	_velocity_setpoint.xy() = tangent_direction * tangential_velocity;
-	_acceleration_setpoint.xy() = -radial_direction * tangential_velocity * tangential_velocity / _orbit_radius
-				      + tangent_direction * tangential_acceleration;
-	_orbit_phase = wrap_2pi(_orbit_phase + tangential_velocity / _orbit_radius * _deltatime);
+	float phase_rate = _use_angular_frequency ? _trajectory_omega
+							: tangential_velocity / math::max(_orbit_radius, FLT_EPSILON);
+	const float phase_acceleration = _use_angular_frequency ? 0.f
+							 : tangential_acceleration / math::max(_orbit_radius, FLT_EPSILON);
+	_position_setpoint = _center + position_offset;
+	_velocity_setpoint = phase_derivative * phase_rate;
+	_acceleration_setpoint = phase_second_derivative * phase_rate * phase_rate + phase_derivative * phase_acceleration;
+	_orbit_phase = wrap_2pi(_orbit_phase + phase_rate * _deltatime);
 }
 
 void FlightTaskOrbit::_setOrbitPhaseFromPosition()
 {
+	if (_use_parameterized_geometry && (_radii(0) > FLT_EPSILON || _radii(1) > FLT_EPSILON)) {
+		const Vector2f delta = (_position - _center).xy();
+		_orbit_phase = wrap_2pi(atan2f(delta(1) / math::max(_radii(1), FLT_EPSILON),
+						 delta(0) / math::max(_radii(0), FLT_EPSILON)));
+		return;
+	}
+
 	const Vector2f center_to_position = (_position - _center).xy();
 
 	if (center_to_position.norm() > FLT_EPSILON) {

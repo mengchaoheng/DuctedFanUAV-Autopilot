@@ -64,7 +64,10 @@ param set-default RTL_RETURN_ALT 2.5
 param set-default RTL_DESCEND_ALT 2.5
 
 param set-default MC_F8_ACC 10
-param set-default MC_F8_VEL 2
+param set-default MC_F8_AX 5
+param set-default MC_F8_AY 2.5
+param set-default MC_F8_AZ 0
+param set-default MC_F8_OMEGA 0.4
 param set-default MC_ORBIT_YAW_MOD 3
 
 param set-default CA_ROTOR_COUNT 1

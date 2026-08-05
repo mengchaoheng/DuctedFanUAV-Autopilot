@@ -34,7 +34,10 @@
 /**
  * @file FlightTaskOrbit.hpp
  *
- * Flight task for orbiting in a circle around a target position
+ * Flight task for orbiting in a circle around a target position. The circle
+ * is the first harmonic specialization of HarmonicTrajectory2D. The
+ * parameter-triggered reference has independent MC_CIRC_AX/AY/AZ axes and
+ * a signed MC_CIRC_OMEGA phase rate.
  *
  * @author Matthias Grob <maetugr@gmail.com>
  */
@@ -46,6 +49,7 @@
 #include <uORB/topics/orbit_status.h>
 #include <lib/slew_rate/SlewRateYaw.hpp>
 #include <lib/motion_planning/HeadingSmoothing.hpp>
+#include <lib/motion_planning/HarmonicTrajectory2D.hpp>
 #include <lib/motion_planning/PositionSmoothing.hpp>
 #include <lib/motion_planning/VelocitySmoothing.hpp>
 #include <lib/slew_rate/SlewRate.hpp>
@@ -72,7 +76,7 @@ protected:
 private:
 	/* TODO: Should be controlled by params */
 	static constexpr float _radius_min = 1.f;
-	static constexpr float _acceleration_max = 2.f;
+	static constexpr float _default_acceleration_max = 2.f;
 	static constexpr float _horizontal_acceptance_radius = 2.f;
 
 	/**
@@ -121,7 +125,11 @@ private:
 
 	float _orbit_velocity{};
 	float _orbit_radius{};
+	matrix::Vector2f _radii{};
+	float _vertical_amplitude{};
+	float _trajectory_omega{};
 	float _orbit_phase{};
+	float _trajectory_acceleration_max{_default_acceleration_max};
 	matrix::Vector3f _center; /**< local frame coordinates of the center point */
 
 	bool _in_circle_approach = false;
@@ -132,6 +140,8 @@ private:
 	bool _started_clockwise{true};
 	bool _currently_orbiting{false};
 	bool _use_parameterized_geometry{false};
+	bool _hold_parameterized_origin{false};
+	bool _use_angular_frequency{false};
 	float _initial_heading = 0.f; /**< the heading of the drone when the orbit command was issued */
 	HeadingSmoothing _heading_smoothing;
 	SlewRate<float> _slew_rate_velocity;
@@ -140,10 +150,13 @@ private:
 	uORB::PublicationMulti<orbit_status_s> _orbit_status_pub{ORB_ID(orbit_status)};
 
 	DEFINE_PARAMETERS(
+		(ParamFloat<px4::params::MC_CIRC_AX>) _param_mc_circle_x_amplitude,
+		(ParamFloat<px4::params::MC_CIRC_AY>) _param_mc_circle_y_amplitude,
+		(ParamFloat<px4::params::MC_CIRC_AZ>) _param_mc_circle_z_amplitude,
+		(ParamFloat<px4::params::MC_CIRC_OMEGA>) _param_mc_circle_omega,
+		(ParamFloat<px4::params::MC_CIRC_ACC>) _param_mc_circle_acceleration,
 		(ParamFloat<px4::params::MC_ORBIT_RAD_MAX>) _param_mc_orbit_rad_max,
-		(ParamFloat<px4::params::MC_ORBIT_RAD>) _param_mc_orbit_rad,
 		(ParamInt<px4::params::MC_ORBIT_SRC>) _param_mc_orbit_source,
-		(ParamFloat<px4::params::MC_ORBIT_VEL>) _param_mc_orbit_vel,
 		(ParamInt<px4::params::MC_ORBIT_YAW_MOD>) _param_mc_orbit_yaw_mod,
 		(ParamFloat<px4::params::MPC_XY_CRUISE>) _param_mpc_xy_cruise, /**< cruise speed for circle approach */
 		(ParamFloat<px4::params::MPC_YAWRAUTO_MAX>) _param_mpc_yawrauto_max,

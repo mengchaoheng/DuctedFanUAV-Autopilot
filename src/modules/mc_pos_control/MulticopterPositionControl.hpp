@@ -67,6 +67,7 @@
 #include <uORB/topics/rc_channels.h>
 #include <uORB/topics/trajectory_setpoint.h>
 #include <uORB/topics/vehicle_attitude.h>
+#include <uORB/topics/vehicle_acceleration.h>
 #include <uORB/topics/vehicle_attitude_setpoint.h>
 #include <uORB/topics/vehicle_constraints.h>
 #include <uORB/topics/vehicle_control_mode.h>
@@ -117,6 +118,7 @@ private:
 	uORB::Subscription _rc_channels_sub{ORB_ID(rc_channels)};
 	uORB::Subscription _trajectory_setpoint_sub{ORB_ID(trajectory_setpoint)};
 	uORB::Subscription _vehicle_attitude_sub{ORB_ID(vehicle_attitude)};
+	uORB::Subscription _vehicle_acceleration_sub{ORB_ID(vehicle_acceleration)};
 	uORB::Subscription _vehicle_constraints_sub{ORB_ID(vehicle_constraints)};
 	uORB::Subscription _vehicle_control_mode_sub{ORB_ID(vehicle_control_mode)};
 	uORB::Subscription _vehicle_land_detected_sub{ORB_ID(vehicle_land_detected)};
@@ -150,7 +152,14 @@ private:
 	matrix::Vector3f _indi_undelayed_thrust_acceleration{NAN, NAN, NAN};
 	rc_channels_s _rc_channels{};
 	vehicle_attitude_s _vehicle_attitude{};
+	vehicle_acceleration_s _vehicle_acceleration{};
 	vehicle_control_mode_s _vehicle_control_mode{};
+	matrix::Vector3f _indi_acceleration_velocity_derivative{NAN, NAN, NAN};
+	matrix::Vector3f _indi_acceleration_ekf{NAN, NAN, NAN};
+	matrix::Vector3f _indi_acceleration_imu{NAN, NAN, NAN};
+	uint8_t _indi_acceleration_source_valid{0};
+	bool _indi_acceleration_ekf_filter_initialized{false};
+	bool _indi_acceleration_imu_filter_initialized{false};
 
 	vehicle_constraints_s _vehicle_constraints {
 		.timestamp = 0,
@@ -228,6 +237,8 @@ private:
 
 		// Multicopter acceleration INDI
 		(ParamInt<px4::params::MPC_INDI_ACC_EN>)   _param_mpc_indi_acc_en,
+		(ParamInt<px4::params::MPC_INDI_A_SRC>)    _param_mpc_indi_a_src,
+		(ParamFloat<px4::params::MPC_INDI_A_LP>)   _param_mpc_indi_a_lp,
 		(ParamFloat<px4::params::MPC_MASS>)        _param_mpc_mass,
 		(ParamFloat<px4::params::MPC_INDI_F_DLY>)  _param_mpc_indi_f_dly,
 		(ParamFloat<px4::params::MPC_INDI_TR_T>)    _param_mpc_indi_tr_t,
@@ -249,6 +260,8 @@ private:
 	math::LowPassFilter2p<float> _vel_deriv_z_lp_filter{};
 	matrix::Vector2f _vel_deriv_xy_filtered{};
 	float _vel_deriv_z_filtered{0.f};
+	math::LowPassFilter2p<matrix::Vector3f> _indi_acceleration_ekf_lp_filter{};
+	math::LowPassFilter2p<matrix::Vector3f> _indi_acceleration_imu_lp_filter{};
 
 	GotoControl _goto_control; ///< class for handling smooth goto position setpoints
 	PositionControl _control; ///< class for core PID position control

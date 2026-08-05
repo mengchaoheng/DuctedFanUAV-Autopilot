@@ -36,6 +36,7 @@
 #include "FlightTaskManualAltitudeSmoothVel.hpp"
 
 #include <lib/motion_planning/HeadingSmoothing.hpp>
+#include <lib/motion_planning/HarmonicTrajectory2D.hpp>
 #include <lib/motion_planning/PositionSmoothing.hpp>
 #include <lib/slew_rate/SlewRate.hpp>
 #include <uORB/PublicationMulti.hpp>
@@ -49,9 +50,9 @@
  *   q(theta) = [A sin(theta), B sin(2 theta)]^T
  *   p(theta) = center + R(psi) q(theta)
  *
- * where A is the MC_ORBIT_RAD major radius, B = A * MC_F8_RAT, psi is the
- * entry heading plus MC_F8_HDG, and theta is advanced according to the
- * requested ground speed.
+ * where A/B are MC_F8_AX/MC_F8_AY, psi is MC_F8_HDG in the local NED frame,
+ * and MC_F8_AZ is the vertical sin(2 theta) amplitude. MC_F8_OMEGA is the
+ * signed phase rate; zero explicitly holds the trajectory origin.
  * The exact first and second derivatives used for velocity and acceleration
  * feed-forward are documented next to _generateTrackingSetpoints().
  *
@@ -87,7 +88,7 @@ private:
 	void _generateTrackingSetpoints();
 	void _generateYawSetpoint(const matrix::Vector2f &tangent_velocity);
 	void _resetApproachSmoothing();
-	void _setTrajectoryHeadingFromYaw();
+	void _setTrajectoryHeadingFromParameter();
 	void _sanitizeParameters(float &radius, float &velocity) const;
 	bool _isAtApproachPoint() const;
 	bool _sendTelemetry();
@@ -95,6 +96,9 @@ private:
 	matrix::Vector2f _curvePosition(float phase) const;
 	matrix::Vector2f _curveFirstDerivative(float phase) const;
 	matrix::Vector2f _curveSecondDerivative(float phase) const;
+	float _curveVerticalPosition(float phase) const;
+	float _curveVerticalFirstDerivative(float phase) const;
+	float _curveVerticalSecondDerivative(float phase) const;
 	matrix::Vector2f _rotateToLocalFrame(const matrix::Vector2f &vector) const;
 
 	void _ekfResetHandlerPositionXY(const matrix::Vector2f &delta_xy) override;
@@ -104,30 +108,34 @@ private:
 	matrix::Vector3f _center{};
 	float _major_radius{5.f};
 	float _minor_radius{2.5f};
-	float _minor_ratio{0.5f};
-	float _heading_offset{0.f};
-	float _trajectory_velocity{1.f};
+	float _vertical_amplitude{0.f};
+	float _trajectory_velocity{1.f}; // MAVLink command-mode tangential speed
+	float _trajectory_omega{0.f};
 	float _phase{0.f};
 	float _trajectory_heading{0.f};
 	float _initial_heading{0.f};
 	int _yaw_behaviour{orbit_status_s::ORBIT_YAW_BEHAVIOUR_HOLD_FRONT_TANGENT_TO_CIRCLE};
 	bool _started_clockwise{true};
 	bool _use_parameterized_geometry{false};
+	bool _use_angular_frequency{false};
+	bool _hold_parameterized_origin{false};
 
 	bool _in_approach{true};
 	PositionSmoothing _position_smoothing;
 	SlewRate<float> _slew_rate_velocity;
+	SlewRate<float> _slew_rate_phase;
 	HeadingSmoothing _heading_smoothing;
 
 	uORB::PublicationMulti<orbit_status_s> _orbit_status_pub{ORB_ID(orbit_status)};
 
 	DEFINE_PARAMETERS(
-		(ParamFloat<px4::params::MC_F8_VEL>) _param_mc_f8_vel,
-		(ParamFloat<px4::params::MC_F8_RAT>) _param_mc_f8_ratio,
+		(ParamFloat<px4::params::MC_F8_AX>) _param_mc_f8_x_amplitude,
+		(ParamFloat<px4::params::MC_F8_AY>) _param_mc_f8_y_amplitude,
+		(ParamFloat<px4::params::MC_F8_AZ>) _param_mc_f8_z_amplitude,
+		(ParamFloat<px4::params::MC_F8_OMEGA>) _param_mc_f8_omega,
 		(ParamFloat<px4::params::MC_F8_HDG>) _param_mc_f8_heading,
 		(ParamFloat<px4::params::MC_F8_ACC>) _param_mc_f8_acceleration,
 		(ParamFloat<px4::params::MC_ORBIT_RAD_MAX>) _param_mc_orbit_rad_max,
-		(ParamFloat<px4::params::MC_ORBIT_RAD>) _param_mc_orbit_rad,
 		(ParamInt<px4::params::MC_ORBIT_SRC>) _param_mc_orbit_source,
 		(ParamInt<px4::params::MC_ORBIT_YAW_MOD>) _param_mc_orbit_yaw_mod,
 		(ParamFloat<px4::params::MPC_XY_CRUISE>) _param_mpc_xy_cruise,

@@ -34,6 +34,7 @@
 px4_add_library(FlightTaskSineLine
 	FlightTaskSineLine.cpp
 )
+set_property(GLOBAL APPEND PROPERTY PX4_MODULE_CONFIG_FILES ${CMAKE_CURRENT_SOURCE_DIR}/flight_task_sine_line_params.yaml)
 
 target_link_libraries(FlightTaskSineLine PUBLIC FlightTaskManualAltitudeSmoothVel SlewRate)
 target_include_directories(FlightTaskSineLine PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
