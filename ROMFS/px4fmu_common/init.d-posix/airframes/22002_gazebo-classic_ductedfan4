@@ -50,8 +50,6 @@ param set-default MPC_YAWRAUTO_MAX 90
 # 1. Rate INDI: angular acceleration feedback alpha_0
 param set-default IMU_GYRO_CUTOFF 110
 param set-default IMU_DGYRO_CUTOFF 10
-param set-default IMU_GYRO_RATEMAX 800
-param set-default IMU_GYRO_NF0_FRQ 35
 
 # Rate INDI: allocated physical torque feedback tau_0
 param set-default CA_TORQ_CUTOFF 8

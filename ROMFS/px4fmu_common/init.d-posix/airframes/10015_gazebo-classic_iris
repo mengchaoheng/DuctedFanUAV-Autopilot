@@ -22,10 +22,6 @@ param set-default CA_AIRFRAME 0
 #
 # Gazebo writes these vehicle properties directly on base_link. The IMU adds no
 # inertial link; the GPS and four rotor-link inertias are kept negligible.
-param set-default MPC_MASS 0.75
-param set-default MC_J_X 0.0025
-param set-default MC_J_Y 0.0021
-param set-default MC_J_Z 0.0043
 
 param set-default MC_INDI_P_P 20.0
 param set-default MC_INDI_R_P 20.0
@@ -48,6 +44,47 @@ param set-default MC_PITCHRATE_D 0.0
 param set-default MC_YAWRATE_P 0.047
 param set-default MC_YAWRATE_I 0.096
 param set-default MC_YAWRATE_D 0.0
+param set-default MC_YAW_TQ_CUTOFF 0
+
+param set-default MC_ATT_ERR_MODE 3
+param set-default MC_YAW_WEIGHT 1 # K_YAW=MC_YAW_P/MC_YAW_WEIGHT
+param set-default MPC_YAWRAUTO_ACC 360
+param set-default MPC_YAWRAUTO_MAX 180
+
+# 1. Rate INDI: angular acceleration feedback alpha_0
+param set-default IMU_GYRO_CUTOFF 125
+param set-default IMU_DGYRO_CUTOFF 10
+
+# Rate INDI: allocated physical torque feedback tau_0
+param set-default CA_TORQ_CUTOFF 8
+
+# Rate INDI: inertia model
+param set-default MC_J_X 0.0025
+param set-default MC_J_Y 0.0021
+param set-default MC_J_Z 0.0043
+
+# 2. Acc INDI: selected acceleration source
+param set-default MPC_INDI_A_SRC 1
+
+# SRC 0: velocity derivative
+param set-default MPC_VEL_LP 0
+param set-default MPC_VELD_LP 8
+param set-default MPC_VEL_NF_FRQ 0
+param set-default MPC_VEL_NF_BW 20
+
+# SRC 1 and SRC 2: direct acceleration candidates
+param set-default MPC_INDI_A_LP 8
+
+# SRC 2 upstream vehicle_acceleration filter
+param set-default IMU_ACCEL_CUTOFF 30
+
+# Acc INDI: physical force feedback F_0
+param set-default CA_FORCE_CUTOFF 8
+param set-default MPC_INDI_F_DLY 0.03
+
+# Acc INDI: mass/force model
+param set-default MPC_MASS 0.75
+
 
 param set-default THR_MDL_FAC 1.0
 # 0.75 kg * 9.8066 m/s^2 / (4 * 8.5 N)
