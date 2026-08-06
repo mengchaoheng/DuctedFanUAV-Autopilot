@@ -40,21 +40,47 @@ param set-default MC_YAWRATE_P 0.4
 param set-default MC_YAWRATE_I 0.3
 param set-default MC_YAWRATE_D 0
 param set-default MC_YAWRATE_FF 0
+param set-default MC_YAW_TQ_CUTOFF 0
 
+param set-default MC_ATT_ERR_MODE 3
+param set-default MC_YAW_WEIGHT 1 # K_YAW=MC_YAW_P/MC_YAW_WEIGHT
 param set-default MPC_YAWRAUTO_ACC 180
 param set-default MPC_YAWRAUTO_MAX 90
 
-param set-default CA_FORCE_CUTOFF 6
-param set-default MPC_INDI_F_DLY 0.05
-param set-default CA_TORQ_CUTOFF 8
+# 1. Rate INDI: angular acceleration feedback alpha_0
+param set-default IMU_GYRO_CUTOFF 110
 param set-default IMU_DGYRO_CUTOFF 10
-param set-default MPC_MASS 1.56
+
+# Rate INDI: allocated physical torque feedback tau_0
+param set-default CA_TORQ_CUTOFF 8
+
+# Rate INDI: inertia model
 param set-default MC_J_X 0.01149
 param set-default MC_J_Y 0.01153
 param set-default MC_J_Z 0.00487
 
-param set-default MC_ATT_ERR_MODE 3
-param set-default MC_YAW_WEIGHT 1 # K_YAW=MC_YAW_P/MC_YAW_WEIGHT
+# 2. Acc INDI: selected acceleration source
+param set-default MPC_INDI_A_SRC 1
+
+# SRC 0: velocity derivative
+param set-default MPC_VEL_LP 0
+param set-default MPC_VELD_LP 5
+param set-default MPC_VEL_NF_FRQ 0
+param set-default MPC_VEL_NF_BW 20
+
+# SRC 1 and SRC 2: direct acceleration candidates
+param set-default MPC_INDI_A_LP 10
+
+# SRC 2 upstream vehicle_acceleration filter
+param set-default IMU_ACCEL_CUTOFF 30
+
+# Acc INDI: physical force feedback F_0
+param set-default CA_FORCE_CUTOFF 6
+param set-default MPC_INDI_F_DLY 0.05
+
+# Acc INDI: mass/force model
+param set-default MPC_MASS 1.56
+
 
 # The 1.56 kg model hovers at motor signal x=0.7146. With the quadratic
 # thrust model MPC_THR_HOVER=x^2 and Fmax=mass*g/MPC_THR_HOVER.
