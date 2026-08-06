@@ -50,6 +50,8 @@ param set-default MPC_YAWRAUTO_MAX 90
 # 1. Rate INDI: angular acceleration feedback alpha_0
 param set-default IMU_GYRO_CUTOFF 110
 param set-default IMU_DGYRO_CUTOFF 10
+param set-default IMU_GYRO_RATEMAX 800
+param set-default IMU_GYRO_NF0_FRQ 35
 
 # Rate INDI: allocated physical torque feedback tau_0
 param set-default CA_TORQ_CUTOFF 8
@@ -84,7 +86,7 @@ param set-default MPC_MASS 1.56
 
 # The 1.56 kg model hovers at motor signal x=0.7146. With the quadratic
 # thrust model MPC_THR_HOVER=x^2 and Fmax=mass*g/MPC_THR_HOVER.
-param set-default MPC_THR_HOVER 0.510653
+param set-default MPC_THR_HOVER 0.49
 param set-default THR_MDL_FAC 1
 param set-default RTL_RETURN_ALT 2.5
 param set-default RTL_DESCEND_ALT 2.5
@@ -103,7 +105,7 @@ param set-default CA_ROTOR0_AZ -1
 param set-default CA_ROTOR0_PX 0
 param set-default CA_ROTOR0_PY 0
 param set-default CA_ROTOR0_PZ 0.05
-param set-default CA_ROTOR0_CT 29.9584
+param set-default CA_ROTOR0_CT 30
 param set-default CA_ROTOR0_KM 0
 
 param set-default CA_SV_CS_COUNT 4

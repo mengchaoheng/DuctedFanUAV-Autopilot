@@ -38,9 +38,12 @@ param set-default MC_YAWRATE_P 0.2
 param set-default MC_YAWRATE_I 0.1
 param set-default MC_YAWRATE_D 0
 param set-default MC_YAWRATE_FF 0
+param set-default MC_YAW_TQ_CUTOFF 0
 
 param set-default MC_ATT_ERR_MODE 3
-param set-default MC_YAW_WEIGHT 1
+param set-default MC_YAW_WEIGHT 1 # K_YAW=MC_YAW_P/MC_YAW_WEIGHT
+param set-default MPC_YAWRAUTO_ACC 180
+param set-default MPC_YAWRAUTO_MAX 90
 
 param set-default MPC_VEL_MANUAL 6
 # param set-default MPC_XY_CRUISE 5
@@ -55,29 +58,76 @@ param set-default MPC_XY_VEL_MAX 8
 # param set-default MPC_Z_VEL_MAX_UP 3
 # param set-default MPC_Z_VEL_P_ACC 4
 
-# INDI
-param set-default CA_FORCE_CUTOFF 5
-param set-default MPC_INDI_F_DLY 0.05
-param set-default CA_TORQ_CUTOFF 8
-param set-default IMU_DGYRO_CUTOFF 10
-param set-default IMU_GYRO_CUTOFF 110
+# 1. Rate INDI: angular acceleration feedback alpha_0
 param set-default IMU_GYRO_RATEMAX 800
+param set-default IMU_GYRO_CUTOFF 110
+param set-default IMU_DGYRO_CUTOFF 10
 param set-default IMU_GYRO_NF0_FRQ 35
+param set-default IMU_GYRO_NF0_BW 10
+param set-default IMU_GYRO_NF1_FRQ 50
+param set-default IMU_GYRO_NF1_BW 10
 
-param set-default MPC_MASS 1.56
+# Rate INDI: allocated physical torque feedback tau_0
+param set-default CA_TORQ_CUTOFF 8
+
+# Rate INDI: inertia model
 param set-default MC_J_X 0.01149
 param set-default MC_J_Y 0.01153
 param set-default MC_J_Z 0.00487
+
+
+# 2. Acc INDI: selected acceleration source
+param set-default MPC_INDI_A_SRC 1
+
+# SRC 0: velocity derivative
+param set-default MPC_VEL_LP 0
+param set-default MPC_VELD_LP 5
+param set-default MPC_VEL_NF_FRQ 0
+param set-default MPC_VEL_NF_BW 20
+
+# SRC 1 and SRC 2: direct acceleration candidates
+param set-default MPC_INDI_A_LP 10
+
+# SRC 2 upstream vehicle_acceleration filter
+param set-default IMU_ACCEL_CUTOFF 30
+
+# Acc INDI: physical force feedback F_0
+param set-default CA_FORCE_CUTOFF 6
+param set-default MPC_INDI_F_DLY 0.05
+
+# Acc INDI: mass/force model
+param set-default MPC_MASS 1.56
 
 # The 1.56 kg airframe hovered at motor signal x=0.7146 with THR_MDL_FAC=0.
 # Preserve that measured signal with the quadratic thrust model:
 #   MPC_THR_HOVER = x^2 = 0.510653
 #   Fmax = mass*g/MPC_THR_HOVER = 29.9584 N
-param set-default MPC_THR_HOVER 0.510653
+param set-default MPC_THR_HOVER 0.49
 param set-default THR_MDL_FAC 1
 param set-default RTL_RETURN_ALT 2.5
 param set-default RTL_DESCEND_ALT 2.5
 param set-default NAV_ACC_RAD 2
+
+param set-default MC_ORBIT_RAD_MAX 5
+param set-default MC_ORBIT_YAW_MOD 1
+
+param set-default MC_F8_ACC 2
+param set-default MC_F8_AX 3
+param set-default MC_F8_AY 1.5
+param set-default MC_F8_AZ 0
+param set-default MC_F8_OMEGA 0.2
+
+param set-default MC_CIRC_ACC 2
+param set-default MC_CIRC_AX 3
+param set-default MC_CIRC_AY 3
+param set-default MC_CIRC_AZ 0
+param set-default MC_CIRC_OMEGA 0.2
+
+param set-default MC_SL_ACC 2
+param set-default MC_SL_AX 0
+param set-default MC_SL_AY 3
+param set-default MC_SL_AZ 0
+param set-default MC_SL_OMEGA 0.2
 
 
 # Effectiveness unit contract (control_allocation/df4.m):
@@ -94,7 +144,7 @@ param set-default CA_ROTOR0_AZ -1
 param set-default CA_ROTOR0_PX 0
 param set-default CA_ROTOR0_PY 0
 param set-default CA_ROTOR0_PZ 0.05
-param set-default CA_ROTOR0_CT 29.9584
+param set-default CA_ROTOR0_CT 30
 param set-default CA_ROTOR0_KM 0
 
 param set-default CA_SV_CS_COUNT 4
