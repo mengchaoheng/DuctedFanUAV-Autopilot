@@ -72,7 +72,7 @@ param set-default MPC_INDI_A_SRC 1
 param set-default MPC_VEL_LP 0
 param set-default MPC_VELD_LP 8
 param set-default MPC_VEL_NF_FRQ 0
-param set-default MPC_VEL_NF_BW 20
+param set-default MPC_VEL_NF_BW 5
 
 # SRC 1 and SRC 2: direct acceleration candidates
 param set-default MPC_INDI_A_LP 8
@@ -82,7 +82,7 @@ param set-default IMU_ACCEL_CUTOFF 30
 
 # Acc INDI: physical force feedback F_0
 param set-default CA_FORCE_CUTOFF 8
-param set-default MPC_INDI_F_DLY 0.03
+param set-default MPC_INDI_F_DLY 0.01
 
 # Acc INDI: mass/force model
 param set-default MPC_MASS 0.75
@@ -92,14 +92,14 @@ param set-default THR_MDL_FAC 1.0
 # 0.75 kg * 9.8066 m/s^2 / (4 * 8.5 N)
 param set-default MPC_THR_HOVER 0.2163
 
-param set-default MPC_XY_P 1.6667
-param set-default MPC_Z_P 1.6667
-param set-default MPC_XY_VEL_P_ACC 6.0
-param set-default MPC_Z_VEL_P_ACC 6.0
-param set-default MPC_XY_VEL_I_ACC 0.0
-param set-default MPC_Z_VEL_I_ACC 0.0
-param set-default MPC_XY_VEL_D_ACC 0.0
-param set-default MPC_Z_VEL_D_ACC 0.0
+param set-default MPC_XY_P 2
+param set-default MPC_Z_P 1.5
+param set-default MPC_XY_VEL_P_ACC 4.0
+param set-default MPC_Z_VEL_P_ACC 10.0
+param set-default MPC_XY_VEL_I_ACC 20.0
+param set-default MPC_Z_VEL_I_ACC 3.0
+param set-default MPC_XY_VEL_D_ACC 1.0
+param set-default MPC_Z_VEL_D_ACC 2.0
 
 param set-default MPC_XY_VEL_MAX 20.0
 param set-default MPC_VEL_MANUAL 20.0
