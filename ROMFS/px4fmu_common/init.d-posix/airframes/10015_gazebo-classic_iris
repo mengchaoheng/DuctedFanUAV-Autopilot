@@ -94,27 +94,33 @@ param set-default MPC_THR_HOVER 0.2163
 
 param set-default MPC_XY_P 2
 param set-default MPC_Z_P 1.5
-param set-default MPC_XY_VEL_P_ACC 4.0
+param set-default MPC_XY_VEL_P_ACC 3.0
 param set-default MPC_Z_VEL_P_ACC 10.0
-param set-default MPC_XY_VEL_I_ACC 20.0
+param set-default MPC_XY_VEL_I_ACC 5.0
 param set-default MPC_Z_VEL_I_ACC 3.0
-param set-default MPC_XY_VEL_D_ACC 1.0
-param set-default MPC_Z_VEL_D_ACC 2.0
+param set-default MPC_XY_VEL_D_ACC 0.5
+param set-default MPC_Z_VEL_D_ACC 0.5
 
-param set-default MPC_XY_VEL_MAX 20.0
-param set-default MPC_VEL_MANUAL 20.0
-param set-default MPC_Z_VEL_MAX_UP 8.0
-param set-default MPC_Z_VEL_MAX_DN 4.0
+param set-default MPC_ACC_DOWN_MAX 15.0
+param set-default MPC_ACC_HOR 15.0
 param set-default MPC_ACC_HOR_MAX 15.0
 param set-default MPC_ACC_UP_MAX 15.0
+param set-default MPC_HOLD_MAX_XY 3.0
+param set-default MPC_HOLD_MAX_Z 3.0
 param set-default MPC_JERK_AUTO 80.0
 param set-default MPC_JERK_MAX 500.0
-param set-default MPC_TILTMAX_AIR 89.0
 param set-default MPC_MAN_TILT_MAX 70.0
 param set-default MPC_MAN_Y_MAX 400.0
-param set-default MPC_XY_ERR_MAX 10.0
 param set-default MPC_THR_MIN 0.05
-
+param set-default MPC_TILTMAX_AIR 89.0
+param set-default MPC_VEL_MANUAL 20.0
+param set-default MPC_XY_CRUISE 20.0
+param set-default MPC_XY_ERR_MAX 10.0
+param set-default MPC_XY_VEL_MAX 20.0
+param set-default MPC_Z_VEL_MAX_DN 4.0
+param set-default MPC_Z_VEL_MAX_UP 8.0
+param set-default MPC_Z_V_AUTO_DN 4.0
+param set-default MPC_Z_V_AUTO_UP 8.0
 
 
 param set-default CA_ROTOR_COUNT 4
