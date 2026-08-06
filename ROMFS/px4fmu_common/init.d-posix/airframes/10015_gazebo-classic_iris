@@ -23,39 +23,41 @@ param set-default CA_AIRFRAME 0
 # Gazebo writes these vehicle properties directly on base_link. The IMU adds no
 # inertial link; the GPS and four rotor-link inertias are kept negligible.
 
-param set-default MC_INDI_P_P 20.0
-param set-default MC_INDI_R_P 20.0
-param set-default MC_INDI_Y_P 8.0
+param set-default MC_INDI_P_P 10.0
+param set-default MC_INDI_R_P 10.0
+param set-default MC_INDI_Y_P 10.0
 
 # Tuned for this Gazebo Iris model.
 param set-default MC_ROLL_P 6.5
 param set-default MC_PITCH_P 6.5
-param set-default MC_YAW_P 6.5
+param set-default MC_YAW_P 5
 param set-default MC_YAW_WEIGHT 1.0
 
-param set-default MC_ROLLRATE_P 0.038
-param set-default MC_ROLLRATE_I 0.042
-param set-default MC_ROLLRATE_D 0.0
+param set-default MC_ROLLRATE_P 0.0222819
+param set-default MC_ROLLRATE_I 0.0299221
+param set-default MC_ROLLRATE_D 0.000182725
+param set-default MC_ROLLRATE_MAX 1800
 
-param set-default MC_PITCHRATE_P 0.037
-param set-default MC_PITCHRATE_I 0.040
-param set-default MC_PITCHRATE_D 0.0
+param set-default MC_PITCHRATE_P 0.0188895
+param set-default MC_PITCHRATE_I 0.0249737
+param set-default MC_PITCHRATE_D 0.000131163
+param set-default MC_PITCHRATE_MAX 1800
 
-param set-default MC_YAWRATE_P 0.047
-param set-default MC_YAWRATE_I 0.096
-param set-default MC_YAWRATE_D 0.0
+param set-default MC_YAWRATE_P 0.0324820
+param set-default MC_YAWRATE_I 0.0689804
+param set-default MC_YAWRATE_D 0.00118225
+param set-default MC_YAWRATE_MAX 1800
 param set-default MC_YAW_TQ_CUTOFF 0
 
 param set-default MC_ATT_ERR_MODE 3
 param set-default MC_YAW_WEIGHT 1 # K_YAW=MC_YAW_P/MC_YAW_WEIGHT
 param set-default MPC_YAWRAUTO_ACC 360
-param set-default MPC_YAWRAUTO_MAX 180
+param set-default MPC_YAWRAUTO_MAX 360
 
-# 1. Rate INDI: angular acceleration feedback alpha_0
+# Rate-feedback defaults used by the validated PX4 gz_iris configuration.
+# MC_YAW_TQ_CUTOFF remains disabled above.
 param set-default IMU_GYRO_CUTOFF 125
 param set-default IMU_DGYRO_CUTOFF 10
-
-# Rate INDI: allocated physical torque feedback tau_0
 param set-default CA_TORQ_CUTOFF 8
 
 # Rate INDI: inertia model
@@ -100,6 +102,18 @@ param set-default MPC_XY_VEL_D_ACC 0.0
 param set-default MPC_Z_VEL_D_ACC 0.0
 
 param set-default MPC_XY_VEL_MAX 20.0
+param set-default MPC_VEL_MANUAL 20.0
+param set-default MPC_Z_VEL_MAX_UP 8.0
+param set-default MPC_Z_VEL_MAX_DN 4.0
+param set-default MPC_ACC_HOR_MAX 15.0
+param set-default MPC_ACC_UP_MAX 15.0
+param set-default MPC_JERK_AUTO 80.0
+param set-default MPC_JERK_MAX 500.0
+param set-default MPC_TILTMAX_AIR 89.0
+param set-default MPC_MAN_TILT_MAX 70.0
+param set-default MPC_MAN_Y_MAX 400.0
+param set-default MPC_XY_ERR_MAX 10.0
+param set-default MPC_THR_MIN 0.05
 
 
 
