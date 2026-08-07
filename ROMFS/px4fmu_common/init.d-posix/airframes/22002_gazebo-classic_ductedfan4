@@ -65,8 +65,6 @@ param set-default MPC_INDI_A_SRC 1
 # SRC 0: velocity derivative
 param set-default MPC_VEL_LP 0
 param set-default MPC_VELD_LP 5
-param set-default MPC_VEL_NF_FRQ 0
-param set-default MPC_VEL_NF_BW 20
 
 # SRC 1 and SRC 2: direct acceleration candidates
 param set-default MPC_INDI_A_LP 10
