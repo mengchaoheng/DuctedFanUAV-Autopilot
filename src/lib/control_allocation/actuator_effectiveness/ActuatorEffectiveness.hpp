@@ -55,6 +55,7 @@ enum class AllocationMethod {
 	DP_LPCA = 4,
 	DPSCALED_LPCA = 5,
 	PCA = 6,
+	WLS = 7,
 };
 
 enum class ActuatorType {

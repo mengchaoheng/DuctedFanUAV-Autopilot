@@ -133,7 +133,6 @@ public:
 
 		// size_t is unsigned and wraps i = 0 - 1 to i > N
 		for (size_t i = N - 1; i < N; i--) {
-			printf("i %d\n", static_cast<int>(i));
 			x(i) = qtbv(i);
 
 			for (size_t r = i + 1; r < N; r++) {

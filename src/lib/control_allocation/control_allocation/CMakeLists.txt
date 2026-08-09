@@ -40,6 +40,8 @@ px4_add_library(ControlAllocation
 	ControlAllocationPseudoInverse.hpp
 	ControlAllocationSequentialDesaturation.cpp
 	ControlAllocationSequentialDesaturation.hpp
+	ControlAllocationWLS.cpp
+	ControlAllocationWLS.hpp
 	pca/ControlAllocation.h
 )
 target_compile_options(ControlAllocation PRIVATE ${MAX_CUSTOM_OPT_LEVEL})
@@ -48,4 +50,5 @@ target_link_libraries(ControlAllocation PRIVATE mathlib)
 
 px4_add_unit_gtest(SRC ControlAllocationPseudoInverseTest.cpp LINKLIBS ControlAllocation)
 px4_add_unit_gtest(SRC ControlAllocationLPCATest.cpp LINKLIBS ControlAllocation)
+px4_add_unit_gtest(SRC ControlAllocationWLSTest.cpp LINKLIBS ControlAllocation)
 px4_add_functional_gtest(SRC ControlAllocationSequentialDesaturationTest.cpp LINKLIBS ControlAllocation VehicleActuatorEffectiveness)

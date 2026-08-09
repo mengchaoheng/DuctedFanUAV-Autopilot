@@ -12,6 +12,22 @@
 
 param set-default CA_AIRFRAME 0
 
+# QCAT WLS allocation, matching UAV_Algorithm_Benchmark/main.m:
+#   gamma = 1e6, Wu = I, ud = 0
+#   Wq = diag([0.001, 10, 10, 0.1]) in [Fz, Mx, My, Mz] order
+# CA_WLS_*_W stores diag(Wv), where Wv'Wv = Wq. PX4 wrench order is
+# [Mx, My, Mz, Fx, Fy, Fz]. Fx/Fy have no authority on Iris and their
+# weights therefore do not affect the actuator solution.
+param set-default CA_METHOD 7
+param set-default CA_WLS_GAM 1000000
+param set-default CA_WLS_U_W 1.0
+param set-default CA_WLS_R_W 3.16227766
+param set-default CA_WLS_P_W 3.16227766
+param set-default CA_WLS_Y_W 0.31622777
+param set-default CA_WLS_FX_W 1.0
+param set-default CA_WLS_FY_W 1.0
+param set-default CA_WLS_FZ_W 0.03162278
+
 # Effectiveness unit contract (control_allocation/iris.m):
 #   v = [tau; F] = B*u, with tau [N m], F [N], and physical rotor thrusts
 #   u [N]. Writing u = U*u_norm makes the configured matrix B*U, so allocation

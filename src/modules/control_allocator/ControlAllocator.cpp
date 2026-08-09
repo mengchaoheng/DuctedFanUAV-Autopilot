@@ -154,6 +154,9 @@ const char *allocationMethodName(AllocationMethod method)
 
 	case AllocationMethod::PCA:
 		return "PCA";
+
+	case AllocationMethod::WLS:
+		return "WLS";
 	}
 
 	return "Unknown";
@@ -304,6 +307,18 @@ ControlAllocator::parameters_updated()
 	}
 
 	for (int i = 0; i < _num_control_allocation; ++i) {
+		if (_allocation_methods[i] == AllocationMethod::WLS) {
+			matrix::Vector<float, NUM_AXES> control_weights;
+			control_weights(0) = _param_ca_wls_roll_weight.get();
+			control_weights(1) = _param_ca_wls_pitch_weight.get();
+			control_weights(2) = _param_ca_wls_yaw_weight.get();
+			control_weights(3) = _param_ca_wls_force_x_weight.get();
+			control_weights(4) = _param_ca_wls_force_y_weight.get();
+			control_weights(5) = _param_ca_wls_force_z_weight.get();
+			static_cast<ControlAllocationWLS *>(_control_allocation[i])->setWeights(control_weights,
+					_param_ca_wls_actuator_weight.get(), _param_ca_wls_gamma.get());
+		}
+
 		_control_allocation[i]->updateParameters();
 	}
 
@@ -393,6 +408,10 @@ ControlAllocator::update_allocation_method(bool force)
 
 			case AllocationMethod::PCA:
 				_control_allocation[i] = new ControlAllocationPCA();
+				break;
+
+			case AllocationMethod::WLS:
+				_control_allocation[i] = new ControlAllocationWLS();
 				break;
 
 			default:
@@ -1396,6 +1415,7 @@ int ControlAllocator::print_status()
 	case AllocationMethod::DP_LPCA:
 	case AllocationMethod::DPSCALED_LPCA:
 	case AllocationMethod::PCA:
+	case AllocationMethod::WLS:
 		PX4_INFO("Method: %s", allocationMethodName(_allocation_method_id));
 		break;
 	}

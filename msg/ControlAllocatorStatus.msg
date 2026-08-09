@@ -1,11 +1,11 @@
 uint64 timestamp                        # time since system start (microseconds)
 
-bool fallback                          # True when requested DP_LPCA, DPscaled_LPCA, or PCA could not be used and INV was attempted instead
+bool fallback                          # True when the requested allocator failed/unavailable and an inverse fallback was attempted
 
-int8 SOLVER_STATUS_NOT_RUN = 0          # LP solver was not run: INV/legacy method selected, zero command, or no solver diagnostics
-int8 SOLVER_STATUS_OK = 1               # LP solver ran and returned solver_err=0
-int8 SOLVER_STATUS_UNAVAILABLE = -1     # LP solver was rejected before execution; interpret solver_err as an adapter precondition code
-int8 SOLVER_STATUS_FAILED = -2          # LP solver ran but returned a nonzero error; interpret solver_err as a solver execution code
+int8 SOLVER_STATUS_NOT_RUN = 0          # Solver was not run: INV/legacy method selected, zero command, or no solver diagnostics
+int8 SOLVER_STATUS_OK = 1               # Solver ran and returned solver_err=0
+int8 SOLVER_STATUS_UNAVAILABLE = -1     # Solver was rejected before execution; interpret solver_err as an adapter precondition code
+int8 SOLVER_STATUS_FAILED = -2          # Solver ran but returned a nonzero error; interpret solver_err as a solver execution code
 
 int8 solver_status                      # One of SOLVER_STATUS_* above
 # solver_err depends on solver_status:
@@ -15,10 +15,11 @@ int8 solver_status                      # One of SOLVER_STATUS_* above
 #       5=PCA higher-priority split is missing
 #   SOLVER_STATUS_FAILED: -1=initial simplex unbounded/error, -2=initial feasible solution not found,
 #       -3=initial simplex iteration limit, 1=final simplex unbounded/error,
-#       3=final simplex iteration limit
+#       3=final simplex iteration limit. WLS uses 1=invalid input, 2=QR failure,
+#       3=active-set iteration limit.
 int8 solver_err
 bool full_row_rank                     # True if the normalized active-row effectiveness matrix has full row rank; false/default for methods without these diagnostics
-float32 solver_rho                     # Dimensionless LPCA/PCA objective direction/scale factor returned by the solver; method-dependent, 0 when not run
+float32 solver_rho                     # Dimensionless method-dependent solver value; LPCA/PCA direction/scale factor, 0 when unused
 float32 solver_prepare_time            # [us] Latest LPCA adapter work before constructing pca/ControlAllocation.h solver objects; 0 when not run
 float32 solver_core_time               # [us] Latest solver-object construction, simplex solve, and restoring; 0 when not run
 float32 solver_post_time               # [us] Latest adapter validation and output copy after the solver returns; 0 when not run

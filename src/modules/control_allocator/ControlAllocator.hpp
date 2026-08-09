@@ -62,6 +62,7 @@
 #include <ControlAllocationLPCA.hpp>
 #include <ControlAllocationPseudoInverse.hpp>
 #include <ControlAllocationSequentialDesaturation.hpp>
+#include <ControlAllocationWLS.hpp>
 
 #include <lib/matrix/matrix/math.hpp>
 #include <lib/mathlib/math/WelfordMean.hpp>
@@ -290,6 +291,14 @@ private:
 		(ParamInt<px4::params::CA_METHOD>) _param_ca_method,
 		(ParamInt<px4::params::CA_FAILURE_MODE>) _param_ca_failure_mode,
 		(ParamInt<px4::params::CA_R_REV>) _param_r_rev,
+		(ParamFloat<px4::params::CA_WLS_GAM>) _param_ca_wls_gamma,
+		(ParamFloat<px4::params::CA_WLS_U_W>) _param_ca_wls_actuator_weight,
+		(ParamFloat<px4::params::CA_WLS_R_W>) _param_ca_wls_roll_weight,
+		(ParamFloat<px4::params::CA_WLS_P_W>) _param_ca_wls_pitch_weight,
+		(ParamFloat<px4::params::CA_WLS_Y_W>) _param_ca_wls_yaw_weight,
+		(ParamFloat<px4::params::CA_WLS_FX_W>) _param_ca_wls_force_x_weight,
+		(ParamFloat<px4::params::CA_WLS_FY_W>) _param_ca_wls_force_y_weight,
+		(ParamFloat<px4::params::CA_WLS_FZ_W>) _param_ca_wls_force_z_weight,
 		(ParamFloat<px4::params::CA_ICE_PERIOD>) _param_ice_shedding_period,
 		(ParamFloat<px4::params::CA_TORQ_CUTOFF>) _param_ca_torque_cutoff,
 		(ParamFloat<px4::params::CA_FORCE_CUTOFF>) _param_ca_force_cutoff

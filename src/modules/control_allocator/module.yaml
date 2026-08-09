@@ -53,7 +53,90 @@ parameters:
                 4: DP_LPCA
                 5: DPscaled_LPCA
                 6: PCA
+                7: Weighted least squares (QCAT active set)
             default: 2
+
+        CA_WLS_GAM:
+            description:
+                short: WLS control tracking weight
+                long: |
+                  Relative weight gamma on normalized wrench tracking versus actuator usage.
+                  This parameter is only used when CA_METHOD is set to WLS.
+            type: float
+            decimal: 0
+            min: 1
+            max: 100000000
+            default: 1000000
+
+        CA_WLS_U_W:
+            description:
+                short: WLS actuator weight
+                long: Diagonal actuator weight applied to delta actuator commands around trim.
+            type: float
+            decimal: 2
+            min: 0.01
+            max: 100
+            default: 1.0
+
+        CA_WLS_R_W:
+            description:
+                short: WLS roll weight
+                long: Roll weight in the normalized PX4 wrench order.
+            type: float
+            decimal: 2
+            min: 0.01
+            max: 100
+            default: 1.0
+
+        CA_WLS_P_W:
+            description:
+                short: WLS pitch weight
+                long: Pitch weight in the normalized PX4 wrench order.
+            type: float
+            decimal: 2
+            min: 0.01
+            max: 100
+            default: 1.0
+
+        CA_WLS_Y_W:
+            description:
+                short: WLS yaw weight
+                long: Yaw weight in the normalized PX4 wrench order.
+            type: float
+            decimal: 2
+            min: 0.01
+            max: 100
+            default: 1.0
+
+        CA_WLS_FX_W:
+            description:
+                short: WLS X force weight
+                long: X force weight in the normalized PX4 wrench order.
+            type: float
+            decimal: 2
+            min: 0.01
+            max: 100
+            default: 1.0
+
+        CA_WLS_FY_W:
+            description:
+                short: WLS Y force weight
+                long: Y force weight in the normalized PX4 wrench order.
+            type: float
+            decimal: 2
+            min: 0.01
+            max: 100
+            default: 1.0
+
+        CA_WLS_FZ_W:
+            description:
+                short: WLS Z force weight
+                long: Z force weight in the normalized PX4 wrench order.
+            type: float
+            decimal: 2
+            min: 0.01
+            max: 100
+            default: 1.0
 
         # Motor parameters
         CA_R_REV:
