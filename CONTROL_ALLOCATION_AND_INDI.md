@@ -789,12 +789,23 @@ $$
 参数 `MPC_INDI_F_DLY`（单位 s，范围 0～0.1 s）控制 $\tau_F$。通用默认值为 0；22002 实机 airframe 在 `CA_FORCE_CUTOFF=5 Hz`、22002 Gazebo Classic airframe 在 `CA_FORCE_CUTOFF=6 Hz` 时均使用经本节试验验证的 0.05 s 初值。实现满足：
 
 - 用环形缓冲区选择 `now - delay` 附近的样本，不使用 `sleep` 或降低控制频率；
-- body force 必须与同一历史时刻的 attitude 配对后再转到 NED，或者直接缓存当时已转换的 $F_0^n$；
+- filtered body force 在样本到达 position controller 时使用当时可用的 attitude 转到 NED，并直接缓存转换后的 $F_0^n$；
 - 对相邻历史样本插值，保留 `AllocationValue` freshness 和 finite 检查；
-- 通过 `acceleration_indi_status` 单独记录控制器内部的 filtered $a_0$、未延迟/已延迟 $F_0/m$、所选 force 时间戳、HTE 和 scale，供下一批日志直接辨识最终做差两项；
+- 通过 `acceleration_indi_status` 单独记录控制器内部的 filtered $a_0$、未延迟/已延迟 $a_{T,0}$、所选 force 时间戳和当前 hover thrust，供下一批日志直接辨识最终做差两项；
 - 固定纯延迟只修正相位，不能修正 CT、质量或电压造成的幅值错误。
 
-延迟放在 `MulticopterPositionControl` 消费 `AllocationValue.allocated_force` 的链路上：新 allocation 样本到达后，先用当时可用的 attitude 将 body force 转成 NED 并写入历史缓冲；位置控制更新时，以 `vehicle_local_position.timestamp_sample-MPC_INDI_F_DLY` 为目标时间在相邻样本间插值；随后才应用 HTE force scale、除以质量并交给 `PositionControl`。历史不足、样本超过 100 ms 或数据非 finite 时，不使用 INDI feedback。这样延迟的是 $F_0$ 反馈，而不是控制器执行或 actuator command。
+当前代码的严格处理顺序是：
+
+1. allocator 使用最终 actuator setpoint 计算 body-frame raw physical wrench；
+2. `CA_FORCE_CUTOFF` 在 **body frame** 对 physical force 做二阶低通；
+3. `AllocationValue` 发布 filtered physical force 和 $D_F$；
+4. position controller 分别构造 $F_{0,f}^n=R_{nb}F_{0,f}^b$ 和
+   $u_{0,f}^n=R_{nb}D_FF_{0,f}^b$，并把两个 NED 向量写入同一个带时间戳的历史样本；
+5. 以 `vehicle_local_position.timestamp_sample-MPC_INDI_F_DLY` 为目标时间，在相邻的 **NED 历史样本**之间线性插值；
+6. 延迟完成后，Physical 路径计算 $a_{T,0}^n=F_{0,d}^n/m$，Normalized 路径计算
+   $a_{T,0}^n=(g/\hat u_h)u_{0,d}^n$。
+
+因此整体顺序是“physical force 低通 → normalized scale（仅 Normalized 路径）→ BODY-to-NED → 历史纯延迟/插值 → acceleration 换算”，不是先延迟再滤波。历史不足、样本超过 100 ms 或数据非 finite 时，不使用 INDI feedback。这样延迟的是已经转换到 NED 的 allocation feedback，而不是控制器执行或 actuator command。
 
 0.05 s 对 SITL 已有直接验证，但对实机仍只是根据旧日志 25～70 ms 范围选取的首轮中心值。新 topic 有了直接的内部 $F_0/m$ 和 $a_0$ 后，应通过相关/频响重新调 `MPC_INDI_F_DLY`，目标是两项在 acceleration INDI 有效频带内相位一致，而不是机械地保留 0.05 s。
 
