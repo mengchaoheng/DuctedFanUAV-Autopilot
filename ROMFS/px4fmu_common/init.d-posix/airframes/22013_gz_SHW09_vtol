@@ -51,8 +51,6 @@ param set-default MPC_MASS 2.05
 param set-default MC_J_X 0.050636
 param set-default MC_J_Y 0.042954
 param set-default MC_J_Z 0.012668
-param set-default MC_INDI_RATE_EN 1
-param set-default MPC_INDI_ACC_EN 1
 param set-default MC_INDI_R_P 15
 param set-default MC_INDI_P_P 15
 param set-default MC_INDI_Y_P 15

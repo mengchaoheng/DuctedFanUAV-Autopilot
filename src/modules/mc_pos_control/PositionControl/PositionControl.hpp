@@ -49,7 +49,7 @@ struct PositionControlStates {
 	matrix::Vector3f position;
 	matrix::Vector3f velocity;
 	matrix::Vector3f acceleration;
-	matrix::Vector3f allocated_thrust_acceleration{NAN, NAN, NAN}; ///< allocated thrust force / mass in NED [m/s^2]
+	matrix::Vector3f allocated_thrust_acceleration{NAN, NAN, NAN}; ///< selected allocated thrust feedback in NED [m/s^2]
 	float yaw;
 };
 
@@ -251,7 +251,7 @@ private:
 	matrix::Vector3f _acceleration_indi_transition_offset{};
 	matrix::Vector3f _acceleration_indi_raw_thr_sp{};
 	matrix::Vector3f _last_thr_sp{NAN, NAN, NAN};
-	matrix::Vector3f _allocated_thrust_acceleration{NAN, NAN, NAN}; ///< allocated thrust force / mass in NED [m/s^2]
+	matrix::Vector3f _allocated_thrust_acceleration{NAN, NAN, NAN}; ///< selected allocated thrust feedback in NED [m/s^2]
 
 	// Setpoints
 	matrix::Vector3f _pos_sp; /**< desired position */

@@ -1243,6 +1243,7 @@ ControlAllocator::publish_allocation_value(float sample_interval_s)
 	msg.timestamp = now;
 	msg.timestamp_sample = _timestamp_sample;
 	const matrix::Vector<float, NUM_AXES> &torque_scale = _control_allocation[torque_matrix]->_control_allocation_scale;
+	const matrix::Vector<float, NUM_AXES> &force_scale = _control_allocation[0]->_control_allocation_scale;
 
 	for (int axis = 0; axis < 3; axis++) {
 		msg.raw_allocated_torque[axis] = raw_wrench(axis);
@@ -1250,6 +1251,7 @@ ControlAllocator::publish_allocation_value(float sample_interval_s)
 		msg.allocated_torque[axis] = filtered_wrench(axis);
 		msg.allocated_force[axis] = filtered_wrench(axis + 3);
 		msg.torque_setpoint_scale[axis] = torque_scale(axis);
+		msg.force_setpoint_scale[axis] = force_scale(axis + 3);
 	}
 
 	_allocation_value_pub.publish(msg);

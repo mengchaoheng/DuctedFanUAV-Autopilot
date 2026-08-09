@@ -8,13 +8,15 @@ parameters:
         long: |-
           When enabled, mc_pos_control keeps the PX4 position/velocity PID loop and
           replaces the final acceleration-to-thrust conversion with an acceleration
-          INDI correction based on the allocated physical force. The configured
-          B*U force rows must be in N per normalized actuator delta. This project
-          publishes INDI allocation feedback only for CA_AIRFRAME 0, 9, 16 and
-          17. Force feedback comes from matrix 0.
+          INDI correction based on either allocated physical force or achieved
+          normalized thrust. The configured B*U force rows must be in N per
+          normalized actuator delta. This project publishes INDI allocation
+          feedback only for CA_AIRFRAME 0, 9, 16 and 17. Force feedback comes
+          from matrix 0.
 
-          With a supported CA type, a valid mass and recent finite force feedback,
-          INDI is used. Otherwise the standard path is used.
+          With a supported CA type and recent finite feedback, INDI is used.
+          Physical-force feedback additionally requires a valid vehicle mass.
+          Otherwise the standard path is used.
       type: boolean
       default: 0
     MPC_INDI_A_SRC:
@@ -31,7 +33,7 @@ parameters:
         0: Velocity derivative
         1: EKF acceleration
         2: IMU acceleration
-      default: 0
+      default: 1
     MPC_INDI_A_LP:
       description:
         short: Acceleration INDI direct-source low-pass cutoff
@@ -47,13 +49,33 @@ parameters:
       unit: Hz
       decimal: 1
       increment: 0.5
+    MPC_INDI_F_SRC:
+      description:
+        short: Acceleration INDI thrust feedback source
+        long: |-
+          Selects the allocated thrust feedback used by acceleration INDI.
+          Physical force preserves the original acceleration-INDI path: the
+          configured B*U force in N is divided by vehicle mass without hover-thrust
+          feedback correction. Normalized thrust is the new HTE-dependent path: it
+          uses the post-allocation achieved thrust setpoint and converts it to
+          thrust acceleration with g/hover_thrust, removing the absolute mass and
+          rotor-thrust calibration from this path.
+
+          Both sources include allocator clipping, slew limits and stopped motors,
+          and use the same CA_FORCE_CUTOFF and MPC_INDI_F_DLY processing.
+      type: enum
+      values:
+        0: Physical allocated force
+        1: Normalized allocated thrust
+      default: 1
     MPC_MASS:
       description:
         short: Vehicle mass for acceleration INDI
         long: |-
-          Vehicle mass used by acceleration INDI in
+          Vehicle mass used only by the physical-force acceleration INDI path in
           F_c = F_0 + mass * (a_c - a_0). F is the signed PX4 thrust-force
           vector in N, F = -T*b_z, and is opposite to the paper's T*b_z vector.
+          The normalized-thrust feedback path does not use this parameter.
       type: float
       default: 1.0
       min: 0.01
@@ -61,12 +83,13 @@ parameters:
       decimal: 4
     MPC_INDI_F_DLY:
       description:
-        short: Acceleration INDI allocated-force feedback delay
+        short: Acceleration INDI allocated-thrust feedback delay
         long: |-
-          Additional pure delay applied to the filtered physical allocated force
-          before it is used by acceleration INDI. The delay aligns F_0/m with the
-          filtered acceleration feedback a_0. It is implemented with a timestamped
-          history and interpolation; it does not block or slow the control loop.
+          Additional pure delay applied to the selected filtered allocated thrust
+          feedback before it is used by acceleration INDI. The delay aligns the
+          resulting thrust acceleration with the filtered acceleration feedback
+          a_0. It is implemented with a timestamped history and interpolation; it
+          does not block or slow the control loop.
 
           This parameter compensates residual timing mismatch only. Use
           CA_FORCE_CUTOFF to model actuator force build-up dynamics, and determine
@@ -83,13 +106,9 @@ parameters:
         short: Acceleration INDI bumpless transition time
         long: |-
           Smoothstep transition duration for PID to acceleration INDI and
-          acceleration INDI to PID transfers. The same duration is used only
-          when a hover-thrust estimate first becomes valid, to bring the hover
-          thrust and matching INDI force scale into use without a step.
-
-          This does not continuously low-pass valid hover-thrust estimates and
-          does not change acceleration INDI bandwidth after a transfer finishes.
-          Set to zero to disable these transitions.
+          acceleration INDI to PID transfers. Hover-thrust estimates are applied
+          immediately and do not use this transition time. Set to zero to disable
+          the controller transition.
       type: float
       default: 1.0
       min: 0.0

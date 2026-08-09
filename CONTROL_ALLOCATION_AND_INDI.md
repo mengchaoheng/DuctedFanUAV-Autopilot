@@ -534,7 +534,7 @@ $$
 
 地面阶段使用原 takeoff logic 恢复 `MPC_THR_HOVER`。当前生效的 hover thrust 完成 acceleration 到 normalized thrust 的尺度转换。
 
-Rate INDI 直接向 normalized torque allocator interface 发布控制量，因此 `AllocationValue` 携带 $D_\tau$。Acceleration INDI 先回到 PX4 acceleration interface，再由 hover-thrust mapping 生成 normalized thrust，因此消息字段集中于 torque scale。
+Rate INDI 直接向 normalized torque allocator interface 发布控制量，因此 `AllocationValue` 携带 $D_\tau$。Acceleration INDI 可以选择 physical-force 或 normalized-thrust feedback；消息同时携带 $D_F$，使同一份 filtered physical force 可以无损换算为 allocator 实际交付的 normalized thrust，而不重复发布另一组 raw/filtered 向量。
 
 ### 7.3 启用条件与周期选择
 
@@ -544,9 +544,9 @@ Rate INDI 直接向 normalized torque allocator interface 发布控制量，因�
 |---|---|---|
 | 参数门 | 启动与 parameter update | `MPC_INDI_ACC_EN=1` |
 | 机型门 | 启动与 parameter update | `CA_AIRFRAME` 为 0、9、16、17 |
-| 质量门 | 启动与 parameter update | `MPC_MASS` 为 finite positive，并缓存 inverse mass |
+| 质量门 | 启动与 parameter update | 仅 physical source 要求 `MPC_MASS` 为 finite positive；normalized source 不使用质量 |
 | 控制模式门 | 每个 local-position 周期 | `flag_multicopter_position_control_enabled=true` |
-| Force feedback 门 | 每个 position-control 周期 | `AllocationValue` 已发布、年龄小于 100 ms、force 为 finite |
+| Force feedback 门 | 每个 position-control 周期 | `AllocationValue` 已发布、年龄小于 100 ms、force 为 finite；normalized source 还要求 $D_F$ finite |
 | Attitude 门 | 每个 position-control 周期 | attitude 已发布、年龄小于 100 ms、body-to-NED 结果为 finite |
 | 原控制器输入门 | 每个 position-control 周期 | PositionControl setpoint/state 满足原 `_inputValid()` 契约 |
 | INDI 动态门 | `_accelerationControl()` | $a_c^n$ 与 $a_0^n$ 为 finite |
@@ -827,60 +827,94 @@ $$
 
 无延迟时高度数值尚未立即发散，但 thrust 已在 0～1 间强烈振荡并频繁饱和，垂速 RMS 随时间增大；50 ms 延迟后 thrust 保持在悬停值约 0.51 附近。相位分析同样显示，控制器实际使用的 force 与 $a_0$ 的零时移相关系数由约 0.49 提高到 0.984，最佳剩余时移由 48 ms 降到一个 ULog 采样周期约 16 ms。这里比较的是两次相同 22002 模型的近悬停窗口，但起飞前的控制器启用时刻不同；它足以证明延迟对该模型闭环稳定性有决定性影响，实机参数仍须用实机日志复辨识。
 
-### 8.4 本次运行时 force-feedback scale 修正
+### 8.4 Physical 与 normalized acceleration-INDI feedback
 
-本次实现保留 control allocation physical matrix 的标称 `CA_ROTOR0_CT`，不在飞行中改参数或重建矩阵。Hover Thrust Estimator 给出当前悬停 normalized thrust $\hat u_h$ 后，计算有效最大推力：
+`MPC_INDI_F_SRC` 选择 acceleration INDI 使用的分配反馈：
 
-$$
-C_{T,eff}=\frac{mg}{\hat u_h}.
-$$
+- `0`：physical allocated force；
+- `1`：post-allocation achieved normalized thrust。
 
-相对于标称矩阵系数 $C_{T,nom}=CA\_ROTOR0\_CT$，只对 acceleration INDI 消费的 force feedback 乘：
+两条路径都来自 allocator 最终 actuator setpoint，因而都包含 auxiliary update、stopped motor、slew-rate limit 与 clipping，并共用 `CA_FORCE_CUTOFF`、历史插值和 `MPC_INDI_F_DLY`。
 
-$$
-s_F=\frac{C_{T,eff}}{C_{T,nom}}
-=\frac{mg}{\hat u_h\,CA\_ROTOR0\_CT},
-$$
+令 physical allocation feedback 为
 
 $$
-F_{0,corrected}=s_F F_{0,allocation}.
+F_0^b=(BU)_F(u_{act}-u_{trim}),
 $$
 
-在水平悬停点，若 allocator model 给出：
+allocator 的 physical-to-normalized force scale 为 $D_F$，则 achieved normalized thrust 为
 
 $$
-F_{0,allocation,z}=-CA\_ROTOR0\_CT\,\hat u_h,
+u_0^b=D_FF_0^b.
 $$
 
-则修正后必有：
+`AllocationValue` 不重复发布一套 normalized raw/filtered force，而是发布 `force_setpoint_scale`；consumer 使用同一份 filtered `allocated_force` 计算 $D_FF_0^b$。由于 $D_F$ 在一次 effectiveness configuration 内为常数，线性低通与该尺度变换可交换。
+
+#### 8.4.1 原始 physical-force 路径
+
+Physical 路径保留项目原有算法，不再通过 HTE 修正 allocation model 的物理力：
 
 $$
-F_{0,corrected,z}
-=-\frac{mg}{\hat u_h\,CA\_ROTOR0\_CT}
- CA\_ROTOR0\_CT\,\hat u_h
-=-mg.
+a_{T,0}^n=\frac{1}{m}R_{nb}F_0^b,
 $$
 
-这就是修正的数学目的：利用当前悬停油门重新标定 INDI 所看到的 force 尺度，同时保持 allocator 的归一化求解、执行器输出和标称几何矩阵不变。
+$$
+a_{T,c}^n=a_{T,0}^n+(a_c^n-a_0^n).
+$$
 
-具体实现位于 `MulticopterPositionControl`：
+它要求 `MPC_MASS` 和 physical $BU$ 的 absolute force 标定正确。该路径没有运行时 $s_F$、没有 `[0.8,1.2]` force-scale 限幅，也不把 HTE 估计用于修正 $F_0/m$。它仍通过 PX4 原有 acceleration-to-thrust mapping 使用 `_hover_thrust`，但这不改变 physical feedback 本身的定义。
 
-1. 仅对 physical force 路由明确的 `CA_AIRFRAME=16/17` 启用运行时 scale；
-2. 启动和地面阶段从 `MPC_THR_HOVER` 初始化 $\hat u_h$；
-3. INDI 实际控制时 valid HTE 首次出现，以 `MPC_INDI_TR_T` 指定的时长从当前应用值 smoothstep 过渡到最新估计；完成首次接管后直接跟踪 valid HTE；普通 PID 不增加这层延迟，而是立即交给原生 `updateHoverThrust()` 无扰应用；
-4. 每个过渡周期都用同一个实际应用值 $\hat u_{h,applied}$ 同时更新 `_hover_thrust` 和 $s_F$，避免两个尺度彼此不一致；
-5. 将 $s_F$ 限制在 `[0.8, 1.2]`，输入无效时回到 1；
-6. INDI 有效时调用 `setHoverThrust()`，不执行 `updateHoverThrust()` 的垂向积分器补偿；普通 PID 模式保留原 `updateHoverThrust()` 行为。
+#### 8.4.2 Normalized-thrust 路径
 
-曾考虑在 HTE 输出后额外增加 `0.05 normalized thrust/s` 的硬斜率限制，但 71～82 的 22002 日志没有记录 `hover_thrust_estimate` topic，因而没有数据证明 HTE valid 输出存在需要该限制的抖动或跳变；PX4 原 HTE 也没有这层硬限制。为避免未经验证的保护导致 HTE/force-scale 修正长时间跟不上真实变化，本次最终代码没有加入该 limiter。
+Normalized 路径先计算并旋转：
 
-逐个检查这 12 个 ULog 后确认，缺少该 topic 不是 logger 列表遗漏：PX4 默认 logger 原本就请求 `hover_thrust_estimate`，但 HTE 只有在 `vehicle_local_position.dist_bottom > 1 m` 后才将 `_in_air` 置位并开始发布。日志 71～82 的最大 `dist_bottom` 仅为 0.02～0.91 m，因此全部为 0 个 HTE 样本；这些飞行中运行时 scale 实际一直使用 `MPC_THR_HOVER`。下一次实飞需要至少越过 1 m 一次，之后即使降到 1 m 以下，HTE 仍会继续工作，直到 land detector 再次报告 landed。
+$$
+u_0^n=R_{nb}D_FF_0^b,
+$$
 
-一次专门的 22002 SITL 获取试验将 `MPC_THR_HOVER` 故意从真实值约 0.511 改为 0.35，执行起飞到 3 m、稳定悬停和降落。HTE 首次发布即为 0.51795（但 `valid=false`），1.656 s 后以 0.52210 变为 valid；valid 边沿相邻 HTE 样本只变化 $1.1\times10^{-5}$，整段最大相邻变化约 0.00169，说明发布后的估计本身平滑。但 controller 实际使用的 `_indi_hover_thrust` 在 valid 边沿从 0.35 一次变为 0.52210，force scale 同时从限幅后的 1.2 变为 0.9781。这个试验证明需要关注的是**首次 valid 接管跳变**，而不是 HTE 稳态噪声；若增加保护，应只处理 valid 上升沿并参数化过渡时间，不能据此给所有 HTE 更新固定套用 `0.05/s` 限速。
+再利用 hover thrust 将 normalized thrust 转为推力加速度：
 
-HTE 自身仍包含估计器的过程噪声、测量噪声、状态/创新检查和 `valid` 判定；`HTE_HT_NOISE`（默认 `0.0036 normalized thrust/s`）是过程噪声参数，会影响收敛速度和协方差，但不是最大变化斜率。现在只有 valid 的首次接管经过有限时长过渡，之后 HTE 直接进入 `_hover_thrust` 与 $s_F$，外层只保留物理/安全边界 `[0.8,1.2]`。HTE 目标由原有 `hover_thrust_estimate.hover_thrust` 记录；`acceleration_indi_status.hover_thrust`、过渡进度和 `force_feedback_scale` 只补充控制器内部实际应用值。下一批日志若确实显示 HTE 高频噪声调制控制，再根据数据决定是否增加参数化低通或 slew，而不是预先固定 0.05/s。
+$$
+a_{T,0}^n=\frac{g}{\hat u_h}u_0^n.
+$$
 
-### 8.5 PID/acceleration INDI 与 HTE 的无扰过渡
+INDI 仍使用：
+
+$$
+a_{T,c}^n=a_{T,0}^n+(a_c^n-a_0^n).
+$$
+
+PX4 后级满足 $u_c^n=(\hat u_h/g)a_{T,c}^n$，所以局部无倾角/推力限幅时：
+
+$$
+\boxed{u_c^n=u_0^n+\frac{\hat u_h}{g}(a_c^n-a_0^n)}.
+$$
+
+该路径消除了 `MPC_MASS` 和 absolute `CA_ROTORi_CT` 对 acceleration INDI feedback 的影响；这些参数仍可供 allocator 的相对分配或原始 physical 路径使用。HTE 的作用是提供 normalized thrust 与 acceleration increment 之间的尺度。当前 0/9/16/17 都可以选择此路径；普通单轴推力多旋翼与涵道构型满足统一 $g/\hat u_h$ 映射，全向推力 Custom 构型若各轴物理尺度不同，仍应验证单个 hover-thrust 标量是否足以表达全部方向。
+
+#### 8.4.3 两条路径的边界与共同处理
+
+两条路径不是通过运行时 scale 强制做成等价关系。只有 physical model、质量和 hover thrust 本来就满足
+
+$$
+\frac{\hat u_h}{mg}=D_z
+$$
+
+且主推力为单一尺度时，physical 与 normalized 才会自然给出相同的悬停点；代码不再用 HTE 去修正 physical 路径使其满足该条件。
+
+两条路径共用：
+
+- 只含位置/速度 P 和 acceleration feed-forward 的 $a_c$；
+- PID↔acceleration-INDI output smoothstep；
+- `CA_FORCE_CUTOFF`；
+- timestamped history、插值和 `MPC_INDI_F_DLY`；
+- 相同的 $a_0$ 来源选择与 `LowPassFilter2p`。
+
+启动和地面阶段使用 `MPC_THR_HOVER`。valid HTE 出现后立即更新 `_hover_thrust`，不使用单独的 HTE transition，也不复用 `MPC_INDI_TR_T`。Normalized 模式在同一周期用新值同时更新 $g/\hat u_h$ 与后级 $\hat u_h/g$；physical feedback 的 $F_0/m$ 不随 HTE 改写。HTE 自身的过程噪声、测量噪声、状态检查和 `valid` 判定保持 PX4 原实现；没有额外 `0.05/s` limiter。
+
+最终实现的 22002 SITL 飞行依次执行 PID 起飞、原始 Physical 接管、空中切到 Normalized、Normalized 下将 `MPC_MASS` 从 `1.56` 临时改为 `10 kg`、PID↔Normalized 切换和正常降落。Physical 状态中的 $a_{T,0}$ 直接为 $RF_0/m$，消息中已不存在 runtime force scale。切换到 Normalized 后 feedback 始终 valid；质量改为 `10 kg` 的相邻样本中 raw z-thrust 只变化 `4.62e-5`，高度变化 `3.05e-5 m`，前后 1 s 高度范围 `0.0155 m`，证明该路径不读取 `MPC_MASS`。PID→Normalized 边沿 `controller_transition_progress` 从 1 归零且 `controller_transition_active=true`，相邻高度和垂速变化分别为 `9.16e-5 m` 和 `2.16e-4 m/s`。
+
+### 8.5 PID/acceleration INDI 无扰切换与 HTE 更新
 
 切换控制器时，PID 与 INDI 在同一状态下计算出的 raw normalized thrust 通常不同。直接切换会把这个差值作为执行器阶跃；但在两套控制律之间长期混合又会改变 INDI 本身。当前实现采用有限时长的 output tracking：
 
@@ -896,14 +930,13 @@ $$
 
 INDI 有效期间，速度环 I/D 不进入 INDI 的 $a_c$，但切入 INDI **不清零**速度积分器。原 PID 每周期继续运行并保持既有积分状态，行为与 rate INDI 的 hot-standby 结构一致；无扰性由 output tracking 直接约束执行器实际连续性。公共 thrust/tilt saturation 在合成后统一执行，状态 topic 同时记录 `raw_thrust_setpoint`、最终 `thrust_setpoint`、progress 和 active flag。
 
-HTE 首次 valid 且 INDI 实际控制时使用相同的 `MPC_INDI_TR_T`，但过渡对象是 hover-thrust mapping 和匹配的 force scale，而不是控制律输出。二者始终由同一 applied hover thrust 计算，因此不会出现 `_hover_thrust` 已变化而 $F_0$ scale 尚未变化的尺度分裂。若 PID 正在控制或 INDI 因反馈无效已回退 PID，则不额外执行一秒 HTE 插值，直接通过 `updateHoverThrust()` 修改垂向积分器来维持 normalized thrust；以后再切入 INDI 时，从 PID 已经应用的同一 hover thrust 和 force scale 开始。INDI 阶段只调用 `setHoverThrust()`，避免把补偿注入一个不参与 $a_c$ 的积分器。
+`MPC_INDI_TR_T` 现在只控制 PID/acceleration INDI 的输出切换。HTE 不再使用该时间：valid 输出立即应用。Normalized INDI 在同一周期用相同的 hover thrust 更新 $g/\hat u_h$ feedback conversion 与后级 acceleration-to-thrust mapping；原始 physical feedback 仍为 $F_0/m$。PID 则通过原生 `updateHoverThrust()` 修改垂向积分器以维持 normalized thrust。INDI 阶段只调用 `setHoverThrust()`，避免把补偿注入一个不参与 $a_c$ 的积分器。
 
-SITL 验证结果：
+以下 SITL 数值验证共享的 PID/INDI smoothstep 与 force/acceleration 延迟对齐机制：
 
 - 3 m 悬停时 PID→INDI 的首个已记录样本，最终 z-thrust 变化仅 `0.000182`，随后 100 ms 均值变化 `0.000315`；切换后 1.2 s 高度峰峰值 `0.008 m`、最大垂向速度 `0.039 m/s`；
 - `MPC_INDI_F_DLY=0` 时切换本身无扰，但约 22 s 后因 $F_0/a_0$ 相位未对齐逐渐振荡，证明无扰切换不能代替闭环相位匹配；
-- `MPC_INDI_F_DLY=0.05 s` 时，从地面一直启用 INDI 完成 3 m 起飞、悬停和降落，近悬停高度 5%～95% 为 `2.969～3.018 m`；
-- 同一飞行中 HTE 首次 valid 的目标约为 `0.52250`，实际应用 hover thrust 从 `0.51067` 在 1 s 内平滑移向目标；首次接管附近最大垂向速度 `0.161 m/s`，没有出现 normalized thrust 阶跃。
+- `MPC_INDI_F_DLY=0.05 s` 时，从地面一直启用 INDI 完成 3 m 起飞、悬停和降落，近悬停高度 5%～95% 为 `2.969～3.018 m`。
 
 为了不把“模型刚好匹配”误认为无扰机制有效，另做了两组强失配 A/B。控制器切换试验在 0.8 m（低于 HTE 启用高度）悬停，并故意设置 `MPC_THR_HOVER=0.40`，使 PID 与 INDI raw z-thrust 相差约 0.03：
 
@@ -914,16 +947,7 @@ SITL 验证结果：
 
 两次 raw mismatch 相当，但 smoothstep 消除了约 99.5% 的首样本输出阶跃，高度扰动约减少 48%。因此它不是只让 status progress 看起来平滑，而是实际发送的 normalized thrust 连续。
 
-HTE A/B 从地面一直启用 INDI，使用 `MPC_THR_HOVER=0.35` 起飞到 3 m；首次 valid 时两次状态接近，均在高度约 2.02 m、上升速度约 0.264 m/s：
-
-| `MPC_INDI_TR_T` | applied hover 首样本变化 | force scale 首样本变化 | z-thrust 首样本变化 | 100 ms 平均 thrust 变化 | 后续 1.2 s 最大向上加速度 |
-|---:|---:|---:|---:|---:|---:|
-| 0 s | +0.16766 | -0.21354 | -0.13604 | -0.12371 | 2.07 m/s² |
-| 1 s | +0.00003 | 约 0 | +0.00255 | -0.00198 | 1.30 m/s² |
-
-首次 valid 过渡把 thrust 首样本冲击减少约 98.1%，100 ms 平均扰动减少约 98.4%。这里的初值偏差是故意放大的验证工况；正常 `MPC_THR_HOVER≈0.511` 时收益更小，但机制可防止实机初值、电池或模型失配在 HTE 接管瞬间直接变成推力阶跃。
-
-上述数值来自 22002 SITL ULog，仅用于验证实现和辨识流程；实机必须从新日志重新确认 delay、scale 与过渡时间。
+上述数值来自 22002 SITL ULog，仅用于验证实现和辨识流程；实机必须从新日志重新确认 delay 与控制器切换时间。Normalized 路径及 HTE 立即接管需要用修改后的新日志单独验证。
 
 ## 9. 反馈发布、uORB freshness 与日志
 
@@ -943,10 +967,10 @@ Allocator 在以下条件组合下发布 `AllocationValue`：
 | Topic | 默认记录策略 | 内容 |
 |---|---|---|
 | `control_allocator_status` | 2 instances，200 ms | solver、fallback、unallocated control、timing |
-| `allocation_value` | 1 instance，20 ms | raw/filtered physical wrench、torque scale |
+| `allocation_value` | 1 instance，20 ms | raw/filtered physical wrench、torque/force setpoint scale |
 | `rate_ctrl_status` | 2 instances，200 ms | PID integrator 与 `indi_active` |
 | `vehicle_local_position_setpoint` | 100 ms | position-control output 与 `acc_indi_active` |
-| `acceleration_indi_status` | 发布速率 | $a_0$、延迟前后 $F_0/m$、实际应用 HTE/scale、切换进度与 `feedback_valid`；最终 thrust/active 分别读取下一行既有字段 |
+| `acceleration_indi_status` | 发布速率 | 三种 $a_0$、选中路径延迟前后的 $a_{T,0}$、实际应用 hover thrust、切换进度与 `feedback_valid`；最终 thrust/active 分别读取下一行既有字段 |
 | `vehicle_torque_setpoint` | 2 instances，20 ms | total torque、PCA higher 与 valid |
 | `actuator_motors`、`actuator_servos` | 原有策略 | 最终 actuator output |
 
@@ -963,7 +987,7 @@ INDI 配置包含以下事实：
 3. trim 与 normalized final actuator value 使用同一坐标定义；
 4. CA0/9 的 force 与 torque 来自 matrix 0；
 5. CA16/17 的 force 来自 matrix 0，torque 来自 matrix 1；
-6. `MC_J_X/Y/Z` 与 `MPC_MASS` 采用实机参数；
+6. `MC_J_X/Y/Z` 采用实机参数；physical acceleration INDI 还要求 `MPC_MASS` 准确；
 7. CA0/9 的配置者负责确认 physical $BU$ 标定。
 
 软件支持的 CA type 表达固定反馈路由能力，机型参数表达物理单位标定，`MC_INDI_RATE_EN` 与 `MPC_INDI_ACC_EN` 表达控制器选择。三者共同形成完整启用条件。
@@ -1008,7 +1032,7 @@ FMUv5 当前 board target 为 flash 预算裁剪 DShot、UAVCAN、camera capture
 - `src/modules/control_allocator/ControlAllocator.*`：方法选择、matrix 配置、timing、物理反馈与滤波；
 - `src/modules/control_allocator/VehicleActuatorEffectiveness/*DuctedFan*`：CA16、CA17 effectiveness；
 - `msg/ControlAllocatorStatus.msg`：低频 solver 与 allocation diagnostics；
-- `msg/AllocationValue.msg`：高速 physical allocation feedback；
+- `msg/AllocationValue.msg`：高速 physical allocation feedback 与非冗余 physical-to-normalized scale；
 - `msg/VehicleTorqueSetpoint.msg`：PCA higher component 与 valid；
 - `src/modules/mc_rate_control/MulticopterRateControl.*`：PID hot standby、rate INDI selection、PCA split；
 - `src/modules/mc_rate_control/IndiControl/*`：rate INDI control law；

@@ -689,7 +689,9 @@ parameters:
                 long: |
                   Low-pass cutoff applied after computing the physical allocated
                   force (B*U)*u_norm for each allocation matrix. No actuator
-                  dynamics are simulated.
+                  dynamics are simulated. Normalized acceleration-INDI feedback
+                  uses this same filtered force multiplied by the allocator's
+                  physical-to-normalized force scale.
                   0 publishes the unfiltered allocated force.
             type: float
             min: 0

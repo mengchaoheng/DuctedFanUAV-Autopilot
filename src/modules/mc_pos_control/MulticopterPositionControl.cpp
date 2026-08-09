@@ -47,8 +47,6 @@ namespace
 {
 constexpr unsigned kAccelerationIndiRcChannel = 10; // RC11
 constexpr hrt_abstime kRcSignalTimeout = 500_ms;
-constexpr float kIndiForceFeedbackScaleMin = 0.8f;
-constexpr float kIndiForceFeedbackScaleMax = 1.2f;
 constexpr uint8_t kIndiAccelerationVelocityValid = 1u << 0;
 constexpr uint8_t kIndiAccelerationEkfValid = 1u << 1;
 constexpr uint8_t kIndiAccelerationImuValid = 1u << 2;
@@ -88,7 +86,6 @@ MulticopterPositionControl::MulticopterPositionControl(bool vtol) :
 	parameters_update(true);
 	_indi_hover_thrust = _param_mpc_thr_hover.get();
 	_indi_hover_thrust_target = _indi_hover_thrust;
-	_indi_hover_thrust_transition_start = _indi_hover_thrust;
 	_tilt_limit_slew_rate.setSlewRate(.2f);
 	_takeoff_status_pub.advertise();
 }
@@ -123,11 +120,10 @@ void MulticopterPositionControl::parameters_update(bool force)
 		ModuleParams::updateParams();
 		const float mass = _param_mpc_mass.get();
 		const bool mass_valid = PX4_ISFINITE(mass) && mass > FLT_EPSILON;
+		const bool allocation_feedback_supported = indiAllocationFeedbackSupported(_param_ca_airframe.get());
+		const bool normalized_force_feedback = _param_mpc_indi_f_src.get() == 1;
 		_indi_inverse_mass = mass_valid ? 1.f / mass : 0.f;
-		_indi_capable = indiAllocationFeedbackSupported(_param_ca_airframe.get()) && mass_valid;
-		_indi_force_scale_adaptation_supported =
-			(_param_ca_airframe.get() == 16 || _param_ca_airframe.get() == 17)
-			&& PX4_ISFINITE(_param_ca_rotor0_ct.get()) && _param_ca_rotor0_ct.get() > FLT_EPSILON;
+		_indi_capable = allocation_feedback_supported && (normalized_force_feedback || mass_valid);
 
 		float sample_freq_hz = 1.f / _sample_interval_s.mean();
 
@@ -495,20 +491,15 @@ void MulticopterPositionControl::Run()
 		updateAllocatedForceHistory();
 
 		bool indi_hover_thrust_changed = false;
-		bool hte_became_valid = false;
-
 		if (_hover_thrust_estimate_sub.updated()) {
 			hover_thrust_estimate_s hte;
 
 			if (_hover_thrust_estimate_sub.copy(&hte) && hte.valid && PX4_ISFINITE(hte.hover_thrust)) {
 				_indi_hover_thrust_target = hte.hover_thrust;
-				hte_became_valid = !_indi_hte_valid;
 				_indi_hte_valid = true;
 
 			} else {
 				_indi_hte_valid = false;
-				_indi_hover_thrust_transition_active = false;
-				_indi_hover_thrust_transition_progress = 1.f;
 			}
 		}
 
@@ -644,9 +635,6 @@ void MulticopterPositionControl::Run()
 				_control.setHoverThrust(_param_mpc_thr_hover.get());
 				_indi_hover_thrust = _param_mpc_thr_hover.get();
 				_indi_hover_thrust_target = _indi_hover_thrust;
-				_indi_hover_thrust_transition_start = _indi_hover_thrust;
-				_indi_hover_thrust_transition_active = false;
-				_indi_hover_thrust_transition_progress = 1.f;
 				_indi_hte_valid = false;
 			}
 
@@ -735,7 +723,6 @@ void MulticopterPositionControl::Run()
 				states.acceleration = selected_acceleration;
 			}
 
-			updateIndiForceFeedbackScale(_indi_hover_thrust);
 			Vector3f delayed_allocated_thrust_acceleration =
 				getDelayedAllocatedThrustAcceleration(vehicle_local_position.timestamp_sample);
 			bool acceleration_indi_feedback_valid = use_indi
@@ -743,56 +730,18 @@ void MulticopterPositionControl::Run()
 					&& delayed_allocated_thrust_acceleration.isAllFinite()
 					&& states.acceleration.isAllFinite();
 
-			// PID already has updateHoverThrust() to preserve normalized thrust by
-			// compensating its vertical integrator. Only acceleration INDI needs a
-			// finite-time first-valid HTE transfer because the estimate also changes
-			// the physical F_0 feedback scale.
+			// Apply every valid HTE output immediately. PID preserves its output with
+			// updateHoverThrust(); INDI applies the same hover thrust to its output map
+			// and selected feedback conversion in this cycle, without another transition.
 			if (_indi_hte_valid) {
 				const float hover_thrust_previous = _indi_hover_thrust;
-
-				if (acceleration_indi_feedback_valid) {
-					const float transition_time = math::max(_param_mpc_indi_tr_t.get(), 0.f);
-
-					if (hte_became_valid) {
-						_indi_hover_thrust_transition_start = _indi_hover_thrust;
-						_indi_hover_thrust_transition_elapsed = 0.f;
-						_indi_hover_thrust_transition_progress = 0.f;
-						_indi_hover_thrust_transition_active = transition_time > FLT_EPSILON;
-					}
-
-					if (_indi_hover_thrust_transition_active && transition_time > FLT_EPSILON) {
-						const float ratio = math::constrain(_indi_hover_thrust_transition_elapsed / transition_time, 0.f, 1.f);
-						_indi_hover_thrust_transition_progress = ratio * ratio * (3.f - 2.f * ratio);
-						_indi_hover_thrust = math::lerp(_indi_hover_thrust_transition_start, _indi_hover_thrust_target,
-										 _indi_hover_thrust_transition_progress);
-						_indi_hover_thrust_transition_elapsed += math::max(dt, 0.f);
-
-						if (ratio >= 1.f) {
-							_indi_hover_thrust_transition_active = false;
-							_indi_hover_thrust_transition_progress = 1.f;
-							_indi_hover_thrust = _indi_hover_thrust_target;
-						}
-
-					} else {
-						_indi_hover_thrust_transition_progress = 1.f;
-						_indi_hover_thrust = _indi_hover_thrust_target;
-					}
-
-				} else {
-					// The conventional PID path applies HTE immediately through its own
-					// bumpless integrator compensation; no extra one-second model lag.
-					_indi_hover_thrust_transition_active = false;
-					_indi_hover_thrust_transition_progress = 1.f;
-					_indi_hover_thrust = _indi_hover_thrust_target;
-				}
-
+				_indi_hover_thrust = _indi_hover_thrust_target;
 				indi_hover_thrust_changed = fabsf(_indi_hover_thrust - hover_thrust_previous) > FLT_EPSILON;
 			}
 
 			if (indi_hover_thrust_changed) {
-				// Recompute the delayed feedback with the exact hover-thrust scale
-				// applied by the controller in this same cycle.
-				updateIndiForceFeedbackScale(_indi_hover_thrust);
+				// The normalized path explicitly depends on hover thrust, so recompute
+				// its delayed feedback with the value applied in this same cycle.
 				delayed_allocated_thrust_acceleration =
 					getDelayedAllocatedThrustAcceleration(vehicle_local_position.timestamp_sample);
 				acceleration_indi_feedback_valid = use_indi
@@ -806,8 +755,8 @@ void MulticopterPositionControl::Run()
 			}
 
 			if (acceleration_indi_feedback_valid) {
-				// INDI uses the hover-thrust estimate directly together with the matching
-				// force-feedback scale. Do not inject a compensation into the PID integrator.
+				// INDI uses the hover-thrust estimate directly with the selected force
+				// conversion. Do not inject a compensation into the PID integrator.
 				_control.setHoverThrust(_indi_hover_thrust);
 
 			} else if (indi_hover_thrust_changed) {
@@ -865,16 +814,13 @@ void MulticopterPositionControl::Run()
 			_indi_undelayed_thrust_acceleration.copyTo(indi_status.allocated_thrust_acceleration_undelayed);
 			_control.getAccelerationIndiRawThrustSetpoint().copyTo(indi_status.raw_thrust_setpoint);
 			indi_status.hover_thrust = _indi_hover_thrust;
-			indi_status.force_feedback_scale = _indi_force_feedback_scale;
 			indi_status.controller_transition_progress = _control.getAccelerationIndiTransitionProgress();
-			indi_status.hover_thrust_transition_progress = _indi_hover_thrust_transition_progress;
 			indi_status.acceleration_source = math::constrain<int32_t>(_param_mpc_indi_a_src.get(), 0, 2);
 			indi_status.acceleration_source_valid = _indi_acceleration_source_valid;
 			indi_status.feedback_valid = selected_acceleration_valid
 						     && delayed_allocated_thrust_acceleration.isAllFinite()
 						     && selected_acceleration.isAllFinite();
 			indi_status.controller_transition_active = _control.accelerationIndiTransitionActive();
-			indi_status.hover_thrust_transition_active = _indi_hover_thrust_transition_active;
 			indi_status.timestamp = hrt_absolute_time();
 			_acceleration_indi_status_pub.publish(indi_status);
 
@@ -925,13 +871,32 @@ void MulticopterPositionControl::updateAllocatedForceHistory()
 	}
 
 	const Vector3f force_body(allocation_value.allocated_force);
+	const Vector3f force_setpoint_scale(allocation_value.force_setpoint_scale);
 	Dcmf R_to_ned(Quatf(_vehicle_attitude.q));
 
 	IndiForceSample sample{};
 	sample.time_us = allocation_value.timestamp;
-	sample.force_ned = R_to_ned * force_body;
+	sample.physical_force_ned = R_to_ned * force_body;
+	sample.normalized_force_ned = force_setpoint_scale.isAllFinite()
+				      ? R_to_ned * force_body.emult(force_setpoint_scale)
+				      : Vector3f{NAN, NAN, NAN};
 	_indi_force_history.push(sample);
 	_indi_force_history_last_timestamp = sample.time_us;
+}
+
+Vector3f MulticopterPositionControl::allocationFeedbackToThrustAcceleration(const IndiForceSample &sample) const
+{
+	if (_param_mpc_indi_f_src.get() == 1) {
+		if (!PX4_ISFINITE(_indi_hover_thrust) || _indi_hover_thrust <= FLT_EPSILON) {
+			return Vector3f{NAN, NAN, NAN};
+		}
+
+		return sample.normalized_force_ned * (CONSTANTS_ONE_G / _indi_hover_thrust);
+	}
+
+	// Preserve the original physical acceleration-INDI feedback. This path uses
+	// the allocation model's force directly and has no hover-thrust correction.
+	return sample.physical_force_ned * _indi_inverse_mass;
 }
 
 Vector3f MulticopterPositionControl::getDelayedAllocatedThrustAcceleration(hrt_abstime reference_timestamp)
@@ -952,7 +917,7 @@ Vector3f MulticopterPositionControl::getDelayedAllocatedThrustAcceleration(hrt_a
 	const hrt_abstime delay_us = static_cast<hrt_abstime>(delay_s * 1e6f);
 	const hrt_abstime target_timestamp = reference_timestamp > delay_us ? reference_timestamp - delay_us : 0;
 	const IndiForceSample &newest = _indi_force_history.get_newest();
-	_indi_undelayed_thrust_acceleration = newest.force_ned * (_indi_inverse_mass * _indi_force_feedback_scale);
+	_indi_undelayed_thrust_acceleration = allocationFeedbackToThrustAcceleration(newest);
 
 	if (!_indi_undelayed_thrust_acceleration.isAllFinite()) {
 		return Vector3f{NAN, NAN, NAN};
@@ -992,41 +957,26 @@ Vector3f MulticopterPositionControl::getDelayedAllocatedThrustAcceleration(hrt_a
 		return Vector3f{NAN, NAN, NAN};
 	}
 
-	Vector3f delayed_force_ned = older.force_ned;
+	IndiForceSample delayed_sample = older;
 	_indi_delayed_force_timestamp = older.time_us;
 
 	if (newer_valid && newer.time_us > older.time_us) {
 		const float interpolation = static_cast<float>(target_timestamp - older.time_us)
 					    / static_cast<float>(newer.time_us - older.time_us);
-		delayed_force_ned += (newer.force_ned - older.force_ned) * interpolation;
+		delayed_sample.physical_force_ned +=
+			(newer.physical_force_ned - older.physical_force_ned) * interpolation;
+		delayed_sample.normalized_force_ned +=
+			(newer.normalized_force_ned - older.normalized_force_ned) * interpolation;
 		_indi_delayed_force_timestamp = target_timestamp;
 	}
 
-	const Vector3f delayed_acceleration = delayed_force_ned * (_indi_inverse_mass * _indi_force_feedback_scale);
+	const Vector3f delayed_acceleration = allocationFeedbackToThrustAcceleration(delayed_sample);
 
 	if (!delayed_acceleration.isAllFinite()) {
 		return Vector3f{NAN, NAN, NAN};
 	}
 
 	return delayed_acceleration;
-}
-
-void MulticopterPositionControl::updateIndiForceFeedbackScale(float hover_thrust)
-{
-	_indi_force_feedback_scale = 1.f;
-
-	if (!_indi_force_scale_adaptation_supported || !PX4_ISFINITE(hover_thrust) || hover_thrust <= FLT_EPSILON) {
-		return;
-	}
-
-	const float nominal_max_thrust = _param_ca_rotor0_ct.get();
-	const float mass = _param_mpc_mass.get();
-	const float force_feedback_scale = mass * CONSTANTS_ONE_G / (hover_thrust * nominal_max_thrust);
-
-	if (PX4_ISFINITE(force_feedback_scale)) {
-		_indi_force_feedback_scale = math::constrain(force_feedback_scale,
-					     kIndiForceFeedbackScaleMin, kIndiForceFeedbackScaleMax);
-	}
 }
 
 trajectory_setpoint_s MulticopterPositionControl::generateFailsafeSetpoint(const hrt_abstime &now,

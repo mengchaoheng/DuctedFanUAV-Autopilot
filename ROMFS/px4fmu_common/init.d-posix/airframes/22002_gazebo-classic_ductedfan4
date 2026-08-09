@@ -59,8 +59,9 @@ param set-default MC_J_X 0.01149
 param set-default MC_J_Y 0.01153
 param set-default MC_J_Z 0.00487
 
-# 2. Acc INDI: selected acceleration source
+# 2. Acc INDI: selected acceleration and allocated-thrust sources
 param set-default MPC_INDI_A_SRC 1
+param set-default MPC_INDI_F_SRC 1
 
 # SRC 0: velocity derivative
 param set-default MPC_VEL_LP 0

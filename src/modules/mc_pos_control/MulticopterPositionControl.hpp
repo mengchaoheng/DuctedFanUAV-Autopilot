@@ -129,20 +129,15 @@ private:
 	trajectory_setpoint_s _setpoint{PositionControl::empty_trajectory_setpoint};
 	trajectory_setpoint_s _last_valid_setpoint{PositionControl::empty_trajectory_setpoint};
 	bool _indi_capable{false};
-	bool _indi_force_scale_adaptation_supported{false};
 	float _indi_inverse_mass{0.f};
 	float _indi_hover_thrust{NAN};
 	float _indi_hover_thrust_target{NAN};
-	float _indi_hover_thrust_transition_start{NAN};
-	float _indi_hover_thrust_transition_elapsed{0.f};
-	float _indi_hover_thrust_transition_progress{1.f};
-	float _indi_force_feedback_scale{1.f};
 	bool _indi_hte_valid{false};
-	bool _indi_hover_thrust_transition_active{false};
 
 	struct IndiForceSample {
 		uint64_t time_us{0};
-		matrix::Vector3f force_ned{};
+		matrix::Vector3f physical_force_ned{};
+		matrix::Vector3f normalized_force_ned{};
 	};
 
 	static constexpr size_t kIndiForceHistoryLength = 64;
@@ -239,11 +234,11 @@ private:
 		(ParamInt<px4::params::MPC_INDI_ACC_EN>)   _param_mpc_indi_acc_en,
 		(ParamInt<px4::params::MPC_INDI_A_SRC>)    _param_mpc_indi_a_src,
 		(ParamFloat<px4::params::MPC_INDI_A_LP>)   _param_mpc_indi_a_lp,
+		(ParamInt<px4::params::MPC_INDI_F_SRC>)    _param_mpc_indi_f_src,
 		(ParamFloat<px4::params::MPC_MASS>)        _param_mpc_mass,
 		(ParamFloat<px4::params::MPC_INDI_F_DLY>)  _param_mpc_indi_f_dly,
 		(ParamFloat<px4::params::MPC_INDI_TR_T>)    _param_mpc_indi_tr_t,
-		(ParamInt<px4::params::CA_AIRFRAME>)       _param_ca_airframe,
-		(ParamFloat<px4::params::CA_ROTOR0_CT>)     _param_ca_rotor0_ct
+		(ParamInt<px4::params::CA_AIRFRAME>)       _param_ca_airframe
 	);
 
 	math::WelfordMean<float> _sample_interval_s{};
@@ -324,6 +319,6 @@ private:
 	/** Get the time-aligned allocated thrust acceleration for acceleration INDI. */
 	matrix::Vector3f getDelayedAllocatedThrustAcceleration(hrt_abstime reference_timestamp);
 
-	/** Keep the INDI force feedback consistent with the runtime hover-thrust scale. */
-	void updateIndiForceFeedbackScale(float hover_thrust);
+	/** Convert the selected allocation feedback representation to thrust acceleration. */
+	matrix::Vector3f allocationFeedbackToThrustAcceleration(const IndiForceSample &sample) const;
 };
