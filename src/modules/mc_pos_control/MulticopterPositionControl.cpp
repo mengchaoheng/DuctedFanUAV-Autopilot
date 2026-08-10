@@ -717,44 +717,40 @@ void MulticopterPositionControl::Run()
 			}
 
 			const bool selected_acceleration_valid =
-				(_indi_acceleration_source_valid & selected_acceleration_valid_bit) != 0;
-
-			if (use_indi && selected_acceleration_valid) {
-				states.acceleration = selected_acceleration;
-			}
-
-			Vector3f delayed_allocated_thrust_acceleration =
-				getDelayedAllocatedThrustAcceleration(vehicle_local_position.timestamp_sample);
-			bool acceleration_indi_feedback_valid = use_indi
-					&& selected_acceleration_valid
-					&& delayed_allocated_thrust_acceleration.isAllFinite()
-					&& states.acceleration.isAllFinite();
+				((_indi_acceleration_source_valid & selected_acceleration_valid_bit) != 0)
+				&& selected_acceleration.isAllFinite();
 
 			// Apply every valid HTE output immediately. PID preserves its output with
 			// updateHoverThrust(); INDI applies the same hover thrust to its output map
-			// and selected feedback conversion in this cycle, without another transition.
+			// and selected feedback conversion in this cycle.
 			if (_indi_hte_valid) {
 				const float hover_thrust_previous = _indi_hover_thrust;
 				_indi_hover_thrust = _indi_hover_thrust_target;
 				indi_hover_thrust_changed = fabsf(_indi_hover_thrust - hover_thrust_previous) > FLT_EPSILON;
 			}
 
-			if (indi_hover_thrust_changed) {
-				// The normalized path explicitly depends on hover thrust, so recompute
-				// its delayed feedback with the value applied in this same cycle.
-				delayed_allocated_thrust_acceleration =
-					getDelayedAllocatedThrustAcceleration(vehicle_local_position.timestamp_sample);
-				acceleration_indi_feedback_valid = use_indi
-						&& selected_acceleration_valid
-						&& delayed_allocated_thrust_acceleration.isAllFinite()
-						&& states.acceleration.isAllFinite();
-			}
+			// Convert the delayed force only after applying the current hover-thrust
+			// estimate because the normalized-force path depends on that value.
+			const Vector3f delayed_allocated_thrust_acceleration =
+				getDelayedAllocatedThrustAcceleration(vehicle_local_position.timestamp_sample);
+			const bool acceleration_indi_feedback_available = selected_acceleration_valid
+					&& delayed_allocated_thrust_acceleration.isAllFinite();
+			// This readiness flag is not an EKF-health decision. Invalid base position
+			// or velocity states are handled by PositionControl's normal failsafe path.
+			const bool acceleration_indi_ready = use_indi && acceleration_indi_feedback_available;
 
-			if (use_indi) {
+			if (acceleration_indi_ready) {
+				// Switch a_0 and F_0 into PositionControl as one complete INDI feedback pair.
+				// Otherwise leave states.acceleration on the velocity-derivative source used
+				// by the conventional PID controller.
+				states.acceleration = selected_acceleration;
 				states.allocated_thrust_acceleration = delayed_allocated_thrust_acceleration;
+
+			} else {
+				states.allocated_thrust_acceleration = Vector3f{NAN, NAN, NAN};
 			}
 
-			if (acceleration_indi_feedback_valid) {
+			if (acceleration_indi_ready) {
 				// INDI uses the hover-thrust estimate directly with the selected force
 				// conversion. Do not inject a compensation into the PID integrator.
 				_control.setHoverThrust(_indi_hover_thrust);
@@ -817,9 +813,7 @@ void MulticopterPositionControl::Run()
 			indi_status.controller_transition_progress = _control.getAccelerationIndiTransitionProgress();
 			indi_status.acceleration_source = math::constrain<int32_t>(_param_mpc_indi_a_src.get(), 0, 2);
 			indi_status.acceleration_source_valid = _indi_acceleration_source_valid;
-			indi_status.feedback_valid = selected_acceleration_valid
-						     && delayed_allocated_thrust_acceleration.isAllFinite()
-						     && selected_acceleration.isAllFinite();
+			indi_status.feedback_valid = acceleration_indi_feedback_available;
 			indi_status.controller_transition_active = _control.accelerationIndiTransitionActive();
 			indi_status.timestamp = hrt_absolute_time();
 			_acceleration_indi_status_pub.publish(indi_status);
