@@ -55,7 +55,7 @@ using namespace time_literals;
 namespace
 {
 constexpr float kAllocationFeedbackSampleRateChangeThreshold = 0.1f;
-constexpr hrt_abstime kAllocationFeedbackFilterStatusPublishInterval = 1_s;
+constexpr hrt_abstime kAllocationFeedbackFilterStatusPublishInterval = 100_ms;
 
 hrt_abstime runtimeMeasurementTimeUs()
 {
@@ -1280,12 +1280,17 @@ ControlAllocator::publish_allocation_value(float sample_interval_s)
 void
 ControlAllocator::publish_allocation_feedback_filter_status(hrt_abstime now)
 {
-	if (_allocation_feedback_status_last_publish == 0) {
+	const bool new_event = _allocation_feedback_filter_event_timestamp != 0
+			       && _allocation_feedback_filter_event_timestamp
+			       != _allocation_feedback_filter_event_timestamp_last_publish;
+
+	if (_allocation_feedback_status_last_publish == 0 && !new_event) {
 		_allocation_feedback_status_last_publish = now;
 		return;
 	}
 
-	if (now - _allocation_feedback_status_last_publish < kAllocationFeedbackFilterStatusPublishInterval) {
+	if (!new_event
+	    && now - _allocation_feedback_status_last_publish < kAllocationFeedbackFilterStatusPublishInterval) {
 		return;
 	}
 
@@ -1309,6 +1314,7 @@ ControlAllocator::publish_allocation_feedback_filter_status(hrt_abstime now)
 	_allocation_feedback_filter_status_pub.publish(status);
 
 	_allocation_feedback_status_last_publish = now;
+	_allocation_feedback_filter_event_timestamp_last_publish = _allocation_feedback_filter_event_timestamp;
 }
 
 void

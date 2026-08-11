@@ -283,6 +283,7 @@ private:
 	uint32_t _allocation_feedback_filter_reconfigure_count{0};
 	uint8_t _allocation_feedback_filter_event_reason{0};
 	hrt_abstime _allocation_feedback_filter_event_timestamp{0};
+	hrt_abstime _allocation_feedback_filter_event_timestamp_last_publish{0};
 	hrt_abstime _allocation_feedback_status_last_publish{0};
 
 

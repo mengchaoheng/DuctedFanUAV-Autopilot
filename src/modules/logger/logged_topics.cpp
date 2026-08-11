@@ -82,8 +82,8 @@ void LoggedTopics::add_default_topics()
 	add_optional_topic("gripper");
 	add_optional_topic_multi("heater_status");
 	add_topic("home_position");
-	// Keep HTE at position-control timescales so its valid transition, estimate
-	// smoothness, variance and innovations can be assessed from every flight log.
+	// Keep HTE diagnostics at 50 Hz in general flight logs. High-rate profiles
+	// preserve every update for detailed normalized acceleration-INDI analysis.
 	add_topic("hover_thrust_estimate", 20);
 	add_topic("input_rc", 500);
 	add_optional_topic("internal_combustion_engine_control", 10);
@@ -239,7 +239,7 @@ void LoggedTopics::add_default_topics()
 	add_topic("actuator_motors", 100);
 	add_topic("actuator_servos", 100);
 	add_topic("allocation_value", 20);
-	add_topic("allocation_feedback_filter_status");
+	add_topic("allocation_feedback_filter_status", 200);
 	add_topic_multi("vehicle_thrust_setpoint", 20, 2);
 	add_topic_multi("vehicle_torque_setpoint", 20, 2);
 
@@ -297,8 +297,19 @@ void LoggedTopics::add_default_topics()
 void LoggedTopics::add_high_rate_topics()
 {
 	// maximum rate to analyze fast maneuvers (e.g. for racing)
+	// Acceleration INDI: controller input/output and all acceleration-source inputs.
 	add_topic("acceleration_indi_status");
+	add_topic("hover_thrust_estimate");
+	add_topic("trajectory_setpoint");
+	add_topic("vehicle_acceleration");
+	add_topic("vehicle_local_position");
+	add_topic("vehicle_local_position_setpoint");
+
+	// Physical and normalized post-allocation INDI feedback plus allocator diagnostics.
 	add_topic("allocation_value");
+	add_topic("allocation_feedback_filter_status");
+	add_topic_multi("control_allocator_status", 20, 2);
+
 	add_topic("manual_control_setpoint");
 	add_topic_multi("rate_ctrl_status", 20, 2);
 	add_topic("sensor_combined");
