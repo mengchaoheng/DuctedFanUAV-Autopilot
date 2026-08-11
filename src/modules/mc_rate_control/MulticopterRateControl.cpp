@@ -177,23 +177,114 @@ MulticopterRateControl::publishTorqueSetpoint(const vehicle_torque_setpoint_s &v
 
 bool
 MulticopterRateControl::computeIndiTorqueSetpoint(const Vector3f &rates, const Vector3f &rates_setpoint,
-		const Vector3f &angular_accel, Vector3f &torque_setpoint, Vector3f &indi_feedback)
+		const Vector3f &angular_accel, hrt_abstime reference_timestamp, Vector3f &torque_setpoint,
+		Vector3f &indi_feedback)
 {
-	allocation_value_s allocation_value;
+	Vector3f allocated_torque;
+	Vector3f output_scale;
 
-	if (!_allocation_value_sub.copy(&allocation_value)
-	    || !allocationFeedbackValid(allocation_value)) {
+	if (!getDelayedAllocatedTorque(reference_timestamp, allocated_torque, output_scale)) {
 		return false;
 	}
 
-	const Vector3f allocated_torque(allocation_value.allocated_torque);
-	const Vector3f output_scale(allocation_value.torque_setpoint_scale);
 	const IndiControl::Output physical_output =
 		_indi_control.update(rates, rates_setpoint, angular_accel, allocated_torque);
 
 	indi_feedback = output_scale.emult(physical_output.feedback_torque);
 	torque_setpoint = output_scale.emult(physical_output.rate_error_torque + physical_output.feedback_torque);
 	return true;
+}
+
+void
+MulticopterRateControl::updateAllocatedTorqueHistory()
+{
+	allocation_value_s allocation_value;
+
+	if (!_allocation_value_sub.copy(&allocation_value) || !allocationFeedbackValid(allocation_value)
+	    || allocation_value.timestamp <= _indi_torque_history_last_timestamp) {
+		return;
+	}
+
+	if (_indi_torque_history_last_timestamp != 0
+	    && allocation_value.timestamp > _indi_torque_history_last_timestamp + 100_ms) {
+		_indi_torque_history.reset();
+	}
+
+	const Vector3f torque_setpoint_scale(allocation_value.torque_setpoint_scale);
+
+	// Do not interpolate feedback across an effectiveness/allocation-scale change.
+	if (!_indi_torque_history.empty()
+	    && (torque_setpoint_scale - _indi_torque_history.get_newest().torque_setpoint_scale).norm_squared() > 1e-8f) {
+		_indi_torque_history.reset();
+	}
+
+	IndiTorqueSample sample{};
+	sample.time_us = allocation_value.timestamp;
+	sample.allocated_torque = Vector3f(allocation_value.allocated_torque);
+	sample.torque_setpoint_scale = torque_setpoint_scale;
+	_indi_torque_history.push(sample);
+	_indi_torque_history_last_timestamp = sample.time_us;
+}
+
+bool
+MulticopterRateControl::getDelayedAllocatedTorque(hrt_abstime reference_timestamp, Vector3f &allocated_torque,
+		Vector3f &torque_setpoint_scale)
+{
+	if (_indi_torque_history.empty()
+	    || hrt_elapsed_time(&_indi_torque_history.get_newest().time_us) >= 100_ms) {
+		return false;
+	}
+
+	const float delay_s = PX4_ISFINITE(_param_mc_indi_torque_delay.get())
+			      ? math::constrain(_param_mc_indi_torque_delay.get(), 0.f, 0.1f) : 0.f;
+	const hrt_abstime delay_us = static_cast<hrt_abstime>(delay_s * 1e6f);
+	const hrt_abstime target_timestamp = reference_timestamp > delay_us ? reference_timestamp - delay_us : 0;
+	const IndiTorqueSample &newest = _indi_torque_history.get_newest();
+
+	if (target_timestamp >= newest.time_us) {
+		allocated_torque = newest.allocated_torque;
+		torque_setpoint_scale = newest.torque_setpoint_scale;
+		return allocated_torque.isAllFinite() && torque_setpoint_scale.isAllFinite();
+	}
+
+	IndiTorqueSample older{};
+	IndiTorqueSample newer{};
+	bool older_valid = false;
+	bool newer_valid = false;
+	uint8_t index = _indi_torque_history.get_oldest_index();
+
+	for (int entry = 0; entry < _indi_torque_history.entries(); entry++) {
+		const IndiTorqueSample &sample = _indi_torque_history[index];
+
+		if (sample.time_us <= target_timestamp) {
+			older = sample;
+			older_valid = true;
+		}
+
+		if (sample.time_us >= target_timestamp) {
+			newer = sample;
+			newer_valid = true;
+			break;
+		}
+
+		index = _indi_torque_history.next(index);
+	}
+
+	if (!older_valid) {
+		return false;
+	}
+
+	allocated_torque = older.allocated_torque;
+	torque_setpoint_scale = older.torque_setpoint_scale;
+
+	if (newer_valid && newer.time_us > older.time_us) {
+		const float interpolation = static_cast<float>(target_timestamp - older.time_us)
+					    / static_cast<float>(newer.time_us - older.time_us);
+		allocated_torque += (newer.allocated_torque - older.allocated_torque) * interpolation;
+		torque_setpoint_scale += (newer.torque_setpoint_scale - older.torque_setpoint_scale) * interpolation;
+	}
+
+	return allocated_torque.isAllFinite() && torque_setpoint_scale.isAllFinite();
 }
 
 void
@@ -245,6 +336,9 @@ MulticopterRateControl::Run()
 
 		_vehicle_status_sub.update(&_vehicle_status);
 		_rc_channels_sub.update(&_rc_channels);
+		// Keep the filtered allocated-torque history warm even while PID is active,
+		// so a requested delayed sample is immediately available on INDI entry.
+		updateAllocatedTorqueHistory();
 
 		// use rates setpoint topic
 		vehicle_rates_setpoint_s vehicle_rates_setpoint{};
@@ -318,7 +412,7 @@ MulticopterRateControl::Run()
 			const bool indi_requested = (_param_mc_indi_rate_en.get() == 1)
 						    || rcChannelEnabled(_rc_channels, kRateIndiRcChannel);
 			const bool indi_active = _indi_capable && indi_requested && computeIndiTorqueSetpoint(rates, _rates_setpoint,
-						 angular_accel, torque_setpoint, indi_feedback);
+						 angular_accel, now, torque_setpoint, indi_feedback);
 			const Vector3f torque_setpoint_before_output_processing = torque_setpoint;
 
 			// apply low-pass filtering on yaw axis to reduce high frequency torque caused by rotor acceleration

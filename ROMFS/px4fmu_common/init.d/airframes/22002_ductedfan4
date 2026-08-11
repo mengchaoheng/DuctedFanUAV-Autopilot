@@ -68,7 +68,8 @@ param set-default IMU_GYRO_NF1_FRQ 50
 param set-default IMU_GYRO_NF1_BW 10
 
 # Rate INDI: allocated physical torque feedback tau_0
-param set-default CA_TORQ_CUTOFF 8
+param set-default CA_TORQ_CUTOFF 10
+param set-default MC_INDI_T_DLY 0.020
 
 # Rate INDI: inertia model
 param set-default MC_J_X 0.01149
@@ -81,9 +82,9 @@ param set-default MPC_INDI_A_SRC 1
 
 # SRC 0: velocity derivative
 param set-default MPC_VEL_LP 0
-param set-default MPC_VELD_LP 5
-param set-default MPC_VEL_NF_FRQ 0
-param set-default MPC_VEL_NF_BW 20
+param set-default MPC_VELD_LP 10
+# param set-default MPC_VEL_NF_FRQ 0
+# param set-default MPC_VEL_NF_BW 20
 
 # SRC 1 and SRC 2: direct acceleration candidates
 param set-default MPC_INDI_A_LP 10
@@ -92,8 +93,8 @@ param set-default MPC_INDI_A_LP 10
 param set-default IMU_ACCEL_CUTOFF 30
 
 # Acc INDI: physical force feedback F_0
-param set-default CA_FORCE_CUTOFF 6
-param set-default MPC_INDI_F_DLY 0.05
+param set-default CA_FORCE_CUTOFF 10
+param set-default MPC_INDI_F_DLY 0.02
 
 # Acc INDI: mass/force model
 param set-default MPC_MASS 1.56

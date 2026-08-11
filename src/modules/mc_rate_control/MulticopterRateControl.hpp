@@ -39,6 +39,7 @@
 #include <lib/mathlib/math/filter/AlphaFilter.hpp>
 #include <lib/matrix/matrix/math.hpp>
 #include <lib/perf/perf_counter.h>
+#include <lib/ringbuffer/TimestampedRingBuffer.hpp>
 #include <px4_platform_common/defines.h>
 #include <px4_platform_common/module.h>
 #include <px4_platform_common/module_params.h>
@@ -97,8 +98,12 @@ private:
 
 	/** Compute INDI output from allocation feedback. Returns false if feedback is unavailable or stale. */
 	bool computeIndiTorqueSetpoint(const matrix::Vector3f &rates, const matrix::Vector3f &rates_setpoint,
-				       const matrix::Vector3f &angular_accel, matrix::Vector3f &torque_setpoint,
+				       const matrix::Vector3f &angular_accel, hrt_abstime reference_timestamp,
+				       matrix::Vector3f &torque_setpoint,
 				       matrix::Vector3f &indi_feedback);
+	void updateAllocatedTorqueHistory();
+	bool getDelayedAllocatedTorque(hrt_abstime reference_timestamp, matrix::Vector3f &allocated_torque,
+				       matrix::Vector3f &torque_setpoint_scale);
 	void publishTorqueSetpoint(const vehicle_torque_setpoint_s &vehicle_torque_setpoint);
 	void updateActuatorControlsStatus(const vehicle_torque_setpoint_s &vehicle_torque_setpoint, float dt);
 
@@ -136,6 +141,18 @@ private:
 	bool _indi_capable{false};
 	bool _route_torque_to_instance1{false};
 	uint8_t _torque_allocation_instance{0};
+
+	struct IndiTorqueSample {
+		uint64_t time_us{0};
+		matrix::Vector3f allocated_torque{};
+		matrix::Vector3f torque_setpoint_scale{};
+	};
+
+	// 128 samples cover 160 ms at an 800 Hz rate/allocation loop and therefore
+	// the complete 0.1 s parameter range with margin.
+	static constexpr size_t kIndiTorqueHistoryLength = 128;
+	TimestampedRingBuffer<IndiTorqueSample, kIndiTorqueHistoryLength> _indi_torque_history{};
+	uint64_t _indi_torque_history_last_timestamp{0};
 
 	hrt_abstime _last_run{0};
 
@@ -189,6 +206,7 @@ private:
 		(ParamFloat<px4::params::MC_INDI_R_P>) _param_mc_indi_roll_p,
 		(ParamFloat<px4::params::MC_INDI_P_P>) _param_mc_indi_pitch_p,
 		(ParamFloat<px4::params::MC_INDI_Y_P>) _param_mc_indi_yaw_p,
+		(ParamFloat<px4::params::MC_INDI_T_DLY>) _param_mc_indi_torque_delay,
 		(ParamFloat<px4::params::MC_J_X>) _param_mc_j_x,
 		(ParamFloat<px4::params::MC_J_Y>) _param_mc_j_y,
 		(ParamFloat<px4::params::MC_J_Z>) _param_mc_j_z,

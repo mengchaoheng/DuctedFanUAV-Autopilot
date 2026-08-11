@@ -29,6 +29,27 @@ parameters:
       min: 0
       unit: 1/s
       decimal: 3
+    MC_INDI_T_DLY:
+      description:
+        short: Rate INDI allocated-torque feedback delay
+        long: |-
+          Additional pure delay applied to the filtered allocated moment before
+          it is used as tau_0 by rate INDI. The delay aligns the command-derived
+          allocated moment with the measured angular acceleration alpha_0 after
+          actuator and airframe dynamics. It is implemented with a timestamped
+          history and interpolation; it does not block or slow the rate loop.
+
+          This delay is applied after CA_TORQ_CUTOFF. Set to zero to use the
+          newest available allocated moment. Use an actuator model for dynamic
+          magnitude attenuation and this parameter only for residual timing
+          mismatch.
+      type: float
+      default: 0.0
+      min: 0.0
+      max: 0.1
+      unit: s
+      decimal: 3
+      increment: 0.005
     MC_J_X:
       description:
         short: Vehicle roll-axis moment of inertia

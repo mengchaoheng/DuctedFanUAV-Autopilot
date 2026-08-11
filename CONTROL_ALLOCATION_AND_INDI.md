@@ -465,11 +465,34 @@ Yaw output low-pass 与 battery scaling 作用于最终 torque。higher componen
 | 机型门 | 启动与 parameter update | `CA_AIRFRAME` 为 0、9、16、17 |
 | 模型参数门 | 启动与 parameter update | 三轴 INDI gain 为 finite，`MC_J_X/Y/Z` 为 finite positive |
 | 控制模式门 | 每个 gyro 周期 | `flag_control_rates_enabled=true` |
-| 反馈门 | 每个 rate-control 周期 | `AllocationValue` 已发布、年龄小于 100 ms、torque 与 scale 为 finite |
+| 反馈门 | 每个 rate-control 周期 | `AllocationValue` 已发布、年龄小于 100 ms、torque 与 scale 为 finite，且历史覆盖 `MC_INDI_T_DLY` 请求的时间戳 |
 
 原 rate PID 每个 rate-control 周期都执行并更新 integrator，形成 hot standby。INDI feedback gate 成立时，INDI torque 覆盖本周期待发布 torque；反馈 gate 转换时，输出选择在 PID 与 INDI 之间逐周期切换。PID integrator 保持连续，disarmed 与 vehicle type 对应的原版 integral reset 规则持续生效。
 
 CA0/9 使用 `control_allocator_status` instance 0 更新 PID anti-windup；CA16/17 使用 instance 1。`vehicle_torque_setpoint.xyz_indi_feedback_valid` 同时记录 PCA priority split 的实际状态。
+
+### 6.3 Allocated torque 与角加速度的延迟对齐
+
+Allocator 使用最终 actuator setpoint 和物理 effectiveness matrix 计算
+
+$$
+\tau_{0,raw}=(BU)_\tau u_{act,sp},
+$$
+
+再由 `CA_TORQ_CUTOFF` 二阶低通得到 $\tau_{0,f}$。该反馈已经包含 allocator 的 clipping、slew-rate limit 和 stopped-motor 处理，但 actuator setpoint 不是舵机位置测量，因此没有包含舵机运动、气动力建立和机体响应延迟。角加速度 $\alpha_0$ 则由 gyro 差分并经 `IMU_DGYRO_CUTOFF` 获得。两者直接做差时，command-derived $\tau_{0,f}$ 可能领先 $J\alpha_0$。
+
+Rate INDI 使用时间戳历史完成：
+
+$$
+\tau_{0,aligned}(t)=\tau_{0,f}(t-\tau_T),
+\qquad \tau_T=MC\_INDI\_T\_DLY.
+$$
+
+严格处理顺序为：最终 actuator setpoint → physical allocated torque → `CA_TORQ_CUTOFF` → `AllocationValue` → rate-controller 历史缓存与线性插值 → INDI。它不会阻塞或降低 800 Hz rate loop。历史在 PID 阶段也持续预热；历史不足、最新样本超过 100 ms 或数据非 finite 时，本周期保持原 PID 路径。
+
+`MC_INDI_T_DLY` 的通用默认值为 0，范围 0～0.1 s。对 13dd9164 版本的 22002 实飞日志，在 `CA_TORQ_CUTOFF=IMU_DGYRO_CUTOFF=8 Hz` 后，0.5～6 Hz 频带辨识出的典型残余时移约为 roll 24～26 ms、pitch 25 ms、yaw 20～22 ms。当前 22002 使用 `CA_TORQ_CUTOFF=8 Hz`、`IMU_DGYRO_CUTOFF=10 Hz`；较低的 torque cutoff 已比 acceleration 通道多提供约 5～7 ms 相位滞后，因此实机与 Gazebo airframe 先使用 0.020 s，而不是再次补满 0.025 s。原始 allocation command 到 $\alpha_0$ 的约 50～60 ms 总时移已经包含 torque low-pass 的延迟，不能把完整总时移再次填入本参数。
+
+纯延迟只修正目标频带内的时间关系，不模拟执行器的动态幅值衰减。若后续增加一阶舵机状态估计，应先由 actuator model 表示主要动态，再用 `MC_INDI_T_DLY` 补偿剩余运输延迟，避免同时使用过低的 `CA_TORQ_CUTOFF`、完整 actuator time constant 和过大的 pure delay 重复建模。
 
 ## 7. Acceleration INDI
 
