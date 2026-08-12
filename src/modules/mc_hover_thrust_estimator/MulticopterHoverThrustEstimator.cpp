@@ -43,6 +43,20 @@
 
 using namespace time_literals;
 
+namespace
+{
+constexpr unsigned kHoverThrustInAirRcChannel = 7; // RC8
+constexpr hrt_abstime kRcSignalTimeout = 500_ms;
+
+bool rcChannelEnabled(const rc_channels_s &rc_channels, unsigned channel)
+{
+	return (rc_channels.channel_count > channel)
+	       && !rc_channels.signal_lost
+	       && (hrt_elapsed_time(&rc_channels.timestamp) < kRcSignalTimeout)
+	       && (rc_channels.channels[channel] >= 0.f);
+}
+}
+
 ModuleBase::Descriptor MulticopterHoverThrustEstimator::desc{task_spawn, custom_command, print_usage};
 
 MulticopterHoverThrustEstimator::MulticopterHoverThrustEstimator() :
@@ -122,6 +136,11 @@ void MulticopterHoverThrustEstimator::Run()
 	vehicle_local_position_s local_pos{};
 
 	if (_vehicle_local_position_sub.copy(&local_pos)) {
+		rc_channels_s rc_channels{};
+		const bool manual_in_air_trigger = _armed
+				&& _rc_channels_sub.copy(&rc_channels)
+				&& rcChannelEnabled(rc_channels, kHoverThrustInAirRcChannel);
+
 		// This is only necessary because the landed
 		// flag of the land detector does not guarantee that
 		// the vehicle does not touch the ground anymore.
@@ -129,10 +148,11 @@ void MulticopterHoverThrustEstimator::Run()
 		// this value is always good enough after takeoff for
 		// this use case.
 		// TODO: improve the landed flag
-		if (!_landed) {
-			if (local_pos.dist_bottom > 1.f) {
-				_in_air = true;
-			}
+		// RC8 provides a manual alternative when no valid terrain
+		// estimate is available. Once triggered, keep the state latched
+		// until the land detector reports landed.
+		if (!_landed && ((local_pos.dist_bottom > 1.f) || manual_in_air_trigger)) {
+			_in_air = true;
 		}
 	}
 
