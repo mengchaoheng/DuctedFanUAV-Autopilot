@@ -125,6 +125,7 @@ if(gazebo_FOUND)
 		none
 		baylands
 		empty
+		screenshot
 		ksql_airport
 		mcmillan_airfield
 		ramped_up_wind
