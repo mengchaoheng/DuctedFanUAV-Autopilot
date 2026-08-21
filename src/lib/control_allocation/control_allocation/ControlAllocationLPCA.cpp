@@ -165,46 +165,6 @@ bool runLPCA(LPCAMethod method, const float b_par[ControlAllocation::NUM_AXES][C
 	return err == 0;
 }
 
-template<int Rows>
-bool dispatchLPCAColumns(int cols, LPCAMethod method,
-				      const float b_par[ControlAllocation::NUM_AXES][ControlAllocation::NUM_ACTUATORS],
-				      const float y_par[ControlAllocation::NUM_AXES],
-				      const float y_higher_par[ControlAllocation::NUM_AXES],
-				      const float y_lower_par[ControlAllocation::NUM_AXES],
-				      const float actuator_min[ControlAllocation::NUM_ACTUATORS],
-				      const float actuator_max[ControlAllocation::NUM_ACTUATORS],
-				      float output[ControlAllocation::NUM_ACTUATORS],
-			      LPCADiagnostics &diagnostics)
-{
-	switch (cols) {
-	case 4:
-		if constexpr (Rows <= 4) { return runLPCA<Rows, 4>(method, b_par, y_par, y_higher_par, y_lower_par, actuator_min, actuator_max, output, diagnostics); }
-		break;
-
-	case 5:
-		if constexpr (Rows <= 5) { return runLPCA<Rows, 5>(method, b_par, y_par, y_higher_par, y_lower_par, actuator_min, actuator_max, output, diagnostics); }
-		break;
-
-	case 6:
-		if constexpr (Rows <= 6) { return runLPCA<Rows, 6>(method, b_par, y_par, y_higher_par, y_lower_par, actuator_min, actuator_max, output, diagnostics); }
-		break;
-
-	case 7:
-		if constexpr (Rows <= 7) { return runLPCA<Rows, 7>(method, b_par, y_par, y_higher_par, y_lower_par, actuator_min, actuator_max, output, diagnostics); }
-		break;
-
-	case 8:
-		if constexpr (Rows <= 8) { return runLPCA<Rows, 8>(method, b_par, y_par, y_higher_par, y_lower_par, actuator_min, actuator_max, output, diagnostics); }
-		break;
-
-	case 9:
-		if constexpr (Rows <= 9) { return runLPCA<Rows, 9>(method, b_par, y_par, y_higher_par, y_lower_par, actuator_min, actuator_max, output, diagnostics); }
-		break;
-	}
-
-	return false;
-}
-
 bool dispatchLPCA(int rows, int cols, LPCAMethod method,
 			       const float b_par[ControlAllocation::NUM_AXES][ControlAllocation::NUM_ACTUATORS],
 			       const float y_par[ControlAllocation::NUM_AXES],
@@ -215,17 +175,20 @@ bool dispatchLPCA(int rows, int cols, LPCAMethod method,
 			       float output[ControlAllocation::NUM_ACTUATORS],
 		       LPCADiagnostics &diagnostics)
 {
-	switch (rows) {
-	case 3:
-		return dispatchLPCAColumns<3>(cols, method, b_par, y_par, y_higher_par, y_lower_par, actuator_min, actuator_max, output,
-							   diagnostics);
-
-	case 4:
-		return dispatchLPCAColumns<4>(cols, method, b_par, y_par, y_higher_par, y_lower_par, actuator_min, actuator_max, output,
-							   diagnostics);
+	if (rows != 3) {
+		return false;
 	}
 
-	return false;
+	switch (cols) {
+	case 4:
+		return runLPCA<3, 4>(method, b_par, y_par, y_higher_par, y_lower_par, actuator_min, actuator_max, output, diagnostics);
+
+	case 6:
+		return runLPCA<3, 6>(method, b_par, y_par, y_higher_par, y_lower_par, actuator_min, actuator_max, output, diagnostics);
+
+	default:
+		return false;
+	}
 }
 
 } // namespace
@@ -548,11 +511,11 @@ ControlAllocationLPCA::lpcaUnavailableReason() const
 {
 	// Check the statically supported dispatch dimensions before numerical
 	// properties so diagnostics report the primary structural limitation.
-	if (_num_active_rows != 3 && _num_active_rows != 4) {
+	if (_num_active_rows != 3) {
 		return kLPCAUnavailableRows;
 	}
 
-	if (_num_actuators < 4 || _num_actuators > 9 || _num_actuators < _num_active_rows) {
+	if (_num_actuators != 4 && _num_actuators != 6) {
 		return kLPCAUnavailableActuators;
 	}
 
