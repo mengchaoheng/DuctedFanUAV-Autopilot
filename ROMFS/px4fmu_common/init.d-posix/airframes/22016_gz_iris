@@ -11,6 +11,15 @@
 # so the two simulator airframes cannot silently drift apart.
 . ${R}etc/init.d-posix/airframes/10015_gazebo-classic_iris
 
+# INDI and body-rate limits validated for the current gz Iris model.
+param set-default MC_INDI_P_P 12.0
+param set-default MC_INDI_R_P 12.0
+param set-default MC_INDI_Y_P 4.0
+param set-default MC_INDI_T_DLY 0.0
+param set-default MC_ROLLRATE_MAX 1145.9156
+param set-default MC_PITCHRATE_MAX 1145.9156
+param set-default MC_YAWRATE_MAX 458.3662
+
 PX4_SIMULATOR=${PX4_SIMULATOR:=gz}
 PX4_GZ_WORLD=${PX4_GZ_WORLD:=default}
 PX4_SIM_MODEL=${PX4_SIM_MODEL:=iris}
