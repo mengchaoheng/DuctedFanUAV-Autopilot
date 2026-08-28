@@ -39,9 +39,10 @@ param set-default CA_WLS_FZ_W 0.03162278
 # Gazebo writes these vehicle properties directly on base_link. The IMU adds no
 # inertial link; the GPS and four rotor-link inertias are kept negligible.
 
-param set-default MC_INDI_P_P 10.0
-param set-default MC_INDI_R_P 10.0
-param set-default MC_INDI_Y_P 10.0
+param set-default MC_INDI_P_P 12.0
+param set-default MC_INDI_R_P 12.0
+param set-default MC_INDI_Y_P 4.0
+param set-default MC_INDI_T_DLY 0.0
 
 # Tuned for this Gazebo Iris model.
 param set-default MC_ROLL_P 6.5
@@ -52,17 +53,17 @@ param set-default MC_YAW_WEIGHT 1.0
 param set-default MC_ROLLRATE_P 0.0222819
 param set-default MC_ROLLRATE_I 0.0299221
 param set-default MC_ROLLRATE_D 0.000182725
-param set-default MC_ROLLRATE_MAX 1800
+param set-default MC_ROLLRATE_MAX 1145.9156
 
 param set-default MC_PITCHRATE_P 0.0188895
 param set-default MC_PITCHRATE_I 0.0249737
 param set-default MC_PITCHRATE_D 0.000131163
-param set-default MC_PITCHRATE_MAX 1800
+param set-default MC_PITCHRATE_MAX 1145.9156
 
 param set-default MC_YAWRATE_P 0.0324820
 param set-default MC_YAWRATE_I 0.0689804
 param set-default MC_YAWRATE_D 0.00118225
-param set-default MC_YAWRATE_MAX 1800
+param set-default MC_YAWRATE_MAX 458.3662
 param set-default MC_YAW_TQ_CUTOFF 0
 
 param set-default MC_ATT_ERR_MODE 3

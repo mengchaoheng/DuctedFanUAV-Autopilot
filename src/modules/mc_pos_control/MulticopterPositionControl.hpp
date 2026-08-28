@@ -74,6 +74,7 @@
 #include <uORB/topics/vehicle_land_detected.h>
 #include <uORB/topics/vehicle_local_position.h>
 #include <uORB/topics/vehicle_local_position_setpoint.h>
+#include <uORB/topics/vehicle_status.h>
 
 using namespace time_literals;
 
@@ -122,6 +123,7 @@ private:
 	uORB::Subscription _vehicle_constraints_sub{ORB_ID(vehicle_constraints)};
 	uORB::Subscription _vehicle_control_mode_sub{ORB_ID(vehicle_control_mode)};
 	uORB::Subscription _vehicle_land_detected_sub{ORB_ID(vehicle_land_detected)};
+	uORB::Subscription _vehicle_status_sub{ORB_ID(vehicle_status)};
 
 	hrt_abstime _time_stamp_last_loop{0};		/**< time stamp of last loop iteration */
 	hrt_abstime _time_position_control_enabled{0};
@@ -149,6 +151,7 @@ private:
 	vehicle_attitude_s _vehicle_attitude{};
 	vehicle_acceleration_s _vehicle_acceleration{};
 	vehicle_control_mode_s _vehicle_control_mode{};
+	vehicle_status_s _vehicle_status{};
 	matrix::Vector3f _indi_acceleration_velocity_derivative{NAN, NAN, NAN};
 	matrix::Vector3f _indi_acceleration_ekf{NAN, NAN, NAN};
 	matrix::Vector3f _indi_acceleration_imu{NAN, NAN, NAN};

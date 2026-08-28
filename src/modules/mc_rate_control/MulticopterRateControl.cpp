@@ -409,10 +409,13 @@ MulticopterRateControl::Run()
 			Vector3f torque_setpoint =
 				_rate_control.update(rates, _rates_setpoint, angular_accel, dt, _maybe_landed || _landed);
 			Vector3f indi_feedback{};
+			const bool indi_flight_enabled = _vehicle_control_mode.flag_armed
+						 && _vehicle_status.takeoff_time != 0 && !_landed;
 			const bool indi_requested = (_param_mc_indi_rate_en.get() == 1)
 						    || rcChannelEnabled(_rc_channels, kRateIndiRcChannel);
-			const bool indi_active = _indi_capable && indi_requested && computeIndiTorqueSetpoint(rates, _rates_setpoint,
-						 angular_accel, now, torque_setpoint, indi_feedback);
+			const bool indi_active = _indi_capable && indi_requested && indi_flight_enabled
+						 && computeIndiTorqueSetpoint(rates, _rates_setpoint, angular_accel, now,
+							 torque_setpoint, indi_feedback);
 			const Vector3f torque_setpoint_before_output_processing = torque_setpoint;
 
 			// apply low-pass filtering on yaw axis to reduce high frequency torque caused by rotor acceleration
