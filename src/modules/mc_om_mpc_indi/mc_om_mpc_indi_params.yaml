@@ -27,10 +27,10 @@ parameters:
       description:
         short: OM middle-layer maximum output rate
         long: |-
-          Maximum VehicleRatesSetpoint publication rate. The module is driven by
-          actual VehicleAttitude samples, so its effective rate is the smaller
-          of this value and the estimator attitude publication rate. Sensor
-          filters still advance only on new source timestamps.
+          Maximum VehicleRatesSetpoint publication rate. With acceleration INDI
+          enabled, the effective rate is limited by the selected acceleration
+          source, attitude publication and this value. With acceleration INDI
+          disabled, each new OmMpcSetpoint is forwarded once.
       type: float
       default: 250.0
       min: 50.0
@@ -61,23 +61,12 @@ parameters:
       unit: Hz
       decimal: 1
       increment: 0.5
-    MC_OM_D_LP:
-      description:
-        short: OM disturbance-feedback low-pass cutoff
-        long: First-order low-pass applied to the matched acceleration disturbance before it is sent to ROS.
-      type: float
-      default: 1.0
-      min: 0.0
-      max: 50.0
-      unit: Hz
-      decimal: 2
-      increment: 0.1
     MC_OM_D_LIM:
       description:
         short: OM disturbance-feedback magnitude limit
-        long: Euclidean magnitude limit applied after disturbance low-pass filtering.
+        long: Euclidean magnitude limit applied to the direct matched disturbance estimate.
       type: float
-      default: 2.0
+      default: 5.0
       min: 0.1
       max: 20.0
       unit: m/s^2

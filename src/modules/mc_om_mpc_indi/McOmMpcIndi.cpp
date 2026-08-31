@@ -14,11 +14,25 @@ using namespace matrix;
 
 namespace
 {
+constexpr float kSampleRateChangeThreshold = 0.1f;
+
 bool allocationFeedbackValid(const allocation_value_s &allocation)
 {
 	return allocation.timestamp != 0
 	       && Vector3f(allocation.allocated_force).isAllFinite()
 	       && Vector3f(allocation.force_setpoint_scale).isAllFinite();
+}
+
+Vector3f constrainDisturbance(const Vector3f &raw, float limit)
+{
+	Vector3f disturbance = raw;
+	const float norm = disturbance.norm();
+
+	if (limit > FLT_EPSILON && PX4_ISFINITE(norm) && norm > limit) {
+		disturbance *= limit / norm;
+	}
+
+	return disturbance;
 }
 } // namespace
 
@@ -60,68 +74,61 @@ void McOmMpcIndi::parametersUpdated()
 void McOmMpcIndi::updateAccelerationFilter(const Vector3f &raw, uint64_t timestamp,
 		AccelerationFilterState &state)
 {
-	if (timestamp == 0 || !raw.isAllFinite()) {
-		state = AccelerationFilterState{};
+	if (timestamp == 0 || timestamp <= state.timestamp) {
+		return;
+	}
+
+	if (state.timestamp > 0) {
+		const float sample_dt = (timestamp - state.timestamp) * 1e-6f;
+
+		if (sample_dt > 0.f && sample_dt < 0.1f) {
+			state.sample_interval_s.update(sample_dt);
+
+		} else {
+			state.sample_interval_s.reset();
+			state.initialized = false;
+		}
+	}
+
+	state.timestamp = timestamp;
+
+	if (!raw.isAllFinite()) {
+		state.value = Vector3f{NAN, NAN, NAN};
+		state.initialized = false;
 		return;
 	}
 
 	const float cutoff_hz = math::max(_param_acceleration_cutoff.get(), 0.f);
 
-	if (cutoff_hz > FLT_EPSILON && state.timestamp > 0 && timestamp > state.timestamp) {
-		const float sample_dt = (timestamp - state.timestamp) * 1e-6f;
-		const float sample_hz = 1.f / math::constrain(sample_dt, 0.0005f, 0.02f);
-		const bool configuration_changed = !state.initialized
-			|| fabsf(cutoff_hz - state.cutoff_hz) > FLT_EPSILON
-			|| fabsf(sample_hz - state.sample_hz) > 0.05f * math::max(state.sample_hz, 1.f);
-
-		if (configuration_changed) {
-			state.filter.set_cutoff_frequency(sample_hz, cutoff_hz);
-			state.value = state.filter.reset(raw);
-			state.initialized = true;
-			state.sample_hz = sample_hz;
-			state.cutoff_hz = cutoff_hz;
-
-		} else {
-			state.value = state.filter.apply(raw);
-		}
-
-	} else {
+	if (cutoff_hz <= FLT_EPSILON) {
+		state.filter.disable();
 		state.value = raw;
 		state.initialized = false;
-		state.sample_hz = 0.f;
 		state.cutoff_hz = cutoff_hz;
-	}
-
-	state.timestamp = timestamp;
-}
-
-void McOmMpcIndi::updateDisturbanceFilter(const Vector3f &raw, uint64_t timestamp)
-{
-	if (timestamp == 0 || timestamp == _disturbance_input_timestamp || !raw.isAllFinite()) {
 		return;
 	}
 
-	if (_filtered_disturbance.isAllFinite() && _disturbance_input_timestamp > 0
-	    && timestamp > _disturbance_input_timestamp
-	    && timestamp < _disturbance_input_timestamp + 100_ms) {
-		const float dt = (timestamp - _disturbance_input_timestamp) * 1e-6f;
-		const float cutoff_hz = math::max(_param_disturbance_cutoff.get(), 0.f);
-		const float alpha = cutoff_hz > FLT_EPSILON
-				    ? dt / (dt + 1.f / (2.f * M_PI_F * cutoff_hz)) : 1.f;
-		_filtered_disturbance += alpha * (raw - _filtered_disturbance);
-
-	} else {
-		_filtered_disturbance = raw;
+	if (!state.sample_interval_s.valid()) {
+		state.value = raw;
+		return;
 	}
 
-	const float limit = math::max(_param_disturbance_limit.get(), 0.f);
-	const float norm = _filtered_disturbance.norm();
+	const float sample_hz = 1.f / state.sample_interval_s.mean();
+	const bool sample_rate_changed = state.initialized
+		&& fabsf(sample_hz - state.sample_hz) > kSampleRateChangeThreshold * state.sample_hz;
+	const bool configuration_changed = !state.initialized || sample_rate_changed
+		|| fabsf(cutoff_hz - state.cutoff_hz) > FLT_EPSILON;
 
-	if (limit > FLT_EPSILON && PX4_ISFINITE(norm) && norm > limit) {
-		_filtered_disturbance *= limit / norm;
+	if (configuration_changed) {
+		const Vector3f reset_value = state.value.isAllFinite() ? state.value : raw;
+		state.filter.set_cutoff_frequency(sample_hz, cutoff_hz);
+		state.filter.reset(reset_value);
+		state.initialized = true;
+		state.sample_hz = sample_hz;
+		state.cutoff_hz = cutoff_hz;
 	}
 
-	_disturbance_input_timestamp = timestamp;
+	state.value = state.filter.apply(raw);
 }
 
 Dcmf McOmMpcIndi::attitudeAt(uint64_t timestamp, const Dcmf &attitude) const
@@ -346,8 +353,21 @@ void McOmMpcIndi::Run()
 	updateForceHistory(attitude);
 
 	const bool acceleration_requested = _param_acceleration_enable.get() == 1;
+	const AccelerationFilterState &selected = source == 2
+			? _imu_acceleration_filter : _ekf_acceleration_filter;
 
 	if (acceleration_requested) {
+		// The attitude callback only wakes this work item. Run the controller once
+		// for each new sample from the selected acceleration source.
+		const bool acceleration_sample_updated = selected.timestamp > 0
+				&& (source != _last_control_acceleration_source
+				    || selected.timestamp != _last_control_acceleration_timestamp);
+
+		if (!acceleration_sample_updated) {
+			perf_end(_loop_perf);
+			return;
+		}
+
 		const float rate_max_hz = math::constrain(_param_rate_max.get(), 50.f, 500.f);
 		const uint64_t minimum_interval_us = static_cast<uint64_t>(1e6f / rate_max_hz);
 
@@ -355,6 +375,9 @@ void McOmMpcIndi::Run()
 			perf_end(_loop_perf);
 			return;
 		}
+
+		_last_control_acceleration_timestamp = selected.timestamp;
+		_last_control_acceleration_source = source;
 	}
 
 	const float dt = _last_run_timestamp > 0 && now > _last_run_timestamp
@@ -366,15 +389,13 @@ void McOmMpcIndi::Run()
 	const bool enabled = requested && _param_enable.get() == 1 && flight_enabled
 			&& _control.paramsValid() && attitude.isAllFinite();
 
-	const AccelerationFilterState &selected = source == 2
-			? _imu_acceleration_filter : _ekf_acceleration_filter;
 	const bool acceleration_fresh = selected.timestamp > 0
 			&& hrt_elapsed_time(&selected.timestamp) < 100_ms && selected.value.isAllFinite();
 	Vector3f allocated_force_ned{NAN, NAN, NAN};
 	const bool force_valid = acceleration_fresh
 			&& getDelayedAllocatedForce(selected.timestamp, allocated_force_ned);
 	const bool feedback_valid = enabled && acceleration_fresh && force_valid;
-	Vector3f disturbance_raw{NAN, NAN, NAN};
+	Vector3f disturbance{NAN, NAN, NAN};
 	OmMpcIndiControl::Output corrected{};
 	bool corrected_valid = false;
 
@@ -385,9 +406,10 @@ void McOmMpcIndi::Run()
 	const Vector3f mpc_disturbance(_nominal_setpoint.mpc_disturbance);
 
 	if (feedback_valid && _param_hover_thrust.get() > FLT_EPSILON) {
-		disturbance_raw = selected.value - Vector3f{0.f, 0.f, CONSTANTS_ONE_G}
-			      - allocated_force_ned * (CONSTANTS_ONE_G / _param_hover_thrust.get());
-		updateDisturbanceFilter(disturbance_raw, selected.timestamp);
+		const Vector3f disturbance_raw = selected.value - Vector3f{0.f, 0.f, CONSTANTS_ONE_G}
+				- allocated_force_ned * (CONSTANTS_ONE_G / _param_hover_thrust.get());
+		disturbance = constrainDisturbance(disturbance_raw,
+				math::max(_param_disturbance_limit.get(), 0.f));
 		const Dcmf control_attitude = attitudeAt(now, attitude);
 		corrected_valid = _control.update(control_attitude, nominal_rates, nominal_thrust,
 			mpc_disturbance, selected.value, allocated_force_ned, corrected);
@@ -424,13 +446,13 @@ void McOmMpcIndi::Run()
 	output.pitch = output_rates(1);
 	output.yaw = output_rates(2);
 	output_thrust.copyTo(output.thrust_body);
-	const bool disturbance_valid = feedback_valid && _filtered_disturbance.isAllFinite()
+	const bool disturbance_valid = feedback_valid && disturbance.isAllFinite()
 			&& _param_disturbance_enable.get() == 1
 			&& (_param_acceleration_enable.get() != 1 || _transition_progress >= 1.f);
 
 	_setpoint_pub.publish(output);
 	publishStatus(now, selected.timestamp, acceleration_active,
-		disturbance_valid, _filtered_disturbance);
+		disturbance_valid, disturbance);
 	perf_end(_loop_perf);
 }
 

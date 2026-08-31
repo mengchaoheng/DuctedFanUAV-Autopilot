@@ -8,6 +8,7 @@
 #include "OmMpcIndiControl.hpp"
 
 #include <lib/mathlib/math/filter/LowPassFilter2p.hpp>
+#include <lib/mathlib/math/WelfordMean.hpp>
 #include <lib/perf/perf_counter.h>
 #include <lib/ringbuffer/TimestampedRingBuffer.hpp>
 #include <px4_platform_common/module.h>
@@ -54,6 +55,7 @@ private:
 		bool initialized{false};
 		float sample_hz{0.f};
 		float cutoff_hz{0.f};
+		math::WelfordMean<float> sample_interval_s{};
 		math::LowPassFilter2p<matrix::Vector3f> filter{};
 	};
 
@@ -67,7 +69,6 @@ private:
 	void parametersUpdated();
 	void updateAccelerationFilter(const matrix::Vector3f &raw, uint64_t timestamp,
 		AccelerationFilterState &state);
-	void updateDisturbanceFilter(const matrix::Vector3f &raw, uint64_t timestamp);
 	void updateSensorInputs(const matrix::Dcmf &attitude);
 	void updateForceHistory(const matrix::Dcmf &attitude);
 	bool getDelayedAllocatedForce(uint64_t reference_timestamp,
@@ -105,8 +106,6 @@ private:
 	AccelerationFilterState _imu_acceleration_filter{};
 	TimestampedRingBuffer<ForceSample, kForceHistoryLength> _force_history{};
 	uint64_t _force_history_last_timestamp{0};
-	matrix::Vector3f _filtered_disturbance{NAN, NAN, NAN};
-	uint64_t _disturbance_input_timestamp{0};
 
 	OmMpcIndiControl _control{};
 	bool _acceleration_active_previous{false};
@@ -114,6 +113,8 @@ private:
 	float _transition_progress{0.f};
 	uint64_t _last_run_timestamp{0};
 	uint64_t _last_status_publish{0};
+	uint64_t _last_control_acceleration_timestamp{0};
+	int32_t _last_control_acceleration_source{0};
 
 	perf_counter_t _loop_perf{nullptr};
 
@@ -124,7 +125,6 @@ private:
 		(ParamFloat<px4::params::MC_OM_RATE_MAX>) _param_rate_max,
 		(ParamInt<px4::params::MC_OM_A_SRC>) _param_acceleration_source,
 		(ParamFloat<px4::params::MC_OM_A_LP>) _param_acceleration_cutoff,
-		(ParamFloat<px4::params::MC_OM_D_LP>) _param_disturbance_cutoff,
 		(ParamFloat<px4::params::MC_OM_D_LIM>) _param_disturbance_limit,
 		(ParamFloat<px4::params::MC_OM_F_DLY>) _param_force_delay,
 		(ParamFloat<px4::params::MC_OM_TR_T>) _param_transition_time,
