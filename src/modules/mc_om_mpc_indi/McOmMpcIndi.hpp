@@ -69,7 +69,7 @@ private:
 	void parametersUpdated();
 	void updateAccelerationFilter(const matrix::Vector3f &raw, uint64_t timestamp,
 		AccelerationFilterState &state);
-	void updateSensorInputs(const matrix::Dcmf &attitude);
+	void updateSensorInputs();
 	void updateForceHistory(const matrix::Dcmf &attitude);
 	bool getDelayedAllocatedForce(uint64_t reference_timestamp,
 		matrix::Vector3f &allocated_force_ned);

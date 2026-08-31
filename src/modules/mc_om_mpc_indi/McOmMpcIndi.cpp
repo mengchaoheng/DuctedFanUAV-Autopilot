@@ -152,7 +152,7 @@ Dcmf McOmMpcIndi::attitudeAt(uint64_t timestamp, const Dcmf &attitude) const
 	return attitude;
 }
 
-void McOmMpcIndi::updateSensorInputs(const Dcmf &attitude)
+void McOmMpcIndi::updateSensorInputs()
 {
 	_vehicle_angular_velocity_sub.update(&_vehicle_angular_velocity);
 
@@ -173,8 +173,8 @@ void McOmMpcIndi::updateSensorInputs(const Dcmf &attitude)
 		if (acceleration_body.isAllFinite()
 		    && attitude_delta >= -static_cast<int64_t>(10_ms)
 		    && attitude_delta <= static_cast<int64_t>(10_ms)) {
-			Vector3f acceleration_ned = attitudeAt(acceleration.timestamp_sample, attitude)
-						   * acceleration_body;
+			Vector3f acceleration_ned = attitudeAt(
+				acceleration.timestamp_sample, Dcmf(Quatf(_vehicle_attitude.q))) * acceleration_body;
 			acceleration_ned(2) += CONSTANTS_ONE_G;
 			updateAccelerationFilter(acceleration_ned, acceleration.timestamp_sample,
 				_imu_acceleration_filter);
@@ -197,10 +197,10 @@ void McOmMpcIndi::updateForceHistory(const Dcmf &attitude)
 	}
 
 	ForceSample sample{};
-	sample.time_us = allocation.timestamp;
 	const Vector3f force_body(allocation.allocated_force);
 	const Vector3f force_scale(allocation.force_setpoint_scale);
-	sample.allocated_force_ned = attitudeAt(allocation.timestamp, attitude)
+	sample.time_us = allocation.timestamp;
+	sample.allocated_force_ned = attitudeAt(sample.time_us, attitude)
 				     * force_body.emult(force_scale);
 	_force_history.push(sample);
 	_force_history_last_timestamp = sample.time_us;
@@ -349,7 +349,7 @@ void McOmMpcIndi::Run()
 		return;
 	}
 
-	updateSensorInputs(attitude);
+	updateSensorInputs();
 	updateForceHistory(attitude);
 
 	const bool acceleration_requested = _param_acceleration_enable.get() == 1;
@@ -391,6 +391,7 @@ void McOmMpcIndi::Run()
 
 	const bool acceleration_fresh = selected.timestamp > 0
 			&& hrt_elapsed_time(&selected.timestamp) < 100_ms && selected.value.isAllFinite();
+	const Vector3f acceleration_ned = selected.value;
 	Vector3f allocated_force_ned{NAN, NAN, NAN};
 	const bool force_valid = acceleration_fresh
 			&& getDelayedAllocatedForce(selected.timestamp, allocated_force_ned);
@@ -406,13 +407,13 @@ void McOmMpcIndi::Run()
 	const Vector3f mpc_disturbance(_nominal_setpoint.mpc_disturbance);
 
 	if (feedback_valid && _param_hover_thrust.get() > FLT_EPSILON) {
-		const Vector3f disturbance_raw = selected.value - Vector3f{0.f, 0.f, CONSTANTS_ONE_G}
+		const Vector3f disturbance_raw = acceleration_ned - Vector3f{0.f, 0.f, CONSTANTS_ONE_G}
 				- allocated_force_ned * (CONSTANTS_ONE_G / _param_hover_thrust.get());
 		disturbance = constrainDisturbance(disturbance_raw,
 				math::max(_param_disturbance_limit.get(), 0.f));
 		const Dcmf control_attitude = attitudeAt(now, attitude);
 		corrected_valid = _control.update(control_attitude, nominal_rates, nominal_thrust,
-			mpc_disturbance, selected.value, allocated_force_ned, corrected);
+			mpc_disturbance, acceleration_ned, allocated_force_ned, corrected);
 	}
 
 	const bool acceleration_active = enabled && acceleration_requested
