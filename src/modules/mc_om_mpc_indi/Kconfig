@@ -1,0 +1,6 @@
+menuconfig MODULES_MC_OM_MPC_INDI
+	bool "mc_om_mpc_indi"
+	default n
+	---help---
+		Enable the isolated OM-MPC acceleration-INDI middle layer.
+

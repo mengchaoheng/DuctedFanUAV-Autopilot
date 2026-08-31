@@ -60,7 +60,10 @@ publications:
 
   # - topic: /fmu/out/allocation_value
   #   type: px4_msgs::msg::AllocationValue
-  #   rate_limit: 50.
+
+  # - topic: /fmu/out/om_mpc_indi_status
+  #   type: px4_msgs::msg::OmMpcIndiStatus
+  #   rate_limit: 100.
 
   - topic: /fmu/out/vehicle_land_detected
     type: px4_msgs::msg::VehicleLandDetected
@@ -176,6 +179,9 @@ subscriptions:
 
   - topic: /fmu/in/trajectory_setpoint
     type: px4_msgs::msg::TrajectorySetpoint
+
+  # - topic: /fmu/in/om_mpc_setpoint
+  #   type: px4_msgs::msg::OmMpcSetpoint
 
   - topic: /fmu/in/vehicle_attitude_setpoint
     type: px4_msgs::msg::VehicleAttitudeSetpoint

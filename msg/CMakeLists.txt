@@ -185,6 +185,7 @@ set(msg_files
 	RadioStatus.msg
 	RangingBeacon.msg
 	RateCtrlStatus.msg
+	OmMpcIndiStatus.msg
 	RcChannels.msg
 	RcParameterMap.msg
 	RoverAttitudeSetpoint.msg
@@ -286,6 +287,7 @@ set(msg_files
 	versioned/VehicleLocalPosition.msg
 	versioned/VehicleOdometry.msg
 	versioned/VehicleRatesSetpoint.msg
+	versioned/OmMpcSetpoint.msg
 	versioned/VehicleStatus.msg
 	versioned/VtolVehicleStatus.msg
 	versioned/Wind.msg
