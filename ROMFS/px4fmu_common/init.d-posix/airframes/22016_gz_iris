@@ -19,18 +19,18 @@ param set-default MC_OM_A_SRC 1
 param set-default MC_OM_RATE_MAX 250.0
 param set-default MC_OM_A_LP 8.0
 param set-default MC_OM_D_LIM 2.0
-param set-default MC_OM_F_DLY 0.01
+param set-default MC_OM_F_DLY 0.0
 param set-default MC_OM_TR_T 1.0
 param set-default MC_OM_KPHI_R 0.5
 param set-default MC_OM_KPHI_P 0.5
 param set-default MC_OM_KPHI_Y 0.0
-param set-default MC_OM_R_MAX 6.0
-param set-default MC_OM_P_MAX 6.0
-param set-default MC_OM_Y_MAX 6.0
+param set-default MC_OM_R_MAX 20.0
+param set-default MC_OM_P_MAX 20.0
+param set-default MC_OM_Y_MAX 8.0
 
 # Iris rate-INDI gains used by the 3 m/s OM-MPC-INDI comparison.
 param set-default MC_INDI_RATE_EN 1
-param set-default MC_INDI_T_DLY 0.01
+param set-default MC_INDI_T_DLY 0.0
 param set-default MC_INDI_R_P 28.0
 param set-default MC_INDI_P_P 28.0
 param set-default MC_INDI_Y_P 4.0
