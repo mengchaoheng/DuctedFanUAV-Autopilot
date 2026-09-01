@@ -61,7 +61,7 @@ private:
 
 	struct ForceSample {
 		uint64_t time_us{0};
-		matrix::Vector3f allocated_force_ned{NAN, NAN, NAN};
+		matrix::Vector3f allocated_force_body{NAN, NAN, NAN};
 	};
 
 	static constexpr size_t kForceHistoryLength{128};
@@ -70,9 +70,9 @@ private:
 	void updateAccelerationFilter(const matrix::Vector3f &raw, uint64_t timestamp,
 		AccelerationFilterState &state);
 	void updateSensorInputs();
-	void updateForceHistory(const matrix::Dcmf &attitude);
+	void updateForceHistory();
 	bool getDelayedAllocatedForce(uint64_t reference_timestamp,
-		matrix::Vector3f &allocated_force_ned);
+		matrix::Vector3f &allocated_force_body);
 	matrix::Dcmf attitudeAt(uint64_t timestamp, const matrix::Dcmf &attitude) const;
 	void resetTransition();
 	void publishStatus(uint64_t now, uint64_t acceleration_timestamp,

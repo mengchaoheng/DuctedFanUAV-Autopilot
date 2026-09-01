@@ -18,11 +18,11 @@ param set-default MC_OM_DIST_EN 1
 param set-default MC_OM_A_SRC 1
 param set-default MC_OM_RATE_MAX 250.0
 param set-default MC_OM_A_LP 8.0
-param set-default MC_OM_D_LIM 2.0
-param set-default MC_OM_F_DLY 0.0
+param set-default MC_OM_D_LIM 5.0
+param set-default MC_OM_F_DLY 0.020
 param set-default MC_OM_TR_T 1.0
-param set-default MC_OM_KPHI_R 0.5
-param set-default MC_OM_KPHI_P 0.5
+param set-default MC_OM_KPHI_R 3.0
+param set-default MC_OM_KPHI_P 3.0
 param set-default MC_OM_KPHI_Y 0.0
 param set-default MC_OM_R_MAX 20.0
 param set-default MC_OM_P_MAX 20.0

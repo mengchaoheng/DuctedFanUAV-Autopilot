@@ -182,7 +182,7 @@ void McOmMpcIndi::updateSensorInputs()
 	}
 }
 
-void McOmMpcIndi::updateForceHistory(const Dcmf &attitude)
+void McOmMpcIndi::updateForceHistory()
 {
 	allocation_value_s allocation;
 
@@ -200,14 +200,16 @@ void McOmMpcIndi::updateForceHistory(const Dcmf &attitude)
 	const Vector3f force_body(allocation.allocated_force);
 	const Vector3f force_scale(allocation.force_setpoint_scale);
 	sample.time_us = allocation.timestamp;
-	sample.allocated_force_ned = attitudeAt(sample.time_us, attitude)
-				     * force_body.emult(force_scale);
+	// Allocation feedback describes actuator magnitude in body axes. Delay and
+	// filter that magnitude first; the realized force direction follows the
+	// vehicle attitude at the acceleration sample, not the old command attitude.
+	sample.allocated_force_body = force_body.emult(force_scale);
 	_force_history.push(sample);
 	_force_history_last_timestamp = sample.time_us;
 }
 
 bool McOmMpcIndi::getDelayedAllocatedForce(uint64_t reference_timestamp,
-		Vector3f &allocated_force_ned)
+		Vector3f &allocated_force_body)
 {
 	if (_force_history.empty()
 	    || hrt_elapsed_time(&_force_history.get_newest().time_us) >= 100_ms) {
@@ -221,8 +223,8 @@ bool McOmMpcIndi::getDelayedAllocatedForce(uint64_t reference_timestamp,
 	const ForceSample &newest = _force_history.get_newest();
 
 	if (target >= newest.time_us) {
-		allocated_force_ned = newest.allocated_force_ned;
-		return allocated_force_ned.isAllFinite();
+		allocated_force_body = newest.allocated_force_body;
+		return allocated_force_body.isAllFinite();
 	}
 
 	ForceSample older{};
@@ -234,12 +236,12 @@ bool McOmMpcIndi::getDelayedAllocatedForce(uint64_t reference_timestamp,
 	for (int entry = 0; entry < _force_history.entries(); ++entry) {
 		const ForceSample &sample = _force_history[index];
 
-		if (sample.time_us <= target && sample.allocated_force_ned.isAllFinite()) {
+		if (sample.time_us <= target && sample.allocated_force_body.isAllFinite()) {
 			older = sample;
 			older_valid = true;
 		}
 
-		if (sample.time_us >= target && sample.allocated_force_ned.isAllFinite()) {
+		if (sample.time_us >= target && sample.allocated_force_body.isAllFinite()) {
 			newer = sample;
 			newer_valid = true;
 			break;
@@ -252,15 +254,15 @@ bool McOmMpcIndi::getDelayedAllocatedForce(uint64_t reference_timestamp,
 		return false;
 	}
 
-	allocated_force_ned = older.allocated_force_ned;
+	allocated_force_body = older.allocated_force_body;
 
 	if (newer_valid && newer.time_us > older.time_us) {
 		const float alpha = static_cast<float>(target - older.time_us)
 				    / static_cast<float>(newer.time_us - older.time_us);
-		allocated_force_ned += (newer.allocated_force_ned - older.allocated_force_ned) * alpha;
+		allocated_force_body += (newer.allocated_force_body - older.allocated_force_body) * alpha;
 	}
 
-	return allocated_force_ned.isAllFinite();
+	return allocated_force_body.isAllFinite();
 }
 
 void McOmMpcIndi::resetTransition()
@@ -350,7 +352,7 @@ void McOmMpcIndi::Run()
 	}
 
 	updateSensorInputs();
-	updateForceHistory(attitude);
+	updateForceHistory();
 
 	const bool acceleration_requested = _param_acceleration_enable.get() == 1;
 	const AccelerationFilterState &selected = source == 2
@@ -392,10 +394,12 @@ void McOmMpcIndi::Run()
 	const bool acceleration_fresh = selected.timestamp > 0
 			&& hrt_elapsed_time(&selected.timestamp) < 100_ms && selected.value.isAllFinite();
 	const Vector3f acceleration_ned = selected.value;
-	Vector3f allocated_force_ned{NAN, NAN, NAN};
+	Vector3f allocated_force_body{NAN, NAN, NAN};
 	const bool force_valid = acceleration_fresh
-			&& getDelayedAllocatedForce(selected.timestamp, allocated_force_ned);
+			&& getDelayedAllocatedForce(selected.timestamp, allocated_force_body);
 	const bool feedback_valid = enabled && acceleration_fresh && force_valid;
+	const Dcmf feedback_attitude = attitudeAt(selected.timestamp, attitude);
+	const Vector3f allocated_force_ned = feedback_attitude * allocated_force_body;
 	Vector3f disturbance{NAN, NAN, NAN};
 	OmMpcIndiControl::Output corrected{};
 	bool corrected_valid = false;
