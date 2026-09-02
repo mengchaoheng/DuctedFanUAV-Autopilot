@@ -67,7 +67,6 @@ void McOmMpcIndi::parametersUpdated()
 	updateParams();
 	_control.setParams(
 		Vector3f(_param_kphi_roll.get(), _param_kphi_pitch.get(), _param_kphi_yaw.get()),
-		Vector3f(_param_rate_roll_max.get(), _param_rate_pitch_max.get(), _param_rate_yaw_max.get()),
 		_param_hover_thrust.get(), CONSTANTS_ONE_G);
 }
 
@@ -197,19 +196,24 @@ void McOmMpcIndi::updateForceHistory()
 	}
 
 	ForceSample sample{};
-	const Vector3f force_body(allocation.allocated_force);
+	// Start from the unfiltered realized body force. CA_FORCE_CUTOFF filters
+	// body-axis components, which only filters thrust magnitude on a standard
+	// multicopter; it cannot match an inertial-frame acceleration LPF while the
+	// vehicle rotates. Rotate first and apply the one matched NED filter below.
+	const Vector3f force_body(allocation.raw_allocated_force);
 	const Vector3f force_scale(allocation.force_setpoint_scale);
 	sample.time_us = allocation.timestamp;
-	// Allocation feedback describes actuator magnitude in body axes. Delay and
-	// filter that magnitude first; the realized force direction follows the
-	// vehicle attitude at the acceleration sample, not the old command attitude.
-	sample.allocated_force_body = force_body.emult(force_scale);
+	// Form the realized inertial force at the allocation sample, then align that
+	// timestamped vector with acceleration. This mirrors mc_pos_control INDI and
+	// main.m's sequence rawFTF(k) = T(k) R(k) e3 before matched filtering.
+	sample.allocated_force_ned = Dcmf(Quatf(_vehicle_attitude.q))
+			* force_body.emult(force_scale);
 	_force_history.push(sample);
 	_force_history_last_timestamp = sample.time_us;
 }
 
 bool McOmMpcIndi::getDelayedAllocatedForce(uint64_t reference_timestamp,
-		Vector3f &allocated_force_body)
+		Vector3f &allocated_force_ned)
 {
 	if (_force_history.empty()
 	    || hrt_elapsed_time(&_force_history.get_newest().time_us) >= 100_ms) {
@@ -223,8 +227,8 @@ bool McOmMpcIndi::getDelayedAllocatedForce(uint64_t reference_timestamp,
 	const ForceSample &newest = _force_history.get_newest();
 
 	if (target >= newest.time_us) {
-		allocated_force_body = newest.allocated_force_body;
-		return allocated_force_body.isAllFinite();
+		allocated_force_ned = newest.allocated_force_ned;
+		return allocated_force_ned.isAllFinite();
 	}
 
 	ForceSample older{};
@@ -236,12 +240,12 @@ bool McOmMpcIndi::getDelayedAllocatedForce(uint64_t reference_timestamp,
 	for (int entry = 0; entry < _force_history.entries(); ++entry) {
 		const ForceSample &sample = _force_history[index];
 
-		if (sample.time_us <= target && sample.allocated_force_body.isAllFinite()) {
+		if (sample.time_us <= target && sample.allocated_force_ned.isAllFinite()) {
 			older = sample;
 			older_valid = true;
 		}
 
-		if (sample.time_us >= target && sample.allocated_force_body.isAllFinite()) {
+		if (sample.time_us >= target && sample.allocated_force_ned.isAllFinite()) {
 			newer = sample;
 			newer_valid = true;
 			break;
@@ -254,15 +258,15 @@ bool McOmMpcIndi::getDelayedAllocatedForce(uint64_t reference_timestamp,
 		return false;
 	}
 
-	allocated_force_body = older.allocated_force_body;
+	allocated_force_ned = older.allocated_force_ned;
 
 	if (newer_valid && newer.time_us > older.time_us) {
 		const float alpha = static_cast<float>(target - older.time_us)
 				    / static_cast<float>(newer.time_us - older.time_us);
-		allocated_force_body += (newer.allocated_force_body - older.allocated_force_body) * alpha;
+		allocated_force_ned += (newer.allocated_force_ned - older.allocated_force_ned) * alpha;
 	}
 
-	return allocated_force_body.isAllFinite();
+	return allocated_force_ned.isAllFinite();
 }
 
 void McOmMpcIndi::resetTransition()
@@ -273,7 +277,9 @@ void McOmMpcIndi::resetTransition()
 }
 
 void McOmMpcIndi::publishStatus(uint64_t now, uint64_t acceleration_timestamp,
-		bool acceleration_active, bool disturbance_valid, const Vector3f &disturbance)
+		bool acceleration_active, bool disturbance_valid, const Vector3f &disturbance,
+		const Vector3f &acceleration_ned, const Vector3f &allocated_force_ned,
+		const Vector3f &nominal_rates, const OmMpcIndiControl::Output &corrected)
 {
 	if (_last_status_publish != 0 && now < _last_status_publish + 10_ms) {
 		return;
@@ -290,6 +296,13 @@ void McOmMpcIndi::publishStatus(uint64_t now, uint64_t acceleration_timestamp,
 	if (disturbance_valid) {
 		disturbance.copyTo(status.acceleration_disturbance);
 	}
+
+	acceleration_ned.copyTo(status.acceleration_ned);
+	allocated_force_ned.copyTo(status.allocated_thrust_ned);
+	corrected.thrust_ned.copyTo(status.corrected_thrust_ned);
+	corrected.attitude_error.copyTo(status.attitude_error);
+	nominal_rates.copyTo(status.nominal_rates);
+	corrected.rates_setpoint.copyTo(status.corrected_rates);
 
 	_status_pub.publish(status);
 	const uint64_t next_scheduled_publish = _last_status_publish + 10_ms;
@@ -394,12 +407,19 @@ void McOmMpcIndi::Run()
 	const bool acceleration_fresh = selected.timestamp > 0
 			&& hrt_elapsed_time(&selected.timestamp) < 100_ms && selected.value.isAllFinite();
 	const Vector3f acceleration_ned = selected.value;
-	Vector3f allocated_force_body{NAN, NAN, NAN};
-	const bool force_valid = acceleration_fresh
-			&& getDelayedAllocatedForce(selected.timestamp, allocated_force_body);
+	Vector3f allocated_force_ned{NAN, NAN, NAN};
+	Vector3f allocated_force_raw{NAN, NAN, NAN};
+	bool force_valid = acceleration_fresh
+			&& getDelayedAllocatedForce(selected.timestamp, allocated_force_raw);
+
+	if (force_valid) {
+		updateAccelerationFilter(allocated_force_raw, selected.timestamp,
+			_allocated_force_filter);
+		allocated_force_ned = _allocated_force_filter.value;
+		force_valid = _allocated_force_filter.timestamp == selected.timestamp
+				&& allocated_force_ned.isAllFinite();
+	}
 	const bool feedback_valid = enabled && acceleration_fresh && force_valid;
-	const Dcmf feedback_attitude = attitudeAt(selected.timestamp, attitude);
-	const Vector3f allocated_force_ned = feedback_attitude * allocated_force_body;
 	Vector3f disturbance{NAN, NAN, NAN};
 	OmMpcIndiControl::Output corrected{};
 	bool corrected_valid = false;
@@ -457,7 +477,8 @@ void McOmMpcIndi::Run()
 
 	_setpoint_pub.publish(output);
 	publishStatus(now, selected.timestamp, acceleration_active,
-		disturbance_valid, disturbance);
+		disturbance_valid, disturbance, acceleration_ned, allocated_force_ned,
+		nominal_rates, corrected);
 	perf_end(_loop_perf);
 }
 

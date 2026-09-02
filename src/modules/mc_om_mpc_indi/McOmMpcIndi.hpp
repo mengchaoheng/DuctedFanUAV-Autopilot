@@ -61,7 +61,7 @@ private:
 
 	struct ForceSample {
 		uint64_t time_us{0};
-		matrix::Vector3f allocated_force_body{NAN, NAN, NAN};
+		matrix::Vector3f allocated_force_ned{NAN, NAN, NAN};
 	};
 
 	static constexpr size_t kForceHistoryLength{128};
@@ -72,12 +72,14 @@ private:
 	void updateSensorInputs();
 	void updateForceHistory();
 	bool getDelayedAllocatedForce(uint64_t reference_timestamp,
-		matrix::Vector3f &allocated_force_body);
+		matrix::Vector3f &allocated_force_ned);
 	matrix::Dcmf attitudeAt(uint64_t timestamp, const matrix::Dcmf &attitude) const;
 	void resetTransition();
 	void publishStatus(uint64_t now, uint64_t acceleration_timestamp,
 		bool acceleration_active, bool disturbance_valid,
-		const matrix::Vector3f &disturbance);
+		const matrix::Vector3f &disturbance, const matrix::Vector3f &acceleration_ned,
+		const matrix::Vector3f &allocated_force_ned, const matrix::Vector3f &nominal_rates,
+		const OmMpcIndiControl::Output &corrected);
 
 	uORB::SubscriptionCallbackWorkItem _vehicle_attitude_sub{this, ORB_ID(vehicle_attitude)};
 	uORB::Subscription _om_mpc_setpoint_sub{ORB_ID(om_mpc_setpoint)};
@@ -104,6 +106,7 @@ private:
 
 	AccelerationFilterState _ekf_acceleration_filter{};
 	AccelerationFilterState _imu_acceleration_filter{};
+	AccelerationFilterState _allocated_force_filter{};
 	TimestampedRingBuffer<ForceSample, kForceHistoryLength> _force_history{};
 	uint64_t _force_history_last_timestamp{0};
 
@@ -131,9 +134,6 @@ private:
 		(ParamFloat<px4::params::MC_OM_KPHI_R>) _param_kphi_roll,
 		(ParamFloat<px4::params::MC_OM_KPHI_P>) _param_kphi_pitch,
 		(ParamFloat<px4::params::MC_OM_KPHI_Y>) _param_kphi_yaw,
-		(ParamFloat<px4::params::MC_OM_R_MAX>) _param_rate_roll_max,
-		(ParamFloat<px4::params::MC_OM_P_MAX>) _param_rate_pitch_max,
-		(ParamFloat<px4::params::MC_OM_Y_MAX>) _param_rate_yaw_max,
 		(ParamFloat<px4::params::MC_OM_HOVER>) _param_hover_thrust
 	)
 };

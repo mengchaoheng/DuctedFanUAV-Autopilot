@@ -118,30 +118,6 @@ parameters:
       min: 0.0
       unit: 1/s
       decimal: 2
-    MC_OM_R_MAX:
-      description:
-        short: OM corrected roll-rate limit
-      type: float
-      default: 20.0
-      min: 0.1
-      unit: rad/s
-      decimal: 2
-    MC_OM_P_MAX:
-      description:
-        short: OM corrected pitch-rate limit
-      type: float
-      default: 20.0
-      min: 0.1
-      unit: rad/s
-      decimal: 2
-    MC_OM_Y_MAX:
-      description:
-        short: OM corrected yaw-rate limit
-      type: float
-      default: 8.0
-      min: 0.1
-      unit: rad/s
-      decimal: 2
     MC_OM_HOVER:
       description:
         short: OM bridge hover thrust
