@@ -1,163 +1,51 @@
-# DuctedFanUAV Autopilot
+# DuctedFanUAV 3D 打印结构件
 
-This repository is forked from [PX4-Autopilot](https://github.com/PX4/PX4-Autopilot.git) and holds the PX4 flight control solution for DuctedFanUAV.
+本目录存放了为 [DuctedFanUAV-Autopilot](https://github.com/mengchaoheng/DuctedFanUAV-Autopilot) 项目配套设计的 3D 打印结构件。这些部件用于将飞控、电池、GPS 等电子设备集成到涵道风扇无人机机身上，采用模块化设计，便于快速原型迭代和部件更换。
 
-<img src="DFUAV.jpg" width="90%" />
+## 📦 部件清单
 
-![image](https://github.com/user-attachments/assets/3823e609-8981-4734-9921-8ac6dc98e9be)
+| 部件名称 | 文件 | 功能描述 |
+| :--- | :--- | :--- |
+| **电池底座** | `battery_base.stl` | 放置电池，并为侧面结构提供装配孔位 |
+| **顶部总成** | `top_assembly.stl` | 提供平台与侧面结构装配，设有 6mm 减震器安装孔位及 GPS 天线固定座 |
+| **PX4 固定板** | `px4_mounting_plate.stl` | 底部预留 6mm 减震球孔位，上表面平整用于粘接 PX4 飞控 |
 
-## Feature
-Development is now centered on the `df-main` branch, which tracks PX4 `main` after the `df-1.15.4` migration. The older `df-1.x.x` branches keep the PX4-versioned history, including the early `df-1.12.3` INDI and LPCA work documented in [PINDI](https://github.com/mengchaoheng/PINDI).
+## 🧩 部件详细说明
 
-Compared with the upstream PX4 baseline around commit `82e3322e0cf0afc9ad640f37a0a8b639077b3fa4`, this workspace adds three connected pieces:
+### 1. 电池底座 (`battery_base.stl`)
 
-* INDI control: the generic angular-rate law is integrated directly into PX4 [mc_rate_control](src/modules/mc_rate_control), which keeps the normal angular-rate PID fallback and supports an explicit MC torque-allocation matrix route. The acceleration-to-thrust correction is integrated in [mc_pos_control](src/modules/mc_pos_control). The controller design follows **Full-Mode Flight Control Framework for a Ducted-Fan Tail-Sitter UAV**.
-* LPCA/PCA control allocation: [ControlAllocationLPCA.cpp](src/lib/control_allocation/control_allocation/ControlAllocationLPCA.cpp) adapts INV/DP_LPCA/DPscaled_LPCA/PCA to PX4, and [pca/ControlAllocation.h](src/lib/control_allocation/control_allocation/pca/ControlAllocation.h) contains the bounded LP implementation. The allocation algorithms follow **Aircraft control allocation** and the reference implementation in [control_allocation](https://github.com/mengchaoheng/control_allocation).
-* Ducted-fan effectiveness backends: [ActuatorEffectivenessDuctedFan.cpp](src/modules/control_allocator/VehicleActuatorEffectiveness/ActuatorEffectivenessDuctedFan.cpp) supports non-VTOL ducted-fan airframes, and [ActuatorEffectivenessDuctedFanTailsitterVTOL.cpp](src/modules/control_allocator/VehicleActuatorEffectiveness/ActuatorEffectivenessDuctedFanTailsitterVTOL.cpp) supports ducted-fan tailsitter VTOL. These backends provide the physical force/torque effectiveness matrices used by allocation feedback and INDI.
+该部件位于机身底部，承担电池固定与结构连接的双重功能。
 
-Supported Gazebo Classic airframes include `ductedfan2`, `ductedfan4`, `ductedfan6`, `ductedfan_mini`, `SHC09`, `SHW09_vtol`, and `tilt_multirotor`. See [airframe startup scripts](ROMFS/px4fmu_common/init.d-posix/airframes) and [SITL targets](src/modules/simulation/simulator_mavlink/sitl_targets_gazebo-classic.cmake).
+- **电池仓**：根据常见 3S~6S 锂聚合物电池尺寸设计，留有扎带固定槽位。
+- **装配接口**：四周设有与侧面结构（碳纤维板或 3D 打印侧板）对应的装配孔位，可牢靠地与其他结构件连接。
+- **安装建议**：使用 M3 螺丝配合热压铜嵌件进行固定，电池使用魔术贴或扎带捆绑。
 
-The simulator includes Gazebo Classic ducted-fan dynamics in [ductedfan_plugin.cpp](Tools/simulation/gazebo-classic/sitl_gazebo-classic/src/ductedfan_plugin/ductedfan_plugin.cpp), with spline-based duct/wing aerodynamics and a control-surface moment model.
+### 2. 顶部总成 (`top_assembly.stl`)
 
-<img src="sitl_gazebo_df4.png" width="60%" />
-<img src="flight_test.png" width="30%" />
+该部件位于机身顶部，是飞控、GPS 等设备的主要承载平台。
 
-## Control Allocation and INDI
+- **平台结构**：平整的上表面，与侧面结构通过预留孔位进行装配，形成稳固的机身框架。
+- **减震器安装位**：设有 4 个 6mm 减震器（或减震球）的安装孔位，用于为飞控平台提供隔振，减少涵道风扇高频振动对 IMU 的干扰。
+- **GPS 天线固定座**：预留了标准的 GPS/Compass 模块（如 u-blox M8N/M9N 等）的安装槽位，方便固定天线模块。
+- **安装建议**：减震器建议选用 6mm 孔径的硅胶减震球，GPS 模块可使用 3M 双面胶或尼龙扎带固定。
 
-The physical-unit conventions, normalized control allocation, feedback semantics, INDI laws, PCA conditions, MC/VTOL instance routing, and current applicability limits are documented in [Control Allocation and INDI Integration](CONTROL_ALLOCATION_AND_INDI.md).
+### 3. PX4 固定板 (`px4_mounting_plate.stl`)
 
-## Installation
-Before running this project, you need to deploy the development environment. Please refer to the [PX4 official website](https://docs.px4.io/main/en/) (`main`) to ensure that your computer (macOS/Linux) can open the default model simulation by executing the `make px4_sitl gazebo-classic` command and take off through QGC or terminal commands. It's recommended to use Ubuntu 20.04 and QGC 5.x.
+该部件是飞控的专用安装板，用于将 PX4 飞控（如 Pixhawk 4、Pixhawk Mini 等）固定到减震平台上。
 
-> It's easy to upgrade this project to the latest version of px4, just make sure that the [Gazebo Classic environment](https://docs.px4.io/main/en/sim_gazebo_classic/#installation) is deployed in a supported ubuntu version, but we need a lot of testing before doing so.
+- **上表面**：光滑平整，设计用于粘接飞控（推荐使用 3M 泡棉双面胶或减震胶垫）。
+- **下表面**：预留 4 个 6mm 减震球安装孔位，与顶部总成的减震器位点对应。
+- **安装建议**：先将减震球安装在固定板底部，再将固定板卡入顶部总成的安装孔位中，最后将飞控粘贴在固定板上表面。
 
-> Due to [Ubuntu 22.04 or later with Arm64 architecture cannot install gazebo](https://github.com/osrf/gazebo_tutorials/pull/169), Gazebo Classic may not run on arm64-based Ubuntu 22 and later versions. However, AMD64 (x86-64) should still support it. As long as the PX4 official Gazebo Classic simulation can run, the code in this repository can be executed. Most users do not need to pay attention to this. We will soon migrate to the latest gz simulation.
+## 🖨️ 打印建议
 
-> This repository supports both Gazebo Classic and Gazebo (gz) simulation. At present, development and testing are still mainly focused on Gazebo Classic, and the GZ models are not yet fully polished. Nevertheless, all models support gz.
+| 参数 | 推荐值 |
+| :--- | :--- |
+| **材料** | PETG 或 ABS/ASA（耐温、韧性好） |
+| **层高** | 0.2 mm |
+| **填充率** | 结构件 ≥ 40%，非承力件可适当降低 |
+| **支撑** | 根据模型悬垂情况选择性开启（建议使用树状支撑） |
+| **壁厚** | ≥ 3 层外壳（Wall Loops） |
 
-The [PX4 User Guide](https://docs.px4.io/main/en/) explains how to assemble [supported vehicles](https://docs.px4.io/main/en/airframes/airframe_reference) and fly drones with PX4.
-See the [forum and chat](https://docs.px4.io/main/en/#support) if you need help!
-
-For Ubuntu 20.04, installing the simulation environment is quite straightforward:
-1. Install git:
-
-```bash
-sudo apt install git
-```
-
-2. Clone code:
-
-```bash
-git clone https://github.com/mengchaoheng/DuctedFanUAV-Autopilot --recursive
-```
-
-3. Go to the path of the code:
-
-```bash
-cd DuctedFanUAV-Autopilot
-```
-
-4. Run the ubuntu.sh with no arguments (in a bash shell) to install everything:
-
-```bash
-# For arm64-based ubuntu. See https://github.com/PX4/PX4-Autopilot/issues/21117
-bash ./Tools/setup/ubuntu.sh
-```
-
-Or download the development environment deployment script from the official website.
-
-```bash
-wget https://raw.githubusercontent.com/PX4/PX4-Autopilot/main/Tools/setup/ubuntu.sh
-wget https://raw.githubusercontent.com/PX4/PX4-Autopilot/main/Tools/setup/requirements.txt
-bash ubuntu.sh
-```
-
-5. Start Gazebo SITL using the following command:
-
-
-5.1 Test the built-in quadcopter simulation:
-
-```bash
-make px4_sitl gazebo-classic
-```
-5.2 Test the simulation of this project:
-```bash
-make px4_sitl gazebo-classic_ductedfan4
-```
-
-> **Note:**  In Ubuntu 22.04 and higher versions, Gazebo Classic is no longer supported on arm64 Ubuntu. If Gazebo was installed using a script on amd64 Ubuntu, it needs to be uninstalled and reinstalled:
-```bash
-sudo apt remove gz-harmonic
-sudo apt install aptitude
-sudo aptitude install gazebo libgazebo11 libgazebo-dev
-```
-
-## Usage
-Clone this repository:
-```
-git clone https://github.com/mengchaoheng/DuctedFanUAV-Autopilot.git
-
-cd DuctedFanUAV-Autopilot
-```
-
-Make sure you're on the `df-main` branch. You can use `git status` to check it.
-```
-git checkout df-main
-```
-
-Ensure that the required submodules for loading the `df-main` branch are loaded.
-```
-git submodule update --init --recursive
-```
-
-> Note: If submodule update error, first switch to `main`, then run the above command, and then switch back to `df-main`, and then run the aforementioned command to update submodules.
-
-When switching branches or wishing to recompile, you can use
-```
-make distclean
-```
-to keep a clean compilation, and then run
-```
-git submodule update --init --recursive
-
-```
-again to rebuild, The compilation command is as follows.
-
-> **Note:** px4 is not sensitive to the Python environment, but you need to ensure that you have installed the required Python packages. Refer to [Development Environment Deployment](https://docs.px4.io/main/en/dev_setup/dev_env)
-### Simulation
-1. ductedfan2
-```
-make px4_sitl gazebo-classic_ductedfan2
-```
-2. ductedfan4
-```
-make px4_sitl gazebo-classic_ductedfan4
-```
-3. ductedfan6
-```
-make px4_sitl gazebo-classic_ductedfan6
-```
-4. ductedfan_mini
-```
-make px4_sitl gazebo-classic_ductedfan_mini
-```
-5. SHC09
-```
-make px4_sitl gazebo-classic_SHC09
-```
-6. SHW09_vtol
-```
-make px4_sitl gazebo-classic_SHW09_vtol
-```
-7. Multirotor with tilt
-```
-make px4_sitl gazebo-classic_tilt_multirotor
-```
-### Flight with pixhawk
-
-Taking pixhawk 4 as an example, the upload command is:
-
-```
-make px4_fmu-v5 upload
-```
-Other versions are similar, please refer to the official website for more details.
+## 🔧 装配概览
+![装配示意图](.assembly.jpg)
