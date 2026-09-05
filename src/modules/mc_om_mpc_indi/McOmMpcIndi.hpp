@@ -106,9 +106,10 @@ private:
 
 	AccelerationFilterState _ekf_acceleration_filter{};
 	AccelerationFilterState _imu_acceleration_filter{};
-	AccelerationFilterState _allocated_force_filter{};
+	AccelerationFilterState _force_filter{};
 	TimestampedRingBuffer<ForceSample, kForceHistoryLength> _force_history{};
 	uint64_t _force_history_last_timestamp{0};
+	uint64_t _force_feedback_timestamp{0};
 
 	OmMpcIndiControl _control{};
 	bool _acceleration_active_previous{false};
@@ -124,6 +125,7 @@ private:
 	DEFINE_PARAMETERS(
 		(ParamInt<px4::params::MC_OM_INDI_EN>) _param_enable,
 		(ParamInt<px4::params::MC_OM_ACC_EN>) _param_acceleration_enable,
+		(ParamFloat<px4::params::MC_OM_ACC_GAIN>) _param_acceleration_gain,
 		(ParamInt<px4::params::MC_OM_DIST_EN>) _param_disturbance_enable,
 		(ParamFloat<px4::params::MC_OM_RATE_MAX>) _param_rate_max,
 		(ParamInt<px4::params::MC_OM_A_SRC>) _param_acceleration_source,

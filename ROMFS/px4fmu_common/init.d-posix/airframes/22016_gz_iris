@@ -14,18 +14,23 @@
 # OM-MPC-INDI keeps acceleration feedback independent from mc_pos_control.
 param set-default MC_OM_INDI_EN 1
 param set-default MC_OM_ACC_EN 1
+param set-default MC_OM_ACC_GAIN 1.0
 param set-default MC_OM_DIST_EN 1
 param set-default MC_OM_A_SRC 1
 param set-default MC_OM_RATE_MAX 250.0
 param set-default MC_OM_A_LP 8.0
-param set-default MC_OM_D_LIM 5.0
+# main.m does not limit the matched disturbance estimate. Keep the parameter
+# available for explicit safety studies, but disable it in the comparison path.
+param set-default MC_OM_D_LIM 0.0
 param set-default MC_OM_F_DLY 0.0
-param set-default MC_OM_TR_T 1.0
-param set-default MC_OM_KPHI_R 3.0
-param set-default MC_OM_KPHI_P 3.0
+# Keep the tested algebraic bridge without an additional engagement ramp.
+# Online trajectory/controller handover manages its own reference transition.
+param set-default MC_OM_TR_T 0.0
+param set-default MC_OM_KPHI_R 0.5
+param set-default MC_OM_KPHI_P 0.5
 param set-default MC_OM_KPHI_Y 0.0
 
-# Iris rate-INDI gains used by the 3 m/s OM-MPC-INDI comparison.
+# Iris rate-INDI tuning used by the multi-trajectory OM comparison.
 param set-default MC_INDI_RATE_EN 1
 param set-default MC_INDI_T_DLY 0.0
 param set-default MC_INDI_R_P 15.0

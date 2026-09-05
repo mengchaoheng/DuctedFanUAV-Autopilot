@@ -19,7 +19,7 @@ constexpr float kSampleRateChangeThreshold = 0.1f;
 bool allocationFeedbackValid(const allocation_value_s &allocation)
 {
 	return allocation.timestamp != 0
-	       && Vector3f(allocation.allocated_force).isAllFinite()
+	       && Vector3f(allocation.raw_allocated_force).isAllFinite()
 	       && Vector3f(allocation.force_setpoint_scale).isAllFinite();
 }
 
@@ -67,6 +67,7 @@ void McOmMpcIndi::parametersUpdated()
 	updateParams();
 	_control.setParams(
 		Vector3f(_param_kphi_roll.get(), _param_kphi_pitch.get(), _param_kphi_yaw.get()),
+		math::constrain(_param_acceleration_gain.get(), 0.f, 1.f),
 		_param_hover_thrust.get(), CONSTANTS_ONE_G);
 }
 
@@ -193,21 +194,26 @@ void McOmMpcIndi::updateForceHistory()
 	if (_force_history_last_timestamp != 0
 	    && allocation.timestamp > _force_history_last_timestamp + 100_ms) {
 		_force_history.reset();
+		_force_filter = AccelerationFilterState{};
 	}
 
 	ForceSample sample{};
-	// Start from the unfiltered realized body force. CA_FORCE_CUTOFF filters
-	// body-axis components, which only filters thrust magnitude on a standard
-	// multicopter; it cannot match an inertial-frame acceleration LPF while the
-	// vehicle rotates. Rotate first and apply the one matched NED filter below.
+	// Match main.m: H[R(t) F_body(t)] and H[a_ned(t)] must share
+	// their inertial-frame expansion point. R(t) H[F_body(t)] is NOT
+	// equivalent during a fast rotation; it produces a fictitious disturbance
+	// even for constant thrust with perfect acceleration measurements.
+	// Start from the unfiltered allocation so this is exactly one OM filter,
+	// independent of the body-frame CA_FORCE_CUTOFF used by other controllers.
 	const Vector3f force_body(allocation.raw_allocated_force);
 	const Vector3f force_scale(allocation.force_setpoint_scale);
 	sample.time_us = allocation.timestamp;
-	// Form the realized inertial force at the allocation sample, then align that
-	// timestamped vector with acceleration. This mirrors mc_pos_control INDI and
-	// main.m's sequence rawFTF(k) = T(k) R(k) e3 before matched filtering.
-	sample.allocated_force_ned = Dcmf(Quatf(_vehicle_attitude.q))
-			* force_body.emult(force_scale);
+	// This is allocated command feedback, not measured motor thrust. Remaining
+	// actuator/estimator delay must be evaluated separately in flight logs.
+	const Dcmf force_attitude = attitudeAt(
+		allocation.timestamp, Dcmf(Quatf(_vehicle_attitude.q)));
+	updateAccelerationFilter(force_attitude * force_body.emult(force_scale),
+		allocation.timestamp, _force_filter);
+	sample.allocated_force_ned = _force_filter.value;
 	_force_history.push(sample);
 	_force_history_last_timestamp = sample.time_us;
 }
@@ -215,6 +221,7 @@ void McOmMpcIndi::updateForceHistory()
 bool McOmMpcIndi::getDelayedAllocatedForce(uint64_t reference_timestamp,
 		Vector3f &allocated_force_ned)
 {
+	_force_feedback_timestamp = 0;
 	if (_force_history.empty()
 	    || hrt_elapsed_time(&_force_history.get_newest().time_us) >= 100_ms) {
 		return false;
@@ -228,6 +235,7 @@ bool McOmMpcIndi::getDelayedAllocatedForce(uint64_t reference_timestamp,
 
 	if (target >= newest.time_us) {
 		allocated_force_ned = newest.allocated_force_ned;
+		_force_feedback_timestamp = newest.time_us;
 		return allocated_force_ned.isAllFinite();
 	}
 
@@ -259,11 +267,13 @@ bool McOmMpcIndi::getDelayedAllocatedForce(uint64_t reference_timestamp,
 	}
 
 	allocated_force_ned = older.allocated_force_ned;
+	_force_feedback_timestamp = older.time_us;
 
 	if (newer_valid && newer.time_us > older.time_us) {
 		const float alpha = static_cast<float>(target - older.time_us)
 				    / static_cast<float>(newer.time_us - older.time_us);
 		allocated_force_ned += (newer.allocated_force_ned - older.allocated_force_ned) * alpha;
+		_force_feedback_timestamp = target;
 	}
 
 	return allocated_force_ned.isAllFinite();
@@ -289,6 +299,7 @@ void McOmMpcIndi::publishStatus(uint64_t now, uint64_t acceleration_timestamp,
 	om_mpc_indi_status_s status{};
 	status.timestamp = hrt_absolute_time();
 	status.timestamp_sample = acceleration_timestamp > 0 ? acceleration_timestamp : now;
+	status.timestamp_force = _force_feedback_timestamp;
 	status.acceleration_active = acceleration_active;
 	status.rate_active = _rate_ctrl_status.indi_active;
 	status.disturbance_valid = disturbance_valid;
@@ -372,17 +383,12 @@ void McOmMpcIndi::Run()
 			? _imu_acceleration_filter : _ekf_acceleration_filter;
 
 	if (acceleration_requested) {
-		// The attitude callback only wakes this work item. Run the controller once
-		// for each new sample from the selected acceleration source.
-		const bool acceleration_sample_updated = selected.timestamp > 0
-				&& (source != _last_control_acceleration_source
-				    || selected.timestamp != _last_control_acceleration_timestamp);
-
-		if (!acceleration_sample_updated) {
-			perf_end(_loop_perf);
-			return;
-		}
-
+		// The bridge is algebraic in acceleration, so a held acceleration sample
+		// must not stall attitude/rate-setpoint updates. Run from the 250 Hz
+		// attitude callback (bounded by MC_OM_RATE_MAX), while the matched
+		// acceleration and allocated-force filters update only at their own sample
+		// timestamps. This matches main.m and avoids tying the lift to the slower
+		// EKF acceleration publication rate.
 		const float rate_max_hz = math::constrain(_param_rate_max.get(), 50.f, 500.f);
 		const uint64_t minimum_interval_us = static_cast<uint64_t>(1e6f / rate_max_hz);
 
@@ -391,8 +397,12 @@ void McOmMpcIndi::Run()
 			return;
 		}
 
-		_last_control_acceleration_timestamp = selected.timestamp;
-		_last_control_acceleration_source = source;
+		if (selected.timestamp > 0 &&
+		    (source != _last_control_acceleration_source
+		     || selected.timestamp != _last_control_acceleration_timestamp)) {
+			_last_control_acceleration_timestamp = selected.timestamp;
+			_last_control_acceleration_source = source;
+		}
 	}
 
 	const float dt = _last_run_timestamp > 0 && now > _last_run_timestamp
@@ -413,11 +423,8 @@ void McOmMpcIndi::Run()
 			&& getDelayedAllocatedForce(selected.timestamp, allocated_force_raw);
 
 	if (force_valid) {
-		updateAccelerationFilter(allocated_force_raw, selected.timestamp,
-			_allocated_force_filter);
-		allocated_force_ned = _allocated_force_filter.value;
-		force_valid = _allocated_force_filter.timestamp == selected.timestamp
-				&& allocated_force_ned.isAllFinite();
+		allocated_force_ned = allocated_force_raw;
+		force_valid = allocated_force_ned.isAllFinite();
 	}
 	const bool feedback_valid = enabled && acceleration_fresh && force_valid;
 	Vector3f disturbance{NAN, NAN, NAN};
@@ -435,8 +442,10 @@ void McOmMpcIndi::Run()
 				- allocated_force_ned * (CONSTANTS_ONE_G / _param_hover_thrust.get());
 		disturbance = constrainDisturbance(disturbance_raw,
 				math::max(_param_disturbance_limit.get(), 0.f));
-		const Dcmf control_attitude = attitudeAt(now, attitude);
-		corrected_valid = _control.update(control_attitude, nominal_rates, nominal_thrust,
+		// The callback already supplies the newest estimated attitude. Do not
+		// extrapolate it to scheduler wall time: main.m and the native PX4 control
+		// modules use the estimator sample itself for the current control state.
+		corrected_valid = _control.update(attitude, nominal_rates, nominal_thrust,
 			mpc_disturbance, acceleration_ned, allocated_force_ned, corrected);
 	}
 

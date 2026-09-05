@@ -19,3 +19,8 @@ px4_add_module(
 		mathlib
 		px4_work_queue
 	)
+
+px4_add_unit_gtest(
+	SRC OmMpcIndiControlTest.cpp
+	EXTRA_SRCS OmMpcIndiControl.cpp
+)

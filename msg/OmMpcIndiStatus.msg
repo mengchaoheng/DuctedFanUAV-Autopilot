@@ -1,5 +1,6 @@
 uint64 timestamp                 # publication time since system start [us]
-uint64 timestamp_sample          # angular-velocity sample used by the bridge [us]
+uint64 timestamp_sample          # acceleration sample used by the bridge [us]
+uint64 timestamp_force           # allocated-force sample/interpolation time aligned to acceleration [us]
 
 bool acceleration_active         # acceleration INDI + lift produced this sample
 bool rate_active                 # rate INDI produced this sample

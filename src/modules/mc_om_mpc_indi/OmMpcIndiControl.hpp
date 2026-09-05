@@ -17,7 +17,8 @@ public:
 		matrix::Vector3f attitude_error{};
 	};
 
-	void setParams(const matrix::Vector3f &attitude_gain, float hover_thrust, float gravity);
+	void setParams(const matrix::Vector3f &attitude_gain, float acceleration_gain,
+		float hover_thrust, float gravity);
 	bool paramsValid() const;
 
 	bool update(const matrix::Dcmf &R_to_ned, const matrix::Vector3f &nominal_rates,
@@ -28,6 +29,7 @@ public:
 
 private:
 	matrix::Vector3f _attitude_gain{};
+	float _acceleration_gain{1.f};
 	float _hover_thrust{0.f};
 	float _gravity{9.80665f};
 };

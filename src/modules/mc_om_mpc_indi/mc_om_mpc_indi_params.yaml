@@ -17,6 +17,20 @@ parameters:
         long: Independent PX4-side ablation gate for acceleration INDI, minimum-rotation lift and body-rate reference compensation.
       type: boolean
       default: 1
+    MC_OM_ACC_GAIN:
+      description:
+        short: OM acceleration increment gain
+        long: |-
+          Gain on the acceleration-INDI thrust increment F_c-F_0. One is the
+          direct main.m law. Values below one provide explicit incremental
+          control authority tuning when estimator acceleration and allocated
+          force do not have ideal matched dynamics; this is not an output clamp.
+      type: float
+      default: 1.0
+      min: 0.0
+      max: 1.0
+      decimal: 2
+      increment: 0.05
     MC_OM_DIST_EN:
       description:
         short: Enable OM disturbance feedback to MPC
@@ -28,9 +42,10 @@ parameters:
         short: OM middle-layer maximum output rate
         long: |-
           Maximum VehicleRatesSetpoint publication rate. With acceleration INDI
-          enabled, the effective rate is limited by the selected acceleration
-          source, attitude publication and this value. With acceleration INDI
-          disabled, each new OmMpcSetpoint is forwarded once.
+          enabled, the effective rate is limited by attitude publication and
+          this value; acceleration feedback is held between its own samples.
+          With acceleration INDI disabled, each new OmMpcSetpoint is forwarded
+          once.
       type: float
       default: 250.0
       min: 50.0
@@ -52,10 +67,14 @@ parameters:
       default: 1
     MC_OM_A_LP:
       description:
-        short: OM acceleration low-pass cutoff
-        long: Second-order low-pass applied independently at each source's real sample rate.
+        short: OM inertial feedback low-pass cutoff
+        long: |-
+          Second-order low-pass applied independently at each acceleration
+          source's real sample rate and to raw allocated force after rotation
+          to NED. Filtering the body-force magnitude before rotation does not
+          preserve the matched inertial acceleration/thrust expansion point.
       type: float
-      default: 10.0
+      default: 8.0
       min: 0.0
       max: 50.0
       unit: Hz
@@ -64,10 +83,10 @@ parameters:
     MC_OM_D_LIM:
       description:
         short: OM disturbance-feedback magnitude limit
-        long: Euclidean magnitude limit applied to the direct matched disturbance estimate.
+        long: Euclidean magnitude limit applied to the direct matched disturbance estimate. Zero disables the limit and matches main.m.
       type: float
-      default: 5.0
-      min: 0.1
+      default: 0.0
+      min: 0.0
       max: 20.0
       unit: m/s^2
       decimal: 2
@@ -86,9 +105,9 @@ parameters:
     MC_OM_TR_T:
       description:
         short: OM acceleration INDI transition time
-        long: Smoothstep transition from the nominal Lu command to the corrected command.
+        long: Smoothstep transition from the nominal Lu command to the corrected command. Zero disables the transition and matches main.m.
       type: float
-      default: 1.0
+      default: 0.0
       min: 0.0
       max: 5.0
       unit: s
@@ -98,7 +117,7 @@ parameters:
       description:
         short: OM bridge roll attitude gain
       type: float
-      default: 3.0
+      default: 0.5
       min: 0.0
       unit: 1/s
       decimal: 2
@@ -106,7 +125,7 @@ parameters:
       description:
         short: OM bridge pitch attitude gain
       type: float
-      default: 3.0
+      default: 0.5
       min: 0.0
       unit: 1/s
       decimal: 2
