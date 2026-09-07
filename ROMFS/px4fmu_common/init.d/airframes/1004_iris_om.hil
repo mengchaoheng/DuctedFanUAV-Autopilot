@@ -1,0 +1,131 @@
+#!/bin/sh
+#
+# @name Project Iris OM-MPC HITL
+# @type Simulation
+# @class Copter
+# @maintainer Chaoheng Meng <chaohengmeng@163.com>
+
+. ${R}etc/init.d/rc.mc_defaults
+
+param set SYS_HITL 1
+param set UAVCAN_ENABLE 0
+param set-default CBRK_SUPPLY_CHK 894281
+
+# Match the project Iris SITL physics, allocation and controller tuning.
+param set-default CA_AIRFRAME 0
+param set-default CA_METHOD 7
+param set-default CA_WLS_GAM 1000000
+param set-default CA_WLS_U_W 1.0
+param set-default CA_WLS_R_W 3.16227766
+param set-default CA_WLS_P_W 3.16227766
+param set-default CA_WLS_Y_W 0.31622777
+param set-default CA_WLS_FX_W 1.0
+param set-default CA_WLS_FY_W 1.0
+param set-default CA_WLS_FZ_W 0.03162278
+param set-default MC_INDI_P_P 15.0
+param set-default MC_INDI_R_P 15.0
+param set-default MC_INDI_Y_P 4.0
+param set-default MC_INDI_T_DLY 0.0
+param set-default MC_ROLL_P 6.5
+param set-default MC_PITCH_P 6.5
+param set-default MC_YAW_P 5
+param set-default MC_YAW_WEIGHT 1
+param set-default MC_ROLLRATE_P 0.0222819
+param set-default MC_ROLLRATE_I 0.0299221
+param set-default MC_ROLLRATE_D 0.000182725
+param set-default MC_ROLLRATE_MAX 1145.9156
+param set-default MC_PITCHRATE_P 0.0188895
+param set-default MC_PITCHRATE_I 0.0249737
+param set-default MC_PITCHRATE_D 0.000131163
+param set-default MC_PITCHRATE_MAX 1145.9156
+param set-default MC_YAWRATE_P 0.0324820
+param set-default MC_YAWRATE_I 0.0689804
+param set-default MC_YAWRATE_D 0.00118225
+param set-default MC_YAWRATE_MAX 458.3662
+param set-default MC_YAW_TQ_CUTOFF 0
+param set-default MC_ATT_ERR_MODE 3
+param set-default MPC_YAWRAUTO_ACC 360
+param set-default MPC_YAWRAUTO_MAX 360
+param set-default IMU_GYRO_CUTOFF 125
+param set-default IMU_DGYRO_CUTOFF 20.0
+param set-default CA_TORQ_CUTOFF 20.0
+param set-default MC_J_X 0.0025
+param set-default MC_J_Y 0.0021
+param set-default MC_J_Z 0.0043
+param set-default MPC_INDI_A_SRC 1
+param set-default MPC_VEL_LP 0
+param set-default MPC_VELD_LP 8
+param set-default MPC_VEL_NF_FRQ 0
+param set-default MPC_VEL_NF_BW 5
+param set-default MPC_INDI_A_LP 8
+param set-default IMU_ACCEL_CUTOFF 30
+param set-default CA_FORCE_CUTOFF 8
+param set-default MPC_INDI_F_DLY 0.01
+param set-default MPC_MASS 0.75
+param set-default THR_MDL_FAC 1.0
+param set-default MPC_THR_HOVER 0.2163
+param set-default MPC_XY_P 2
+param set-default MPC_Z_P 1.5
+param set-default MPC_XY_VEL_P_ACC 3.0
+param set-default MPC_Z_VEL_P_ACC 10.0
+param set-default MPC_XY_VEL_I_ACC 5.0
+param set-default MPC_Z_VEL_I_ACC 3.0
+param set-default MPC_XY_VEL_D_ACC 0.5
+param set-default MPC_Z_VEL_D_ACC 0.5
+param set-default MPC_ACC_DOWN_MAX 15.0
+param set-default MPC_ACC_HOR 15.0
+param set-default MPC_ACC_HOR_MAX 15.0
+param set-default MPC_ACC_UP_MAX 15.0
+param set-default MPC_HOLD_MAX_XY 3.0
+param set-default MPC_HOLD_MAX_Z 3.0
+param set-default MPC_JERK_AUTO 80.0
+param set-default MPC_JERK_MAX 500.0
+param set-default MPC_MAN_TILT_MAX 70.0
+param set-default MPC_MAN_Y_MAX 400.0
+param set-default MPC_THR_MIN 0.05
+param set-default MPC_TILTMAX_AIR 89.0
+param set-default MPC_VEL_MANUAL 20.0
+param set-default MPC_XY_CRUISE 20.0
+param set-default MPC_XY_ERR_MAX 10.0
+param set-default MPC_XY_VEL_MAX 20.0
+param set-default MPC_Z_VEL_MAX_DN 4.0
+param set-default MPC_Z_VEL_MAX_UP 8.0
+param set-default MPC_Z_V_AUTO_DN 4.0
+param set-default MPC_Z_V_AUTO_UP 8.0
+param set-default CA_ROTOR_COUNT 4
+param set-default CA_ROTOR0_PX 0.13
+param set-default CA_ROTOR0_PY 0.22
+param set-default CA_ROTOR0_KM 0.0157
+param set-default CA_ROTOR0_CT 8.5
+param set-default CA_ROTOR1_PX -0.13
+param set-default CA_ROTOR1_PY -0.20
+param set-default CA_ROTOR1_KM 0.0157
+param set-default CA_ROTOR1_CT 8.5
+param set-default CA_ROTOR2_PX 0.13
+param set-default CA_ROTOR2_PY -0.22
+param set-default CA_ROTOR2_KM -0.0157
+param set-default CA_ROTOR2_CT 8.5
+param set-default CA_ROTOR3_PX -0.13
+param set-default CA_ROTOR3_PY 0.20
+param set-default CA_ROTOR3_KM -0.0157
+param set-default CA_ROTOR3_CT 8.5
+param set-default MC_OM_INDI_EN 1
+param set-default MC_OM_ACC_EN 1
+param set-default MC_OM_ACC_GAIN 1.0
+param set-default MC_OM_DIST_EN 1
+param set-default MC_OM_A_SRC 1
+param set-default MC_OM_RATE_MAX 250.0
+param set-default MC_OM_A_LP 8.0
+param set-default MC_OM_D_LIM 0.0
+param set-default MC_OM_F_DLY 0.0
+param set-default MC_OM_TR_T 0.0
+param set-default MC_OM_KPHI_R 0.5
+param set-default MC_OM_KPHI_P 0.5
+param set-default MC_OM_KPHI_Y 0.0
+param set-default MC_INDI_RATE_EN 1
+
+# USB HIL motor order; THR_MDL_FAC=1 maps thrust to rotor speed.
+param set-default HIL_ACT_FUNC1 101
+param set-default HIL_ACT_FUNC2 102
+param set-default HIL_ACT_FUNC3 103
+param set-default HIL_ACT_FUNC4 104

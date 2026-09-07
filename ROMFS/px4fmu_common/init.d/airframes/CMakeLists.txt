@@ -46,6 +46,7 @@ if(CONFIG_MODULES_SIMULATION_PWM_OUT_SIM)
 		1001_rc_quad_x.hil
 		1002_standard_vtol.hil
 		1003_ductedfan4.hil
+		1004_iris_om.hil
 		1100_rc_quad_x_sih.hil
 		1101_rc_plane_sih.hil
 		1102_tailsitter_duo_sih.hil
