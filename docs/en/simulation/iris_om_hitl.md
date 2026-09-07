@@ -1,12 +1,10 @@
-# Iris USB HITL: Gazebo Sim / Gazebo Classic + Raspberry Pi
+# Iris USB HITL: Gazebo Classic + Raspberry Pi
 
-Both simulators use the project's CUAV V5 Nano firmware (`px4_fmu-v5_default`).
-Gazebo Sim uses the existing `iris` model with the new host MAVLink bridge;
-Classic uses its existing `iris_hitl` model and MAVLink plugin.
-Run only one simulator/USB bridge at a time.
+Use the project CUAV V5 Nano firmware (`px4_fmu-v5_default`), the existing
+Classic `iris_hitl` model and its MAVLink plugin.
 
 ```text
-Simulation computer: Gazebo + QGC -- USB MAVLink -- V5 Nano
+Simulation computer: Classic + QGC -- USB MAVLink -- V5 Nano
                                                      |
                                                TELEM2 UART
                                                      |
@@ -25,7 +23,7 @@ make px4_fmu-v5_default upload
 The board configuration includes `pwm_out_sim`, `uxrce_dds_client` and
 `mc_om_mpc_indi`. Alternatively flash
 `build/px4_fmu-v5_default/px4_fmu-v5_default.px4` with QGC custom firmware.
-For project Iris in **either simulator**, set these in the PX4 console:
+For project Iris HITL, set these in the PX4 console:
 
 ```sh
 param set SYS_AUTOSTART 1004
@@ -58,69 +56,7 @@ both devices appropriately. Enable the Pi UART and disable its serial login
 console. `/dev/ttyAMA0` below is an example: use the actual UART device.
 ROS `px4_msgs` must match the project's patched firmware DDS messages.
 
-## 2A. Gazebo Sim Harmonic: setup once
-
-On the simulation computer, with Gazebo Harmonic and its development dependencies
-installed, install its Python bindings (OSRF package repository required):
-
-```bash
-sudo apt install python3-gz-transport13 python3-gz-msgs10 python3-venv
-python3 -m venv --system-site-packages ~/.venvs/px4-hitl
-~/.venvs/px4-hitl/bin/pip install pymavlink pyserial
-cd ~/PX4-Autopilot
-make px4_sitl_default
-```
-
-This build supplies the model's Gazebo plugins; it does not start SITL.
-The bridge currently targets Harmonic (`gz.transport13`, `gz.msgs10`).
-Retain changes inside the `Tools/simulation/gz` Git submodule when copying or
-checking out the project on another computer.
-
-### Every start
-
-Power the flight controller and RC transmitter, close QGC, and identify USB:
-
-```bash
-ls -l /dev/serial/by-id/
-```
-
-Use the matching stable path or `/dev/ttyACM0` below. Your user needs serial-port
-access (normally membership in `dialout`, followed by a new login).
-On the simulation computer, terminal 1:
-
-```bash
-cd ~/PX4-Autopilot
-export GZ_SIM_RESOURCE_PATH="$PWD/Tools/simulation/gz/models:${GZ_SIM_RESOURCE_PATH:-}"
-export GZ_SIM_SYSTEM_PLUGIN_PATH="$PWD/build/px4_sitl_default/src/modules/simulation/gz_plugins:${GZ_SIM_SYSTEM_PLUGIN_PATH:-}"
-gz sim -r Tools/simulation/gz/worlds/hitl_iris.sdf
-```
-
-For no Gazebo GUI, add `-s`. Terminal 2:
-
-```bash
-cd ~/PX4-Autopilot
-~/.venvs/px4-hitl/bin/python Tools/simulation/gz/hitl_bridge.py \
-  --device /dev/ttyACM0 --baudrate 921600
-```
-
-The world reuses the **same Iris model as `gz_iris` SITL**. Do not run
-`make px4_sitl gz_iris` alongside it: that starts a separate software autopilot.
-The bridge sends IMU/magnetometer/barometer/GPS and receives four motor commands.
-It supplies the heartbeat needed to start PX4 USB MAVLink automatically.
-Airframe 1004's `THR_MDL_FAC=1` and motor mapping match the bridge's default
-2372.6 rad/s scaling. No additional square root is applied.
-
-Now open QGC on the same computer, using UDP 14550 and disabling its direct USB
-autoconnection. The bridge forwards MAVLink in both directions (local port 14560).
-With physical RC, disable QGC's virtual joystick. Start the Pi commands below.
-
-The bridge prints sensor and actuator rates every two seconds. With simulation
-running normally, expect roughly 250 Hz IMU, 100 Hz magnetometer, 50 Hz barometer
-and 5 Hz GPS. Actuator reception must be nonzero once PX4 sends HIL outputs.
-A stale IMU or actuator stream for 0.2 s zeros simulated motor commands; stopping
-the bridge also sends zero. Hardware simulation is real-time, not lockstep.
-
-## 2B. Gazebo Classic: setup once
+## 2. Gazebo Classic: setup once
 
 Use a computer with **Gazebo Classic 11 and its development/build dependencies**.
 The SITL board configuration enables `SIMULATOR_MAVLINK` so Classic targets are
@@ -161,12 +97,11 @@ gazebo Tools/simulation/gazebo-classic/sitl_gazebo-classic/worlds/hitl_ductedfan
 ```
 
 Open QGC after the simulator owns USB; use its UDP 14550 forwarding and disable
-QGC USB autoconnection/virtual joystick as above. Classic includes its own serial
-bridge: do not start `hitl_bridge.py`. No PX4 SITL process is needed for HITL.
-The upstream [PX4 HITL instructions](https://docs.px4.io/main/en/simulation/hitl)
-describe this Classic workflow; the Gazebo Sim bridge above is project-specific.
+QGC direct USB autoconnection. With physical RC, disable QGC's virtual joystick.
+Classic includes its own serial bridge. No PX4 SITL process is needed for HITL.
+See the upstream [PX4 HITL instructions](https://docs.px4.io/main/en/simulation/hitl).
 
-## 3. Raspberry Pi: every start, for either simulator
+## 3. Raspberry Pi: every start
 
 Over SSH, terminal 1:
 
@@ -208,12 +143,3 @@ DDS must connect and synchronize; check received feedback rates over UART.
 For real flight the Pi entry point is the same. The flight controller uses the
 actual vehicle's non-HITL airframe (`SYS_HITL=0`), vehicle parameters and real
 sensors; the simulation computer and USB simulation bridge are absent.
-
-## Validation scope
-
-Firmware build and automated bridge checks pass. The new bridge has also driven
-the real Gazebo Harmonic Iris model using MAVLink over a pseudo-terminal,
-including sensor conversion, motor scaling, disarming, watchdog and QGC forwarding.
-Run host checks with `python Tools/simulation/gz/test_hitl_bridge.py` in the venv.
-Actual V5 Nano USB timing and closed-loop ROS flight remain to be tested on hardware.
-Classic is configured but was not run on this development host, which lacks Classic.
