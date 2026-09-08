@@ -47,8 +47,8 @@ param set-default MC_ATT_ERR_MODE 3
 param set-default MPC_YAWRAUTO_ACC 360
 param set-default MPC_YAWRAUTO_MAX 360
 param set-default IMU_GYRO_CUTOFF 125
-param set-default IMU_DGYRO_CUTOFF 10.0
-param set-default CA_TORQ_CUTOFF 10.0
+param set-default IMU_DGYRO_CUTOFF 20.0
+param set-default CA_TORQ_CUTOFF 20.0
 param set-default MC_J_X 0.0025
 param set-default MC_J_Y 0.0021
 param set-default MC_J_Z 0.0043
@@ -117,7 +117,7 @@ param set-default MC_OM_A_SRC 1
 param set-default MC_OM_RATE_MAX 250.0
 param set-default MC_OM_A_LP 8.0
 param set-default MC_OM_D_LIM 0.0
-param set-default MC_OM_F_DLY 0.0
+param set-default MC_OM_F_DLY 0.03
 param set-default MC_OM_TR_T 0.0
 param set-default MC_OM_KPHI_R 0.5
 param set-default MC_OM_KPHI_P 0.5
