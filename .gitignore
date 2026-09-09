@@ -119,3 +119,6 @@ _emscripten_sdk/
 
 # Claude Code local settings
 .claude/settings.local.json
+
+venv_readme.md
+Tools/iris_tuning
