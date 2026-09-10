@@ -123,7 +123,7 @@ param set-default MC_OM_DIST_EN 1
 param set-default MC_OM_A_SRC 1
 param set-default MC_OM_RATE_MAX 250.0
 param set-default MC_OM_A_LP 8.0
-param set-default MC_OM_D_LIM 0.0
+param set-default MC_OM_D_LIM 20.0
 # Same acceleration/force filter pair as position INDI; provisional HIL delay.
 param set-default MC_OM_F_DLY 0.030
 param set-default MC_OM_TR_T 0.0
