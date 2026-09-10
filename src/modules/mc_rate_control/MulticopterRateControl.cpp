@@ -331,10 +331,13 @@ MulticopterRateControl::Run()
 			if (_vehicle_land_detected_sub.copy(&vehicle_land_detected)) {
 				_landed = vehicle_land_detected.landed;
 				_maybe_landed = vehicle_land_detected.maybe_landed;
+				_ground_contact = vehicle_land_detected.ground_contact;
 			}
 		}
 
 		_vehicle_status_sub.update(&_vehicle_status);
+		const bool indi_flight_enabled = _indi_flight_state.update(_vehicle_control_mode.flag_armed,
+						_vehicle_status.takeoff_time != 0, _ground_contact, _maybe_landed, _landed);
 		_rc_channels_sub.update(&_rc_channels);
 		// Keep the filtered allocated-torque history warm even while PID is active,
 		// so a requested delayed sample is immediately available on INDI entry.
@@ -409,8 +412,6 @@ MulticopterRateControl::Run()
 			Vector3f torque_setpoint =
 				_rate_control.update(rates, _rates_setpoint, angular_accel, dt, _maybe_landed || _landed);
 			Vector3f indi_feedback{};
-			const bool indi_flight_enabled = _vehicle_control_mode.flag_armed
-						 && _vehicle_status.takeoff_time != 0 && !_landed;
 			const bool indi_requested = (_param_mc_indi_rate_en.get() == 1)
 						    || rcChannelEnabled(_rc_channels, kRateIndiRcChannel);
 			const bool indi_active = _indi_capable && indi_requested && indi_flight_enabled

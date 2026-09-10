@@ -2,6 +2,22 @@ module_name: simulator_sih
 parameters:
 - group: Simulation In Hardware
   definitions:
+    SIH_QUAD_MODE:
+      description:
+        short: Quadcopter dynamics model
+        long: |-
+          Applies only to SIH_VEHICLE_TYPE=0. Mode 0 uses symmetric SIH arm
+          lengths and linear thrust. Mode 1 uses CA_ROTOR0..3_PX/PY/KM
+          (FRD, meters), fixed upward thrust axes, and squared normalized
+          motor speed after the existing SIH actuator lag. Outputs 1..4
+          must map to motors 1..4. SIH_T_MAX is the common maximum rotor
+          thrust; CA_ROTORx_CT does not set simulated thrust. SIH_L_ROLL,
+          SIH_L_PITCH and SIH_Q_MAX are ignored in mode 1.
+      type: enum
+      values:
+        0: Symmetric quad with linear thrust
+        1: CA quad geometry with squared motor speed
+      default: 0
     SIH_MASS:
       description:
         short: Vehicle mass

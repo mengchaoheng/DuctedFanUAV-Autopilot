@@ -1,0 +1,41 @@
+#!/bin/sh
+#
+# @name 3DR Iris Quadrotor SIH (Gazebo Classic parameters)
+# @type Quadrotor Wide
+#
+
+# Share the project's Iris controller tuning and physical allocation geometry.
+. ${R}etc/init.d-posix/airframes/10015_gazebo-classic_iris
+
+PX4_SIMULATOR=${PX4_SIMULATOR:=sihsim}
+PX4_SIM_MODEL=${PX4_SIM_MODEL:=iris}
+
+param set-default SENS_EN_GPSSIM 1
+param set-default SENS_EN_BAROSIM 1
+param set-default SENS_EN_MAGSIM 1
+param set-default SENS_GPS0_DELAY 0
+param set-default SENS_GPS1_DELAY 0
+
+param set SIH_VEHICLE_TYPE 0
+param set-default SIH_QUAD_MODE 1
+
+# Base-link properties in gazebo-classic/models/iris/iris.sdf.jinja.
+# Negligible GPS/rotor-link inertias are omitted in this single rigid body.
+param set-default SIH_MASS 0.75
+param set-default SIH_IXX 0.0025
+param set-default SIH_IYY 0.0021
+param set-default SIH_IZZ 0.0043
+param set-default SIH_IXY 0
+param set-default SIH_IXZ 0
+param set-default SIH_IYZ 0
+
+# motorConstant * maxRotVelocity^2 = 1.51e-6 * 2372.6^2 N.
+# SIH_QUAD_MODE=1 takes PX/PY/KM from CA_ROTOR0..3 and squares motor speed.
+param set-default SIH_T_MAX 8.50013845
+
+# Approximate Iris's fast motor response at the default 250 Hz SIH rate.
+# The built-in Euler actuator update has dt/tau=1 at dt=4 ms: one-step tracking.
+# Do not use Gazebo's 0.5 ms tau here (dt/tau=8 would be unstable).
+param set-default SIH_T_TAU 0.004
+
+# Keep the built-in SIH actuator implementation, drag, damping and sensor rates.

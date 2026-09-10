@@ -487,6 +487,14 @@ void MulticopterPositionControl::Run()
 
 		_vehicle_land_detected_sub.update(&_vehicle_land_detected);
 		_vehicle_status_sub.update(&_vehicle_status);
+		const bool indi_flight_enabled = _indi_flight_state.update(_vehicle_control_mode.flag_armed,
+						_vehicle_status.takeoff_time != 0, _vehicle_land_detected.ground_contact,
+						_vehicle_land_detected.maybe_landed, _vehicle_land_detected.landed);
+
+		if (!indi_flight_enabled) {
+			// Ground handling must not retain a flight thrust offset from PID/INDI blending.
+			_control.resetAccelerationIndiTransition();
+		}
 		_vehicle_attitude_sub.update(&_vehicle_attitude);
 		_vehicle_acceleration_sub.update(&_vehicle_acceleration);
 		updateAllocatedForceHistory();
@@ -736,8 +744,6 @@ void MulticopterPositionControl::Run()
 				getDelayedAllocatedThrustAcceleration(vehicle_local_position.timestamp_sample);
 			const bool acceleration_indi_feedback_available = selected_acceleration_valid
 					&& delayed_allocated_thrust_acceleration.isAllFinite();
-			const bool indi_flight_enabled = _vehicle_control_mode.flag_armed
-						 && _vehicle_status.takeoff_time != 0 && !_vehicle_land_detected.landed;
 			// This readiness flag is not an EKF-health decision. Invalid base position
 			// or velocity states are handled by PositionControl's normal failsafe path.
 			const bool acceleration_indi_ready = use_indi && indi_flight_enabled

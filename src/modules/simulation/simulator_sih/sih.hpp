@@ -255,6 +255,7 @@ private:
 	matrix::Vector3f _lpos{};  // position in a local tangent-plane frame [m]
 
 	float _u[NUM_ACTUATORS_MAX] {}; // thruster signals
+	matrix::Vector3f _quad_moment_arm[4] {}; // [-PY, PX, KM] in meters
 	float       _T[NUM_DYN_THRUSTER] {};         // thruster forces (N)
 	float       _Q[NUM_DYN_THRUSTER] {};         // thruster torque (Nm)
 	Thruster    _thruster[NUM_DYN_THRUSTER] {};	// thruster objects
@@ -319,6 +320,7 @@ private:
 		(ParamFloat<px4::params::SIH_T_MAX>) _sih_t_max,
 		(ParamFloat<px4::params::SIH_Q_MAX>) _sih_q_max,
 		(ParamFloat<px4::params::SIH_L_ROLL>) _sih_l_roll,
+		(ParamInt<px4::params::SIH_QUAD_MODE>) _sih_quad_mode,
 		(ParamFloat<px4::params::SIH_L_PITCH>) _sih_l_pitch,
 		(ParamFloat<px4::params::SIH_KDV>) _sih_kdv,
 		(ParamFloat<px4::params::SIH_KDW>) _sih_kdw,

@@ -248,6 +248,21 @@ void Sih::parameters_updated()
 {
 	_T_MAX = _sih_t_max.get();
 	_Q_MAX = _sih_q_max.get();
+
+	if (_sih_quad_mode.get() == 1) {
+		for (int i = 0; i < 4; ++i) {
+			char name[17];
+			float px = 0.f, py = 0.f, km = 0.f;
+			snprintf(name, sizeof(name), "CA_ROTOR%d_PX", i);
+			param_get(param_find(name), &px);
+			snprintf(name, sizeof(name), "CA_ROTOR%d_PY", i);
+			param_get(param_find(name), &py);
+			snprintf(name, sizeof(name), "CA_ROTOR%d_KM", i);
+			param_get(param_find(name), &km);
+			_quad_moment_arm[i] = Vector3f(-py, px, km);
+		}
+	}
+
 	_L_ROLL = _sih_l_roll.get();
 	_L_PITCH = _sih_l_pitch.get();
 	_KDV = _sih_kdv.get();
@@ -415,10 +430,22 @@ void Sih::generate_force_and_torques(const float dt)
 
 	if (_vehicle == VehicleType::Quadcopter) {
 
-		_T_B = Vector3f(0.0f, 0.0f, -_T_MAX * (+_u[0] + _u[1] + _u[2] + _u[3]));
-		_Mt_B = Vector3f(_L_ROLL * _T_MAX * (-_u[0] + _u[1] + _u[2] - _u[3]),
-				 _L_PITCH * _T_MAX * (+_u[0] - _u[1] + _u[2] - _u[3]),
-				 _Q_MAX * (+_u[0] + _u[1] - _u[2] - _u[3]));
+		if (_sih_quad_mode.get() == 1) {
+			_T_B.zero();
+			_Mt_B.zero();
+
+			for (int i = 0; i < 4; ++i) {
+				const float thrust = _T_MAX * _u[i] * _u[i];
+				_T_B(2) -= thrust;
+				_Mt_B += _quad_moment_arm[i] * thrust;
+			}
+
+		} else {
+			_T_B = Vector3f(0.0f, 0.0f, -_T_MAX * (+_u[0] + _u[1] + _u[2] + _u[3]));
+			_Mt_B = Vector3f(_L_ROLL * _T_MAX * (-_u[0] + _u[1] + _u[2] - _u[3]),
+					 _L_PITCH * _T_MAX * (+_u[0] - _u[1] + _u[2] - _u[3]),
+					 _Q_MAX * (+_u[0] + _u[1] - _u[2] - _u[3]));
+		}
 
 		_Fa_E = -_KDV * _R_N2E * _v_apparent_N; // first order drag to slow down the aircraft
 		_Ma_B = -_KDW * _w_B; // first order angular damper

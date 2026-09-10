@@ -50,6 +50,7 @@
 #include <lib/slew_rate/SlewRate.hpp>
 #include <lib/slew_rate/SlewRateYaw.hpp>
 #include <lib/systemlib/mavlink_log.h>
+#include <lib/controllib/IndiFlightState.hpp>
 #include <px4_platform_common/px4_config.h>
 #include <px4_platform_common/defines.h>
 #include <px4_platform_common/module.h>
@@ -263,6 +264,7 @@ private:
 
 	GotoControl _goto_control; ///< class for handling smooth goto position setpoints
 	PositionControl _control; ///< class for core PID position control
+	IndiFlightState _indi_flight_state;
 
 	hrt_abstime _last_warn{0}; /**< timer when the last warn message was sent out */
 

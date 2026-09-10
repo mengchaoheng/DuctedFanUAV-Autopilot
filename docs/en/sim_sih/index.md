@@ -33,6 +33,7 @@ The following vehicle types are supported:
 | Vehicle                                                         | Make Target                                | Status       |
 | --------------------------------------------------------------- | ------------------------------------------ | ------------ |
 | Quadrotor X <Badge type="tip" text="PX4 v1.9" />                | `make px4_sitl_sih sihsim_quadx`           | Stable       |
+| [Project Iris (22017)](iris.md)                                  | `make px4_sitl_sih sihsim_iris`            | Custom       |
 | Hexarotor X <Badge type="tip" text="PX4 v1.16" />               | `make px4_sitl_sih sihsim_hexa`            | Experimental |
 | Fixed-wing (airplane) <Badge type="tip" text="PX4 v1.13" />     | `make px4_sitl_sih sihsim_airplane`        | Experimental |
 | Tailsitter VTOL <Badge type="tip" text="PX4 v1.13" />           | `make px4_sitl_sih sihsim_xvert`           | Experimental |

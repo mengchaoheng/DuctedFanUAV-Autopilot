@@ -169,6 +169,8 @@ public:
 	 * @see _vel_int
 	 */
 	void resetIntegral() { _vel_int.setZero(); }
+	/** Cancel flight PID/INDI blending before applying the ground thrust command. */
+	void resetAccelerationIndiTransition();
 	void resetIntegralXY() { _vel_int.xy() = matrix::Vector2f(); }
 
 	/**

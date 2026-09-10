@@ -46,6 +46,7 @@
 #include <px4_platform_common/posix.h>
 #include <px4_platform_common/px4_work_queue/ScheduledWorkItem.hpp>
 #include <lib/systemlib/mavlink_log.h>
+#include <lib/controllib/IndiFlightState.hpp>
 #include <uORB/Publication.hpp>
 #include <uORB/PublicationMulti.hpp>
 #include <uORB/Subscription.hpp>
@@ -138,6 +139,8 @@ private:
 
 	bool _landed{true};
 	bool _maybe_landed{true};
+	bool _ground_contact{true};
+	IndiFlightState _indi_flight_state;
 	bool _indi_capable{false};
 	bool _route_torque_to_instance1{false};
 	uint8_t _torque_allocation_instance{0};
