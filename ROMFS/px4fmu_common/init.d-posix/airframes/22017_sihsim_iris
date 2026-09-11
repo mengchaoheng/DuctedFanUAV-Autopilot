@@ -66,4 +66,5 @@ param set-default SIH_T_MAX 8.50013845
 # Do not use Gazebo's 0.5 ms tau here (dt/tau=8 would be unstable).
 param set-default SIH_T_TAU 0.004
 
-# Keep the built-in SIH actuator implementation, drag, damping and sensor rates.
+param set-default SIH_KDV 0.0
+param set-default SIH_KDW 0.0

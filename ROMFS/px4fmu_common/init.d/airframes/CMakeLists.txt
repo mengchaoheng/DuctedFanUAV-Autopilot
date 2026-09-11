@@ -52,6 +52,7 @@ if(CONFIG_MODULES_SIMULATION_PWM_OUT_SIM)
 		1102_tailsitter_duo_sih.hil
 		1103_standard_vtol_sih.hil
 		1105_rc_hexa_x_sih.hil
+		1106_rc_iris_sih.hil
 	)
 	if(CONFIG_MODULES_ROVER_ACKERMANN)
 		px4_add_romfs_files(
