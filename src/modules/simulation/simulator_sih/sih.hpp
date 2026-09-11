@@ -146,6 +146,7 @@ private:
 	// hard constants
 	static constexpr uint16_t NUM_ACTUATORS_MAX = 9;
 	static constexpr uint16_t NUM_DYN_THRUSTER = 2;		// number of dynamic thruster model with advance ratio
+	static constexpr uint8_t MAX_DF_CONTROL_SURFACES = 6;
 
 	// Ranging beacon simulation constants
 	static constexpr uint8_t NUM_RANGING_BEACONS = 4;
@@ -256,11 +257,13 @@ private:
 
 	float _u[NUM_ACTUATORS_MAX] {}; // thruster signals
 	matrix::Vector3f _quad_moment_arm[4] {}; // [-PY, PX, KM] in meters
+	matrix::Vector3f _ductedfan_control_moment[MAX_DF_CONTROL_SURFACES] {}; // physical moment at normalized +1 [Nm]
+	int32_t _ductedfan_surface_count{0};
 	float       _T[NUM_DYN_THRUSTER] {};         // thruster forces (N)
 	float       _Q[NUM_DYN_THRUSTER] {};         // thruster torque (Nm)
 	Thruster    _thruster[NUM_DYN_THRUSTER] {};	// thruster objects
 
-	enum class VehicleType {Quadcopter, FixedWing, TailsitterVTOL, StandardVTOL, Hexacopter, RoverAckermann, First = Quadcopter, Last = RoverAckermann}; // numbering dependent on parameter SIH_VEHICLE_TYPE
+	enum class VehicleType {Quadcopter, FixedWing, TailsitterVTOL, StandardVTOL, Hexacopter, RoverAckermann, DuctedFan, First = Quadcopter, Last = DuctedFan}; // numbering dependent on parameter SIH_VEHICLE_TYPE
 	VehicleType _vehicle = VehicleType::Quadcopter;
 
 	// aerodynamic segments for the fixedwing

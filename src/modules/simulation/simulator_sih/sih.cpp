@@ -72,6 +72,11 @@ void Sih::run()
 	_px4_accel.set_temperature(T1_C);
 	_px4_gyro.set_temperature(T1_C);
 
+	// Select the vehicle before loading vehicle-specific dynamics parameters.
+	_vehicle = static_cast<VehicleType>(constrain(_sih_vtype.get(),
+					    static_cast<int32_t>(VehicleType::First),
+					    static_cast<int32_t>(VehicleType::Last)));
+
 	parameters_updated();
 
 	const hrt_abstime task_start = hrt_absolute_time();
@@ -79,9 +84,6 @@ void Sih::run()
 	_airspeed_time = task_start;
 	_dist_snsr_time = task_start;
 	_ranging_beacon_time = task_start;
-	_vehicle = static_cast<VehicleType>(constrain(_sih_vtype.get(),
-					    static_cast<int32_t>(VehicleType::First),
-					    static_cast<int32_t>(VehicleType::Last)));
 
 #if defined(ENABLE_LOCKSTEP_SCHEDULER)
 	lockstep_loop();
@@ -263,6 +265,65 @@ void Sih::parameters_updated()
 		}
 	}
 
+	// CA_AIRFRAME=16 stores the ducted-fan plant in physical units: rotor
+	// maximum thrust in CA_ROTOR0_CT [N] and normalized control-surface
+	// body moments in CA_SV_CSx_TRQ_* [N m]. Reuse those values in SIH so
+	// the allocator and simulated plant share one effectiveness definition.
+	if (_vehicle == VehicleType::DuctedFan) {
+		float rotor_ct = _T_MAX;
+		const param_t rotor_ct_handle = param_find("CA_ROTOR0_CT");
+
+		if (rotor_ct_handle != PARAM_INVALID
+		    && param_get(rotor_ct_handle, &rotor_ct) == PX4_OK
+		    && rotor_ct > FLT_EPSILON) {
+			_T_MAX = rotor_ct;
+		}
+
+		int32_t surface_count = 0;
+		const param_t surface_count_handle = param_find("CA_SV_CS_COUNT");
+
+		if (surface_count_handle != PARAM_INVALID) {
+			param_get(surface_count_handle, &surface_count);
+		}
+
+		_ductedfan_surface_count = math::constrain(surface_count, int32_t{0},
+					      static_cast<int32_t>(MAX_DF_CONTROL_SURFACES));
+
+		for (int i = 0; i < MAX_DF_CONTROL_SURFACES; ++i) {
+			_ductedfan_control_moment[i].zero();
+
+			if (i < _ductedfan_surface_count) {
+				char name[17];
+				float trq_r = 0.f;
+				float trq_p = 0.f;
+				float trq_y = 0.f;
+
+				snprintf(name, sizeof(name), "CA_SV_CS%d_TRQ_R", i);
+				const param_t trq_r_handle = param_find(name);
+
+				if (trq_r_handle != PARAM_INVALID) {
+					param_get(trq_r_handle, &trq_r);
+				}
+
+				snprintf(name, sizeof(name), "CA_SV_CS%d_TRQ_P", i);
+				const param_t trq_p_handle = param_find(name);
+
+				if (trq_p_handle != PARAM_INVALID) {
+					param_get(trq_p_handle, &trq_p);
+				}
+
+				snprintf(name, sizeof(name), "CA_SV_CS%d_TRQ_Y", i);
+				const param_t trq_y_handle = param_find(name);
+
+				if (trq_y_handle != PARAM_INVALID) {
+					param_get(trq_y_handle, &trq_y);
+				}
+
+				_ductedfan_control_moment[i] = Vector3f(trq_r, trq_p, trq_y);
+			}
+		}
+	}
+
 	_L_ROLL = _sih_l_roll.get();
 	_L_PITCH = _sih_l_pitch.get();
 	_KDV = _sih_kdv.get();
@@ -377,6 +438,8 @@ uint8_t Sih::num_motors() const
 
 	case VehicleType::RoverAckermann: return 1;
 
+	case VehicleType::DuctedFan:      return 1;
+
 	default:                          return 0;
 	}
 }
@@ -470,6 +533,28 @@ void Sih::generate_force_and_torques(const float dt)
 				 _Q_MAX * (+u_sq[0] - u_sq[1] + u_sq[2] - u_sq[3] + u_sq[4] - u_sq[5]));
 		_Fa_E = -_KDV * _R_N2E * _v_apparent_N; // first order drag to slow down the aircraft
 		_Ma_B = -_KDW * _w_B; // first order angular damper
+
+	} else if (_vehicle == VehicleType::DuctedFan) {
+
+		// PWMSim publishes the non-reversible rotor command in [0, 1]. With
+		// THR_MDL_FAC=1 this command is normalized rotor speed, so the plant
+		// follows the same quadratic thrust law as the Gazebo models.
+		const float motor = math::constrain(_u[0], 0.f, 1.f);
+		const float thrust = _T_MAX * motor * motor;
+		_T_B = Vector3f(0.f, 0.f, -thrust);
+
+		// Outputs 1..N are Servo1..ServoN in [-1, 1]. The CA_AIRFRAME=16
+		// surface coefficients already represent physical N m at command +1.
+		_Mt_B.zero();
+
+		for (int i = 0; i < _ductedfan_surface_count; ++i) {
+			_Mt_B += _ductedfan_control_moment[i] * math::constrain(_u[i + 1], -1.f, 1.f);
+		}
+
+		// First model: commanded thrust/moment plus generic SIH linear damping.
+		// Detailed duct/wing/side-force terms can be layered onto this branch.
+		_Fa_E = -_KDV * _R_N2E * _v_apparent_N;
+		_Ma_B = -_KDW * _w_B;
 
 	} else if (_vehicle == VehicleType::FixedWing) {
 
@@ -633,11 +718,12 @@ void Sih::equations_of_motion(const float dt)
 
 	// fake ground, avoid free fall
 	const float force_down = Vector3f(_R_N2E.transpose() * sum_of_forces_E)(2);
-	Vector3f ground_force_E;
+	Vector3f ground_force_E{};
 
 	if ((_lla.altitude() - _lpos_ref_alt) < 0.f && force_down > 0.f) {
 		if (_vehicle == VehicleType::Quadcopter
 		    || _vehicle == VehicleType::Hexacopter
+		    || _vehicle == VehicleType::DuctedFan
 		    || _vehicle == VehicleType::TailsitterVTOL
 		    || _vehicle == VehicleType::StandardVTOL) {
 			ground_force_E = -sum_of_forces_E;

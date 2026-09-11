@@ -260,9 +260,11 @@ parameters:
       unit: m
     SIH_T_TAU:
       description:
-        short: thruster time constant tau
-        long: the time taken for the thruster to step from 0 to 100% should be about
-          4 times tau
+        short: actuator time constant tau
+        long: |-
+          The time taken for an actuator to step from 0 to 100% should be about
+          4 times tau. For the ducted-fan model this common first-order lag is
+          applied to the main rotor and control-surface commands.
       type: float
       default: 0.05
       unit: s
@@ -277,6 +279,7 @@ parameters:
         3: Standard VTOL
         4: Hexacopter
         5: Rover Ackermann
+        6: Ducted Fan
       default: 0
       reboot_required: true
     SIH_WIND_N:

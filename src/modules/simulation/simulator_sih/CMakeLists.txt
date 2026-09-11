@@ -60,6 +60,8 @@ if(PX4_PLATFORM MATCHES "posix")
 		standard_vtol
 		hex
 		rover_ackermann
+		ductedfan4
+		SHC09
 	)
 
 	# find corresponding airframes

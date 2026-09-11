@@ -1,0 +1,42 @@
+#!/bin/sh
+#
+# @name Ducted Fan 4 SIH
+# @type Ducted Fan
+# @class DuctedFan
+#
+# SIH counterpart of 22002_gazebo-classic_ductedfan4.
+#
+
+. ${R}etc/init.d-posix/airframes/22002_gazebo-classic_ductedfan4
+
+PX4_SIMULATOR=${PX4_SIMULATOR:=sihsim}
+PX4_SIM_MODEL=${PX4_SIM_MODEL:=ductedfan4}
+
+param set-default SENS_EN_GPSSIM 1
+param set-default SENS_EN_BAROSIM 1
+param set-default SENS_EN_MAGSIM 1
+param set-default SENS_GPS0_DELAY 0
+param set-default SENS_GPS1_DELAY 0
+
+# Generic ducted-fan branch in simulator_sih.
+param set SIH_VEHICLE_TYPE 6
+
+# Match the current ductedfan4 Gazebo/airframe rigid-body model.
+param set-default SIH_MASS 1.56
+param set-default SIH_IXX 0.01149
+param set-default SIH_IYY 0.01153
+param set-default SIH_IZZ 0.00487
+param set-default SIH_IXY 0
+param set-default SIH_IXZ 0
+param set-default SIH_IYZ 0
+
+# CA_ROTOR0_CT=30 N is authoritative in DuctedFan mode. SIH_T_MAX remains
+# an explicit fallback and makes the intended physical scale visible here.
+param set-default SIH_T_MAX 30
+
+# Current GZ rotor and the four-vane paper model both use about 30 ms first-order dynamics.
+param set-default SIH_T_TAU 0.03
+
+# Version 1 focuses on commanded thrust and commanded control moments.
+param set-default SIH_KDV 0.0
+param set-default SIH_KDW 0.0

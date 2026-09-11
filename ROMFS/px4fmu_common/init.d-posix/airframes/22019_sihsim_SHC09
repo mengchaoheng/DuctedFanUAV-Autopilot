@@ -1,0 +1,38 @@
+#!/bin/sh
+#
+# @name SHC09 SIH
+# @type Ducted Fan
+# @class DuctedFan
+#
+# SIH counterpart of 22005_gazebo-classic_SHC09.
+#
+
+. ${R}etc/init.d-posix/airframes/22005_gazebo-classic_SHC09
+
+PX4_SIMULATOR=${PX4_SIMULATOR:=sihsim}
+PX4_SIM_MODEL=${PX4_SIM_MODEL:=SHC09}
+
+param set-default SENS_EN_GPSSIM 1
+param set-default SENS_EN_BAROSIM 1
+param set-default SENS_EN_MAGSIM 1
+param set-default SENS_GPS0_DELAY 0
+param set-default SENS_GPS1_DELAY 0
+
+param set SIH_VEHICLE_TYPE 6
+
+# Keep the plant mass consistent with MPC_MASS and MPC_THR_HOVER in the
+# current SHC09 airframe. The inertia values match the SHC09 Gazebo model.
+param set-default SIH_MASS 2.1
+param set-default SIH_IXX 0.0438
+param set-default SIH_IYY 0.0436
+param set-default SIH_IZZ 0.005006
+param set-default SIH_IXY 0
+param set-default SIH_IXZ 0
+param set-default SIH_IYZ 0
+
+# CA_ROTOR0_CT=42.3016 N is authoritative in DuctedFan mode.
+param set-default SIH_T_MAX 42.3016
+param set-default SIH_T_TAU 0.03
+
+param set-default SIH_KDV 0.0
+param set-default SIH_KDW 0.0

@@ -1,0 +1,99 @@
+#!/bin/sh
+#
+# @name SHC09 SIH
+# @type Simulation
+# @class DuctedFan
+#
+# @board px4_fmu-v2 exclude
+#
+
+. ${R}etc/init.d/rc.mc_defaults
+
+param set-default CA_AIRFRAME 16
+
+# Match 22005_gazebo-classic_SHC09 controller and physical allocation setup.
+param set-default MC_ROLLRATE_P 0.4
+param set-default MC_ROLLRATE_I 0.2
+param set-default MC_PITCHRATE_P 0.4
+param set-default MC_PITCHRATE_I 0.2
+param set-default MC_YAWRATE_P 0.2
+param set-default MC_YAWRATE_I 0.1
+param set-default MC_PITCH_P 2
+param set-default MC_ROLL_P 2
+param set-default MC_YAW_P 2
+
+param set-default MPC_XY_VEL_P_ACC 1.8
+param set-default MPC_XY_VEL_I_ACC 0.4
+param set-default MPC_XY_VEL_D_ACC 0.0
+param set-default MPC_Z_VEL_P_ACC 4.0
+param set-default MPC_Z_VEL_I_ACC 2.0
+param set-default MPC_Z_VEL_D_ACC 0.0
+
+param set-default MPC_THR_HOVER 0.4865
+param set-default THR_MDL_FAC 1
+
+param set-default CA_FORCE_CUTOFF 6
+param set-default CA_TORQ_CUTOFF 8
+param set-default IMU_DGYRO_CUTOFF 10
+param set-default MPC_MASS 2.1
+param set-default MC_J_X 0.0438
+param set-default MC_J_Y 0.0436
+param set-default MC_J_Z 0.005006
+
+param set-default CA_ROTOR_COUNT 1
+param set-default CA_ROTOR0_AX 0
+param set-default CA_ROTOR0_AY 0
+param set-default CA_ROTOR0_AZ -1
+param set-default CA_ROTOR0_PX 0
+param set-default CA_ROTOR0_PY 0
+param set-default CA_ROTOR0_PZ 0.1
+param set-default CA_ROTOR0_CT 42.3016
+param set-default CA_ROTOR0_KM 0
+
+param set-default CA_SV_CS_COUNT 6
+param set-default CA_SV_CS0_TRQ_R -0.343572
+param set-default CA_SV_CS0_TRQ_P 0
+param set-default CA_SV_CS0_TRQ_Y 0.084928
+param set-default CA_SV_CS1_TRQ_R -0.171786
+param set-default CA_SV_CS1_TRQ_P 0.297542
+param set-default CA_SV_CS1_TRQ_Y 0.084928
+param set-default CA_SV_CS2_TRQ_R 0.171786
+param set-default CA_SV_CS2_TRQ_P 0.297542
+param set-default CA_SV_CS2_TRQ_Y 0.084928
+param set-default CA_SV_CS3_TRQ_R 0.343572
+param set-default CA_SV_CS3_TRQ_P 0
+param set-default CA_SV_CS3_TRQ_Y 0.084928
+param set-default CA_SV_CS4_TRQ_R 0.171786
+param set-default CA_SV_CS4_TRQ_P -0.297542
+param set-default CA_SV_CS4_TRQ_Y 0.084928
+param set-default CA_SV_CS5_TRQ_R -0.171786
+param set-default CA_SV_CS5_TRQ_P -0.297542
+param set-default CA_SV_CS5_TRQ_Y 0.084928
+
+param set SYS_HITL 2
+param set UAVCAN_ENABLE 0
+param set-default CBRK_SUPPLY_CHK 894281
+param set SIH_VEHICLE_TYPE 6
+
+param set-default SIH_MASS 2.1
+param set-default SIH_IXX 0.0438
+param set-default SIH_IYY 0.0436
+param set-default SIH_IZZ 0.005006
+param set-default SIH_IXY 0
+param set-default SIH_IXZ 0
+param set-default SIH_IYZ 0
+param set-default SIH_T_MAX 42.3016
+param set-default SIH_T_TAU 0.03
+param set-default SIH_KDV 0.0
+param set-default SIH_KDW 0.0
+
+param set-default HIL_ACT_FUNC1 101
+param set-default HIL_ACT_FUNC2 201
+param set-default HIL_ACT_FUNC3 202
+param set-default HIL_ACT_FUNC4 203
+param set-default HIL_ACT_FUNC5 204
+param set-default HIL_ACT_FUNC6 205
+param set-default HIL_ACT_FUNC7 206
+
+param set-default SENS_GPS0_DELAY 0
+param set-default SENS_GPS1_DELAY 0

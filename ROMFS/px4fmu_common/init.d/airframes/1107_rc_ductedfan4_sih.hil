@@ -1,0 +1,110 @@
+#!/bin/sh
+#
+# @name Ducted Fan 4 SIH
+# @type Simulation
+# @class DuctedFan
+#
+# @board px4_fmu-v2 exclude
+#
+
+. ${R}etc/init.d/rc.mc_defaults
+
+param set-default CA_AIRFRAME 16
+
+# Match the controller baseline used by 22002_gazebo-classic_ductedfan4.
+param set-default MC_ROLL_P 4
+param set-default MC_ROLLRATE_P 0.45
+param set-default MC_ROLLRATE_I 0.3
+param set-default MC_ROLLRATE_D 0.0
+param set-default MC_ROLLRATE_FF 0
+
+param set-default MC_PITCH_P 4
+param set-default MC_PITCHRATE_P 0.45
+param set-default MC_PITCHRATE_I 0.3
+param set-default MC_PITCHRATE_D 0.0
+param set-default MC_PITCHRATE_FF 0
+
+param set-default MC_YAW_P 2.8
+param set-default MC_YAWRATE_P 0.4
+param set-default MC_YAWRATE_I 0.3
+param set-default MC_YAWRATE_D 0
+param set-default MC_YAWRATE_FF 0
+param set-default MC_YAW_TQ_CUTOFF 0
+param set-default MC_ATT_ERR_MODE 3
+param set-default MC_YAW_WEIGHT 1
+
+param set-default IMU_GYRO_CUTOFF 110
+param set-default IMU_DGYRO_CUTOFF 10
+param set-default CA_TORQ_CUTOFF 10
+param set-default MC_INDI_T_DLY 0.020
+
+param set-default MC_J_X 0.01149
+param set-default MC_J_Y 0.01153
+param set-default MC_J_Z 0.00487
+
+param set-default MPC_INDI_A_SRC 1
+param set-default MPC_INDI_F_SRC 1
+param set-default MPC_VEL_LP 0
+param set-default MPC_VELD_LP 10
+param set-default MPC_INDI_A_LP 10
+param set-default IMU_ACCEL_CUTOFF 30
+param set-default CA_FORCE_CUTOFF 10
+param set-default MPC_INDI_F_DLY 0.03
+
+param set-default MPC_MASS 1.56
+param set-default MPC_THR_HOVER 0.49
+param set-default THR_MDL_FAC 1
+
+# Physical CA_AIRFRAME=16 contract: one rotor force matrix plus four vane moments.
+param set-default CA_ROTOR_COUNT 1
+param set-default CA_ROTOR0_AX 0
+param set-default CA_ROTOR0_AY 0
+param set-default CA_ROTOR0_AZ -1
+param set-default CA_ROTOR0_PX 0
+param set-default CA_ROTOR0_PY 0
+param set-default CA_ROTOR0_PZ 0.05
+param set-default CA_ROTOR0_CT 30
+param set-default CA_ROTOR0_KM 0
+
+param set-default CA_SV_CS_COUNT 4
+param set-default CA_SV_CS0_TRQ_R -0.166227
+param set-default CA_SV_CS0_TRQ_P 0
+param set-default CA_SV_CS0_TRQ_Y 0.068681
+param set-default CA_SV_CS1_TRQ_R 0
+param set-default CA_SV_CS1_TRQ_P -0.166227
+param set-default CA_SV_CS1_TRQ_Y 0.068681
+param set-default CA_SV_CS2_TRQ_R 0.166227
+param set-default CA_SV_CS2_TRQ_P 0
+param set-default CA_SV_CS2_TRQ_Y 0.068681
+param set-default CA_SV_CS3_TRQ_R 0
+param set-default CA_SV_CS3_TRQ_P 0.166227
+param set-default CA_SV_CS3_TRQ_Y 0.068681
+
+# Hardware SIH startup, following 1106_rc_iris_sih.hil.
+param set SYS_HITL 2
+param set UAVCAN_ENABLE 0
+param set-default CBRK_SUPPLY_CHK 894281
+param set SIH_VEHICLE_TYPE 6
+
+param set-default SIH_MASS 1.56
+param set-default SIH_IXX 0.01149
+param set-default SIH_IYY 0.01153
+param set-default SIH_IZZ 0.00487
+param set-default SIH_IXY 0
+param set-default SIH_IXZ 0
+param set-default SIH_IYZ 0
+param set-default SIH_T_MAX 30
+param set-default SIH_T_TAU 0.03
+param set-default SIH_KDV 0.0
+param set-default SIH_KDW 0.0
+
+# PWMSim uses HIL_ACT_* on hardware and publishes actuator_outputs_sim.
+# Channel 1 is the motor; channels 2..5 are Servo1..Servo4.
+param set-default HIL_ACT_FUNC1 101
+param set-default HIL_ACT_FUNC2 201
+param set-default HIL_ACT_FUNC3 202
+param set-default HIL_ACT_FUNC4 203
+param set-default HIL_ACT_FUNC5 204
+
+param set-default SENS_GPS0_DELAY 0
+param set-default SENS_GPS1_DELAY 0
