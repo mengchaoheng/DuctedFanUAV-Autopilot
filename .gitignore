@@ -119,3 +119,6 @@ _emscripten_sdk/
 
 # Claude Code local settings
 .claude/settings.local.json
+main.m
+venv_readme.md
+paper

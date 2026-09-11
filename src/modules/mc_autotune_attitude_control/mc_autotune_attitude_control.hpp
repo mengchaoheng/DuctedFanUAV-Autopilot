@@ -202,7 +202,8 @@ private:
 		(ParamFloat<px4::params::MC_YAWRATE_K>) _param_mc_yawrate_k,
 		(ParamFloat<px4::params::MC_YAWRATE_I>) _param_mc_yawrate_i,
 		(ParamFloat<px4::params::MC_YAWRATE_D>) _param_mc_yawrate_d,
-		(ParamFloat<px4::params::MC_YAW_P>) _param_mc_yaw_p
+		(ParamFloat<px4::params::MC_YAW_P>) _param_mc_yaw_p,
+		(ParamInt<px4::params::CA_AIRFRAME>) _param_ca_airframe
 	)
 
 	static constexpr float _publishing_dt_s = 100e-3f;

@@ -18,26 +18,26 @@ param set-default CA_AIRFRAME 16 #  9 or 16
 #   CA_ROTOR0_CT is maximum thrust [N]. CA_SV_CSx_TRQ_* is the moment at
 #   normalized surface command +1 [N m] and already includes delta_max=40 deg.
 
-param set-default MC_ROLLRATE_P 0.4
-param set-default MC_ROLLRATE_I 0.2
+param set-default MC_ROLLRATE_P 0.24
+param set-default MC_ROLLRATE_I 0.3
 
-param set-default MC_PITCHRATE_P 0.4
-param set-default MC_PITCHRATE_I 0.2
+param set-default MC_PITCHRATE_P 0.24
+param set-default MC_PITCHRATE_I 0.3
 
-param set-default MC_YAWRATE_P 0.2
-param set-default MC_YAWRATE_I 0.1
+param set-default MC_YAWRATE_P 0.093
+param set-default MC_YAWRATE_I 0.09
 
-param set-default MC_PITCH_P 2
-param set-default MC_ROLL_P 2
-param set-default MC_YAW_P 2
+param set-default MC_PITCH_P 4
+param set-default MC_ROLL_P 4
+param set-default MC_YAW_P 5
 
-param set-default MPC_XY_VEL_P_ACC 1.8
-param set-default MPC_XY_VEL_I_ACC 0.4
-param set-default MPC_XY_VEL_D_ACC 0.0
+# param set-default MPC_XY_VEL_P_ACC 1.8
+# param set-default MPC_XY_VEL_I_ACC 0.4
+# param set-default MPC_XY_VEL_D_ACC 0.0
 
-param set-default MPC_Z_VEL_P_ACC 4.0
-param set-default MPC_Z_VEL_I_ACC 2.0
-param set-default MPC_Z_VEL_D_ACC 0.0
+# param set-default MPC_Z_VEL_P_ACC 4.0
+# param set-default MPC_Z_VEL_I_ACC 2.0
+# param set-default MPC_Z_VEL_D_ACC 0.0
 
 # Force and motor-output contract.
 #
@@ -72,6 +72,8 @@ param set-default CA_ROTOR0_KM 0
 # force/moment feedback. It does not simulate individual actuator dynamics.
 param set-default CA_FORCE_CUTOFF 6
 param set-default CA_TORQ_CUTOFF 8
+param set-default MC_INDI_T_DLY 0.02
+param set-default MPC_INDI_F_DLY 0.03
 param set-default IMU_DGYRO_CUTOFF 10
 param set-default MPC_MASS 2.1
 param set-default MC_J_X 0.0438

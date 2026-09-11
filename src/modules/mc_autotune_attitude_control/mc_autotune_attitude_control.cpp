@@ -41,6 +41,11 @@
 
 using namespace matrix;
 
+namespace
+{
+	constexpr int32_t kDuctedFanAirframe = 16;
+}
+
 ModuleBase::Descriptor McAutotuneAttitudeControl::desc{task_spawn, custom_command, print_usage};
 
 McAutotuneAttitudeControl::McAutotuneAttitudeControl() :
@@ -57,6 +62,14 @@ McAutotuneAttitudeControl::~McAutotuneAttitudeControl()
 
 bool McAutotuneAttitudeControl::init()
 {
+	const uint8_t torque_instance =
+		(_param_ca_airframe.get() == kDuctedFanAirframe) ? 1 : 0;
+
+	if (!_vehicle_torque_setpoint_sub.ChangeInstance(torque_instance)) {
+		PX4_ERR("failed to select torque setpoint instance %u",
+			torque_instance);
+		return false;
+	}
 
 	if (!_vehicle_torque_setpoint_sub.registerCallback()) {
 		PX4_ERR("callback registration failed");
