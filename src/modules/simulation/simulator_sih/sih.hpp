@@ -146,7 +146,7 @@ private:
 	// hard constants
 	static constexpr uint16_t NUM_ACTUATORS_MAX = 9;
 	static constexpr uint16_t NUM_DYN_THRUSTER = 2;		// number of dynamic thruster model with advance ratio
-	static constexpr uint8_t MAX_DF_CONTROL_SURFACES = 6;
+	static constexpr uint8_t MAX_DF_CONTROL_SURFACES = 8;
 
 	// Ranging beacon simulation constants
 	static constexpr uint8_t NUM_RANGING_BEACONS = 4;
@@ -199,6 +199,7 @@ private:
 	void publish_ground_truth(const hrt_abstime &time_now_us);
 	void generate_fw_aerodynamics(const float roll_cmd, const float pitch_cmd, const float yaw_cmd, const float thrust_for_prowash);
 	void generate_ts_aerodynamics();
+	void generate_df_tailsitter_aerodynamics();
 	void generate_rover_ackermann_dynamics(const float throttle_cmd, const float steering_cmd, const float dt);
 	void sensor_step();
 
@@ -263,7 +264,7 @@ private:
 	float       _Q[NUM_DYN_THRUSTER] {};         // thruster torque (Nm)
 	Thruster    _thruster[NUM_DYN_THRUSTER] {};	// thruster objects
 
-	enum class VehicleType {Quadcopter, FixedWing, TailsitterVTOL, StandardVTOL, Hexacopter, RoverAckermann, DuctedFan, First = Quadcopter, Last = DuctedFan}; // numbering dependent on parameter SIH_VEHICLE_TYPE
+	enum class VehicleType {Quadcopter, FixedWing, TailsitterVTOL, StandardVTOL, Hexacopter, RoverAckermann, DuctedFan, DuctedFanTailsitter, First = Quadcopter, Last = DuctedFanTailsitter}; // numbering dependent on parameter SIH_VEHICLE_TYPE
 	VehicleType _vehicle = VehicleType::Quadcopter;
 
 	// aerodynamic segments for the fixedwing

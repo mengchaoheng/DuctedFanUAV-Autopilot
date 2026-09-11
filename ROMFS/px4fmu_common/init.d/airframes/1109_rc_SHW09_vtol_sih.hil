@@ -1,0 +1,167 @@
+#!/bin/sh
+#
+# @name SHW09_vtol SIH
+#
+# @type Simulation
+# @class VTOL
+#
+# @board px4_fmu-v2 exclude
+#
+
+. ${R}etc/init.d/rc.vtol_defaults
+
+param set-default MAV_TYPE 19
+param set-default EKF2_FUSE_BETA 0
+
+# SHW09_vtol custom allocator: matrix 0 = rotor force, matrix 1 = surface torque.
+param set-default CA_AIRFRAME 17
+
+param set-default CA_ROTOR_COUNT 1
+param set-default CA_ROTOR0_AX 0
+param set-default CA_ROTOR0_AY 0
+param set-default CA_ROTOR0_AZ -1
+param set-default CA_ROTOR0_PX 0
+param set-default CA_ROTOR0_PY 0
+param set-default CA_ROTOR0_PZ 0.1
+param set-default CA_ROTOR0_CT 32.1984
+param set-default CA_ROTOR0_KM 0
+
+param set-default CA_SV_CS_COUNT 8
+param set-default DF_FW_CS_GAIN 1.8393
+param set-default CA_FORCE_CUTOFF 8
+param set-default CA_TORQ_CUTOFF 8
+param set-default IMU_DGYRO_CUTOFF 10
+
+param set-default MPC_MASS 2.05
+param set-default MC_J_X 0.050636
+param set-default MC_J_Y 0.042954
+param set-default MC_J_Z 0.012668
+param set-default MC_INDI_R_P 15
+param set-default MC_INDI_P_P 15
+param set-default MC_INDI_Y_P 15
+
+param set-default CA_SV_CS0_TRQ_R -0.704019
+param set-default CA_SV_CS0_TRQ_P 0
+param set-default CA_SV_CS0_TRQ_Y 0.194941
+param set-default CA_SV_CS1_TRQ_R -0.352009
+param set-default CA_SV_CS1_TRQ_P 0.609698
+param set-default CA_SV_CS1_TRQ_Y 0.194941
+param set-default CA_SV_CS2_TRQ_R 0.352009
+param set-default CA_SV_CS2_TRQ_P 0.609698
+param set-default CA_SV_CS2_TRQ_Y 0.194941
+param set-default CA_SV_CS3_TRQ_R 0.704019
+param set-default CA_SV_CS3_TRQ_P 0
+param set-default CA_SV_CS3_TRQ_Y 0.194941
+param set-default CA_SV_CS4_TRQ_R 0.352009
+param set-default CA_SV_CS4_TRQ_P -0.609698
+param set-default CA_SV_CS4_TRQ_Y 0.194941
+param set-default CA_SV_CS5_TRQ_R -0.352009
+param set-default CA_SV_CS5_TRQ_P -0.609698
+param set-default CA_SV_CS5_TRQ_Y 0.194941
+param set-default CA_SV_CS6_TYPE 0
+param set-default CA_SV_CS6_TRQ_Y 1.240193
+param set-default CA_SV_CS7_TYPE 0
+param set-default CA_SV_CS7_TRQ_Y -1.240193
+
+param set-default VT_ELEV_MC_LOCK 0
+
+param set-default MC_ROLL_P 3
+param set-default MC_PITCH_P 3
+param set-default MC_YAW_P 2
+
+param set-default MC_ROLLRATE_P 0.2
+param set-default MC_ROLLRATE_I 0.2
+param set-default MC_RR_INT_LIM 0.3
+param set-default MC_ROLLRATE_D 0.003
+param set-default MC_ROLLRATE_FF 0
+param set-default MC_ROLLRATE_K 1
+
+param set-default MC_PITCHRATE_P 0.2
+param set-default MC_PITCHRATE_I 0.2
+param set-default MC_PR_INT_LIM 0.3
+param set-default MC_PITCHRATE_D 0.003
+param set-default MC_PITCHRATE_FF 0
+param set-default MC_PITCHRATE_K 1
+
+param set-default MC_YAWRATE_P 0.2
+param set-default MC_YAWRATE_I 0.1
+param set-default MC_YR_INT_LIM 0.3
+param set-default MC_YAWRATE_D 0
+param set-default MC_YAWRATE_FF 0
+param set-default MC_YAWRATE_K 1
+param set-default MC_YAW_TQ_CUTOFF 2
+
+param set-default THR_MDL_FAC 1
+param set-default MPC_THR_HOVER 0.62
+param set-default MPC_XY_P 0.95
+param set-default MPC_Z_P 1
+param set-default MPC_XY_VEL_P_ACC 2
+param set-default MPC_XY_VEL_I_ACC 0
+param set-default MPC_XY_VEL_D_ACC 0
+param set-default MPC_Z_VEL_P_ACC 5
+param set-default MPC_Z_VEL_I_ACC 0
+param set-default MPC_Z_VEL_D_ACC 0
+param set-default MPC_ACC_HOR 3
+param set-default MPC_ACC_UP_MAX 4
+param set-default MPC_ACC_DOWN_MAX 3
+param set-default MPC_ACC_DECOUPLE 1
+param set-default MPC_THR_MIN 0.12
+param set-default MPC_THR_MAX 1
+param set-default MC_AIRMODE 1
+
+param set-default EKF2_MULTI_IMU 0
+param set-default SENS_IMU_MODE 1
+
+param set-default FW_PSP_OFF 2
+param set-default FW_ARSP_SCALE_EN 0
+param set-default FW_PR_FF 0.05
+param set-default FW_PR_P 0.5
+param set-default FW_RR_FF 0.05
+param set-default FW_RR_P 0.5
+param set-default FW_YR_FF 0.04
+param set-default FW_YR_P 0.4
+param set-default FW_AIRSPD_TRIM 16
+param set-default FW_THR_TRIM 0.35
+param set-default FW_GND_SPD_MIN 2.0
+param set-default FW_T_RLL2THR 18
+param set-default FW_T_ALT_TC 3.0
+
+param set-default VT_ARSP_TRANS 10
+param set-default VT_B_TRANS_DUR 3
+param set-default VT_F_TRANS_DUR 3
+param set-default VT_TYPE 0
+param set-default WV_EN 0
+
+# Hardware SIH: simulator_sih replaces physical sensors, while PWMSim maps the
+# final actuator functions into actuator_outputs_sim.
+param set SYS_HITL 2
+param set UAVCAN_ENABLE 0
+param set-default CBRK_SUPPLY_CHK 894281
+param set-default SENS_DPRES_OFF 0.001
+
+param set SIH_VEHICLE_TYPE 7
+param set-default SIH_MASS 2.05
+param set-default SIH_IXX 0.050636
+param set-default SIH_IYY 0.042954
+param set-default SIH_IZZ 0.012668
+param set-default SIH_IXY 0
+param set-default SIH_IXZ 0
+param set-default SIH_IYZ 0
+param set-default SIH_T_MAX 32.1984
+param set-default SIH_T_TAU 0.025
+param set-default SIH_KDV 0.0
+param set-default SIH_KDW 0.025
+
+# One rotor followed by eight control surfaces.
+param set-default HIL_ACT_FUNC1 101
+param set-default HIL_ACT_FUNC2 201
+param set-default HIL_ACT_FUNC3 202
+param set-default HIL_ACT_FUNC4 203
+param set-default HIL_ACT_FUNC5 204
+param set-default HIL_ACT_FUNC6 205
+param set-default HIL_ACT_FUNC7 206
+param set-default HIL_ACT_FUNC8 207
+param set-default HIL_ACT_FUNC9 208
+
+param set-default SENS_GPS0_DELAY 0
+param set-default SENS_GPS1_DELAY 0

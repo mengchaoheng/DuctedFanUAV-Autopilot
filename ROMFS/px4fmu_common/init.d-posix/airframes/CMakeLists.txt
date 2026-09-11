@@ -147,4 +147,5 @@ px4_add_romfs_files(
 	22017_sihsim_iris
 	22018_sihsim_ductedfan4
 	22019_sihsim_SHC09
+	22020_sihsim_SHW09_vtol
 )

@@ -1,0 +1,42 @@
+#!/bin/sh
+#
+# @name SHW09_vtol SIH
+#
+# @type VTOL Ducted Fan
+# @class VTOL
+#
+
+. ${R}etc/init.d-posix/airframes/22006_gazebo-classic_SHW09_vtol
+
+PX4_SIMULATOR=${PX4_SIMULATOR:=sihsim}
+PX4_SIM_MODEL=${PX4_SIM_MODEL:=SHW09_vtol}
+
+param set-default SENS_EN_GPSSIM 1
+param set-default SENS_EN_BAROSIM 1
+param set-default SENS_EN_MAGSIM 1
+param set-default SENS_GPS0_DELAY 0
+param set-default SENS_GPS1_DELAY 0
+
+# Ducted-fan tailsitter branch in simulator_sih.
+param set SIH_VEHICLE_TYPE 7
+
+# Keep the rigid-body plant aligned with the controller/paper parameters.
+param set-default SIH_MASS 2.05
+param set-default SIH_IXX 0.050636
+param set-default SIH_IYY 0.042954
+param set-default SIH_IZZ 0.012668
+param set-default SIH_IXY 0
+param set-default SIH_IXZ 0
+param set-default SIH_IYZ 0
+
+# CA_ROTOR0_CT=32.1984 N is authoritative; SIH_T_MAX is the fallback.
+param set-default SIH_T_MAX 32.1984
+
+# Gazebo Classic motor response is 12.5 ms up / 25 ms down. SIH v1 uses
+# one symmetric lightweight lag for the rotor and all eight surfaces.
+param set-default SIH_T_TAU 0.025
+
+# Translational drag is supplied by the simplified SHW09 wing model.
+# A small generic angular damper represents omitted aerodynamic rate damping.
+param set-default SIH_KDV 0.0
+param set-default SIH_KDW 0.025
