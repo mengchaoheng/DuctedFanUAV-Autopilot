@@ -26,16 +26,16 @@ param set-default MC_OM_KPHI_R 0.5
 param set-default MC_OM_KPHI_P 0.5
 param set-default MC_OM_KPHI_Y 0.0
 
-# Iris rate-INDI tuning used by the multi-trajectory OM comparison.
+# Match gz Iris rate gains and 20 Hz feedback filters; align SIH feedback.
 param set-default MC_INDI_RATE_EN 1
-param set-default MC_INDI_T_DLY 0.0
+param set-default MC_INDI_T_DLY 0.004
 param set-default MC_INDI_R_P 15.0
 param set-default MC_INDI_P_P 15.0
 param set-default MC_INDI_Y_P 4.0
 param set-default IMU_DGYRO_CUTOFF 20.0
 param set-default CA_TORQ_CUTOFF 20.0
 
-param set-default MPC_INDI_F_DLY 0.0
+param set-default MPC_INDI_F_DLY 0.020
 
 PX4_SIMULATOR=${PX4_SIMULATOR:=sihsim}
 PX4_SIM_MODEL=${PX4_SIM_MODEL:=iris}
@@ -46,8 +46,7 @@ param set-default SENS_EN_MAGSIM 1
 param set-default SENS_GPS0_DELAY 0
 param set-default SENS_GPS1_DELAY 0
 
-param set SIH_VEHICLE_TYPE 0
-param set-default SIH_QUAD_MODE 1
+param set SIH_VEHICLE_TYPE 9
 
 # Base-link properties in gazebo-classic/models/iris/iris.sdf.jinja.
 # Negligible GPS/rotor-link inertias are omitted in this single rigid body.
@@ -60,13 +59,27 @@ param set-default SIH_IXZ 0
 param set-default SIH_IYZ 0
 
 # motorConstant * maxRotVelocity^2 = 1.51e-6 * 2372.6^2 N.
-# SIH_QUAD_MODE=1 takes PX/PY/KM from CA_ROTOR0..3 and squares motor speed.
+# Squared normalized motor speed sets physical thrust and reaction torque.
 param set-default SIH_T_MAX 8.50013845
+# Gazebo momentConstant * maximum thrust, Nm; signs are +,+,-,-.
+param set-default SIH_Q_MAX 0.133452174
 
-# Approximate Iris's fast motor response at the default 250 Hz SIH rate.
-# The built-in Euler actuator update has dt/tau=1 at dt=4 ms: one-step tracking.
-# Do not use Gazebo's 0.5 ms tau here (dt/tau=8 would be unstable).
-param set-default SIH_T_TAU 0.004
+# Independent plant geometry from iris.sdf.jinja, expressed in body FRD.
+# Keep CA parameters separate so allocator errors do not change the plant.
+param set-default SIH_R0_X 0.125
+param set-default SIH_R0_Y 0.22
+param set-default SIH_R1_X -0.1385
+param set-default SIH_R1_Y -0.206
+param set-default SIH_R2_X 0.125
+param set-default SIH_R2_Y -0.223
+param set-default SIH_R3_X -0.1385
+param set-default SIH_R3_Y 0.2025
+
+
+# Exact discrete actuator lag supports the Classic 0.5 ms motor constant.
+param set-default SIH_T_TAU 0.0005
 
 param set-default SIH_KDV 0.0
 param set-default SIH_KDW 0.0
+
+# Matched physical model and IMU noise; PID tuning is inherited above.

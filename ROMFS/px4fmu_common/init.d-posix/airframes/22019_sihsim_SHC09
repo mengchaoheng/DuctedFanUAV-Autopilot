@@ -9,6 +9,12 @@
 
 . ${R}etc/init.d-posix/airframes/22005_gazebo-classic_SHC09
 
+# SIH INDI feedback alignment; retain the Classic gains and filters.
+param set-default MC_INDI_RATE_EN 1
+param set-default MPC_INDI_ACC_EN 1
+param set-default MC_INDI_T_DLY 0.022
+param set-default MPC_INDI_F_DLY 0.000
+
 PX4_SIMULATOR=${PX4_SIMULATOR:=sihsim}
 PX4_SIM_MODEL=${PX4_SIM_MODEL:=SHC09}
 
@@ -18,7 +24,7 @@ param set-default SENS_EN_MAGSIM 1
 param set-default SENS_GPS0_DELAY 0
 param set-default SENS_GPS1_DELAY 0
 
-param set SIH_VEHICLE_TYPE 6
+param set SIH_VEHICLE_TYPE 8
 
 # Keep the plant mass consistent with MPC_MASS and MPC_THR_HOVER in the
 # current SHC09 airframe. The inertia values match the SHC09 Gazebo model.
@@ -30,9 +36,10 @@ param set-default SIH_IXY 0
 param set-default SIH_IXZ 0
 param set-default SIH_IYZ 0
 
-# CA_ROTOR0_CT=42.3016 N is authoritative in DuctedFan mode.
-param set-default SIH_T_MAX 42.3016
 param set-default SIH_T_TAU 0.03
 
 param set-default SIH_KDV 0.0
 param set-default SIH_KDW 0.0
+
+# Matched physical model and IMU noise; PID tuning is inherited above.
+param set-default SIH_SV_TAU 0.03

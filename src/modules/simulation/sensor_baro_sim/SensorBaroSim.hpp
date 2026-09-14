@@ -75,9 +75,6 @@ private:
 	uORB::SubscriptionInterval _parameter_update_sub{ORB_ID(parameter_update), 1_s};
 	uORB::Subscription _vehicle_global_position_sub{ORB_ID(vehicle_global_position_groundtruth)};
 
-	bool _baro_rnd_use_last{false};
-	double _baro_rnd_y2{0.0};
-	float _baro_drift_pa_per_sec{0.0};
 	float _baro_drift_pa{0.0};
 
 	hrt_abstime _last_update_time{0};
@@ -87,6 +84,9 @@ private:
 	perf_counter_t _loop_perf{perf_alloc(PC_ELAPSED, MODULE_NAME": cycle")};
 
 	DEFINE_PARAMETERS(
+		(ParamFloat<px4::params::SIM_BARO_STD>) _sim_baro_std,
+		(ParamFloat<px4::params::SIM_BARO_DRIFT>) _sim_baro_drift,
+
 		(ParamFloat<px4::params::SIM_BARO_OFF_P>) _sim_baro_off_p,
 		(ParamFloat<px4::params::SIM_BARO_OFF_T>) _sim_baro_off_t
 	)

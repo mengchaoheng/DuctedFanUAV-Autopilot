@@ -42,6 +42,8 @@
 
 #include "aero.hpp"
 #include "sih.hpp"
+#include "classic_models.hpp"
+#include "simple_df.hpp"
 
 #include <px4_platform_common/getopt.h>
 #include <px4_platform_common/log.h>
@@ -252,77 +254,12 @@ void Sih::parameters_updated()
 	_T_MAX = _sih_t_max.get();
 	_Q_MAX = _sih_q_max.get();
 
-	if (_sih_quad_mode.get() == 1) {
-		for (int i = 0; i < 4; ++i) {
-			char name[17];
-			float px = 0.f, py = 0.f, km = 0.f;
-			snprintf(name, sizeof(name), "CA_ROTOR%d_PX", i);
-			param_get(param_find(name), &px);
-			snprintf(name, sizeof(name), "CA_ROTOR%d_PY", i);
-			param_get(param_find(name), &py);
-			snprintf(name, sizeof(name), "CA_ROTOR%d_KM", i);
-			param_get(param_find(name), &km);
-			_quad_moment_arm[i] = Vector3f(-py, px, km);
-		}
-	}
-
-	// CA_AIRFRAME=16/17 store the ducted-fan plant in physical units: rotor
-	// maximum thrust in CA_ROTOR0_CT [N] and normalized control-surface
-	// body moments in CA_SV_CSx_TRQ_* [N m]. Reuse those values in SIH so
-	// the allocator and simulated plant share one effectiveness definition.
-	if (_vehicle == VehicleType::DuctedFan || _vehicle == VehicleType::DuctedFanTailsitter) {
-		float rotor_ct = _T_MAX;
-		const param_t rotor_ct_handle = param_find("CA_ROTOR0_CT");
-
-		if (rotor_ct_handle != PARAM_INVALID
-		    && param_get(rotor_ct_handle, &rotor_ct) == PX4_OK
-		    && rotor_ct > FLT_EPSILON) {
-			_T_MAX = rotor_ct;
-		}
-
-		int32_t surface_count = 0;
-		const param_t surface_count_handle = param_find("CA_SV_CS_COUNT");
-
-		if (surface_count_handle != PARAM_INVALID) {
-			param_get(surface_count_handle, &surface_count);
-		}
-
-		_ductedfan_surface_count = math::constrain(surface_count, int32_t{0},
-					      static_cast<int32_t>(MAX_DF_CONTROL_SURFACES));
-
-		for (int i = 0; i < MAX_DF_CONTROL_SURFACES; ++i) {
-			_ductedfan_control_moment[i].zero();
-
-			if (i < _ductedfan_surface_count) {
-				char name[17];
-				float trq_r = 0.f;
-				float trq_p = 0.f;
-				float trq_y = 0.f;
-
-				snprintf(name, sizeof(name), "CA_SV_CS%d_TRQ_R", i);
-				const param_t trq_r_handle = param_find(name);
-
-				if (trq_r_handle != PARAM_INVALID) {
-					param_get(trq_r_handle, &trq_r);
-				}
-
-				snprintf(name, sizeof(name), "CA_SV_CS%d_TRQ_P", i);
-				const param_t trq_p_handle = param_find(name);
-
-				if (trq_p_handle != PARAM_INVALID) {
-					param_get(trq_p_handle, &trq_p);
-				}
-
-				snprintf(name, sizeof(name), "CA_SV_CS%d_TRQ_Y", i);
-				const param_t trq_y_handle = param_find(name);
-
-				if (trq_y_handle != PARAM_INVALID) {
-					param_get(trq_y_handle, &trq_y);
-				}
-
-				_ductedfan_control_moment[i] = Vector3f(trq_r, trq_p, trq_y);
-			}
-		}
+	if (_vehicle == VehicleType::Iris) {
+		// Physical rotor positions are independent of the control allocator's model.
+		_quad_moment_arm[0] = Vector3f(-_sih_r0_y.get(), _sih_r0_x.get(), 0.f);
+		_quad_moment_arm[1] = Vector3f(-_sih_r1_y.get(), _sih_r1_x.get(), 0.f);
+		_quad_moment_arm[2] = Vector3f(-_sih_r2_y.get(), _sih_r2_x.get(), 0.f);
+		_quad_moment_arm[3] = Vector3f(-_sih_r3_y.get(), _sih_r3_x.get(), 0.f);
 	}
 
 	_L_ROLL = _sih_l_roll.get();
@@ -407,6 +344,33 @@ void Sih::read_motors(const float dt)
 {
 	actuator_outputs_s actuators_out;
 
+	if (_vehicle == VehicleType::Iris || _vehicle == VehicleType::DuctedFan
+	    || _vehicle == VehicleType::DuctedFanTailsitter || _vehicle == VehicleType::SHC09) {
+		if (_actuator_out_sub.update(&actuators_out)) {
+			_last_actuator_output_time = actuators_out.timestamp;
+
+			for (int i = 0; i < NUM_ACTUATORS_MAX; ++i) {
+				_u_command[i] = PX4_ISFINITE(actuators_out.output[i]) ? actuators_out.output[i] : 0.f;
+			}
+		}
+
+		// Integrate held commands every physics step, even without a new output.
+		for (int i = 0; i < NUM_ACTUATORS_MAX; ++i) {
+			const bool servo = (_vehicle == VehicleType::DuctedFan || _vehicle == VehicleType::DuctedFanTailsitter
+				    || _vehicle == VehicleType::SHC09) && i > 0;
+			float tau = _T_TAU;
+
+			if (servo && _sih_sv_tau.get() >= 0.f) {
+				tau = _sih_sv_tau.get();
+			}
+
+			_u[i] = sih_classic::lag(_u[i], _u_command[i], dt, tau);
+		}
+
+		publish_esc_status();
+		return;
+	}
+
 	if (_actuator_out_sub.update(&actuators_out)) {
 		_last_actuator_output_time = actuators_out.timestamp;
 
@@ -427,7 +391,8 @@ void Sih::read_motors(const float dt)
 uint8_t Sih::num_motors() const
 {
 	switch (_vehicle) {
-	case VehicleType::Quadcopter:     return 4;
+	case VehicleType::Quadcopter:
+	case VehicleType::Iris:           return 4;
 
 	case VehicleType::Hexacopter:     return 6;
 
@@ -439,7 +404,8 @@ uint8_t Sih::num_motors() const
 
 	case VehicleType::RoverAckermann: return 1;
 
-	case VehicleType::DuctedFan:           return 1;
+	case VehicleType::DuctedFan:
+	case VehicleType::SHC09:              return 1;
 
 	case VehicleType::DuctedFanTailsitter: return 1;
 
@@ -494,16 +460,44 @@ void Sih::generate_force_and_torques(const float dt)
 	// air-relative velocity in body frame [m/s]
 	_v_B = _q_E.rotateVectorInverse(_R_N2E * _v_apparent_N);
 
-	if (_vehicle == VehicleType::Quadcopter) {
+	if (_vehicle == VehicleType::DuctedFan || _vehicle == VehicleType::SHC09
+	    || _vehicle == VehicleType::DuctedFanTailsitter) {
+		sih_classic::Wrench wrench;
 
-		if (_sih_quad_mode.get() == 1) {
+		if (_vehicle == VehicleType::DuctedFan) {
+			wrench = sih_classic::simple_df(_v_B, _u, false, _T_MAX, _sih_df_wash.get(), _sih_df_kv.get(),
+				_sih_df_rad.get(), _sih_df_arm.get(), _sih_df_ang.get(),
+				_sih_w_lift.get(), _sih_w_drag.get(), _sih_w_ctrl.get(), _w_B);
+
+		} else if (_vehicle == VehicleType::SHC09) {
+			wrench = sih_classic::shc09(_v_B, _w_B, _u);
+
+		} else {
+			wrench = sih_classic::simple_df(_v_B, _u, true, _T_MAX, _sih_df_wash.get(), _sih_df_kv.get(),
+				_sih_df_rad.get(), _sih_df_arm.get(), _sih_df_ang.get(),
+				_sih_w_lift.get(), _sih_w_drag.get(), _sih_w_ctrl.get(), _w_B);
+		}
+
+		_T_B = wrench.force;
+		_Mt_B = wrench.moment;
+		_Fa_E = -_KDV * _R_N2E * _v_apparent_N;
+		_Ma_B = -_KDW * _w_B;
+		return;
+	}
+
+	if (_vehicle == VehicleType::Quadcopter || _vehicle == VehicleType::Iris) {
+
+		if (_vehicle == VehicleType::Iris) {
 			_T_B.zero();
 			_Mt_B.zero();
 
 			for (int i = 0; i < 4; ++i) {
-				const float thrust = _T_MAX * _u[i] * _u[i];
+				const float speed_squared = _u[i] * _u[i];
+				const float thrust = _T_MAX * speed_squared;
 				_T_B(2) -= thrust;
 				_Mt_B += _quad_moment_arm[i] * thrust;
+				// Fixed motor order: positive body-Z reaction torque on motors 0 and 1.
+				_Mt_B(2) += (i < 2 ? _Q_MAX : -_Q_MAX) * speed_squared;
 			}
 
 		} else {
@@ -536,82 +530,6 @@ void Sih::generate_force_and_torques(const float dt)
 				 _Q_MAX * (+u_sq[0] - u_sq[1] + u_sq[2] - u_sq[3] + u_sq[4] - u_sq[5]));
 		_Fa_E = -_KDV * _R_N2E * _v_apparent_N; // first order drag to slow down the aircraft
 		_Ma_B = -_KDW * _w_B; // first order angular damper
-
-	} else if (_vehicle == VehicleType::DuctedFan) {
-
-		// PWMSim publishes the non-reversible rotor command in [0, 1]. With
-		// THR_MDL_FAC=1 this command is normalized rotor speed, so the plant
-		// follows the same quadratic thrust law as the Gazebo models.
-		const float motor = math::constrain(_u[0], 0.f, 1.f);
-		const float thrust = _T_MAX * motor * motor;
-		_T_B = Vector3f(0.f, 0.f, -thrust);
-
-		// Outputs 1..N are Servo1..ServoN in [-1, 1]. The CA_AIRFRAME=16
-		// surface coefficients already represent physical N m at command +1.
-		_Mt_B.zero();
-
-		for (int i = 0; i < _ductedfan_surface_count; ++i) {
-			_Mt_B += _ductedfan_control_moment[i] * math::constrain(_u[i + 1], -1.f, 1.f);
-		}
-
-		// First model: commanded thrust/moment plus generic SIH linear damping.
-		// Detailed duct/wing/side-force terms can be layered onto this branch.
-		_Fa_E = -_KDV * _R_N2E * _v_apparent_N;
-		_Ma_B = -_KDW * _w_B;
-
-	} else if (_vehicle == VehicleType::DuctedFanTailsitter) {
-
-		// SHW09_vtol has one ducted-fan rotor followed by eight surfaces.
-		const float motor = math::constrain(_u[0], 0.f, 1.f);
-		const float thrust = _T_MAX * motor * motor;
-		_T_B = Vector3f(0.f, 0.f, -thrust);
-
-		// Keep the allocator's CA17 phase scheduling controller-side.
-		// The SIH plant follows the local flow continuously, matching the
-		// validated Gazebo/GZ model at the two reference conditions.
-		//
-		// CS0..5: duct vanes, M ~ V_e^2 * delta.
-		// CA_SV_CS0..5 moments are the hover reference at V_e ~= 24.16 m/s.
-		//
-		// CS6..7: wing elevons, M ~ V_a^2 * delta.
-		// CA_SV_CS6..7 moments are the cruise reference at V_a ~= 16.49 m/s.
-		static constexpr float SHW09_VE_HOVER = 24.1618f;
-		static constexpr float SHW09_VA_REF = 16.4911f;
-		static constexpr float SHW09_G = 9.80665f;
-
-		const Vector3f v_apparent_B = _q.rotateVectorInverse(_v_apparent_N);
-		const float forward_airspeed = math::max(0.f, -v_apparent_B(2));
-
-		// With THR_MDL_FAC=1, motor is normalized rotor speed. Calibrate
-		// propwash so hover produces the validated 24.16 m/s duct exit speed.
-		const float hover_motor =
-			sqrtf(math::max(_MASS * SHW09_G / math::max(_T_MAX, 0.1f), 0.f));
-		const float propwash_speed =
-			SHW09_VE_HOVER * motor / math::max(hover_motor, 0.1f);
-
-		// Gazebo/GZ uses wash_only=false for the duct vanes, so free-stream
-		// velocity and propeller wash add along the duct axis.
-		const float duct_exit_speed = propwash_speed + forward_airspeed;
-
-		const float duct_gain = math::constrain(
-						duct_exit_speed * duct_exit_speed
-						/ (SHW09_VE_HOVER * SHW09_VE_HOVER),
-						0.f, 3.f);
-		const float wing_gain = math::constrain(
-						forward_airspeed * forward_airspeed
-						/ (SHW09_VA_REF * SHW09_VA_REF),
-						0.f, 3.f);
-
-		_Mt_B.zero();
-
-		for (int i = 0; i < _ductedfan_surface_count; ++i) {
-			const float effectiveness_gain = (i < 6) ? duct_gain : wing_gain;
-
-			_Mt_B += _ductedfan_control_moment[i]
-				 * (effectiveness_gain * math::constrain(_u[i + 1], -1.f, 1.f));
-		}
-
-		generate_df_tailsitter_aerodynamics();
 
 	} else if (_vehicle == VehicleType::FixedWing) {
 
@@ -698,92 +616,6 @@ void Sih::generate_ts_aerodynamics()
 }
 
 
-void Sih::generate_df_tailsitter_aerodynamics()
-{
-	// Lightweight SHW09_vtol wing model derived from the validated
-	// Gazebo-Classic and GZ left/right LiftDrag setup. Keep the two wings
-	// separate so local velocity omega x r creates natural FW roll damping.
-	// Elevon control moments are handled above through CA_SV_CS6/7 and are
-	// therefore omitted here to avoid double counting.
-	static constexpr float SHW09_WING_AREA = 0.115f;
-	static constexpr float SHW09_WING_Y = 0.3145f;
-	static constexpr float SHW09_RHO = 1.2041f;
-	static constexpr float SHW09_ALPHA0 = 0.05984281113f;
-	static constexpr float SHW09_CLA = 2.5f;
-	static constexpr float SHW09_CDA = 0.4f;
-	static constexpr float SHW09_ALPHA_STALL = 0.6391428111f;
-	static constexpr float SHW09_CLA_STALL = -2.7f;
-	static constexpr float SHW09_CDA_STALL = -0.85f;
-
-	const Vector3f v_apparent_B = _q.rotateVectorInverse(_v_apparent_N);
-
-	// The fixed-wing x-axis is body -z for the tailsitter.
-	const Vector3f v_fw = _R_S2B.transpose() * v_apparent_B;
-	const Vector3f w_fw = _R_S2B.transpose() * _w_B;
-
-	Vector3f force_fw_sum{};
-	Vector3f moment_fw_sum{};
-
-	for (int wing = 0; wing < 2; ++wing) {
-		const float side = (wing == 0) ? 1.f : -1.f;
-		const Vector3f r_cp_fw(0.f, side * SHW09_WING_Y, 0.f);
-
-		// Match Gazebo's WorldLinearVel(cp): translational velocity plus omega x r.
-		const Vector3f v_cp_fw = v_fw + w_fw.cross(r_cp_fw);
-		const Vector3f v_ld(v_cp_fw(0), 0.f, v_cp_fw(2));
-		const float speed_ld = v_ld.norm();
-
-		if (speed_ld < 0.1f) {
-			continue;
-		}
-
-		float alpha = SHW09_ALPHA0 + atan2f(v_cp_fw(2), v_cp_fw(0));
-
-		while (fabsf(alpha) > M_PI_2_F) {
-			alpha = alpha > 0.f ? alpha - M_PI_F : alpha + M_PI_F;
-		}
-
-		float cl = 0.f;
-		float cd = 0.f;
-
-		if (alpha > SHW09_ALPHA_STALL) {
-			cl = SHW09_CLA * SHW09_ALPHA_STALL
-			     + SHW09_CLA_STALL * (alpha - SHW09_ALPHA_STALL);
-			cl = math::max(0.f, cl);
-			cd = SHW09_CDA * SHW09_ALPHA_STALL
-			     + SHW09_CDA_STALL * (alpha - SHW09_ALPHA_STALL);
-
-		} else if (alpha < -SHW09_ALPHA_STALL) {
-			cl = -SHW09_CLA * SHW09_ALPHA_STALL
-			     + SHW09_CLA_STALL * (alpha + SHW09_ALPHA_STALL);
-			cl = math::min(0.f, cl);
-			cd = -SHW09_CDA * SHW09_ALPHA_STALL
-			     + SHW09_CDA_STALL * (alpha + SHW09_ALPHA_STALL);
-
-		} else {
-			cl = SHW09_CLA * alpha;
-			cd = SHW09_CDA * alpha;
-		}
-
-		cd = fabsf(cd);
-
-		const float q = 0.5f * SHW09_RHO * speed_ld * speed_ld;
-		const Vector3f drag_direction = -v_ld.unit_or_zero();
-		const Vector3f lift_direction =
-			Vector3f(0.f, 1.f, 0.f).cross(v_ld).unit_or_zero();
-		const Vector3f force_fw =
-			q * SHW09_WING_AREA * (cl * lift_direction + cd * drag_direction);
-
-		force_fw_sum += force_fw;
-		moment_fw_sum += r_cp_fw.cross(force_fw);
-	}
-
-	const Vector3f force_body = _R_S2B * force_fw_sum - _KDV * v_apparent_B;
-
-	_Fa_E = _q_E.rotateVector(force_body);
-	_Ma_B = _R_S2B * moment_fw_sum - _KDW * _w_B;
-}
-
 void Sih::generate_rover_ackermann_dynamics(const float throttle_cmd, const float steering_cmd, const float dt)
 {
 	// --- Constants ---
@@ -866,6 +698,8 @@ void Sih::equations_of_motion(const float dt)
 
 	if ((_lla.altitude() - _lpos_ref_alt) < 0.f && force_down > 0.f) {
 		if (_vehicle == VehicleType::Quadcopter
+		    || _vehicle == VehicleType::Iris
+		    || _vehicle == VehicleType::SHC09
 		    || _vehicle == VehicleType::Hexacopter
 		    || _vehicle == VehicleType::DuctedFan
 		    || _vehicle == VehicleType::DuctedFanTailsitter
@@ -953,18 +787,8 @@ void Sih::reconstruct_sensors_signals(const hrt_abstime &time_now_us)
 
 	// IMU
 	const Dcmf R_E2B(_q_E.inversed());
-	Vector3f accel_noise;
-	Vector3f gyro_noise;
-
-	if (_T_B.longerThan(FLT_EPSILON)) {
-		accel_noise = noiseGauss3f(0.5f, 1.7f, 1.4f);
-		gyro_noise = noiseGauss3f(0.14f, 0.07f, 0.03f);
-
-	} else {
-		// Lower noise when not armed
-		accel_noise = noiseGauss3f(0.1f, 0.1f, 0.1f);
-		gyro_noise = noiseGauss3f(0.01f, 0.01f, 0.01f);
-	}
+	const Vector3f accel_noise = noiseGauss3f(_sih_acc_xy.get(), _sih_acc_xy.get(), _sih_acc_z.get());
+	const Vector3f gyro_noise = noiseGauss3f(_sih_gyro_xy.get(), _sih_gyro_xy.get(), _sih_gyro_z.get());
 
 	Vector3f specific_force_B = R_E2B * _specific_force_E;
 	Vector3f accel = specific_force_B + accel_noise;
@@ -988,7 +812,7 @@ void Sih::send_airspeed(const hrt_abstime &time_now_us)
 	// keep the existing body-x pitot convention.
 	const float forward_airspeed = _vehicle == VehicleType::DuctedFanTailsitter
 				       ? -v_apparent_B(2) : v_apparent_B(0);
-	airspeed.true_airspeed_m_s = fmaxf(0.1f, forward_airspeed + generate_wgn() * 0.2f);
+	airspeed.true_airspeed_m_s = fmaxf(0.1f, forward_airspeed + generate_wgn() * _sih_aspd_std.get());
 	airspeed.indicated_airspeed_m_s = airspeed.true_airspeed_m_s * sqrtf(_wing_l.get_rho() / RHO);
 	airspeed.confidence = 0.7f;
 	airspeed.timestamp = hrt_absolute_time();
@@ -1179,8 +1003,8 @@ int Sih::print_status()
 	PX4_INFO("Achieved speedup: %.2fX", (double)_achieved_speedup);
 #endif
 
-	if (_vehicle == VehicleType::Quadcopter) {
-		PX4_INFO("Quadcopter");
+	if (_vehicle == VehicleType::Quadcopter || _vehicle == VehicleType::Iris) {
+		PX4_INFO("%s", _vehicle == VehicleType::Iris ? "Iris" : "Quadcopter");
 
 	} else if (_vehicle == VehicleType::Hexacopter) {
 		PX4_INFO("Hexacopter");
@@ -1202,6 +1026,15 @@ int Sih::print_status()
 		PX4_INFO("Standard VTOL");
 		PX4_INFO("pusher propeller model:");
 		_thruster[0].print_status();
+
+	} else if (_vehicle == VehicleType::DuctedFan) {
+		PX4_INFO("DF4");
+
+	} else if (_vehicle == VehicleType::SHC09) {
+		PX4_INFO("SHC09");
+
+	} else if (_vehicle == VehicleType::DuctedFanTailsitter) {
+		PX4_INFO("SHW09 VTOL");
 
 	} else if (_vehicle == VehicleType::RoverAckermann) {
 		PX4_INFO("Rover Ackermann");

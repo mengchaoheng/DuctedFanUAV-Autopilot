@@ -26,3 +26,18 @@ parameters:
       type: float
       default: 0.0
       unit: celcius
+    SIM_BARO_STD:
+      description:
+        short: Simulated pressure noise
+        long: Per sample Gaussian standard deviation in Pa.
+      type: float
+      default: 1.0
+      min: 0.0
+      decimal: 6
+    SIM_BARO_DRIFT:
+      description:
+        short: Simulated pressure drift
+        long: Pressure drift in Pa/s.
+      type: float
+      default: 0.0
+      decimal: 6

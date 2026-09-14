@@ -146,7 +146,6 @@ private:
 	// hard constants
 	static constexpr uint16_t NUM_ACTUATORS_MAX = 9;
 	static constexpr uint16_t NUM_DYN_THRUSTER = 2;		// number of dynamic thruster model with advance ratio
-	static constexpr uint8_t MAX_DF_CONTROL_SURFACES = 8;
 
 	// Ranging beacon simulation constants
 	static constexpr uint8_t NUM_RANGING_BEACONS = 4;
@@ -199,7 +198,6 @@ private:
 	void publish_ground_truth(const hrt_abstime &time_now_us);
 	void generate_fw_aerodynamics(const float roll_cmd, const float pitch_cmd, const float yaw_cmd, const float thrust_for_prowash);
 	void generate_ts_aerodynamics();
-	void generate_df_tailsitter_aerodynamics();
 	void generate_rover_ackermann_dynamics(const float throttle_cmd, const float steering_cmd, const float dt);
 	void sensor_step();
 
@@ -256,15 +254,14 @@ private:
 	LatLonAlt _lla{};
 	matrix::Vector3f _lpos{};  // position in a local tangent-plane frame [m]
 
+	float _u_command[NUM_ACTUATORS_MAX] {}; // held actuator commands
 	float _u[NUM_ACTUATORS_MAX] {}; // thruster signals
-	matrix::Vector3f _quad_moment_arm[4] {}; // [-PY, PX, KM] in meters
-	matrix::Vector3f _ductedfan_control_moment[MAX_DF_CONTROL_SURFACES] {}; // physical moment at normalized +1 [Nm]
-	int32_t _ductedfan_surface_count{0};
+	matrix::Vector3f _quad_moment_arm[4] {}; // [-SIH_Ri_Y, SIH_Ri_X, 0] in meters
 	float       _T[NUM_DYN_THRUSTER] {};         // thruster forces (N)
 	float       _Q[NUM_DYN_THRUSTER] {};         // thruster torque (Nm)
 	Thruster    _thruster[NUM_DYN_THRUSTER] {};	// thruster objects
 
-	enum class VehicleType {Quadcopter, FixedWing, TailsitterVTOL, StandardVTOL, Hexacopter, RoverAckermann, DuctedFan, DuctedFanTailsitter, First = Quadcopter, Last = DuctedFanTailsitter}; // numbering dependent on parameter SIH_VEHICLE_TYPE
+	enum class VehicleType {Quadcopter, FixedWing, TailsitterVTOL, StandardVTOL, Hexacopter, RoverAckermann, DuctedFan, DuctedFanTailsitter, SHC09, Iris, First = Quadcopter, Last = Iris}; // numbering dependent on parameter SIH_VEHICLE_TYPE
 	VehicleType _vehicle = VehicleType::Quadcopter;
 
 	// aerodynamic segments for the fixedwing
@@ -312,6 +309,22 @@ private:
 
 	// parameters defined in sih_params.c
 	DEFINE_PARAMETERS(
+
+		(ParamFloat<px4::params::SIH_ACC_XY>) _sih_acc_xy,
+		(ParamFloat<px4::params::SIH_ACC_Z>) _sih_acc_z,
+		(ParamFloat<px4::params::SIH_GYRO_XY>) _sih_gyro_xy,
+		(ParamFloat<px4::params::SIH_GYRO_Z>) _sih_gyro_z,
+		(ParamFloat<px4::params::SIH_ASPD_STD>) _sih_aspd_std,
+		(ParamFloat<px4::params::SIH_DF_WASH>) _sih_df_wash,
+		(ParamFloat<px4::params::SIH_DF_KV>) _sih_df_kv,
+		(ParamFloat<px4::params::SIH_DF_RAD>) _sih_df_rad,
+		(ParamFloat<px4::params::SIH_DF_ARM>) _sih_df_arm,
+		(ParamFloat<px4::params::SIH_DF_ANG>) _sih_df_ang,
+		(ParamFloat<px4::params::SIH_W_LIFT>) _sih_w_lift,
+		(ParamFloat<px4::params::SIH_W_DRAG>) _sih_w_drag,
+		(ParamFloat<px4::params::SIH_W_CTRL>) _sih_w_ctrl,
+
+		(ParamFloat<px4::params::SIH_SV_TAU>) _sih_sv_tau,
 		(ParamInt<px4::params::IMU_GYRO_RATEMAX>) _imu_gyro_ratemax,
 		(ParamInt<px4::params::IMU_INTEG_RATE>) _imu_integration_rate,
 		(ParamFloat<px4::params::SIH_MASS>) _sih_mass,
@@ -323,8 +336,15 @@ private:
 		(ParamFloat<px4::params::SIH_IYZ>) _sih_iyz,
 		(ParamFloat<px4::params::SIH_T_MAX>) _sih_t_max,
 		(ParamFloat<px4::params::SIH_Q_MAX>) _sih_q_max,
+		(ParamFloat<px4::params::SIH_R0_X>) _sih_r0_x,
+		(ParamFloat<px4::params::SIH_R0_Y>) _sih_r0_y,
+		(ParamFloat<px4::params::SIH_R1_X>) _sih_r1_x,
+		(ParamFloat<px4::params::SIH_R1_Y>) _sih_r1_y,
+		(ParamFloat<px4::params::SIH_R2_X>) _sih_r2_x,
+		(ParamFloat<px4::params::SIH_R2_Y>) _sih_r2_y,
+		(ParamFloat<px4::params::SIH_R3_X>) _sih_r3_x,
+		(ParamFloat<px4::params::SIH_R3_Y>) _sih_r3_y,
 		(ParamFloat<px4::params::SIH_L_ROLL>) _sih_l_roll,
-		(ParamInt<px4::params::SIH_QUAD_MODE>) _sih_quad_mode,
 		(ParamFloat<px4::params::SIH_L_PITCH>) _sih_l_pitch,
 		(ParamFloat<px4::params::SIH_KDV>) _sih_kdv,
 		(ParamFloat<px4::params::SIH_KDW>) _sih_kdw,

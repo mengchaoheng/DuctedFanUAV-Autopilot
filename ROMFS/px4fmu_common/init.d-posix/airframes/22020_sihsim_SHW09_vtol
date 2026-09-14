@@ -8,6 +8,12 @@
 
 . ${R}etc/init.d-posix/airframes/22006_gazebo-classic_SHW09_vtol
 
+# SIH INDI feedback alignment; retain the Classic gains and filters.
+param set-default MC_INDI_RATE_EN 1
+param set-default MPC_INDI_ACC_EN 1
+param set-default MC_INDI_T_DLY 0.025
+param set-default MPC_INDI_F_DLY 0.045
+
 PX4_SIMULATOR=${PX4_SIMULATOR:=sihsim}
 PX4_SIM_MODEL=${PX4_SIM_MODEL:=SHW09_vtol}
 
@@ -29,14 +35,19 @@ param set-default SIH_IXY 0
 param set-default SIH_IXZ 0
 param set-default SIH_IYZ 0
 
-# CA_ROTOR0_CT=32.1984 N is authoritative; SIH_T_MAX is the fallback.
+# Main rotor maximum thrust used by the simplified plant.
 param set-default SIH_T_MAX 32.1984
 
-# Gazebo Classic motor response is 12.5 ms up / 25 ms down. SIH v1 uses
-# one symmetric lightweight lag for the rotor and all eight surfaces.
-param set-default SIH_T_TAU 0.025
-
-# Translational drag is supplied by the simplified SHW09 wing model.
-# A small generic angular damper represents omitted aerodynamic rate damping.
+# Keep one motor time constant and separate servo lag in the SIH framework.
+param set-default SIH_T_TAU 0.0125
 param set-default SIH_KDV 0.0
-param set-default SIH_KDW 0.025
+param set-default SIH_KDW 0.0
+
+# Matched physical model and IMU noise; PID tuning is inherited above.
+param set-default SIH_SV_TAU 0.03
+
+# Shared simple DF geometry and slipstream (SI units).
+param set-default SIH_DF_WASH 30.478
+param set-default SIH_DF_RAD 0.0664
+param set-default SIH_DF_ARM 0.2399
+param set-default SIH_DF_ANG 0.6981

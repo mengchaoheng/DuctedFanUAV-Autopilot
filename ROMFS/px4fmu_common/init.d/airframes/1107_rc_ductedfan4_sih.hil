@@ -93,7 +93,7 @@ param set-default SIH_IZZ 0.00487
 param set-default SIH_IXY 0
 param set-default SIH_IXZ 0
 param set-default SIH_IYZ 0
-param set-default SIH_T_MAX 30
+param set-default SIH_T_MAX 29.9584438
 param set-default SIH_T_TAU 0.03
 param set-default SIH_KDV 0.0
 param set-default SIH_KDW 0.0
@@ -108,3 +108,5 @@ param set-default HIL_ACT_FUNC5 204
 
 param set-default SENS_GPS0_DELAY 0
 param set-default SENS_GPS1_DELAY 0
+
+param set-default SIH_SV_TAU 0.03

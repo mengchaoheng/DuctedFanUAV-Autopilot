@@ -148,9 +148,9 @@ param set-default SIH_IXY 0
 param set-default SIH_IXZ 0
 param set-default SIH_IYZ 0
 param set-default SIH_T_MAX 32.1984
-param set-default SIH_T_TAU 0.025
+param set-default SIH_T_TAU 0.0125
 param set-default SIH_KDV 0.0
-param set-default SIH_KDW 0.025
+param set-default SIH_KDW 0.0
 
 # One rotor followed by eight control surfaces.
 param set-default HIL_ACT_FUNC1 101
@@ -165,3 +165,11 @@ param set-default HIL_ACT_FUNC9 208
 
 param set-default SENS_GPS0_DELAY 0
 param set-default SENS_GPS1_DELAY 0
+
+param set-default SIH_SV_TAU 0.03
+
+# Shared six-vane geometry and slipstream.
+param set-default SIH_DF_WASH 30.478
+param set-default SIH_DF_RAD 0.0664
+param set-default SIH_DF_ARM 0.2399
+param set-default SIH_DF_ANG 0.6981

@@ -35,6 +35,7 @@
 
 #include <cstdint>
 #include <atomic>
+#include <mutex>
 
 #include <px4_platform_common/sem.h>
 
@@ -71,6 +72,9 @@ public:
 private:
 	const bool _no_cleanup_on_destroy;
 
+	// Registration, completion and barrier release form one state transition.
+	// Atomic bitsets alone do not protect the check/reset/post sequence.
+	std::mutex _components_mutex;
 	px4_sem_t _components_sem;
 
 	std::atomic_int _components_used_bitset{0};

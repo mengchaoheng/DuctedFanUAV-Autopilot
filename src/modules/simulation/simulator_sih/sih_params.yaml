@@ -2,22 +2,6 @@ module_name: simulator_sih
 parameters:
 - group: Simulation In Hardware
   definitions:
-    SIH_QUAD_MODE:
-      description:
-        short: Quadcopter dynamics model
-        long: |-
-          Applies only to SIH_VEHICLE_TYPE=0. Mode 0 uses symmetric SIH arm
-          lengths and linear thrust. Mode 1 uses CA_ROTOR0..3_PX/PY/KM
-          (FRD, meters), fixed upward thrust axes, and squared normalized
-          motor speed after the existing SIH actuator lag. Outputs 1..4
-          must map to motors 1..4. SIH_T_MAX is the common maximum rotor
-          thrust; CA_ROTORx_CT does not set simulated thrust. SIH_L_ROLL,
-          SIH_L_PITCH and SIH_Q_MAX are ignored in mode 1.
-      type: enum
-      values:
-        0: Symmetric quad with linear thrust
-        1: CA quad geometry with squared motor speed
-      default: 0
     SIH_MASS:
       description:
         short: Vehicle mass
@@ -129,6 +113,94 @@ parameters:
       min: 0.0
       decimal: 3
       increment: 0.05
+    SIH_R0_X:
+      description:
+        short: Iris motor 1 X position
+        long: |-
+          Physical motor 1 position relative to the center of mass in body FRD coordinates.
+          Used only by SIH_VEHICLE_TYPE=9, independently of control allocation parameters.
+          All four thrust axes point along body negative Z.
+      type: float
+      default: 0.2
+      unit: m
+      decimal: 4
+    SIH_R0_Y:
+      description:
+        short: Iris motor 1 Y position
+        long: |-
+          Physical motor 1 position relative to the center of mass in body FRD coordinates.
+          Used only by SIH_VEHICLE_TYPE=9, independently of control allocation parameters.
+          All four thrust axes point along body negative Z.
+      type: float
+      default: 0.2
+      unit: m
+      decimal: 4
+    SIH_R1_X:
+      description:
+        short: Iris motor 2 X position
+        long: |-
+          Physical motor 2 position relative to the center of mass in body FRD coordinates.
+          Used only by SIH_VEHICLE_TYPE=9, independently of control allocation parameters.
+          All four thrust axes point along body negative Z.
+      type: float
+      default: -0.2
+      unit: m
+      decimal: 4
+    SIH_R1_Y:
+      description:
+        short: Iris motor 2 Y position
+        long: |-
+          Physical motor 2 position relative to the center of mass in body FRD coordinates.
+          Used only by SIH_VEHICLE_TYPE=9, independently of control allocation parameters.
+          All four thrust axes point along body negative Z.
+      type: float
+      default: -0.2
+      unit: m
+      decimal: 4
+    SIH_R2_X:
+      description:
+        short: Iris motor 3 X position
+        long: |-
+          Physical motor 3 position relative to the center of mass in body FRD coordinates.
+          Used only by SIH_VEHICLE_TYPE=9, independently of control allocation parameters.
+          All four thrust axes point along body negative Z.
+      type: float
+      default: 0.2
+      unit: m
+      decimal: 4
+    SIH_R2_Y:
+      description:
+        short: Iris motor 3 Y position
+        long: |-
+          Physical motor 3 position relative to the center of mass in body FRD coordinates.
+          Used only by SIH_VEHICLE_TYPE=9, independently of control allocation parameters.
+          All four thrust axes point along body negative Z.
+      type: float
+      default: -0.2
+      unit: m
+      decimal: 4
+    SIH_R3_X:
+      description:
+        short: Iris motor 4 X position
+        long: |-
+          Physical motor 4 position relative to the center of mass in body FRD coordinates.
+          Used only by SIH_VEHICLE_TYPE=9, independently of control allocation parameters.
+          All four thrust axes point along body negative Z.
+      type: float
+      default: -0.2
+      unit: m
+      decimal: 4
+    SIH_R3_Y:
+      description:
+        short: Iris motor 4 Y position
+        long: |-
+          Physical motor 4 position relative to the center of mass in body FRD coordinates.
+          Used only by SIH_VEHICLE_TYPE=9, independently of control allocation parameters.
+          All four thrust axes point along body negative Z.
+      type: float
+      default: 0.2
+      unit: m
+      decimal: 4
     SIH_L_ROLL:
       description:
         short: Roll arm length
@@ -258,13 +330,22 @@ parameters:
       type: float
       default: -1.0
       unit: m
+    SIH_SV_TAU:
+      description:
+        short: Ducted fan servo time constant
+        long: First order servo lag for DF4, SHC09 and SHW09. Negative uses SIH_T_TAU, zero is instantaneous. Independent of motor dynamics.
+      type: float
+      default: -1.0
+      min: -1.0
+      unit: s
+      decimal: 4
     SIH_T_TAU:
       description:
-        short: actuator time constant tau
+        short: Motor time constant tau
         long: |-
           The time taken for an actuator to step from 0 to 100% should be about
-          4 times tau. For the ducted-fan model this common first-order lag is
-          applied to the main rotor and control-surface commands.
+          4 times tau. The same time constant applies to rising and falling
+          motor commands. Ducted-fan servos use SIH_SV_TAU when nonnegative.
       type: float
       default: 0.05
       unit: s
@@ -281,6 +362,8 @@ parameters:
         5: Rover Ackermann
         6: Ducted Fan
         7: Ducted Fan Tailsitter
+        8: SHC09
+        9: Iris
       default: 0
       reboot_required: true
     SIH_WIND_N:
@@ -389,3 +472,107 @@ parameters:
       default: 6000.0
       min: 0.1
       decimal: 1
+    SIH_ACC_XY:
+      description:
+        short: Accelerometer XY noise standard deviation
+        long: Per sample Gaussian standard deviation in m/s^2. Calibrated at 250 Hz; zero disables noise.
+      type: float
+      default: 0.10072
+      min: 0.0
+      decimal: 6
+    SIH_ACC_Z:
+      description:
+        short: Accelerometer Z noise standard deviation
+        long: Per sample Gaussian standard deviation in m/s^2.
+      type: float
+      default: 0.10072
+      min: 0.0
+      decimal: 6
+    SIH_GYRO_XY:
+      description:
+        short: Gyroscope XY noise standard deviation
+        long: Per sample Gaussian standard deviation in rad/s. Calibrated at 250 Hz.
+      type: float
+      default: 0.013798
+      min: 0.0
+      decimal: 6
+    SIH_GYRO_Z:
+      description:
+        short: Gyroscope Z noise standard deviation
+        long: Per sample Gaussian standard deviation in rad/s.
+      type: float
+      default: 0.013798
+      min: 0.0
+      decimal: 6
+    SIH_ASPD_STD:
+      description:
+        short: Airspeed noise standard deviation
+        long: Per sample Gaussian standard deviation in m/s.
+      type: float
+      default: 0.2
+      min: 0.0
+      decimal: 6
+    SIH_DF_WASH:
+      description:
+        short: Duct full speed slipstream
+        long: Axial slipstream speed in m/s at normalized motor speed one.
+      type: float
+      default: 28.42
+      min: 0.0
+      decimal: 6
+    SIH_DF_KV:
+      description:
+        short: Duct vane force coefficient
+        long: Shared vane coefficient in N per (m/s)^2 per radian. Combines density area and lift slope.
+      type: float
+      default: 0.0072038
+      min: 0.0
+      decimal: 6
+    SIH_DF_RAD:
+      description:
+        short: Duct vane radius
+        long: Vane force application radius in metres.
+      type: float
+      default: 0.069
+      min: 0.0
+      decimal: 6
+    SIH_DF_ARM:
+      description:
+        short: Duct vane axial arm
+        long: Vane force application position along body positive Z in metres.
+      type: float
+      default: 0.156
+      min: 0.0
+      decimal: 6
+    SIH_DF_ANG:
+      description:
+        short: Duct vane maximum angle
+        long: Maximum vane deflection in radians.
+      type: float
+      default: 0.3491
+      min: 0.0
+      decimal: 6
+    SIH_W_LIFT:
+      description:
+        short: SHW wing lift multiplier
+        long: Scales the shared passive wing lift curve. Geometry and stall shape stay fixed.
+      type: float
+      default: 1.0
+      min: 0.0
+      decimal: 6
+    SIH_W_DRAG:
+      description:
+        short: SHW wing drag multiplier
+        long: Scales the shared wing drag curve.
+      type: float
+      default: 1.0
+      min: 0.0
+      decimal: 6
+    SIH_W_CTRL:
+      description:
+        short: SHW elevon effectiveness
+        long: Scales elevon lift increment independently of passive wing lift.
+      type: float
+      default: 1.0
+      min: 0.0
+      decimal: 6

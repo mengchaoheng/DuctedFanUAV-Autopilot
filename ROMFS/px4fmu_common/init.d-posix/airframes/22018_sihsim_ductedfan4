@@ -9,6 +9,12 @@
 
 . ${R}etc/init.d-posix/airframes/22002_gazebo-classic_ductedfan4
 
+# SIH INDI feedback alignment; retain the Classic gains and filters.
+param set-default MC_INDI_RATE_EN 1
+param set-default MPC_INDI_ACC_EN 1
+param set-default MC_INDI_T_DLY 0.028
+param set-default MPC_INDI_F_DLY 0.030
+
 PX4_SIMULATOR=${PX4_SIMULATOR:=sihsim}
 PX4_SIM_MODEL=${PX4_SIM_MODEL:=ductedfan4}
 
@@ -30,13 +36,15 @@ param set-default SIH_IXY 0
 param set-default SIH_IXZ 0
 param set-default SIH_IYZ 0
 
-# CA_ROTOR0_CT=30 N is authoritative in DuctedFan mode. SIH_T_MAX remains
-# an explicit fallback and makes the intended physical scale visible here.
-param set-default SIH_T_MAX 30
+# Rotor maximum thrust for the simple DF plant, independent of allocation.
+param set-default SIH_T_MAX 29.9584438
 
-# Current GZ rotor and the four-vane paper model both use about 30 ms first-order dynamics.
+# Match the Classic motor lag; keep an independently adjustable SIH servo lag.
 param set-default SIH_T_TAU 0.03
 
-# Version 1 focuses on commanded thrust and commanded control moments.
+# Simple DF profile supplies slipstream vane forces and moments.
 param set-default SIH_KDV 0.0
 param set-default SIH_KDW 0.0
+
+# Matched physical model and IMU noise; PID tuning is inherited above.
+param set-default SIH_SV_TAU 0.03

@@ -187,9 +187,8 @@ param set-default CA_TORQ_CUTOFF 10.0
 param set SYS_HITL 2
 param set UAVCAN_ENABLE 0
 param set-default CBRK_SUPPLY_CHK 894281
-param set SIH_VEHICLE_TYPE 0
+param set SIH_VEHICLE_TYPE 9
 
-param set-default SIH_QUAD_MODE 1
 
 # Base-link properties in gazebo-classic/models/iris/iris.sdf.jinja.
 # Negligible GPS/rotor-link inertias are omitted in this single rigid body.
@@ -202,13 +201,25 @@ param set-default SIH_IXZ 0
 param set-default SIH_IYZ 0
 
 # motorConstant * maxRotVelocity^2 = 1.51e-6 * 2372.6^2 N.
-# SIH_QUAD_MODE=1 takes PX/PY/KM from CA_ROTOR0..3 and squares motor speed.
+# Squared normalized motor speed sets physical thrust and reaction torque.
 param set-default SIH_T_MAX 8.50013845
+# Gazebo momentConstant * maximum thrust, Nm; signs are +,+,-,-.
+param set-default SIH_Q_MAX 0.133452174
 
-# Approximate Iris's fast motor response at the default 250 Hz SIH rate.
-# The built-in Euler actuator update has dt/tau=1 at dt=4 ms: one-step tracking.
-# Do not use Gazebo's 0.5 ms tau here (dt/tau=8 would be unstable).
-param set-default SIH_T_TAU 0.004
+# Independent plant geometry from iris.sdf.jinja, expressed in body FRD.
+# Keep CA parameters separate so allocator errors do not change the plant.
+param set-default SIH_R0_X 0.125
+param set-default SIH_R0_Y 0.22
+param set-default SIH_R1_X -0.1385
+param set-default SIH_R1_Y -0.206
+param set-default SIH_R2_X 0.125
+param set-default SIH_R2_Y -0.223
+param set-default SIH_R3_X -0.1385
+param set-default SIH_R3_Y 0.2025
+
+
+# Exact first-order actuator update supports the 0.5 ms motor constant.
+param set-default SIH_T_TAU 0.0005
 param set-default SIH_KDV 0.0
 param set-default SIH_KDW 0.0
 
