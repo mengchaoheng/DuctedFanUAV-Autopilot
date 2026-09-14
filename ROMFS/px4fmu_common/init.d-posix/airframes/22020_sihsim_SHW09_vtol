@@ -51,3 +51,27 @@ param set-default SIH_DF_WASH 30.478
 param set-default SIH_DF_RAD 0.0664
 param set-default SIH_DF_ARM 0.2399
 param set-default SIH_DF_ANG 0.6981
+
+# Gazebo Classic SHW09_vtol disturbance preset: body FLU -> FRD.
+# Single window starts after enable; disabled by default, as running_time is zero.
+param set-default SIH_DIST_EN 0
+param set-default SIH_DIST_START 0
+param set-default SIH_DIST_DUR 200
+param set-default SIH_DF_BX 0
+param set-default SIH_DF_BY 0
+param set-default SIH_DF_BZ 0
+param set-default SIH_DF_AX 1
+param set-default SIH_DF_AY -1
+param set-default SIH_DF_AZ -5
+param set-default SIH_DF_HX 0.2
+param set-default SIH_DF_HY 0.4
+param set-default SIH_DF_HZ 0.2
+param set-default SIH_DM_BX 0
+param set-default SIH_DM_BY 0
+param set-default SIH_DM_BZ 0
+param set-default SIH_DM_AX 0.1
+param set-default SIH_DM_AY -0.1
+param set-default SIH_DM_AZ -0.01
+param set-default SIH_DM_HX 0.2
+param set-default SIH_DM_HY 0.4
+param set-default SIH_DM_HZ 0.2

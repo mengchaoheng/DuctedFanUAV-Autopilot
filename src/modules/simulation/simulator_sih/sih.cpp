@@ -217,6 +217,7 @@ void Sih::sensor_step()
 	read_motors(dt);
 
 	generate_force_and_torques(dt);
+	update_disturbance(now);
 
 	equations_of_motion(dt);
 
@@ -683,6 +684,51 @@ void Sih::generate_rover_ackermann_dynamics(const float throttle_cmd, const floa
 
 }
 
+void Sih::update_disturbance(hrt_abstime now)
+{
+	_dist_force_B.zero();
+	_dist_moment_B.zero();
+	_dist_active = false;
+	const bool enabled = _sih_dist_en.get() == 1;
+
+	if (enabled && !_dist_enabled) {
+		_dist_enable_time = now;
+	}
+
+	_dist_enabled = enabled;
+
+	if (!enabled) {
+		return;
+	}
+
+	// Use PX4 simulation time in lockstep and board time on hardware.
+	const double elapsed = static_cast<double>(now - _dist_enable_time) * 1e-6;
+	const float start = _sih_dist_start.get();
+	const float duration = _sih_dist_dur.get();
+	const double local_time = elapsed - static_cast<double>(start);
+
+	if (!PX4_ISFINITE(start) || !PX4_ISFINITE(duration) || start < 0.f
+	    || duration <= 0.f || local_time < 0.0 || local_time >= static_cast<double>(duration)) {
+		return;
+	}
+
+	_dist_active = true;
+	const auto signal = [local_time](float bias, float amplitude, float frequency) {
+		if (!PX4_ISFINITE(bias) || !PX4_ISFINITE(amplitude) || !PX4_ISFINITE(frequency) || frequency < 0.f) {
+			return 0.f;
+		}
+
+		return bias + amplitude * static_cast<float>(sin(2.0 * M_PI * static_cast<double>(frequency) * local_time));
+	};
+
+	_dist_force_B(0) = signal(_sih_df_bx.get(), _sih_df_ax.get(), _sih_df_hx.get());
+	_dist_force_B(1) = signal(_sih_df_by.get(), _sih_df_ay.get(), _sih_df_hy.get());
+	_dist_force_B(2) = signal(_sih_df_bz.get(), _sih_df_az.get(), _sih_df_hz.get());
+	_dist_moment_B(0) = signal(_sih_dm_bx.get(), _sih_dm_ax.get(), _sih_dm_hx.get());
+	_dist_moment_B(1) = signal(_sih_dm_by.get(), _sih_dm_ay.get(), _sih_dm_hy.get());
+	_dist_moment_B(2) = signal(_sih_dm_bz.get(), _sih_dm_az.get(), _sih_dm_hz.get());
+}
+
 void Sih::equations_of_motion(const float dt)
 {
 	const Vector3f gravity_acceleration_E = Vector3f(_R_N2E.col(2)) * LatLonAlt::Wgs84::gravity(
@@ -690,7 +736,7 @@ void Sih::equations_of_motion(const float dt)
 	const Vector3f coriolis_acceleration_E = -2.f * Vector3f(0.f, 0.f, CONSTANTS_EARTH_SPIN_RATE).cross(_v_E);
 
 	const Vector3f weight_E = _MASS * gravity_acceleration_E;
-	Vector3f sum_of_forces_E = _Fa_E + _q_E.rotateVector(_T_B) + weight_E;
+	Vector3f sum_of_forces_E = _Fa_E + _q_E.rotateVector(_T_B + _dist_force_B) + weight_E;
 
 	// fake ground, avoid free fall
 	const float force_down = Vector3f(_R_N2E.transpose() * sum_of_forces_E)(2);
@@ -755,7 +801,7 @@ void Sih::equations_of_motion(const float dt)
 	_q_E = _q_E  * dq;
 	_q_E.normalize();
 
-	const Vector3f w_B_dot = _Im1 * (_Mt_B + _Ma_B - _w_B.cross(_I * _w_B)); // conservation of angular momentum
+	const Vector3f w_B_dot = _Im1 * (_Mt_B + _Ma_B + _dist_moment_B - _w_B.cross(_I * _w_B)); // conservation of angular momentum
 	_w_B = constrain(_w_B + w_B_dot * dt, -6.0f * M_PI_F, 6.0f * M_PI_F);
 
 	ecefToNed();
@@ -1060,6 +1106,11 @@ int Sih::print_status()
 	_T_B.print();
 	PX4_INFO("Thruster moments in body frame (Nm)");
 	_Mt_B.print();
+	PX4_INFO("Disturbance enabled: %d, active: %d", (int)_dist_enabled, (int)_dist_active);
+	PX4_INFO("External force body FRD (N)");
+	_dist_force_B.print();
+	PX4_INFO("External moment body FRD (Nm)");
+	_dist_moment_B.print();
 	return 0;
 }
 

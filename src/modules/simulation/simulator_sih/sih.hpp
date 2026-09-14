@@ -125,6 +125,7 @@ public:
 
 private:
 	void parameters_updated();
+	void update_disturbance(hrt_abstime now);
 
 	// simulated sensors
 	PX4Accelerometer _px4_accel{1310988}; // 1310988: DRV_IMU_DEVTYPE_SIM, BUS: 1, ADDR: 1, TYPE: SIMULATION
@@ -228,6 +229,11 @@ private:
 
 	// Quantities in body frame (FRD)
 	matrix::Vector3f _T_B{};  // thrust force [N]
+	matrix::Vector3f _dist_force_B{}; // external force at the centre of mass, FRD [N]
+	matrix::Vector3f _dist_moment_B{}; // external moment, FRD [Nm]
+	hrt_abstime _dist_enable_time{0};
+	bool _dist_enabled{false};
+	bool _dist_active{false};
 	matrix::Vector3f _Mt_B{}; // thruster moments [Nm]
 	matrix::Vector3f _Ma_B{}; // aerodynamic moments [Nm]
 	matrix::Vector3f _w_B{};  // body rates in body frame [rad/s]
@@ -368,6 +374,27 @@ private:
 		(ParamFloat<px4::params::SIH_F_RPM_MAX>) _sih_forward_rpm_max,
 		(ParamInt<px4::params::BAT1_SOURCE>) _bat1_source,
 		(ParamInt<px4::params::SIH_VEHICLE_TYPE>) _sih_vtype,
+		(ParamInt<px4::params::SIH_DIST_EN>) _sih_dist_en,
+		(ParamFloat<px4::params::SIH_DIST_START>) _sih_dist_start,
+		(ParamFloat<px4::params::SIH_DIST_DUR>) _sih_dist_dur,
+		(ParamFloat<px4::params::SIH_DF_BX>) _sih_df_bx,
+		(ParamFloat<px4::params::SIH_DF_BY>) _sih_df_by,
+		(ParamFloat<px4::params::SIH_DF_BZ>) _sih_df_bz,
+		(ParamFloat<px4::params::SIH_DF_AX>) _sih_df_ax,
+		(ParamFloat<px4::params::SIH_DF_AY>) _sih_df_ay,
+		(ParamFloat<px4::params::SIH_DF_AZ>) _sih_df_az,
+		(ParamFloat<px4::params::SIH_DF_HX>) _sih_df_hx,
+		(ParamFloat<px4::params::SIH_DF_HY>) _sih_df_hy,
+		(ParamFloat<px4::params::SIH_DF_HZ>) _sih_df_hz,
+		(ParamFloat<px4::params::SIH_DM_BX>) _sih_dm_bx,
+		(ParamFloat<px4::params::SIH_DM_BY>) _sih_dm_by,
+		(ParamFloat<px4::params::SIH_DM_BZ>) _sih_dm_bz,
+		(ParamFloat<px4::params::SIH_DM_AX>) _sih_dm_ax,
+		(ParamFloat<px4::params::SIH_DM_AY>) _sih_dm_ay,
+		(ParamFloat<px4::params::SIH_DM_AZ>) _sih_dm_az,
+		(ParamFloat<px4::params::SIH_DM_HX>) _sih_dm_hx,
+		(ParamFloat<px4::params::SIH_DM_HY>) _sih_dm_hy,
+		(ParamFloat<px4::params::SIH_DM_HZ>) _sih_dm_hz,
 		(ParamFloat<px4::params::SIH_WIND_N>) _sih_wind_n,
 		(ParamFloat<px4::params::SIH_WIND_E>) _sih_wind_e,
 		(ParamFloat<px4::params::SIH_RNGBC_NOISE>) _sih_ranging_beacon_noise

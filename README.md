@@ -170,6 +170,18 @@ DF4/SHW09 vane flow combines body air-relative velocity with rotor-induced axial
 
 Sensor-noise amplitudes are adjustable through `SIH_ACC_XY/Z`, `SIH_GYRO_XY/Z`, `SIH_ASPD_STD`, `SIM_MAG_STD_XY/Z`, `SIM_BARO_STD/DRIFT`, and `SIM_GPS_P_XY/P_Z/V_XY/V_Z/P_T/V_T`. White-noise amplitudes are per-sample standard deviations; GPS also has configurable correlation times. The shared GPS, barometer, and magnetometer settings apply to users of those simulation modules. Parameter descriptions and units are in the corresponding simulation module YAML files.
 
+#### SIH external disturbances
+
+SIH supports configurable body-frame external forces and moments, disabled by default. To apply the selected aircraft's disturbance preset once, run in the PX4 shell:
+
+```sh
+param set SIH_DIST_START 2
+param set SIH_DIST_DUR 5
+param set SIH_DIST_EN 1
+```
+
+This waits 2 seconds, then applies the load for 5 seconds. Iris currently needs a nonzero amplitude or bias configured first. To cancel or retrigger, set `SIH_DIST_EN 0` and wait for `simulator_sih status` to confirm it is disabled before enabling again. See the [parameter definitions](src/modules/simulation/simulator_sih/sih_params.yaml) for force/moment amplitudes, frequencies and coordinate conventions.
+
 #### Hawkeye visualization
 
 SIH aircraft displayed in Hawkeye (click a screenshot to view it at full resolution):

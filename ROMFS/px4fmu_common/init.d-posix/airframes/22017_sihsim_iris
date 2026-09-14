@@ -83,3 +83,27 @@ param set-default SIH_KDV 0.0
 param set-default SIH_KDW 0.0
 
 # Matched physical model and IMU noise; PID tuning is inherited above.
+
+# Gazebo Classic iris disturbance preset: body FLU -> FRD.
+# Single window starts after enable; disabled by default, as running_time is zero.
+param set-default SIH_DIST_EN 0
+param set-default SIH_DIST_START 0
+param set-default SIH_DIST_DUR 200
+param set-default SIH_DF_BX 0
+param set-default SIH_DF_BY 0
+param set-default SIH_DF_BZ 0
+param set-default SIH_DF_AX 0.8
+param set-default SIH_DF_AY 0.8
+param set-default SIH_DF_AZ 1.5
+param set-default SIH_DF_HX 0.1
+param set-default SIH_DF_HY 0.2
+param set-default SIH_DF_HZ 0.3
+param set-default SIH_DM_BX 0
+param set-default SIH_DM_BY 0
+param set-default SIH_DM_BZ 0
+param set-default SIH_DM_AX 0.08
+param set-default SIH_DM_AY 0.08
+param set-default SIH_DM_AZ 0.05
+param set-default SIH_DM_HX 0.2
+param set-default SIH_DM_HY 0.4
+param set-default SIH_DM_HZ 0.2
