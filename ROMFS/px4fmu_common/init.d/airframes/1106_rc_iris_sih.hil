@@ -220,8 +220,6 @@ param set-default SIH_R3_Y 0.2025
 
 # Exact first-order actuator update supports the 0.5 ms motor constant.
 param set-default SIH_T_TAU 0.0005
-param set-default SIH_KDV 0.0
-param set-default SIH_KDW 0.0
 
 
 # USB HIL motor order; THR_MDL_FAC=1 maps thrust to rotor speed.

@@ -83,8 +83,6 @@ param set-default SIH_IXY 0
 param set-default SIH_IXZ 0
 param set-default SIH_IYZ 0
 param set-default SIH_T_TAU 0.03
-param set-default SIH_KDV 0.0
-param set-default SIH_KDW 0.0
 
 param set-default HIL_ACT_FUNC1 101
 param set-default HIL_ACT_FUNC2 201

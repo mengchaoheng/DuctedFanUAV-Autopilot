@@ -42,9 +42,6 @@ param set-default SIH_T_MAX 29.9584438
 # Match the Classic motor lag; keep an independently adjustable SIH servo lag.
 param set-default SIH_T_TAU 0.03
 
-# Simple DF profile supplies slipstream vane forces and moments.
-param set-default SIH_KDV 0.0
-param set-default SIH_KDW 0.0
 
 # Matched physical model and IMU noise; PID tuning is inherited above.
 param set-default SIH_SV_TAU 0.03

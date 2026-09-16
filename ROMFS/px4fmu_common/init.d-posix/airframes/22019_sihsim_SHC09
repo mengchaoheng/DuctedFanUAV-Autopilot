@@ -38,8 +38,6 @@ param set-default SIH_IYZ 0
 
 param set-default SIH_T_TAU 0.03
 
-param set-default SIH_KDV 0.0
-param set-default SIH_KDW 0.0
 
 # Matched physical model and IMU noise; PID tuning is inherited above.
 param set-default SIH_SV_TAU 0.03

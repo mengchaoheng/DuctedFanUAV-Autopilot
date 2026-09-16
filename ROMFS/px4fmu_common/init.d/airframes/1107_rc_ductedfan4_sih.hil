@@ -95,8 +95,6 @@ param set-default SIH_IXZ 0
 param set-default SIH_IYZ 0
 param set-default SIH_T_MAX 29.9584438
 param set-default SIH_T_TAU 0.03
-param set-default SIH_KDV 0.0
-param set-default SIH_KDW 0.0
 
 # PWMSim uses HIL_ACT_* on hardware and publishes actuator_outputs_sim.
 # Channel 1 is the motor; channels 2..5 are Servo1..Servo4.
