@@ -117,15 +117,16 @@ private:
 	float _gps_vel_noise_e{0.0f};
 	float _gps_vel_noise_d{0.0f};
 
-	// Gauss-Markov noise parameters, rate-corrected from GZBridge (30 Hz) to SIH (8 Hz)
-	static constexpr float _pos_noise_amplitude{0.8f};
-	static constexpr float _pos_random_walk{0.02f};
-	static constexpr float _pos_markov_time{0.76f};
-	static constexpr float _vel_noise_amplitude{0.05f};
-	static constexpr float _vel_noise_density{0.4f};
-	static constexpr float _vel_markov_time{0.54f};
+	hrt_abstime _noise_timestamp{0};
 
 	DEFINE_PARAMETERS(
+		(ParamFloat<px4::params::SIM_GPS_P_XY>) _sim_gps_p_xy,
+		(ParamFloat<px4::params::SIM_GPS_P_Z>) _sim_gps_p_z,
+		(ParamFloat<px4::params::SIM_GPS_V_XY>) _sim_gps_v_xy,
+		(ParamFloat<px4::params::SIM_GPS_V_Z>) _sim_gps_v_z,
+		(ParamFloat<px4::params::SIM_GPS_P_T>) _sim_gps_p_t,
+		(ParamFloat<px4::params::SIM_GPS_V_T>) _sim_gps_v_t,
+
 		(ParamInt<px4::params::SIM_GPS_USED>)      _sim_gps_used,
 		(ParamFloat<px4::params::SENS_GPS1_OFFX>)  _param_gps1_offx,
 		(ParamFloat<px4::params::SENS_GPS1_OFFY>)  _param_gps1_offy

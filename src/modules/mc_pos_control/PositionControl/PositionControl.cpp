@@ -221,6 +221,16 @@ void PositionControl::_velocityControl(const float dt)
 	_last_thr_sp = _thr_sp;
 }
 
+void PositionControl::resetAccelerationIndiTransition()
+{
+	_acceleration_indi_active = false;
+	_acceleration_indi_active_previous = false;
+	_acceleration_indi_transition_active = false;
+	_acceleration_indi_transition_elapsed = 0.f;
+	_acceleration_indi_transition_progress = 1.f;
+	_acceleration_indi_transition_offset.setZero();
+}
+
 void PositionControl::_accelerationIndiBumplessTransfer(const float dt)
 {
 	if (_acceleration_indi_active != _acceleration_indi_active_previous) {

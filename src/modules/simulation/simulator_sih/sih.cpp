@@ -42,6 +42,8 @@
 
 #include "aero.hpp"
 #include "sih.hpp"
+#include "classic_models.hpp"
+#include "simple_df.hpp"
 
 #include <px4_platform_common/getopt.h>
 #include <px4_platform_common/log.h>
@@ -72,6 +74,11 @@ void Sih::run()
 	_px4_accel.set_temperature(T1_C);
 	_px4_gyro.set_temperature(T1_C);
 
+	// Select the vehicle before loading vehicle-specific dynamics parameters.
+	_vehicle = static_cast<VehicleType>(constrain(_sih_vtype.get(),
+					    static_cast<int32_t>(VehicleType::First),
+					    static_cast<int32_t>(VehicleType::Last)));
+
 	parameters_updated();
 
 	const hrt_abstime task_start = hrt_absolute_time();
@@ -79,9 +86,6 @@ void Sih::run()
 	_airspeed_time = task_start;
 	_dist_snsr_time = task_start;
 	_ranging_beacon_time = task_start;
-	_vehicle = static_cast<VehicleType>(constrain(_sih_vtype.get(),
-					    static_cast<int32_t>(VehicleType::First),
-					    static_cast<int32_t>(VehicleType::Last)));
 
 #if defined(ENABLE_LOCKSTEP_SCHEDULER)
 	lockstep_loop();
@@ -213,6 +217,7 @@ void Sih::sensor_step()
 	read_motors(dt);
 
 	generate_force_and_torques(dt);
+	update_disturbance(now);
 
 	equations_of_motion(dt);
 
@@ -220,6 +225,7 @@ void Sih::sensor_step()
 
 	if ((_vehicle == VehicleType::FixedWing
 	     || _vehicle == VehicleType::TailsitterVTOL
+	     || _vehicle == VehicleType::DuctedFanTailsitter
 	     || _vehicle == VehicleType::StandardVTOL)
 	    && now - _airspeed_time >= 50_ms) {
 		_airspeed_time = now;
@@ -248,6 +254,15 @@ void Sih::parameters_updated()
 {
 	_T_MAX = _sih_t_max.get();
 	_Q_MAX = _sih_q_max.get();
+
+	if (_vehicle == VehicleType::Iris) {
+		// Physical rotor positions are independent of the control allocator's model.
+		_quad_moment_arm[0] = Vector3f(-_sih_r0_y.get(), _sih_r0_x.get(), 0.f);
+		_quad_moment_arm[1] = Vector3f(-_sih_r1_y.get(), _sih_r1_x.get(), 0.f);
+		_quad_moment_arm[2] = Vector3f(-_sih_r2_y.get(), _sih_r2_x.get(), 0.f);
+		_quad_moment_arm[3] = Vector3f(-_sih_r3_y.get(), _sih_r3_x.get(), 0.f);
+	}
+
 	_L_ROLL = _sih_l_roll.get();
 	_L_PITCH = _sih_l_pitch.get();
 	_KDV = _sih_kdv.get();
@@ -330,6 +345,33 @@ void Sih::read_motors(const float dt)
 {
 	actuator_outputs_s actuators_out;
 
+	if (_vehicle == VehicleType::Iris || _vehicle == VehicleType::DuctedFan
+	    || _vehicle == VehicleType::DuctedFanTailsitter || _vehicle == VehicleType::SHC09) {
+		if (_actuator_out_sub.update(&actuators_out)) {
+			_last_actuator_output_time = actuators_out.timestamp;
+
+			for (int i = 0; i < NUM_ACTUATORS_MAX; ++i) {
+				_u_command[i] = PX4_ISFINITE(actuators_out.output[i]) ? actuators_out.output[i] : 0.f;
+			}
+		}
+
+		// Integrate held commands every physics step, even without a new output.
+		for (int i = 0; i < NUM_ACTUATORS_MAX; ++i) {
+			const bool servo = (_vehicle == VehicleType::DuctedFan || _vehicle == VehicleType::DuctedFanTailsitter
+				    || _vehicle == VehicleType::SHC09) && i > 0;
+			float tau = _T_TAU;
+
+			if (servo && _sih_sv_tau.get() >= 0.f) {
+				tau = _sih_sv_tau.get();
+			}
+
+			_u[i] = sih_classic::lag(_u[i], _u_command[i], dt, tau);
+		}
+
+		publish_esc_status();
+		return;
+	}
+
 	if (_actuator_out_sub.update(&actuators_out)) {
 		_last_actuator_output_time = actuators_out.timestamp;
 
@@ -350,7 +392,8 @@ void Sih::read_motors(const float dt)
 uint8_t Sih::num_motors() const
 {
 	switch (_vehicle) {
-	case VehicleType::Quadcopter:     return 4;
+	case VehicleType::Quadcopter:
+	case VehicleType::Iris:           return 4;
 
 	case VehicleType::Hexacopter:     return 6;
 
@@ -362,7 +405,12 @@ uint8_t Sih::num_motors() const
 
 	case VehicleType::RoverAckermann: return 1;
 
-	default:                          return 0;
+	case VehicleType::DuctedFan:
+	case VehicleType::SHC09:              return 1;
+
+	case VehicleType::DuctedFanTailsitter: return 1;
+
+	default:                               return 0;
 	}
 }
 
@@ -413,12 +461,52 @@ void Sih::generate_force_and_torques(const float dt)
 	// air-relative velocity in body frame [m/s]
 	_v_B = _q_E.rotateVectorInverse(_R_N2E * _v_apparent_N);
 
-	if (_vehicle == VehicleType::Quadcopter) {
+	if (_vehicle == VehicleType::DuctedFan || _vehicle == VehicleType::SHC09
+	    || _vehicle == VehicleType::DuctedFanTailsitter) {
+		sih_classic::Wrench wrench;
 
-		_T_B = Vector3f(0.0f, 0.0f, -_T_MAX * (+_u[0] + _u[1] + _u[2] + _u[3]));
-		_Mt_B = Vector3f(_L_ROLL * _T_MAX * (-_u[0] + _u[1] + _u[2] - _u[3]),
-				 _L_PITCH * _T_MAX * (+_u[0] - _u[1] + _u[2] - _u[3]),
-				 _Q_MAX * (+_u[0] + _u[1] - _u[2] - _u[3]));
+		if (_vehicle == VehicleType::DuctedFan) {
+			wrench = sih_classic::simple_df(_v_B, _u, false, _T_MAX, _sih_df_wash.get(), _sih_df_kv.get(),
+				_sih_df_rad.get(), _sih_df_arm.get(), _sih_df_ang.get(),
+				_sih_w_lift.get(), _sih_w_drag.get(), _sih_w_ctrl.get(), _w_B);
+
+		} else if (_vehicle == VehicleType::SHC09) {
+			wrench = sih_classic::shc09(_v_B, _w_B, _u);
+
+		} else {
+			wrench = sih_classic::simple_df(_v_B, _u, true, _T_MAX, _sih_df_wash.get(), _sih_df_kv.get(),
+				_sih_df_rad.get(), _sih_df_arm.get(), _sih_df_ang.get(),
+				_sih_w_lift.get(), _sih_w_drag.get(), _sih_w_ctrl.get(), _w_B);
+		}
+
+		_T_B = wrench.force;
+		_Mt_B = wrench.moment;
+		_Fa_E = -_KDV * _R_N2E * _v_apparent_N;
+		_Ma_B = -_KDW * _w_B;
+		return;
+	}
+
+	if (_vehicle == VehicleType::Quadcopter || _vehicle == VehicleType::Iris) {
+
+		if (_vehicle == VehicleType::Iris) {
+			_T_B.zero();
+			_Mt_B.zero();
+
+			for (int i = 0; i < 4; ++i) {
+				const float speed_squared = _u[i] * _u[i];
+				const float thrust = _T_MAX * speed_squared;
+				_T_B(2) -= thrust;
+				_Mt_B += _quad_moment_arm[i] * thrust;
+				// Fixed motor order: positive body-Z reaction torque on motors 0 and 1.
+				_Mt_B(2) += (i < 2 ? _Q_MAX : -_Q_MAX) * speed_squared;
+			}
+
+		} else {
+			_T_B = Vector3f(0.0f, 0.0f, -_T_MAX * (+_u[0] + _u[1] + _u[2] + _u[3]));
+			_Mt_B = Vector3f(_L_ROLL * _T_MAX * (-_u[0] + _u[1] + _u[2] - _u[3]),
+					 _L_PITCH * _T_MAX * (+_u[0] - _u[1] + _u[2] - _u[3]),
+					 _Q_MAX * (+_u[0] + _u[1] - _u[2] - _u[3]));
+		}
 
 		_Fa_E = -_KDV * _R_N2E * _v_apparent_N; // first order drag to slow down the aircraft
 		_Ma_B = -_KDW * _w_B; // first order angular damper
@@ -528,6 +616,7 @@ void Sih::generate_ts_aerodynamics()
 	_Ma_B = _R_S2B * Ma_ts - _KDW * _w_B; 	// aerodynamic moments
 }
 
+
 void Sih::generate_rover_ackermann_dynamics(const float throttle_cmd, const float steering_cmd, const float dt)
 {
 	// --- Constants ---
@@ -595,6 +684,51 @@ void Sih::generate_rover_ackermann_dynamics(const float throttle_cmd, const floa
 
 }
 
+void Sih::update_disturbance(hrt_abstime now)
+{
+	_dist_force_B.zero();
+	_dist_moment_B.zero();
+	_dist_active = false;
+	const bool enabled = _sih_dist_en.get() == 1;
+
+	if (enabled && !_dist_enabled) {
+		_dist_enable_time = now;
+	}
+
+	_dist_enabled = enabled;
+
+	if (!enabled) {
+		return;
+	}
+
+	// Use PX4 simulation time in lockstep and board time on hardware.
+	const double elapsed = static_cast<double>(now - _dist_enable_time) * 1e-6;
+	const float start = _sih_dist_start.get();
+	const float duration = _sih_dist_dur.get();
+	const double local_time = elapsed - static_cast<double>(start);
+
+	if (!PX4_ISFINITE(start) || !PX4_ISFINITE(duration) || start < 0.f
+	    || duration <= 0.f || local_time < 0.0 || local_time >= static_cast<double>(duration)) {
+		return;
+	}
+
+	_dist_active = true;
+	const auto signal = [local_time](float bias, float amplitude, float frequency) {
+		if (!PX4_ISFINITE(bias) || !PX4_ISFINITE(amplitude) || !PX4_ISFINITE(frequency) || frequency < 0.f) {
+			return 0.f;
+		}
+
+		return bias + amplitude * static_cast<float>(sin(2.0 * M_PI * static_cast<double>(frequency) * local_time));
+	};
+
+	_dist_force_B(0) = signal(_sih_df_bx.get(), _sih_df_ax.get(), _sih_df_hx.get());
+	_dist_force_B(1) = signal(_sih_df_by.get(), _sih_df_ay.get(), _sih_df_hy.get());
+	_dist_force_B(2) = signal(_sih_df_bz.get(), _sih_df_az.get(), _sih_df_hz.get());
+	_dist_moment_B(0) = signal(_sih_dm_bx.get(), _sih_dm_ax.get(), _sih_dm_hx.get());
+	_dist_moment_B(1) = signal(_sih_dm_by.get(), _sih_dm_ay.get(), _sih_dm_hy.get());
+	_dist_moment_B(2) = signal(_sih_dm_bz.get(), _sih_dm_az.get(), _sih_dm_hz.get());
+}
+
 void Sih::equations_of_motion(const float dt)
 {
 	const Vector3f gravity_acceleration_E = Vector3f(_R_N2E.col(2)) * LatLonAlt::Wgs84::gravity(
@@ -602,15 +736,19 @@ void Sih::equations_of_motion(const float dt)
 	const Vector3f coriolis_acceleration_E = -2.f * Vector3f(0.f, 0.f, CONSTANTS_EARTH_SPIN_RATE).cross(_v_E);
 
 	const Vector3f weight_E = _MASS * gravity_acceleration_E;
-	Vector3f sum_of_forces_E = _Fa_E + _q_E.rotateVector(_T_B) + weight_E;
+	Vector3f sum_of_forces_E = _Fa_E + _q_E.rotateVector(_T_B + _dist_force_B) + weight_E;
 
 	// fake ground, avoid free fall
 	const float force_down = Vector3f(_R_N2E.transpose() * sum_of_forces_E)(2);
-	Vector3f ground_force_E;
+	Vector3f ground_force_E{};
 
 	if ((_lla.altitude() - _lpos_ref_alt) < 0.f && force_down > 0.f) {
 		if (_vehicle == VehicleType::Quadcopter
+		    || _vehicle == VehicleType::Iris
+		    || _vehicle == VehicleType::SHC09
 		    || _vehicle == VehicleType::Hexacopter
+		    || _vehicle == VehicleType::DuctedFan
+		    || _vehicle == VehicleType::DuctedFanTailsitter
 		    || _vehicle == VehicleType::TailsitterVTOL
 		    || _vehicle == VehicleType::StandardVTOL) {
 			ground_force_E = -sum_of_forces_E;
@@ -663,7 +801,7 @@ void Sih::equations_of_motion(const float dt)
 	_q_E = _q_E  * dq;
 	_q_E.normalize();
 
-	const Vector3f w_B_dot = _Im1 * (_Mt_B + _Ma_B - _w_B.cross(_I * _w_B)); // conservation of angular momentum
+	const Vector3f w_B_dot = _Im1 * (_Mt_B + _Ma_B + _dist_moment_B - _w_B.cross(_I * _w_B)); // conservation of angular momentum
 	_w_B = constrain(_w_B + w_B_dot * dt, -6.0f * M_PI_F, 6.0f * M_PI_F);
 
 	ecefToNed();
@@ -695,18 +833,8 @@ void Sih::reconstruct_sensors_signals(const hrt_abstime &time_now_us)
 
 	// IMU
 	const Dcmf R_E2B(_q_E.inversed());
-	Vector3f accel_noise;
-	Vector3f gyro_noise;
-
-	if (_T_B.longerThan(FLT_EPSILON)) {
-		accel_noise = noiseGauss3f(0.5f, 1.7f, 1.4f);
-		gyro_noise = noiseGauss3f(0.14f, 0.07f, 0.03f);
-
-	} else {
-		// Lower noise when not armed
-		accel_noise = noiseGauss3f(0.1f, 0.1f, 0.1f);
-		gyro_noise = noiseGauss3f(0.01f, 0.01f, 0.01f);
-	}
+	const Vector3f accel_noise = noiseGauss3f(_sih_acc_xy.get(), _sih_acc_xy.get(), _sih_acc_z.get());
+	const Vector3f gyro_noise = noiseGauss3f(_sih_gyro_xy.get(), _sih_gyro_xy.get(), _sih_gyro_z.get());
 
 	Vector3f specific_force_B = R_E2B * _specific_force_E;
 	Vector3f accel = specific_force_B + accel_noise;
@@ -725,9 +853,12 @@ void Sih::send_airspeed(const hrt_abstime &time_now_us)
 	airspeed_s airspeed{};
 	airspeed.timestamp_sample = time_now_us;
 
-	// pitot tube measures forward (body-x) airspeed
 	const Vector3f v_apparent_B = _q.rotateVectorInverse(_v_apparent_N);
-	airspeed.true_airspeed_m_s = fmaxf(0.1f, v_apparent_B(0) + generate_wgn() * 0.2f);
+	// SHW09_vtol fixed-wing forward is body -z; conventional SIH vehicles
+	// keep the existing body-x pitot convention.
+	const float forward_airspeed = _vehicle == VehicleType::DuctedFanTailsitter
+				       ? -v_apparent_B(2) : v_apparent_B(0);
+	airspeed.true_airspeed_m_s = fmaxf(0.1f, forward_airspeed + generate_wgn() * _sih_aspd_std.get());
 	airspeed.indicated_airspeed_m_s = airspeed.true_airspeed_m_s * sqrtf(_wing_l.get_rho() / RHO);
 	airspeed.confidence = 0.7f;
 	airspeed.timestamp = hrt_absolute_time();
@@ -918,8 +1049,8 @@ int Sih::print_status()
 	PX4_INFO("Achieved speedup: %.2fX", (double)_achieved_speedup);
 #endif
 
-	if (_vehicle == VehicleType::Quadcopter) {
-		PX4_INFO("Quadcopter");
+	if (_vehicle == VehicleType::Quadcopter || _vehicle == VehicleType::Iris) {
+		PX4_INFO("%s", _vehicle == VehicleType::Iris ? "Iris" : "Quadcopter");
 
 	} else if (_vehicle == VehicleType::Hexacopter) {
 		PX4_INFO("Hexacopter");
@@ -941,6 +1072,15 @@ int Sih::print_status()
 		PX4_INFO("Standard VTOL");
 		PX4_INFO("pusher propeller model:");
 		_thruster[0].print_status();
+
+	} else if (_vehicle == VehicleType::DuctedFan) {
+		PX4_INFO("DF4");
+
+	} else if (_vehicle == VehicleType::SHC09) {
+		PX4_INFO("SHC09");
+
+	} else if (_vehicle == VehicleType::DuctedFanTailsitter) {
+		PX4_INFO("SHW09 VTOL");
 
 	} else if (_vehicle == VehicleType::RoverAckermann) {
 		PX4_INFO("Rover Ackermann");
@@ -966,6 +1106,11 @@ int Sih::print_status()
 	_T_B.print();
 	PX4_INFO("Thruster moments in body frame (Nm)");
 	_Mt_B.print();
+	PX4_INFO("Disturbance enabled: %d, active: %d", (int)_dist_enabled, (int)_dist_active);
+	PX4_INFO("External force body FRD (N)");
+	_dist_force_B.print();
+	PX4_INFO("External moment body FRD (Nm)");
+	_dist_moment_B.print();
 	return 0;
 }
 

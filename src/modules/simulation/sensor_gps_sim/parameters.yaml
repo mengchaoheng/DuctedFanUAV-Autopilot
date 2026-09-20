@@ -22,3 +22,45 @@ parameters:
       default: 10
       min: 0
       max: 50
+    SIM_GPS_P_XY:
+      description:
+        short: Horizontal position stationary noise standard deviation in metres.
+      type: float
+      default: 0.0028
+      min: 0.0
+      decimal: 6
+    SIM_GPS_P_Z:
+      description:
+        short: Vertical position stationary noise standard deviation in metres.
+      type: float
+      default: 0.0056
+      min: 0.0
+      decimal: 6
+    SIM_GPS_V_XY:
+      description:
+        short: Horizontal velocity stationary noise standard deviation in m/s.
+      type: float
+      default: 0.01265
+      min: 0.0
+      decimal: 6
+    SIM_GPS_V_Z:
+      description:
+        short: Vertical velocity stationary noise standard deviation in m/s.
+      type: float
+      default: 0.0253
+      min: 0.0
+      decimal: 6
+    SIM_GPS_P_T:
+      description:
+        short: Position noise correlation time in seconds. Zero generates independent samples.
+      type: float
+      default: 0.238
+      min: 0.0
+      decimal: 6
+    SIM_GPS_V_T:
+      description:
+        short: Velocity noise correlation time in seconds. Zero generates independent samples.
+      type: float
+      default: 0.0
+      min: 0.0
+      decimal: 6

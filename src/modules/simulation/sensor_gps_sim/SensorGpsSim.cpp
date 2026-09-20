@@ -118,28 +118,25 @@ void SensorGpsSim::Run()
 		vehicle_global_position_s gpos{};
 		_vehicle_global_position_sub.copy(&gpos);
 
-		// Correlated Markov process position noise (matching GZBridge model)
-		_gps_pos_noise_n = _pos_markov_time * _gps_pos_noise_n +
-				   _pos_random_walk * generate_wgn() * _pos_noise_amplitude;
-
-		_gps_pos_noise_e = _pos_markov_time * _gps_pos_noise_e +
-				   _pos_random_walk * generate_wgn() * _pos_noise_amplitude;
-
-		_gps_pos_noise_d = _pos_markov_time * _gps_pos_noise_d +
-				   _pos_random_walk * generate_wgn() * _pos_noise_amplitude * 1.5f;
-
+		// Original first-order Gaussian Markov process, parameterized by stationary
+		// sigma and physical correlation time so changing publication rate is safe.
+		const float dt = _noise_timestamp != 0 && gpos.timestamp > _noise_timestamp
+				 ? (gpos.timestamp - _noise_timestamp) * 1e-6f : 0.125f;
+		_noise_timestamp = gpos.timestamp;
+		auto noise = [dt](float state, float sigma, float tau) {
+			const float phi = tau > 0.f ? expf(-dt / tau) : 0.f;
+			return sigma > 0.f ? phi * state + sigma * sqrtf(math::max(0.f, 1.f - phi * phi)) * generate_wgn() : 0.f;
+		};
+		_gps_pos_noise_n = noise(_gps_pos_noise_n, _sim_gps_p_xy.get(), _sim_gps_p_t.get());
+		_gps_pos_noise_e = noise(_gps_pos_noise_e, _sim_gps_p_xy.get(), _sim_gps_p_t.get());
+		_gps_pos_noise_d = noise(_gps_pos_noise_d, _sim_gps_p_z.get(), _sim_gps_p_t.get());
+		_gps_vel_noise_n = noise(_gps_vel_noise_n, _sim_gps_v_xy.get(), _sim_gps_v_t.get());
+		_gps_vel_noise_e = noise(_gps_vel_noise_e, _sim_gps_v_xy.get(), _sim_gps_v_t.get());
+		_gps_vel_noise_d = noise(_gps_vel_noise_d, _sim_gps_v_z.get(), _sim_gps_v_t.get());
 		const double latitude = gpos.lat + math::degrees((double)_gps_pos_noise_n / CONSTANTS_RADIUS_OF_EARTH);
-		const double longitude = gpos.lon + math::degrees((double)_gps_pos_noise_e / CONSTANTS_RADIUS_OF_EARTH);
+		const double cos_lat = math::max(1e-6, cos(math::radians(gpos.lat)));
+		const double longitude = gpos.lon + math::degrees((double)_gps_pos_noise_e / (CONSTANTS_RADIUS_OF_EARTH * cos_lat));
 		const double altitude = (double)(gpos.alt + _gps_pos_noise_d);
-
-		_gps_vel_noise_n = _vel_markov_time * _gps_vel_noise_n +
-				   _vel_noise_density * generate_wgn() * _vel_noise_amplitude;
-
-		_gps_vel_noise_e = _vel_markov_time * _gps_vel_noise_e +
-				   _vel_noise_density * generate_wgn() * _vel_noise_amplitude;
-
-		_gps_vel_noise_d = _vel_markov_time * _gps_vel_noise_d +
-				   _vel_noise_density * generate_wgn() * _vel_noise_amplitude * 1.2f;
 
 		const Vector3f gps_vel = Vector3f{lpos.vx + _gps_vel_noise_n, lpos.vy + _gps_vel_noise_e, lpos.vz + _gps_vel_noise_d};
 

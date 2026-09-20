@@ -191,6 +191,7 @@ private:
 	hrt_abstime _last_status_update;
 	hrt_abstime _last_ping;
 	bool _had_ping_reply{false};
+	bool _ping_pending{false};
 	int _num_pings_missed{0};
 	int32_t _num_tx_rate_zero{0};
 	int32_t _num_rx_rate_zero{0};
@@ -205,6 +206,10 @@ private:
 
 	Timesync _timesync{timesync_status_s::SOURCE_PROTOCOL_DDS};
 
+	perf_counter_t _send_perf{perf_alloc(PC_ELAPSED, MODULE_NAME": DDS send")};
+	perf_counter_t _sync_perf{perf_alloc(PC_ELAPSED, MODULE_NAME": time sync")};
+	perf_counter_t _ping_perf{perf_alloc(PC_ELAPSED, MODULE_NAME": ping wait")};
+	perf_counter_t _ping_failure_perf{perf_alloc(PC_COUNT, MODULE_NAME": ping failures")};
 	perf_counter_t _loop_perf{perf_alloc(PC_ELAPSED, MODULE_NAME": cycle")};
 	perf_counter_t _loop_interval_perf{perf_alloc(PC_INTERVAL, MODULE_NAME": cycle interval")};
 

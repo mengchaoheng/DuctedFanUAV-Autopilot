@@ -1,0 +1,71 @@
+#!/bin/sh
+#
+# @name Ducted Fan 4 SIH
+# @type Ducted Fan
+# @class DuctedFan
+#
+# SIH counterpart of 22002_gazebo-classic_ductedfan4.
+#
+
+. ${R}etc/init.d-posix/airframes/22002_gazebo-classic_ductedfan4
+
+# SIH INDI feedback alignment; retain the Classic gains and filters.
+param set-default MC_INDI_RATE_EN 1
+param set-default MPC_INDI_ACC_EN 1
+param set-default MC_INDI_T_DLY 0.028
+param set-default MPC_INDI_F_DLY 0.030
+
+PX4_SIMULATOR=${PX4_SIMULATOR:=sihsim}
+PX4_SIM_MODEL=${PX4_SIM_MODEL:=ductedfan4}
+
+param set-default SENS_EN_GPSSIM 1
+param set-default SENS_EN_BAROSIM 1
+param set-default SENS_EN_MAGSIM 1
+param set-default SENS_GPS0_DELAY 0
+param set-default SENS_GPS1_DELAY 0
+
+# Generic ducted-fan branch in simulator_sih.
+param set SIH_VEHICLE_TYPE 6
+
+# Match the current ductedfan4 Gazebo/airframe rigid-body model.
+param set-default SIH_MASS 1.56
+param set-default SIH_IXX 0.01149
+param set-default SIH_IYY 0.01153
+param set-default SIH_IZZ 0.00487
+param set-default SIH_IXY 0
+param set-default SIH_IXZ 0
+param set-default SIH_IYZ 0
+
+# Rotor maximum thrust for the simple DF plant, independent of allocation.
+param set-default SIH_T_MAX 29.9584438
+
+# Match the Classic motor lag; keep an independently adjustable SIH servo lag.
+param set-default SIH_T_TAU 0.03
+
+
+# Matched physical model and IMU noise; PID tuning is inherited above.
+param set-default SIH_SV_TAU 0.03
+
+# Gazebo Classic ductedfan4 disturbance preset: body FLU -> FRD.
+# Single window starts after enable; disabled by default, as running_time is zero.
+param set-default SIH_DIST_EN 0
+param set-default SIH_DIST_START 0
+param set-default SIH_DIST_DUR 200
+param set-default SIH_DF_BX 0
+param set-default SIH_DF_BY 0
+param set-default SIH_DF_BZ 0
+param set-default SIH_DF_AX 1
+param set-default SIH_DF_AY -1
+param set-default SIH_DF_AZ -3
+param set-default SIH_DF_HX 0.2
+param set-default SIH_DF_HY 0.2
+param set-default SIH_DF_HZ 0.2
+param set-default SIH_DM_BX 0
+param set-default SIH_DM_BY 0
+param set-default SIH_DM_BZ 0
+param set-default SIH_DM_AX 0.05
+param set-default SIH_DM_AY -0.05
+param set-default SIH_DM_AZ -0.01
+param set-default SIH_DM_HX 0.2
+param set-default SIH_DM_HY 0.4
+param set-default SIH_DM_HZ 0.2

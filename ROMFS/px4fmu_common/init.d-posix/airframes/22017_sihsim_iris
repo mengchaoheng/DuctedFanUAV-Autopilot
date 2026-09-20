@@ -1,0 +1,107 @@
+#!/bin/sh
+#
+# @name 3DR Iris Quadrotor SIH (Gazebo Classic parameters)
+# @type Quadrotor Wide
+#
+
+# Share the project's Iris controller tuning and physical allocation geometry.
+. ${R}etc/init.d-posix/airframes/10015_gazebo-classic_iris
+
+# OM-MPC-INDI keeps acceleration feedback independent from mc_pos_control.
+param set-default MC_OM_INDI_EN 1
+param set-default MC_OM_ACC_EN 1
+param set-default MC_OM_ACC_GAIN 1.0
+param set-default MC_OM_DIST_EN 1
+param set-default MC_OM_A_SRC 1
+param set-default MC_OM_RATE_MAX 250.0
+param set-default MC_OM_A_LP 8.0
+# main.m does not limit the matched disturbance estimate. Keep the parameter
+# available for explicit safety studies, but disable it in the comparison path.
+param set-default MC_OM_D_LIM 20.0
+param set-default MC_OM_F_DLY 0.0
+# Keep the tested algebraic bridge without an additional engagement ramp.
+# Online trajectory/controller handover manages its own reference transition.
+param set-default MC_OM_TR_T 0.0
+param set-default MC_OM_KPHI_R 0.5
+param set-default MC_OM_KPHI_P 0.5
+param set-default MC_OM_KPHI_Y 0.0
+
+# Match gz Iris rate gains and 20 Hz feedback filters; align SIH feedback.
+param set-default MC_INDI_RATE_EN 1
+param set-default MC_INDI_T_DLY 0.004
+param set-default MC_INDI_R_P 15.0
+param set-default MC_INDI_P_P 15.0
+param set-default MC_INDI_Y_P 4.0
+param set-default IMU_DGYRO_CUTOFF 20.0
+param set-default CA_TORQ_CUTOFF 20.0
+
+param set-default MPC_INDI_F_DLY 0.020
+
+PX4_SIMULATOR=${PX4_SIMULATOR:=sihsim}
+PX4_SIM_MODEL=${PX4_SIM_MODEL:=iris}
+
+param set-default SENS_EN_GPSSIM 1
+param set-default SENS_EN_BAROSIM 1
+param set-default SENS_EN_MAGSIM 1
+param set-default SENS_GPS0_DELAY 0
+param set-default SENS_GPS1_DELAY 0
+
+param set SIH_VEHICLE_TYPE 9
+
+# Base-link properties in gazebo-classic/models/iris/iris.sdf.jinja.
+# Negligible GPS/rotor-link inertias are omitted in this single rigid body.
+param set-default SIH_MASS 0.75
+param set-default SIH_IXX 0.0025
+param set-default SIH_IYY 0.0021
+param set-default SIH_IZZ 0.0043
+param set-default SIH_IXY 0
+param set-default SIH_IXZ 0
+param set-default SIH_IYZ 0
+
+# motorConstant * maxRotVelocity^2 = 1.51e-6 * 2372.6^2 N.
+# Squared normalized motor speed sets physical thrust and reaction torque.
+param set-default SIH_T_MAX 8.50013845
+# Gazebo momentConstant * maximum thrust, Nm; signs are +,+,-,-.
+param set-default SIH_Q_MAX 0.133452174
+
+# Independent plant geometry from iris.sdf.jinja, expressed in body FRD.
+# Keep CA parameters separate so allocator errors do not change the plant.
+param set-default SIH_R0_X 0.125
+param set-default SIH_R0_Y 0.22
+param set-default SIH_R1_X -0.1385
+param set-default SIH_R1_Y -0.206
+param set-default SIH_R2_X 0.125
+param set-default SIH_R2_Y -0.223
+param set-default SIH_R3_X -0.1385
+param set-default SIH_R3_Y 0.2025
+
+
+# Exact discrete actuator lag supports the Classic 0.5 ms motor constant.
+param set-default SIH_T_TAU 0.0005
+
+
+# Matched physical model and IMU noise; PID tuning is inherited above.
+
+# Gazebo Classic iris disturbance preset: body FLU -> FRD.
+# Single window starts after enable; disabled by default, as running_time is zero.
+param set-default SIH_DIST_EN 0
+param set-default SIH_DIST_START 0
+param set-default SIH_DIST_DUR 200
+param set-default SIH_DF_BX 0
+param set-default SIH_DF_BY 0
+param set-default SIH_DF_BZ 0
+param set-default SIH_DF_AX 0.8
+param set-default SIH_DF_AY 0.8
+param set-default SIH_DF_AZ 1.5
+param set-default SIH_DF_HX 0.1
+param set-default SIH_DF_HY 0.2
+param set-default SIH_DF_HZ 0.3
+param set-default SIH_DM_BX 0
+param set-default SIH_DM_BY 0
+param set-default SIH_DM_BZ 0
+param set-default SIH_DM_AX 0.08
+param set-default SIH_DM_AY 0.08
+param set-default SIH_DM_AZ 0.05
+param set-default SIH_DM_HX 0.2
+param set-default SIH_DM_HY 0.4
+param set-default SIH_DM_HZ 0.2

@@ -15,6 +15,13 @@ control_allocator start
 #
 mc_rate_control start
 
+# Isolated OM-MPC middle layer. It remains dormant unless fresh project-specific
+# OmMpcSetpoint commands arrive.
+if param compare -s MC_OM_INDI_EN 1
+then
+	mc_om_mpc_indi start
+fi
+
 #
 # Start Multicopter Attitude Controller.
 #

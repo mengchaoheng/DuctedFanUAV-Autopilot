@@ -33,3 +33,19 @@ parameters:
       type: float
       default: 0.0
       unit: gauss
+    SIM_MAG_STD_XY:
+      description:
+        short: Simulated magnetic XY noise
+        long: Per sample Gaussian standard deviation in gauss. Classic magnitude at 100 Hz.
+      type: float
+      default: 0.004
+      min: 0.0
+      decimal: 6
+    SIM_MAG_STD_Z:
+      description:
+        short: Simulated magnetic Z noise
+        long: Per sample Gaussian standard deviation in gauss.
+      type: float
+      default: 0.004
+      min: 0.0
+      decimal: 6

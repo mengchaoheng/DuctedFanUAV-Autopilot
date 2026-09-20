@@ -89,6 +89,9 @@ private:
 	perf_counter_t _loop_perf{perf_alloc(PC_ELAPSED, MODULE_NAME": cycle")};
 
 	DEFINE_PARAMETERS(
+		(ParamFloat<px4::params::SIM_MAG_STD_XY>) _sim_mag_std_xy,
+		(ParamFloat<px4::params::SIM_MAG_STD_Z>) _sim_mag_std_z,
+
 		(ParamFloat<px4::params::SIM_MAG_OFFSET_X>) _sim_mag_offset_x,
 		(ParamFloat<px4::params::SIM_MAG_OFFSET_Y>) _sim_mag_offset_y,
 		(ParamFloat<px4::params::SIM_MAG_OFFSET_Z>) _sim_mag_offset_z

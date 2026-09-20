@@ -52,12 +52,11 @@ constexpr uint8_t kIndiAccelerationEkfValid = 1u << 1;
 constexpr uint8_t kIndiAccelerationImuValid = 1u << 2;
 constexpr hrt_abstime kIndiAccelerationSampleMaxAge = 50_ms;
 
-bool rcChannelEnabled(const rc_channels_s &rc_channels, unsigned channel)
+bool rcChannelValid(const rc_channels_s &rc_channels, unsigned channel)
 {
 	return (rc_channels.channel_count > channel)
 	       && !rc_channels.signal_lost
-	       && (hrt_elapsed_time(&rc_channels.timestamp) < kRcSignalTimeout)
-	       && (rc_channels.channels[channel] >= 0.f);
+	       && (hrt_elapsed_time(&rc_channels.timestamp) < kRcSignalTimeout);
 }
 
 bool indiAllocationFeedbackSupported(int32_t airframe)
@@ -487,6 +486,18 @@ void MulticopterPositionControl::Run()
 
 		_vehicle_land_detected_sub.update(&_vehicle_land_detected);
 		_vehicle_status_sub.update(&_vehicle_status);
+		const bool indi_parameter_enabled = _param_mpc_indi_acc_en.get() == 1;
+		const bool indi_rc_valid = rcChannelValid(_rc_channels, kAccelerationIndiRcChannel);
+		const bool indi_rc_enabled = indi_rc_valid && _rc_channels.channels[kAccelerationIndiRcChannel] >= 0.f;
+		const bool indi_flight_enabled = _indi_flight_state.update(_vehicle_control_mode.flag_armed,
+						_vehicle_status.takeoff_time != 0, _vehicle_land_detected.ground_contact,
+						_vehicle_land_detected.maybe_landed, _vehicle_land_detected.landed,
+						indi_parameter_enabled, indi_rc_enabled, indi_rc_valid);
+
+		if (!indi_flight_enabled) {
+			// Ground handling must not retain a flight thrust offset from PID/INDI blending.
+			_control.resetAccelerationIndiTransition();
+		}
 		_vehicle_attitude_sub.update(&_vehicle_attitude);
 		_vehicle_acceleration_sub.update(&_vehicle_acceleration);
 		updateAllocatedForceHistory();
@@ -701,8 +712,7 @@ void MulticopterPositionControl::Run()
 				_control.resetIntegralXY();
 			}
 
-			const bool indi_requested = (_param_mpc_indi_acc_en.get() == 1)
-						    || rcChannelEnabled(_rc_channels, kAccelerationIndiRcChannel);
+			const bool indi_requested = indi_parameter_enabled || indi_rc_enabled;
 			const bool use_indi = _indi_capable && indi_requested;
 			const int32_t acceleration_source = math::constrain<int32_t>(_param_mpc_indi_a_src.get(), 0, 2);
 			Vector3f selected_acceleration = _indi_acceleration_velocity_derivative;
@@ -736,8 +746,6 @@ void MulticopterPositionControl::Run()
 				getDelayedAllocatedThrustAcceleration(vehicle_local_position.timestamp_sample);
 			const bool acceleration_indi_feedback_available = selected_acceleration_valid
 					&& delayed_allocated_thrust_acceleration.isAllFinite();
-			const bool indi_flight_enabled = _vehicle_control_mode.flag_armed
-						 && _vehicle_status.takeoff_time != 0 && !_vehicle_land_detected.landed;
 			// This readiness flag is not an EKF-health decision. Invalid base position
 			// or velocity states are handled by PositionControl's normal failsafe path.
 			const bool acceleration_indi_ready = use_indi && indi_flight_enabled

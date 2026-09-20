@@ -113,6 +113,94 @@ parameters:
       min: 0.0
       decimal: 3
       increment: 0.05
+    SIH_R0_X:
+      description:
+        short: Iris motor 1 X position
+        long: |-
+          Physical motor 1 position relative to the center of mass in body FRD coordinates.
+          Used only by SIH_VEHICLE_TYPE=9, independently of control allocation parameters.
+          All four thrust axes point along body negative Z.
+      type: float
+      default: 0.2
+      unit: m
+      decimal: 4
+    SIH_R0_Y:
+      description:
+        short: Iris motor 1 Y position
+        long: |-
+          Physical motor 1 position relative to the center of mass in body FRD coordinates.
+          Used only by SIH_VEHICLE_TYPE=9, independently of control allocation parameters.
+          All four thrust axes point along body negative Z.
+      type: float
+      default: 0.2
+      unit: m
+      decimal: 4
+    SIH_R1_X:
+      description:
+        short: Iris motor 2 X position
+        long: |-
+          Physical motor 2 position relative to the center of mass in body FRD coordinates.
+          Used only by SIH_VEHICLE_TYPE=9, independently of control allocation parameters.
+          All four thrust axes point along body negative Z.
+      type: float
+      default: -0.2
+      unit: m
+      decimal: 4
+    SIH_R1_Y:
+      description:
+        short: Iris motor 2 Y position
+        long: |-
+          Physical motor 2 position relative to the center of mass in body FRD coordinates.
+          Used only by SIH_VEHICLE_TYPE=9, independently of control allocation parameters.
+          All four thrust axes point along body negative Z.
+      type: float
+      default: -0.2
+      unit: m
+      decimal: 4
+    SIH_R2_X:
+      description:
+        short: Iris motor 3 X position
+        long: |-
+          Physical motor 3 position relative to the center of mass in body FRD coordinates.
+          Used only by SIH_VEHICLE_TYPE=9, independently of control allocation parameters.
+          All four thrust axes point along body negative Z.
+      type: float
+      default: 0.2
+      unit: m
+      decimal: 4
+    SIH_R2_Y:
+      description:
+        short: Iris motor 3 Y position
+        long: |-
+          Physical motor 3 position relative to the center of mass in body FRD coordinates.
+          Used only by SIH_VEHICLE_TYPE=9, independently of control allocation parameters.
+          All four thrust axes point along body negative Z.
+      type: float
+      default: -0.2
+      unit: m
+      decimal: 4
+    SIH_R3_X:
+      description:
+        short: Iris motor 4 X position
+        long: |-
+          Physical motor 4 position relative to the center of mass in body FRD coordinates.
+          Used only by SIH_VEHICLE_TYPE=9, independently of control allocation parameters.
+          All four thrust axes point along body negative Z.
+      type: float
+      default: -0.2
+      unit: m
+      decimal: 4
+    SIH_R3_Y:
+      description:
+        short: Iris motor 4 Y position
+        long: |-
+          Physical motor 4 position relative to the center of mass in body FRD coordinates.
+          Used only by SIH_VEHICLE_TYPE=9, independently of control allocation parameters.
+          All four thrust axes point along body negative Z.
+      type: float
+      default: 0.2
+      unit: m
+      decimal: 4
     SIH_L_ROLL:
       description:
         short: Roll arm length
@@ -242,11 +330,22 @@ parameters:
       type: float
       default: -1.0
       unit: m
+    SIH_SV_TAU:
+      description:
+        short: Ducted fan servo time constant
+        long: First order servo lag for DF4, SHC09 and SHW09. Negative uses SIH_T_TAU, zero is instantaneous. Independent of motor dynamics.
+      type: float
+      default: -1.0
+      min: -1.0
+      unit: s
+      decimal: 4
     SIH_T_TAU:
       description:
-        short: thruster time constant tau
-        long: the time taken for the thruster to step from 0 to 100% should be about
-          4 times tau
+        short: Motor time constant tau
+        long: |-
+          The time taken for an actuator to step from 0 to 100% should be about
+          4 times tau. The same time constant applies to rising and falling
+          motor commands. Ducted-fan servos use SIH_SV_TAU when nonnegative.
       type: float
       default: 0.05
       unit: s
@@ -261,6 +360,10 @@ parameters:
         3: Standard VTOL
         4: Hexacopter
         5: Rover Ackermann
+        6: Ducted Fan
+        7: Ducted Fan Tailsitter
+        8: SHC09
+        9: Iris
       default: 0
       reboot_required: true
     SIH_WIND_N:
@@ -369,3 +472,344 @@ parameters:
       default: 6000.0
       min: 0.1
       decimal: 1
+    SIH_ACC_XY:
+      description:
+        short: Accelerometer XY noise standard deviation
+        long: Per sample Gaussian standard deviation in m/s^2. Calibrated at 250 Hz; zero disables noise.
+      type: float
+      default: 0.10072
+      min: 0.0
+      decimal: 6
+    SIH_ACC_Z:
+      description:
+        short: Accelerometer Z noise standard deviation
+        long: Per sample Gaussian standard deviation in m/s^2.
+      type: float
+      default: 0.10072
+      min: 0.0
+      decimal: 6
+    SIH_GYRO_XY:
+      description:
+        short: Gyroscope XY noise standard deviation
+        long: Per sample Gaussian standard deviation in rad/s. Calibrated at 250 Hz.
+      type: float
+      default: 0.013798
+      min: 0.0
+      decimal: 6
+    SIH_GYRO_Z:
+      description:
+        short: Gyroscope Z noise standard deviation
+        long: Per sample Gaussian standard deviation in rad/s.
+      type: float
+      default: 0.013798
+      min: 0.0
+      decimal: 6
+    SIH_ASPD_STD:
+      description:
+        short: Airspeed noise standard deviation
+        long: Per sample Gaussian standard deviation in m/s.
+      type: float
+      default: 0.2
+      min: 0.0
+      decimal: 6
+    SIH_DF_WASH:
+      description:
+        short: Duct full speed slipstream
+        long: Axial slipstream speed in m/s at normalized motor speed one.
+      type: float
+      default: 28.42
+      min: 0.0
+      decimal: 6
+    SIH_DF_KV:
+      description:
+        short: Duct vane force coefficient
+        long: Shared vane coefficient in N per (m/s)^2 per radian. Combines density area and lift slope.
+      type: float
+      default: 0.0072038
+      min: 0.0
+      decimal: 6
+    SIH_DF_RAD:
+      description:
+        short: Duct vane radius
+        long: Vane force application radius in metres.
+      type: float
+      default: 0.069
+      min: 0.0
+      decimal: 6
+    SIH_DF_ARM:
+      description:
+        short: Duct vane axial arm
+        long: Vane force application position along body positive Z in metres.
+      type: float
+      default: 0.156
+      min: 0.0
+      decimal: 6
+    SIH_DF_ANG:
+      description:
+        short: Duct vane maximum angle
+        long: Maximum vane deflection in radians.
+      type: float
+      default: 0.3491
+      min: 0.0
+      decimal: 6
+    SIH_W_LIFT:
+      description:
+        short: SHW wing lift multiplier
+        long: Scales the shared passive wing lift curve. Geometry and stall shape stay fixed.
+      type: float
+      default: 1.0
+      min: 0.0
+      decimal: 6
+    SIH_W_DRAG:
+      description:
+        short: SHW wing drag multiplier
+        long: Scales the shared wing drag curve.
+      type: float
+      default: 1.0
+      min: 0.0
+      decimal: 6
+    SIH_W_CTRL:
+      description:
+        short: SHW elevon effectiveness
+        long: Scales elevon lift increment independently of passive wing lift.
+      type: float
+      default: 1.0
+      min: 0.0
+      decimal: 6
+
+- group: SIH Disturbance
+  definitions:
+    SIH_DIST_EN:
+      description:
+        short: Enable single disturbance window
+        long: |-
+          Switching from disabled to enabled starts the timer when SIH receives
+          the parameter update. Toggle off then on to trigger again.
+          Uses simulation time in SITL and board time on hardware.
+          Force and moment act in body FRD, independently of control allocation.
+      type: int32
+      default: 0
+      min: 0
+      max: 1
+    SIH_DIST_START:
+      description:
+        short: Delay before disturbance
+        long: Seconds after enabling before the single disturbance window starts.
+      type: float
+      default: 0.0
+      min: 0.0
+      unit: s
+      decimal: 3
+    SIH_DIST_DUR:
+      description:
+        short: Disturbance duration
+        long: Zero disables the load. Loads are zero outside this single window.
+      type: float
+      default: 0.0
+      min: 0.0
+      unit: s
+      decimal: 3
+    SIH_DF_BX:
+      description:
+        short: External force X bias
+        long: |-
+          Body FRD axis. Load = bias + amplitude * sin(2*pi*frequency*t),
+          where t starts at the beginning of the disturbance window.
+          Force acts at the centre of mass; moment is applied directly.
+      type: float
+      default: 0.0
+      unit: N
+      decimal: 3
+    SIH_DF_BY:
+      description:
+        short: External force Y bias
+        long: |-
+          Body FRD axis. Load = bias + amplitude * sin(2*pi*frequency*t),
+          where t starts at the beginning of the disturbance window.
+          Force acts at the centre of mass; moment is applied directly.
+      type: float
+      default: 0.0
+      unit: N
+      decimal: 3
+    SIH_DF_BZ:
+      description:
+        short: External force Z bias
+        long: |-
+          Body FRD axis. Load = bias + amplitude * sin(2*pi*frequency*t),
+          where t starts at the beginning of the disturbance window.
+          Force acts at the centre of mass; moment is applied directly.
+      type: float
+      default: 0.0
+      unit: N
+      decimal: 3
+    SIH_DF_AX:
+      description:
+        short: External force X sine amplitude
+        long: |-
+          Body FRD axis. Load = bias + amplitude * sin(2*pi*frequency*t),
+          where t starts at the beginning of the disturbance window.
+          Force acts at the centre of mass; moment is applied directly.
+      type: float
+      default: 0.0
+      unit: N
+      decimal: 3
+    SIH_DF_AY:
+      description:
+        short: External force Y sine amplitude
+        long: |-
+          Body FRD axis. Load = bias + amplitude * sin(2*pi*frequency*t),
+          where t starts at the beginning of the disturbance window.
+          Force acts at the centre of mass; moment is applied directly.
+      type: float
+      default: 0.0
+      unit: N
+      decimal: 3
+    SIH_DF_AZ:
+      description:
+        short: External force Z sine amplitude
+        long: |-
+          Body FRD axis. Load = bias + amplitude * sin(2*pi*frequency*t),
+          where t starts at the beginning of the disturbance window.
+          Force acts at the centre of mass; moment is applied directly.
+      type: float
+      default: 0.0
+      unit: N
+      decimal: 3
+    SIH_DF_HX:
+      description:
+        short: External force X sine frequency
+        long: |-
+          Body FRD axis. Load = bias + amplitude * sin(2*pi*frequency*t),
+          where t starts at the beginning of the disturbance window.
+          Force acts at the centre of mass; moment is applied directly.
+      type: float
+      default: 1.0
+      unit: Hz
+      decimal: 3
+      min: 0.0
+    SIH_DF_HY:
+      description:
+        short: External force Y sine frequency
+        long: |-
+          Body FRD axis. Load = bias + amplitude * sin(2*pi*frequency*t),
+          where t starts at the beginning of the disturbance window.
+          Force acts at the centre of mass; moment is applied directly.
+      type: float
+      default: 1.0
+      unit: Hz
+      decimal: 3
+      min: 0.0
+    SIH_DF_HZ:
+      description:
+        short: External force Z sine frequency
+        long: |-
+          Body FRD axis. Load = bias + amplitude * sin(2*pi*frequency*t),
+          where t starts at the beginning of the disturbance window.
+          Force acts at the centre of mass; moment is applied directly.
+      type: float
+      default: 1.0
+      unit: Hz
+      decimal: 3
+      min: 0.0
+    SIH_DM_BX:
+      description:
+        short: External moment X bias
+        long: |-
+          Body FRD axis. Load = bias + amplitude * sin(2*pi*frequency*t),
+          where t starts at the beginning of the disturbance window.
+          Force acts at the centre of mass; moment is applied directly.
+      type: float
+      default: 0.0
+      unit: Nm
+      decimal: 3
+    SIH_DM_BY:
+      description:
+        short: External moment Y bias
+        long: |-
+          Body FRD axis. Load = bias + amplitude * sin(2*pi*frequency*t),
+          where t starts at the beginning of the disturbance window.
+          Force acts at the centre of mass; moment is applied directly.
+      type: float
+      default: 0.0
+      unit: Nm
+      decimal: 3
+    SIH_DM_BZ:
+      description:
+        short: External moment Z bias
+        long: |-
+          Body FRD axis. Load = bias + amplitude * sin(2*pi*frequency*t),
+          where t starts at the beginning of the disturbance window.
+          Force acts at the centre of mass; moment is applied directly.
+      type: float
+      default: 0.0
+      unit: Nm
+      decimal: 3
+    SIH_DM_AX:
+      description:
+        short: External moment X sine amplitude
+        long: |-
+          Body FRD axis. Load = bias + amplitude * sin(2*pi*frequency*t),
+          where t starts at the beginning of the disturbance window.
+          Force acts at the centre of mass; moment is applied directly.
+      type: float
+      default: 0.0
+      unit: Nm
+      decimal: 3
+    SIH_DM_AY:
+      description:
+        short: External moment Y sine amplitude
+        long: |-
+          Body FRD axis. Load = bias + amplitude * sin(2*pi*frequency*t),
+          where t starts at the beginning of the disturbance window.
+          Force acts at the centre of mass; moment is applied directly.
+      type: float
+      default: 0.0
+      unit: Nm
+      decimal: 3
+    SIH_DM_AZ:
+      description:
+        short: External moment Z sine amplitude
+        long: |-
+          Body FRD axis. Load = bias + amplitude * sin(2*pi*frequency*t),
+          where t starts at the beginning of the disturbance window.
+          Force acts at the centre of mass; moment is applied directly.
+      type: float
+      default: 0.0
+      unit: Nm
+      decimal: 3
+    SIH_DM_HX:
+      description:
+        short: External moment X sine frequency
+        long: |-
+          Body FRD axis. Load = bias + amplitude * sin(2*pi*frequency*t),
+          where t starts at the beginning of the disturbance window.
+          Force acts at the centre of mass; moment is applied directly.
+      type: float
+      default: 1.0
+      unit: Hz
+      decimal: 3
+      min: 0.0
+    SIH_DM_HY:
+      description:
+        short: External moment Y sine frequency
+        long: |-
+          Body FRD axis. Load = bias + amplitude * sin(2*pi*frequency*t),
+          where t starts at the beginning of the disturbance window.
+          Force acts at the centre of mass; moment is applied directly.
+      type: float
+      default: 1.0
+      unit: Hz
+      decimal: 3
+      min: 0.0
+    SIH_DM_HZ:
+      description:
+        short: External moment Z sine frequency
+        long: |-
+          Body FRD axis. Load = bias + amplitude * sin(2*pi*frequency*t),
+          where t starts at the beginning of the disturbance window.
+          Force acts at the centre of mass; moment is applied directly.
+      type: float
+      default: 1.0
+      unit: Hz
+      decimal: 3
+      min: 0.0

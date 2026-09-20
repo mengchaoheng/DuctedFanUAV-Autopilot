@@ -1,0 +1,75 @@
+#!/bin/sh
+#
+# @name SHW09_vtol SIH
+#
+# @type VTOL Ducted Fan
+# @class VTOL
+#
+
+. ${R}etc/init.d-posix/airframes/22006_gazebo-classic_SHW09_vtol
+
+# SIH INDI feedback alignment; retain the Classic gains and filters.
+param set-default MC_INDI_RATE_EN 1
+param set-default MPC_INDI_ACC_EN 1
+param set-default MC_INDI_T_DLY 0.025
+param set-default MPC_INDI_F_DLY 0.045
+
+PX4_SIMULATOR=${PX4_SIMULATOR:=sihsim}
+PX4_SIM_MODEL=${PX4_SIM_MODEL:=SHW09_vtol}
+
+param set-default SENS_EN_GPSSIM 1
+param set-default SENS_EN_BAROSIM 1
+param set-default SENS_EN_MAGSIM 1
+param set-default SENS_GPS0_DELAY 0
+param set-default SENS_GPS1_DELAY 0
+
+# Ducted-fan tailsitter branch in simulator_sih.
+param set SIH_VEHICLE_TYPE 7
+
+# Keep the rigid-body plant aligned with the controller/paper parameters.
+param set-default SIH_MASS 2.05
+param set-default SIH_IXX 0.050636
+param set-default SIH_IYY 0.042954
+param set-default SIH_IZZ 0.012668
+param set-default SIH_IXY 0
+param set-default SIH_IXZ 0
+param set-default SIH_IYZ 0
+
+# Main rotor maximum thrust used by the simplified plant.
+param set-default SIH_T_MAX 32.1984
+
+# Keep one motor time constant and separate servo lag in the SIH framework.
+param set-default SIH_T_TAU 0.0125
+
+# Matched physical model and IMU noise; PID tuning is inherited above.
+param set-default SIH_SV_TAU 0.03
+
+# Shared simple DF geometry and slipstream (SI units).
+param set-default SIH_DF_WASH 30.478
+param set-default SIH_DF_RAD 0.0664
+param set-default SIH_DF_ARM 0.2399
+param set-default SIH_DF_ANG 0.6981
+
+# Gazebo Classic SHW09_vtol disturbance preset: body FLU -> FRD.
+# Single window starts after enable; disabled by default, as running_time is zero.
+param set-default SIH_DIST_EN 0
+param set-default SIH_DIST_START 0
+param set-default SIH_DIST_DUR 200
+param set-default SIH_DF_BX 0
+param set-default SIH_DF_BY 0
+param set-default SIH_DF_BZ 0
+param set-default SIH_DF_AX 1
+param set-default SIH_DF_AY -1
+param set-default SIH_DF_AZ -5
+param set-default SIH_DF_HX 0.2
+param set-default SIH_DF_HY 0.4
+param set-default SIH_DF_HZ 0.2
+param set-default SIH_DM_BX 0
+param set-default SIH_DM_BY 0
+param set-default SIH_DM_BZ 0
+param set-default SIH_DM_AX 0.1
+param set-default SIH_DM_AY -0.1
+param set-default SIH_DM_AZ -0.01
+param set-default SIH_DM_HX 0.2
+param set-default SIH_DM_HY 0.4
+param set-default SIH_DM_HZ 0.2

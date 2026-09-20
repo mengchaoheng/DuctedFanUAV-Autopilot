@@ -144,4 +144,8 @@ px4_add_romfs_files(
 	22014_gazebo-classic_SHC09_d
 	22015_gazebo-classic_SHW09_vtol_d
 	22016_gz_iris
+	22017_sihsim_iris
+	22018_sihsim_ductedfan4
+	22019_sihsim_SHC09
+	22020_sihsim_SHW09_vtol
 )

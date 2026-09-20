@@ -1,0 +1,148 @@
+module_name: mc_om_mpc_indi
+parameters:
+- group: Multicopter OM-MPC INDI
+  definitions:
+    MC_OM_INDI_EN:
+      description:
+        short: Enable external OM-MPC INDI middle layer
+        long: |-
+          Starts the isolated acceleration-INDI/lift bridge. The bridge is
+          active only while fresh OmMpcSetpoint commands arrive; other
+          controllers use their existing paths and are unaffected.
+      type: boolean
+      default: 0
+    MC_OM_ACC_EN:
+      description:
+        short: Enable OM acceleration INDI and lift
+        long: Independent PX4-side ablation gate for acceleration INDI, minimum-rotation lift and body-rate reference compensation.
+      type: boolean
+      default: 1
+    MC_OM_ACC_GAIN:
+      description:
+        short: OM acceleration increment gain
+        long: |-
+          Gain on the acceleration-INDI thrust increment F_c-F_0. One is the
+          direct main.m law. Values below one provide explicit incremental
+          control authority tuning when estimator acceleration and allocated
+          force do not have ideal matched dynamics; this is not an output clamp.
+      type: float
+      default: 1.0
+      min: 0.0
+      max: 1.0
+      decimal: 2
+      increment: 0.05
+    MC_OM_DIST_EN:
+      description:
+        short: Enable OM disturbance feedback to MPC
+        long: Independent PX4-side ablation gate for publishing a valid matched acceleration disturbance to ROS.
+      type: boolean
+      default: 1
+    MC_OM_RATE_MAX:
+      description:
+        short: OM middle-layer maximum output rate
+        long: |-
+          Maximum VehicleRatesSetpoint publication rate. With acceleration INDI
+          enabled, the effective rate is limited by attitude publication and
+          this value; acceleration feedback is held between its own samples.
+          With acceleration INDI disabled, each new OmMpcSetpoint is forwarded
+          once.
+      type: float
+      default: 250.0
+      min: 50.0
+      max: 500.0
+      unit: Hz
+      decimal: 1
+    MC_OM_A_SRC:
+      description:
+        short: OM acceleration feedback source
+        long: |-
+          EKF acceleration is the NED linear acceleration from
+          VehicleLocalPosition. IMU acceleration is bias-corrected body-FRD
+          specific force from VehicleAcceleration, rotated to NED at its sample
+          time with gravity restored. Velocity differentiation is unsupported.
+      type: enum
+      values:
+        1: EKF acceleration
+        2: IMU acceleration
+      default: 1
+    MC_OM_A_LP:
+      description:
+        short: OM inertial feedback low-pass cutoff
+        long: |-
+          Second-order low-pass applied independently at each acceleration
+          source's real sample rate and to raw allocated force after rotation
+          to NED. Filtering the body-force magnitude before rotation does not
+          preserve the matched inertial acceleration/thrust expansion point.
+      type: float
+      default: 8.0
+      min: 0.0
+      max: 50.0
+      unit: Hz
+      decimal: 1
+      increment: 0.5
+    MC_OM_D_LIM:
+      description:
+        short: OM disturbance-feedback magnitude limit
+        long: Euclidean magnitude limit applied to the direct matched disturbance estimate. Zero disables the limit and matches main.m.
+      type: float
+      default: 0.0
+      min: 0.0
+      max: 20.0
+      unit: m/s^2
+      decimal: 2
+      increment: 0.1
+    MC_OM_F_DLY:
+      description:
+        short: OM allocated-force feedback delay
+        long: Additional timestamp delay used to phase-align allocator force and acceleration.
+      type: float
+      default: 0.0
+      min: 0.0
+      max: 0.1
+      unit: s
+      decimal: 3
+      increment: 0.005
+    MC_OM_TR_T:
+      description:
+        short: OM acceleration INDI transition time
+        long: Smoothstep transition from the nominal Lu command to the corrected command. Zero disables the transition and matches main.m.
+      type: float
+      default: 0.0
+      min: 0.0
+      max: 5.0
+      unit: s
+      decimal: 2
+      increment: 0.1
+    MC_OM_KPHI_R:
+      description:
+        short: OM bridge roll attitude gain
+      type: float
+      default: 0.5
+      min: 0.0
+      unit: 1/s
+      decimal: 2
+    MC_OM_KPHI_P:
+      description:
+        short: OM bridge pitch attitude gain
+      type: float
+      default: 0.5
+      min: 0.0
+      unit: 1/s
+      decimal: 2
+    MC_OM_KPHI_Y:
+      description:
+        short: OM bridge yaw attitude gain
+      type: float
+      default: 0.0
+      min: 0.0
+      unit: 1/s
+      decimal: 2
+    MC_OM_HOVER:
+      description:
+        short: OM bridge hover thrust
+        long: Normalized thrust corresponding to one g for the controlled vehicle.
+      type: float
+      default: 0.216
+      min: 0.01
+      max: 0.9
+      decimal: 4

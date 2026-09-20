@@ -12,12 +12,12 @@
 
 param set-default CA_AIRFRAME 0
 
-# QCAT WLS allocation, matching UAV_Algorithm_Benchmark/main.m:
-#   gamma = 1e6, Wu = I, ud = 0
-#   Wq = diag([0.001, 10, 10, 0.1]) in [Fz, Mx, My, Mz] order
-# CA_WLS_*_W stores diag(Wv), where Wv'Wv = Wq. PX4 wrench order is
-# [Mx, My, Mz, Fx, Fy, Fz]. Fx/Fy have no authority on Iris and their
-# weights therefore do not affect the actuator solution.
+# Hover checked with the 0.5 ms Iris motor model.
+# Baseline: rate INDI with the user-tuned position/velocity PID loop.
+# These are project defaults; saved user tuning remains effective.
+# Clear conflicting saved values once when adopting this revised baseline.
+# Sun et al. W=diag(0.001,10,10,0.1) in [Fz,Mx,My,Mz] order.
+# CA_WLS_*_W contains square-root weights; Fx/Fy have no authority.
 param set-default CA_METHOD 7
 param set-default CA_WLS_GAM 1000000
 param set-default CA_WLS_U_W 1.0
@@ -39,42 +39,53 @@ param set-default CA_WLS_FZ_W 0.03162278
 # Gazebo writes these vehicle properties directly on base_link. The IMU adds no
 # inertial link; the GPS and four rotor-link inertias are kept negligible.
 
-param set-default MC_INDI_P_P 12.0
-param set-default MC_INDI_R_P 12.0
-param set-default MC_INDI_Y_P 4.0
-param set-default MC_INDI_T_DLY 0.0
+param set-default MC_INDI_P_P 16
+param set-default MC_INDI_R_P 16
+param set-default MC_INDI_Y_P 8
+# Residual torque feedback delay for the near-instantaneous 0.5 ms motor model.
+param set-default MC_INDI_T_DLY 0.008
 
-# Tuned for this Gazebo Iris model.
+# Rate and EKF acceleration INDI: 100 Hz gyro, 8 Hz rate-feedback filters.
+# PID gains below remain available when INDI is disabled.
+# Small attitude reference feed-forward: fast/slow SITL comparison, 2026-09-09.
+# Analytic yaw-rate commands retain unity feed-forward independently.
+param set-default MC_REF_FF 0.25
+param set-default MC_REF_W_N 50.0
+param set-default MC_REF_FF_MAX 100.0
+param set-default MC_INDI_RATE_EN 1
+param set-default MPC_INDI_ACC_EN 1
+param set-default MC_OM_INDI_EN 0
+
+# User's latest attitude/PID-rate tuning; EKF velocity P gains refined in SITL.
 param set-default MC_ROLL_P 6.5
 param set-default MC_PITCH_P 6.5
-param set-default MC_YAW_P 5
+param set-default MC_YAW_P 6.5
 param set-default MC_YAW_WEIGHT 1.0
 
-param set-default MC_ROLLRATE_P 0.0222819
-param set-default MC_ROLLRATE_I 0.0299221
-param set-default MC_ROLLRATE_D 0.000182725
+param set-default MC_ROLLRATE_P 0.0210275054
+param set-default MC_ROLLRATE_I 0.02781181782
+param set-default MC_ROLLRATE_D 0
 param set-default MC_ROLLRATE_MAX 1145.9156
 
-param set-default MC_PITCHRATE_P 0.0188895
-param set-default MC_PITCHRATE_I 0.0249737
-param set-default MC_PITCHRATE_D 0.000131163
+param set-default MC_PITCHRATE_P 0.01802700385
+param set-default MC_PITCHRATE_I 0.02427786589
+param set-default MC_PITCHRATE_D 7.64306435e-07
 param set-default MC_PITCHRATE_MAX 1145.9156
 
-param set-default MC_YAWRATE_P 0.0324820
-param set-default MC_YAWRATE_I 0.0689804
-param set-default MC_YAWRATE_D 0.00118225
+param set-default MC_YAWRATE_P 0.07362189889
+param set-default MC_YAWRATE_I 0.07089558244
+param set-default MC_YAWRATE_D 0.0008332142024
 param set-default MC_YAWRATE_MAX 458.3662
 param set-default MC_YAW_TQ_CUTOFF 0
 
 param set-default MC_ATT_ERR_MODE 3
-param set-default MC_YAW_WEIGHT 1 # K_YAW=MC_YAW_P/MC_YAW_WEIGHT
 param set-default MPC_YAWRAUTO_ACC 360
 param set-default MPC_YAWRAUTO_MAX 360
 
-# Rate-feedback defaults used by the validated PX4 gz_iris configuration.
+# Feedback filters validated with the 0.5 ms SITL motor model.
 # MC_YAW_TQ_CUTOFF remains disabled above.
-param set-default IMU_GYRO_CUTOFF 125
-param set-default IMU_DGYRO_CUTOFF 10
+param set-default IMU_GYRO_CUTOFF 100
+param set-default IMU_DGYRO_CUTOFF 8
 param set-default CA_TORQ_CUTOFF 8
 
 # Rate INDI: inertia model
@@ -84,6 +95,7 @@ param set-default MC_J_Z 0.0043
 
 # 2. Acc INDI: selected acceleration source
 param set-default MPC_INDI_A_SRC 1
+param set-default MPC_INDI_F_SRC 1
 
 # SRC 0: velocity derivative
 param set-default MPC_VEL_LP 0
@@ -97,9 +109,10 @@ param set-default MPC_INDI_A_LP 8
 # SRC 2 upstream vehicle_acceleration filter
 param set-default IMU_ACCEL_CUTOFF 30
 
-# Acc INDI: physical force feedback F_0
-param set-default CA_FORCE_CUTOFF 8
-param set-default MPC_INDI_F_DLY 0.01
+# Acc INDI: allocated thrust feedback F_0
+param set-default CA_FORCE_CUTOFF 10
+# EKF acceleration / allocated-force alignment verified in SITL.
+param set-default MPC_INDI_F_DLY 0.034
 
 # Acc INDI: mass/force model
 param set-default MPC_MASS 0.75
@@ -109,14 +122,16 @@ param set-default THR_MDL_FAC 1.0
 # 0.75 kg * 9.8066 m/s^2 / (4 * 8.5 N)
 param set-default MPC_THR_HOVER 0.2163
 
-param set-default MPC_XY_P 2
-param set-default MPC_Z_P 1.5
-param set-default MPC_XY_VEL_P_ACC 3.0
+# Smooth position-step tuning: INDI uses velocity P only, never I or D.
+# I/D below belong to PID standby. Dedicated PID gains: Tools/iris_tuning/outer_pid.params.
+param set-default MPC_XY_P 1.2
+param set-default MPC_Z_P 2.0
+param set-default MPC_XY_VEL_P_ACC 4.0
 param set-default MPC_Z_VEL_P_ACC 10.0
-param set-default MPC_XY_VEL_I_ACC 5.0
-param set-default MPC_Z_VEL_I_ACC 3.0
-param set-default MPC_XY_VEL_D_ACC 0.5
-param set-default MPC_Z_VEL_D_ACC 0.5
+param set-default MPC_XY_VEL_I_ACC 1.0
+param set-default MPC_Z_VEL_I_ACC 1.0
+param set-default MPC_XY_VEL_D_ACC 0.4
+param set-default MPC_Z_VEL_D_ACC 0.4
 
 param set-default MPC_ACC_DOWN_MAX 15.0
 param set-default MPC_ACC_HOR 15.0
@@ -127,6 +142,8 @@ param set-default MPC_HOLD_MAX_Z 3.0
 param set-default MPC_JERK_AUTO 80.0
 param set-default MPC_JERK_MAX 500.0
 param set-default MPC_MAN_TILT_MAX 70.0
+# Preserve full yaw speed, but avoid impulsive torque demand on stick reversal.
+param set-default MPC_MAN_Y_TAU 0.4
 param set-default MPC_MAN_Y_MAX 400.0
 param set-default MPC_THR_MIN 0.05
 param set-default MPC_TILTMAX_AIR 89.0
@@ -140,24 +157,25 @@ param set-default MPC_Z_V_AUTO_DN 4.0
 param set-default MPC_Z_V_AUTO_UP 8.0
 
 
+# Exact rotor positions from iris.sdf.jinja, with Gazebo FLU Y converted to FRD.
 param set-default CA_ROTOR_COUNT 4
-param set-default CA_ROTOR0_PX 0.13
+param set-default CA_ROTOR0_PX 0.125
 param set-default CA_ROTOR0_PY 0.22
 param set-default CA_ROTOR0_KM 0.0157
 param set-default CA_ROTOR0_CT 8.5
 
-param set-default CA_ROTOR1_PX -0.13
-param set-default CA_ROTOR1_PY -0.20
+param set-default CA_ROTOR1_PX -0.1385
+param set-default CA_ROTOR1_PY -0.206
 param set-default CA_ROTOR1_KM 0.0157
 param set-default CA_ROTOR1_CT 8.5
 
-param set-default CA_ROTOR2_PX 0.13
-param set-default CA_ROTOR2_PY -0.22
+param set-default CA_ROTOR2_PX 0.125
+param set-default CA_ROTOR2_PY -0.223
 param set-default CA_ROTOR2_KM -0.0157
 param set-default CA_ROTOR2_CT 8.5
 
-param set-default CA_ROTOR3_PX -0.13
-param set-default CA_ROTOR3_PY 0.20
+param set-default CA_ROTOR3_PX -0.1385
+param set-default CA_ROTOR3_PY 0.2025
 param set-default CA_ROTOR3_KM -0.0157
 param set-default CA_ROTOR3_CT 8.5
 
@@ -165,3 +183,7 @@ param set-default PWM_MAIN_FUNC1 101
 param set-default PWM_MAIN_FUNC2 102
 param set-default PWM_MAIN_FUNC3 103
 param set-default PWM_MAIN_FUNC4 104
+
+# Autotune identifies PID candidates; validate before applying them.
+param set-default MC_AT_EN 1
+param set-default MC_AT_APPLY 0

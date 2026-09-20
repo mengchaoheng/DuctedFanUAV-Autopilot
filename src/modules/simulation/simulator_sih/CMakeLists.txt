@@ -55,10 +55,14 @@ if(PX4_PLATFORM MATCHES "posix")
 	set(models
 		airplane
 		quadx
+		iris
 		xvert
 		standard_vtol
 		hex
 		rover_ackermann
+		ductedfan4
+		SHC09
+		SHW09_vtol
 	)
 
 	# find corresponding airframes
