@@ -6,16 +6,16 @@ This repository is forked from [PX4-Autopilot](https://github.com/PX4/PX4-Autopi
 
 ![image](https://github.com/user-attachments/assets/3823e609-8981-4734-9921-8ac6dc98e9be)
 
-## Feature
-Development is now centered on the `df-main` branch, which tracks PX4 `main` after the `df-1.15.4` migration. The older `df-1.x.x` branches keep the PX4-versioned history, including the early `df-1.12.3` INDI and LPCA work documented in [PINDI](https://github.com/mengchaoheng/PINDI).
+## Features
 
-Compared with the upstream PX4 baseline around commit `82e3322e0cf0afc9ad640f37a0a8b639077b3fa4`, this workspace adds five connected pieces:
+The main development branch is `df-main`. PX4-versioned releases are maintained in the `df-1.x.x` branches; earlier INDI and LPCA work is documented in [PINDI](https://github.com/mengchaoheng/PINDI).
+
+The project extends PX4 with the following control and simulation features:
 
 * INDI control: the generic angular-rate law is integrated directly into PX4 [mc_rate_control](src/modules/mc_rate_control), which keeps the normal angular-rate PID fallback and supports an explicit MC torque-allocation matrix route. The acceleration-to-thrust correction is integrated in [mc_pos_control](src/modules/mc_pos_control). The controller design follows **Full-Mode Flight Control Framework for a Ducted-Fan Tail-Sitter UAV**.
 * Selectable attitude errors: [mc_att_control](src/modules/mc_att_control) adds the `MC_ATT_ERR_MODE` parameter for selecting among eight attitude-error formulations, including the PX4 reduced-attitude method, quaternion and SO(3) logarithm methods, DCM vee error, Tal-Karaman incremental error, tilt-prioritized quaternion error, and Yu tilt-torsion error. The default value `0` preserves the original PX4 behavior.
-* LPCA/PCA control allocation: [ControlAllocationLPCA.cpp](src/lib/control_allocation/control_allocation/ControlAllocationLPCA.cpp) adapts INV/DP_LPCA/DPscaled_LPCA/PCA to PX4, and [pca/ControlAllocation.h](src/lib/control_allocation/control_allocation/pca/ControlAllocation.h) contains the bounded LP implementation. The allocation algorithms follow **Aircraft control allocation** and the reference implementation in [control_allocation](https://github.com/mengchaoheng/control_allocation).
+* LPCA/PCA and WLS control allocation: [ControlAllocationLPCA.cpp](src/lib/control_allocation/control_allocation/ControlAllocationLPCA.cpp) adapts INV/DP_LPCA/DPscaled_LPCA/PCA to PX4, and [pca/ControlAllocation.h](src/lib/control_allocation/control_allocation/pca/ControlAllocation.h) contains the bounded LP implementation. [ControlAllocationWLS.cpp](src/lib/control_allocation/control_allocation/ControlAllocationWLS.cpp) adds bounded weighted least squares using the QCAT active-set algorithm (`CA_METHOD=7`). The LP allocation algorithms follow **Aircraft control allocation** and the reference implementation in [control_allocation](https://github.com/mengchaoheng/control_allocation).
 * Ducted-fan effectiveness backends: [ActuatorEffectivenessDuctedFan.cpp](src/modules/control_allocator/VehicleActuatorEffectiveness/ActuatorEffectivenessDuctedFan.cpp) supports non-VTOL ducted-fan airframes, and [ActuatorEffectivenessDuctedFanTailsitterVTOL.cpp](src/modules/control_allocator/VehicleActuatorEffectiveness/ActuatorEffectivenessDuctedFanTailsitterVTOL.cpp) supports ducted-fan tailsitter VTOL. These backends provide the physical force/torque effectiveness matrices used by allocation feedback and INDI.
-
 * SIH simulation: [simulator_sih](src/modules/simulation/simulator_sih) runs lightweight rigid-body physics inside PX4, including Iris, DF4, SHC09, and SHW09. Physical model parameters are independent of control allocation parameters. SIH is recommended for everyday controller development; Gazebo (gz) and Gazebo Classic remain equally important for scene/sensor simulation and comparison against plugin-based dynamics. See [Simulation](#simulation).
 
 Both Gazebo Classic and Gazebo (gz) support `ductedfan2`, `ductedfan4`, `ductedfan6`, `ductedfan_mini`, `SHC09`, and `SHW09_vtol`. The tilted vehicle is named `tilt_multirotor` in Gazebo Classic and `tiltrotor` in gz. See the [airframe startup scripts](ROMFS/px4fmu_common/init.d-posix/airframes), [Gazebo Classic SITL targets](src/modules/simulation/simulator_mavlink/sitl_targets_gazebo-classic.cmake), and [gz models](Tools/simulation/gz/models).
@@ -127,7 +127,7 @@ Run the following commands from the PX4 project root. Model names are case-sensi
 | SHC09 | `make px4_sitl_sih sihsim_SHC09` | Dedicated Gazebo Classic plugin equations and spline coefficients |
 | SHW09 VTOL | `make px4_sitl_sih sihsim_SHW09_vtol` | Simplified duct drive with six vanes and an equivalent whole-wing model |
 
-The built-in SIH targets also remain available:
+Additional built-in SIH targets:
 
 | Built-in model | Command |
 |---|---|
@@ -138,20 +138,11 @@ The built-in SIH targets also remain available:
 | Hexacopter | `make px4_sitl_sih sihsim_hex` |
 | Ackermann rover | `make px4_sitl_sih sihsim_rover_ackermann` |
 
-The four project SIH desktop airframes enable rate and acceleration INDI (`MC_INDI_RATE_EN=1`, `MPC_INDI_ACC_EN=1`), with the built-in PID fallback retained. DF4, SHC09 and SHW09 inherit Gazebo Classic gains and filters; Iris uses the gz Iris rate gains (15/15/4) and 20 Hz angular-acceleration/allocated-torque filters. SIH overrides the feedback alignment delays below. These are desktop starting values for hover and position-step flight, not a universal optimum or a Pixhawk timing calibration.
-
-| SIH aircraft | `MC_INDI_T_DLY` (s) | `MPC_INDI_F_DLY` (s) |
-|---|---:|---:|
-| Iris | 0.004 | 0.020 |
-| DF4 | 0.028 | 0.030 |
-| SHC09 | 0.022 | 0.000 |
-| SHW09 VTOL (multicopter flight) | 0.025 | 0.045 |
-
-Each feedback path keeps its existing filtering plus one configurable delay. The OM controller retains its separate configuration; these two delays belong to `mc_rate_control` and `mc_pos_control`. Saved parameter overrides take precedence over airframe defaults. After starting the selected SIH model, adopt only these new delay defaults in the PX4 shell with `param reset MC_INDI_T_DLY MPC_INDI_F_DLY` while disarmed; use `param show` to check the effective values. Existing saved INDI enable switches and gains are not reset by that command.
+The four project SIH desktop airframes enable rate and acceleration INDI with PID fallback, and include model-specific controller and feedback-delay defaults. These provide a starting point for desktop simulation; hardware timing needs separate tuning. See the [airframe startup scripts](ROMFS/px4fmu_common/init.d-posix/airframes) for the current values. Saved parameter overrides take precedence over these defaults.
 
 **Model and parameter conventions**
 
-`SIH_VEHICLE_TYPE` selects the physical model: `6=DF4`, `7=SHW09`, `8=SHC09`, `9=Iris`; original types `0..5` remain available. There is no additional `SIH_CLASSIC` switch.
+`SIH_VEHICLE_TYPE` selects the physical model: `6=DF4`, `7=SHW09`, `8=SHC09`, `9=Iris`; types `0..5` select the built-in models listed above.
 
 | Parameter group | Meaning |
 |---|---|
@@ -166,7 +157,7 @@ Each feedback path keeps its existing filtering plus one configurable delay. The
 
 The physical model does not read `CA_ROTOR*` parameters. SIH parameters describe the simulated aircraft; `CA_*` parameters describe the controller's allocation model. Their initial values can match, but changing allocation tuning must not change the physical plant.
 
-DF4/SHW09 vane flow combines body air-relative velocity with rotor-induced axial flow; vane forces contribute both lateral force and force-arm moments. SHW09 uses one equivalent wing with lift/drag, stall, elevon effects, and aerodynamic rate moments, including forward-flight roll damping. SHC09 retains its dedicated plugin equations without additional aerodynamic tuning multipliers. Its thrust law is not replaced by `SIH_T_MAX`.
+DF4/SHW09 vane flow combines body air-relative velocity with rotor-induced axial flow; vane forces contribute both lateral force and force-arm moments. SHW09 uses one equivalent wing with lift/drag, stall, elevon effects, and aerodynamic rate moments, including forward-flight roll damping. SHC09 uses its dedicated plugin equations, including a model-specific thrust law independent of `SIH_T_MAX`.
 
 Sensor-noise amplitudes are adjustable through `SIH_ACC_XY/Z`, `SIH_GYRO_XY/Z`, `SIH_ASPD_STD`, `SIM_MAG_STD_XY/Z`, `SIM_BARO_STD/DRIFT`, and `SIM_GPS_P_XY/P_Z/V_XY/V_Z/P_T/V_T`. White-noise amplitudes are per-sample standard deviations; GPS also has configurable correlation times. The shared GPS, barometer, and magnetometer settings apply to users of those simulation modules. Parameter descriptions and units are in the corresponding simulation module YAML files.
 
@@ -196,9 +187,9 @@ Use the project's modified [Hawkeye](https://github.com/mengchaoheng/Hawkeye). F
 ./build/hawkeye
 ```
 
-For desktop SIH, PX4 sends visualization data from UDP `19450` to Hawkeye's default UDP `19410` (both offset by the PX4 instance number). QGC connects separately on `14550`. **QGC forwarding is not required for SIH SITL.** Hawkeye only renders the aircraft; it does not calculate physics. The modified receiver filters non-autopilot heartbeats so QGC's own heartbeat cannot select the aircraft model group. For SHW09, the vehicle heartbeat selects the tailsitter group; press **M** to cycle to `SHW09_vtol`.
+For desktop SIH, PX4 sends visualization data from UDP `19450` to Hawkeye's default UDP `19410` (both offset by the PX4 instance number). QGC connects separately on `14550`. **QGC forwarding is not required for SIH SITL.** Hawkeye only renders the aircraft; it does not calculate physics. For SHW09, press **M** to cycle to `SHW09_vtol`.
 
-For SIH running on Pixhawk hardware, select the corresponding SIH airframe (`1106` Iris, `1107` DF4, `1108` SHC09, `1109` SHW09) with firmware containing `simulator_sih`. Connect USB to QGC and enable QGC MAVLink forwarding to `127.0.0.1:19410` for Hawkeye visualization. QGC forwarding is one-way: the USB stream must already contain the required attitude/position messages, including `HIL_STATE_QUATERNION` if simulation ground truth is desired. Do not rely on Hawkeye requests traversing that forwarding link. Hardware physical defaults are provided; desktop results do not establish on-board timing or complete controller-configuration equivalence.
+For SIH running on Pixhawk hardware, select the corresponding SIH airframe (`1106` Iris, `1107` DF4, `1108` SHC09, `1109` SHW09) with firmware containing `simulator_sih`. Connect USB to QGC and enable QGC MAVLink forwarding to `127.0.0.1:19410` for Hawkeye visualization. QGC forwarding is one-way: the USB stream must already contain the required attitude/position messages, including `HIL_STATE_QUATERNION` if simulation ground truth is desired. Do not rely on Hawkeye requests traversing that forwarding link. Hardware SIH includes physical-model defaults; tune controller timing for the flight controller in use.
 
 References: [PX4 SIH](https://docs.px4.io/main/en/sim_sih/), [SIH on hardware](https://docs.px4.io/main/en/sim_sih/hardware), and [QGC MAVLink forwarding](https://docs.qgroundcontrol.com/Stable_V5.0/en/qgc-user-guide/settings_view/mavlink.html).
 
@@ -247,7 +238,7 @@ The repository includes Gazebo Classic HITL models and flight-controller airfram
 
 These configurations use `SYS_HITL=1`. Select the matching airframe and world, and set the actual USB serial device in that world's HITL model SDF. The supported SITL aircraft list does not imply a matching HITL configuration for every model.
 
-**HITL latency and the recommended workflow:** in Gazebo Classic HITL, simulated sensor data travels from the computer to Pixhawk, and actuator commands travel back over USB/serial. Both transfers are inside the feedback loop. Transport, buffering, and host scheduling add latency and jitter; in this project's usage, that makes HITL less convenient than SIH for fast inner-loop tuning. The exact delay depends on the computer, message rates, and link configuration.
+**HITL latency and the recommended workflow:** in Gazebo Classic HITL, simulated sensor data travels from the computer to Pixhawk, and actuator commands travel back over USB/serial. Both transfers are inside the feedback loop. Transport, buffering, and host scheduling add latency and jitter to the feedback loop. The exact delay depends on the computer, message rates, and link configuration.
 
 For everyday PID/INDI development on Pixhawk, **prefer hardware SIH (`SYS_HITL=2`)**: physics and control run on the board, so no external serial round trip is required for the simulated sensor/actuator feedback. Hawkeye/QGC traffic is used for visualization and operation rather than calculating the physical feedback. SIH still retains its configured actuator lag and sensor processing. Use Gazebo Classic HITL when the external aerodynamic plugins, environment, or hardware communication path are part of what you need to exercise; gz and Gazebo Classic SITL remain important complementary options.
 
