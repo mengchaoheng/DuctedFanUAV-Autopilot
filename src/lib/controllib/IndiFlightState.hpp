@@ -1,34 +1,45 @@
 #pragma once
 
 /** Shared INDI flight eligibility for acceleration and rate control.
- * After the first ground contact following flight, keep PID selected until
- * disarm. Ground-contact flicker must not reactivate airborne feedback on the ground.
+ * Ground detection after flight requires a new parameter or RC off-to-on edge.
+ * Disarming clears the latch for the next flight. Ground operation is always PID.
  */
 class IndiFlightState
 {
 public:
-	bool update(bool armed, bool has_taken_off, bool ground_contact, bool maybe_landed, bool landed)
+	bool update(bool armed, bool has_taken_off, bool ground_contact, bool maybe_landed, bool landed,
+		    bool parameter_enabled, bool rc_enabled, bool rc_valid)
 	{
+		const bool on_ground = ground_contact || maybe_landed || landed;
+		const bool airborne = armed && has_taken_off && !on_ground;
+		const bool retrigger = (parameter_enabled && !_parameter_enabled_previous)
+				       || (rc_valid && rc_enabled && !_rc_enabled_previous);
+
 		if (!armed) {
-			_airborne_seen = false;
-			_touchdown = false;
-			return false;
+			_retrigger_required = false;
+
+		} else if (_airborne_previous && on_ground) {
+			_retrigger_required = true;
+
+		} else if (retrigger) {
+			_retrigger_required = false;
 		}
 
-		if (!has_taken_off) {
-			return false;
+		_airborne_previous = airborne;
+		_parameter_enabled_previous = parameter_enabled;
+
+		// Signal loss/recovery must not turn a held-high RC switch into an edge.
+		if (rc_valid) {
+			_rc_enabled_previous = rc_enabled;
 		}
 
-		if (ground_contact || maybe_landed || landed) {
-			_touchdown |= _airborne_seen;
-			return false;
-		}
-
-		_airborne_seen = true;
-		return !_touchdown;
+		// Request gating remains in the caller, preserving normal PID/INDI blending.
+		return airborne && !_retrigger_required;
 	}
 
 private:
-	bool _airborne_seen{false};
-	bool _touchdown{false};
+	bool _airborne_previous{false};
+	bool _parameter_enabled_previous{false};
+	bool _rc_enabled_previous{false};
+	bool _retrigger_required{false};
 };

@@ -50,12 +50,11 @@ constexpr int32_t kDuctedFanTailsitterVtolAirframe = 17;
 constexpr unsigned kRateIndiRcChannel = 11; // RC12
 constexpr hrt_abstime kRcSignalTimeout = 500_ms;
 
-bool rcChannelEnabled(const rc_channels_s &rc_channels, unsigned channel)
+bool rcChannelValid(const rc_channels_s &rc_channels, unsigned channel)
 {
 	return (rc_channels.channel_count > channel)
 	       && !rc_channels.signal_lost
-	       && (hrt_elapsed_time(&rc_channels.timestamp) < kRcSignalTimeout)
-	       && (rc_channels.channels[channel] >= 0.f);
+	       && (hrt_elapsed_time(&rc_channels.timestamp) < kRcSignalTimeout);
 }
 
 bool indiAllocationFeedbackSupported(int32_t airframe)
@@ -336,9 +335,13 @@ MulticopterRateControl::Run()
 		}
 
 		_vehicle_status_sub.update(&_vehicle_status);
-		const bool indi_flight_enabled = _indi_flight_state.update(_vehicle_control_mode.flag_armed,
-						_vehicle_status.takeoff_time != 0, _ground_contact, _maybe_landed, _landed);
 		_rc_channels_sub.update(&_rc_channels);
+		const bool indi_parameter_enabled = _param_mc_indi_rate_en.get() == 1;
+		const bool indi_rc_valid = rcChannelValid(_rc_channels, kRateIndiRcChannel);
+		const bool indi_rc_enabled = indi_rc_valid && _rc_channels.channels[kRateIndiRcChannel] >= 0.f;
+		const bool indi_flight_enabled = _indi_flight_state.update(_vehicle_control_mode.flag_armed,
+						_vehicle_status.takeoff_time != 0, _ground_contact, _maybe_landed, _landed,
+						indi_parameter_enabled, indi_rc_enabled, indi_rc_valid);
 		// Keep the filtered allocated-torque history warm even while PID is active,
 		// so a requested delayed sample is immediately available on INDI entry.
 		updateAllocatedTorqueHistory();
@@ -412,8 +415,7 @@ MulticopterRateControl::Run()
 			Vector3f torque_setpoint =
 				_rate_control.update(rates, _rates_setpoint, angular_accel, dt, _maybe_landed || _landed);
 			Vector3f indi_feedback{};
-			const bool indi_requested = (_param_mc_indi_rate_en.get() == 1)
-						    || rcChannelEnabled(_rc_channels, kRateIndiRcChannel);
+			const bool indi_requested = indi_parameter_enabled || indi_rc_enabled;
 			const bool indi_active = _indi_capable && indi_requested && indi_flight_enabled
 						 && computeIndiTorqueSetpoint(rates, _rates_setpoint, angular_accel, now,
 							 torque_setpoint, indi_feedback);

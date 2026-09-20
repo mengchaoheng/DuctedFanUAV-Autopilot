@@ -10,7 +10,7 @@ parameters:
           active only while fresh OmMpcSetpoint commands arrive; other
           controllers use their existing paths and are unaffected.
       type: boolean
-      default: 1
+      default: 0
     MC_OM_ACC_EN:
       description:
         short: Enable OM acceleration INDI and lift
