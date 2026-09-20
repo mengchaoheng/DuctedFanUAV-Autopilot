@@ -136,7 +136,7 @@ TEST(ControlAllocationLPCATest, AllSupportedDimensions)
 	for (const ControlAllocationLPCA::Method method : {ControlAllocationLPCA::Method::DPLPCA,
 			ControlAllocationLPCA::Method::DPscaledLPCA}) {
 		for (int rows = 3; rows <= 4; ++rows) {
-			for (int actuators = 4; actuators <= 9; ++actuators) {
+			for (const int actuators : {4, 6, 8}) {
 				expectSupportedProblem(method, rows, actuators);
 			}
 		}
@@ -186,7 +186,7 @@ TEST(ControlAllocationLPCATest, DPscaledCleansDegenerateArtificialBasis)
 TEST(ControlAllocationLPCATest, PriorityAllocation)
 {
 	ControlAllocationLPCA allocator(ControlAllocationLPCA::Method::PCA);
-	configure(allocator, makeEffectiveness(3, 9), 9);
+	configure(allocator, makeEffectiveness(3, 8), 8);
 
 	const ControlVector control = makeControlSetpoint(3);
 	ControlVector higher;
@@ -202,13 +202,13 @@ TEST(ControlAllocationLPCATest, PriorityAllocation)
 	EXPECT_FALSE(allocator.usedFallback());
 	EXPECT_EQ(allocator.getDiagnostics().solver_status, 1);
 	EXPECT_EQ(allocator.getDiagnostics().solver_err, 0);
-	expectFiniteAndBounded(allocator, 9);
+	expectFiniteAndBounded(allocator, 8);
 }
 
 TEST(ControlAllocationLPCATest, PriorityRequiresExplicitSplit)
 {
 	ControlAllocationLPCA priority(ControlAllocationLPCA::Method::PCA);
-	configure(priority, makeEffectiveness(3, 9), 9);
+	configure(priority, makeEffectiveness(3, 8), 8);
 
 	priority.setControlSetpoint(makeControlSetpoint(3));
 	priority.allocate();
@@ -222,7 +222,7 @@ TEST(ControlAllocationLPCATest, PriorityRequiresExplicitSplit)
 TEST(ControlAllocationLPCATest, PriorityAcceptsZeroHigherCommand)
 {
 	ControlAllocationLPCA priority(ControlAllocationLPCA::Method::PCA);
-	configure(priority, makeEffectiveness(3, 9), 9);
+	configure(priority, makeEffectiveness(3, 8), 8);
 	ControlVector higher;
 	higher.setZero();
 
@@ -239,13 +239,13 @@ TEST(ControlAllocationLPCATest, PriorityAcceptsZeroHigherCommand)
 TEST(ControlAllocationLPCATest, SustainedSaturationRemainsBounded)
 {
 	ControlAllocationLPCA allocator(ControlAllocationLPCA::Method::DPscaledLPCA);
-	configure(allocator, makeEffectiveness(4, 9), 9);
+	configure(allocator, makeEffectiveness(4, 8), 8);
 
 	for (int iteration = 0; iteration < 250; ++iteration) {
 		const float sign = (iteration & 1) ? -1.f : 1.f;
 		allocator.setControlSetpoint(makeControlSetpoint(4, 20.f * sign));
 		allocator.allocate();
-		expectFiniteAndBounded(allocator, 9);
+		expectFiniteAndBounded(allocator, 8);
 	}
 }
 
@@ -328,4 +328,23 @@ TEST(ControlAllocationLPCATest, UnsupportedDimensionsFallBackToInverse)
 	EXPECT_EQ(too_many_rows.getDiagnostics().solver_status, -1);
 	EXPECT_EQ(too_many_rows.getDiagnostics().solver_err, 2);
 	expectFiniteAndBounded(too_many_rows, 5);
+}
+
+TEST(ControlAllocationLPCATest, UnsupportedActuatorCountsFallBackToInverse)
+{
+	for (const auto method : {ControlAllocationLPCA::Method::DPLPCA,
+		     ControlAllocationLPCA::Method::DPscaledLPCA, ControlAllocationLPCA::Method::PCA}) {
+		for (const int rows : {3, 4}) {
+			for (const int actuators : {5, 7, 9, 10}) {
+				ControlAllocationLPCA allocator(method);
+				configure(allocator, makeEffectiveness(rows, actuators), actuators);
+				allocator.setControlSetpoint(makeControlSetpoint(rows));
+				allocator.allocate();
+				EXPECT_TRUE(allocator.usedFallback());
+				EXPECT_EQ(allocator.getDiagnostics().solver_status, -1);
+				EXPECT_EQ(allocator.getDiagnostics().solver_err, 3);
+				expectFiniteAndBounded(allocator, actuators);
+			}
+		}
+	}
 }

@@ -181,24 +181,12 @@ bool dispatchLPCAColumns(int cols, LPCAMethod method,
 		if constexpr (Rows <= 4) { return runLPCA<Rows, 4>(method, b_par, y_par, y_higher_par, y_lower_par, actuator_min, actuator_max, output, diagnostics); }
 		break;
 
-	case 5:
-		if constexpr (Rows <= 5) { return runLPCA<Rows, 5>(method, b_par, y_par, y_higher_par, y_lower_par, actuator_min, actuator_max, output, diagnostics); }
-		break;
-
 	case 6:
 		if constexpr (Rows <= 6) { return runLPCA<Rows, 6>(method, b_par, y_par, y_higher_par, y_lower_par, actuator_min, actuator_max, output, diagnostics); }
 		break;
 
-	case 7:
-		if constexpr (Rows <= 7) { return runLPCA<Rows, 7>(method, b_par, y_par, y_higher_par, y_lower_par, actuator_min, actuator_max, output, diagnostics); }
-		break;
-
 	case 8:
 		if constexpr (Rows <= 8) { return runLPCA<Rows, 8>(method, b_par, y_par, y_higher_par, y_lower_par, actuator_min, actuator_max, output, diagnostics); }
-		break;
-
-	case 9:
-		if constexpr (Rows <= 9) { return runLPCA<Rows, 9>(method, b_par, y_par, y_higher_par, y_lower_par, actuator_min, actuator_max, output, diagnostics); }
 		break;
 	}
 
@@ -552,7 +540,7 @@ ControlAllocationLPCA::lpcaUnavailableReason() const
 		return kLPCAUnavailableRows;
 	}
 
-	if (_num_actuators < 4 || _num_actuators > 9 || _num_actuators < _num_active_rows) {
+	if (_num_actuators != 4 && _num_actuators != 6 && _num_actuators != 8) {
 		return kLPCAUnavailableActuators;
 	}
 
