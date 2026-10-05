@@ -609,6 +609,10 @@ ControlAllocator::Run()
 		if (_vehicle_control_mode_sub.update(&vehicle_control_mode)) {
 			const bool publish_controls_prev = _publish_controls;
 			_publish_controls = vehicle_control_mode.flag_control_allocation_enabled;
+			_offboard_direct_wrench = vehicle_control_mode.flag_control_offboard_enabled
+						 && vehicle_control_mode.flag_control_allocation_enabled
+						 && !vehicle_control_mode.flag_control_rates_enabled
+						 && !vehicle_control_mode.flag_control_attitude_enabled;
 
 			if (publish_controls_prev && !_publish_controls) {
 				reset_allocation_feedback_state(allocation_feedback_filter_status_s::FILTER_EVENT_GAP);
@@ -683,6 +687,22 @@ ControlAllocator::Run()
 				c[1](4) = vehicle_thrust_setpoint.xyz[1];
 				c[1](5) = vehicle_thrust_setpoint.xyz[2];
 			}
+		}
+
+		// DDS direct-wrench input publishes instance 0. Native CA16 rate control
+		// routes torque to instance 1 itself, but it is disabled in this Offboard
+		// mode. Route the external torque and its INDI priority split to the
+		// surface matrix while keeping instance 0 as the allocator trigger.
+		if (_offboard_direct_wrench && _effectiveness_source_id == EffectivenessSource::DUCTED_FAN
+		    && _num_control_allocation == 2) {
+			const int torque_matrix = indi_torque_matrix();
+
+			for (int axis = 0; axis < 3; axis++) {
+				c[torque_matrix](axis) = _torque_sp(axis);
+			}
+
+			torque_sp_indi_feedback[torque_matrix] = _torque_sp_indi_feedback;
+			torque_sp_indi_feedback_valid[torque_matrix] = _torque_sp_indi_feedback_valid;
 		}
 
 		_actuator_group_preflight_check.applyOverrides(c, _is_vtol, *_actuator_effectiveness);

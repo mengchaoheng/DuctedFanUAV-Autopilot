@@ -240,6 +240,7 @@ private:
 	bool _torque_sp_indi_feedback_valid{false};
 	matrix::Vector3f _thrust_sp;
 	bool _publish_controls{true};
+	bool _offboard_direct_wrench{false};
 
 	// Reflects motor failures that are currently handled, not motor failures that are reported.
 	// For example, the system might report two motor failures, but only the first one is handled by CA

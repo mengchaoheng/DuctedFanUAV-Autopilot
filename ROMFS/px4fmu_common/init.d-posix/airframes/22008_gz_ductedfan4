@@ -46,6 +46,11 @@ param set-default MC_YAWRATE_FF 0
 # The 1.56 kg model hovers at motor signal x=0.7146. With the quadratic
 # thrust model MPC_THR_HOVER=x^2 and Fmax=mass*g/MPC_THR_HOVER.
 param set-default MPC_THR_HOVER 0.510653
+# The OM bridge uses its own normalized one-g mapping, independently of MPC.
+# mass*g/Fmax = 1.56*9.81/29.9584 = 0.510653.
+param set-default MC_OM_HOVER 0.510653
+# Match the DF4 allocation-force feedback bandwidth.
+param set-default MC_OM_A_LP 5
 param set-default THR_MDL_FAC 1
 param set-default RTL_RETURN_ALT 2.5
 param set-default RTL_DESCEND_ALT 2.5
