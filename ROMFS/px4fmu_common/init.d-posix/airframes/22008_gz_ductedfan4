@@ -111,3 +111,11 @@ param set-default SIM_GZ_SV_MAXA4 20
 
 param set-default SDLOG_PROFILE 27
 param set-default SDLOG_MODE 0
+
+# Enable the OM Offboard middle layer; rate-loop selection is independent.
+param set-default MC_OM_INDI_EN 1
+param set-default MC_OM_ACC_EN 1
+param set-default MC_OM_DIST_EN 1
+
+# Align allocated-force feedback with the OM acceleration estimate.
+param set-default MC_OM_F_DLY 0.02

@@ -69,3 +69,13 @@ param set-default SIH_DM_AZ -0.01
 param set-default SIH_DM_HX 0.2
 param set-default SIH_DM_HY 0.4
 param set-default SIH_DM_HZ 0.2
+
+# Enable the OM Offboard middle layer; rate-loop selection is independent.
+param set-default MC_OM_INDI_EN 1
+param set-default MC_OM_ACC_EN 1
+param set-default MC_OM_DIST_EN 1
+param set-default MC_OM_HOVER 0.510653
+param set-default MC_OM_A_LP 5
+
+# Align allocated-force feedback with the OM acceleration estimate.
+param set-default MC_OM_F_DLY 0.02
