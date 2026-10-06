@@ -347,3 +347,64 @@ TEST(LockstepScheduler, All)
 		test_multiple_semaphores_waiting();
 	}
 }
+
+// Every due waiter must be notified, including batches larger than 32.
+TEST(LockstepScheduler, AllDueWaitersAreNotified)
+{
+	constexpr int count = 48;
+	LockstepScheduler scheduler;
+	scheduler.set_absolute_time(1);
+	pthread_mutex_t mutexes[count];
+	pthread_cond_t conditions[count];
+	std::vector<std::unique_ptr<TestThread>> threads;
+	std::atomic<int> ready{0};
+	std::atomic<int> completed{0};
+
+	for (int i = 0; i < count; ++i) {
+		ASSERT_EQ(pthread_mutex_init(&mutexes[i], nullptr), 0);
+		ASSERT_EQ(pthread_cond_init(&conditions[i], nullptr), 0);
+		threads.emplace_back(new TestThread([&, i]() {
+			pthread_mutex_lock(&mutexes[i]);
+			++ready;
+			EXPECT_EQ(scheduler.cond_timedwait(&conditions[i], &mutexes[i], 10000), ETIMEDOUT);
+			pthread_mutex_unlock(&mutexes[i]);
+			++completed;
+		}));
+	}
+
+	while (ready < count) {
+		std::this_thread::yield();
+	}
+
+	// Acquiring each mutex ensures its waiter has registered and entered wait.
+	for (int i = 0; i < count; ++i) {
+		pthread_mutex_lock(&mutexes[i]);
+		pthread_mutex_unlock(&mutexes[i]);
+	}
+
+	scheduler.set_absolute_time(10000);
+	const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(1);
+
+	while (completed < count && std::chrono::steady_clock::now() < deadline) {
+		scheduler.set_absolute_time(10000);
+		std::this_thread::yield();
+	}
+
+	EXPECT_EQ(completed.load(), count);
+
+	// Release any missed waiters so a regression reports failure without hanging.
+	for (int i = 0; i < count; ++i) {
+		pthread_mutex_lock(&mutexes[i]);
+		pthread_cond_broadcast(&conditions[i]);
+		pthread_mutex_unlock(&mutexes[i]);
+	}
+
+	for (auto &thread : threads) {
+		thread->join(scheduler);
+	}
+
+	for (int i = 0; i < count; ++i) {
+		EXPECT_EQ(pthread_cond_destroy(&conditions[i]), 0);
+		EXPECT_EQ(pthread_mutex_destroy(&mutexes[i]), 0);
+	}
+}
