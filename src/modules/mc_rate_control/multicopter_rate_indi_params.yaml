@@ -2,6 +2,40 @@ module_name: mc_rate_control
 parameters:
 - group: Multicopter Rate INDI
   definitions:
+    MC_INDI_V_EN:
+      description:
+        short: Enable rate INDI vane compensation
+        long: |-
+          Enables dynamic vane-effectiveness estimation using MC_INDI_V_W and
+          MC_INDI_M_TAU. Independent of MC_INDI_RATE_EN: disabling this model
+          restores the original fixed-effectiveness rate INDI law.
+          Calibration values are retained. This model is not enabled by default.
+      type: boolean
+      default: 0
+    MC_INDI_V_W:
+      description:
+        short: Rate INDI vane wash at hover
+        long: |-
+          Hover slipstream speed at nominal vane-effectiveness calibration.
+          When MC_INDI_V_EN is enabled, positive values select the axial-momentum outlet-flow
+          model used by DF4/SHC09, with rotor-speed response and measured
+          axial velocity. Zero preserves the fixed-effectiveness quadrotor law.
+      type: float
+      default: 0.0
+      min: 0.0
+      max: 100.0
+      unit: m/s
+      decimal: 2
+    MC_INDI_M_TAU:
+      description:
+        short: Rate INDI vane motor time constant
+        long: Rotor-speed response time used when vane compensation is enabled.
+      type: float
+      default: 0.03
+      min: 0.0
+      max: 0.5
+      unit: s
+      decimal: 3
     MC_INDI_R_P:
       description:
         short: INDI roll rate proportional gain

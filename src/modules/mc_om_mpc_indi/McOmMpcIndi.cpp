@@ -207,19 +207,23 @@ void McOmMpcIndi::updateForceHistory()
 	const Vector3f force_body(allocation.raw_allocated_force);
 	const Vector3f force_scale(allocation.force_setpoint_scale);
 	sample.time_us = allocation.timestamp;
-	// This is allocated command feedback, not measured motor thrust. Remaining
-	// actuator/estimator delay must be evaluated separately in flight logs.
-	const Dcmf force_attitude = attitudeAt(
-		allocation.timestamp, Dcmf(Quatf(_vehicle_attitude.q)));
-	updateAccelerationFilter(force_attitude * force_body.emult(force_scale),
-		allocation.timestamp, _force_filter);
-	sample.allocated_force_ned = _force_filter.value;
+	sample.allocated_force_body = force_body.emult(force_scale);
+
+	if (!PX4_ISFINITE(_param_force_delay.get()) || _param_force_delay.get() <= FLT_EPSILON) {
+		// Preserve the zero-delay path. With actuator delay, retain body-frame
+		// history instead: motor lag must not delay the aircraft's attitude.
+		const Dcmf force_attitude = attitudeAt(
+			allocation.timestamp, Dcmf(Quatf(_vehicle_attitude.q)));
+		updateAccelerationFilter(force_attitude * sample.allocated_force_body,
+			allocation.timestamp, _force_filter);
+		sample.allocated_force_ned = _force_filter.value;
+	}
 	_force_history.push(sample);
 	_force_history_last_timestamp = sample.time_us;
 }
 
 bool McOmMpcIndi::getDelayedAllocatedForce(uint64_t reference_timestamp,
-		Vector3f &allocated_force_ned)
+		Vector3f &allocated_force_ned, bool body_frame)
 {
 	_force_feedback_timestamp = 0;
 	if (_force_history.empty()
@@ -232,9 +236,12 @@ bool McOmMpcIndi::getDelayedAllocatedForce(uint64_t reference_timestamp,
 	const uint64_t delay_us = static_cast<uint64_t>(delay_s * 1e6f);
 	const uint64_t target = reference_timestamp > delay_us ? reference_timestamp - delay_us : 0;
 	const ForceSample &newest = _force_history.get_newest();
+	const auto force = [body_frame](const ForceSample &sample) {
+		return body_frame ? sample.allocated_force_body : sample.allocated_force_ned;
+	};
 
 	if (target >= newest.time_us) {
-		allocated_force_ned = newest.allocated_force_ned;
+		allocated_force_ned = force(newest);
 		_force_feedback_timestamp = newest.time_us;
 		return allocated_force_ned.isAllFinite();
 	}
@@ -248,12 +255,12 @@ bool McOmMpcIndi::getDelayedAllocatedForce(uint64_t reference_timestamp,
 	for (int entry = 0; entry < _force_history.entries(); ++entry) {
 		const ForceSample &sample = _force_history[index];
 
-		if (sample.time_us <= target && sample.allocated_force_ned.isAllFinite()) {
+		if (sample.time_us <= target && force(sample).isAllFinite()) {
 			older = sample;
 			older_valid = true;
 		}
 
-		if (sample.time_us >= target && sample.allocated_force_ned.isAllFinite()) {
+		if (sample.time_us >= target && force(sample).isAllFinite()) {
 			newer = sample;
 			newer_valid = true;
 			break;
@@ -266,13 +273,13 @@ bool McOmMpcIndi::getDelayedAllocatedForce(uint64_t reference_timestamp,
 		return false;
 	}
 
-	allocated_force_ned = older.allocated_force_ned;
+	allocated_force_ned = force(older);
 	_force_feedback_timestamp = older.time_us;
 
 	if (newer_valid && newer.time_us > older.time_us) {
 		const float alpha = static_cast<float>(target - older.time_us)
 				    / static_cast<float>(newer.time_us - older.time_us);
-		allocated_force_ned += (newer.allocated_force_ned - older.allocated_force_ned) * alpha;
+		allocated_force_ned += (force(newer) - force(older)) * alpha;
 		_force_feedback_timestamp = target;
 	}
 
@@ -419,11 +426,24 @@ void McOmMpcIndi::Run()
 	const Vector3f acceleration_ned = selected.value;
 	Vector3f allocated_force_ned{NAN, NAN, NAN};
 	Vector3f allocated_force_raw{NAN, NAN, NAN};
+	const bool delayed_body_force = PX4_ISFINITE(_param_force_delay.get())
+					&& _param_force_delay.get() > FLT_EPSILON;
 	bool force_valid = acceleration_fresh
-			&& getDelayedAllocatedForce(selected.timestamp, allocated_force_raw);
+			&& getDelayedAllocatedForce(selected.timestamp, allocated_force_raw, delayed_body_force);
 
 	if (force_valid) {
-		allocated_force_ned = allocated_force_raw;
+		if (delayed_body_force) {
+			// Delay magnitude in the body frame, then rotate using the attitude
+			// at the acceleration sample. Filter both inertial paths at that
+			// same sample rate; never rotate with R(t-delay).
+			const Dcmf force_attitude = attitudeAt(selected.timestamp, attitude);
+			updateAccelerationFilter(force_attitude * allocated_force_raw,
+				selected.timestamp, _force_filter);
+			allocated_force_ned = _force_filter.value;
+
+		} else {
+			allocated_force_ned = allocated_force_raw;
+		}
 		force_valid = allocated_force_ned.isAllFinite();
 	}
 	const bool feedback_valid = enabled && acceleration_fresh && force_valid;

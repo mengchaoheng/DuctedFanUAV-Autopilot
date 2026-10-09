@@ -76,8 +76,11 @@ private:
 	bool _radial_symmetry{false};
 	bool _reversible{false};
 	bool _wash_only{false};
+	bool _axial_flow_only{false};
+	bool _axial_momentum_flow{false};
 
 	gz::math::Vector3d _cp{0.0, 0.0, 0.0};
+	gz::math::Vector3d _axial_flow_axis{1.0, 0.0, 0.0};
 	gz::math::Vector3d _forward{1.0, 0.0, 0.0};
 	gz::math::Vector3d _upward{0.0, 0.0, 1.0};
 };

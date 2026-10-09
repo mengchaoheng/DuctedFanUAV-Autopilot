@@ -87,7 +87,7 @@ TEST(OmMpcIndiControl, TranslationalIncrementGainScalesOnlyTheIncrement)
 	expectVectorNear(output.thrust_ned, expected_force);
 }
 
-TEST(OmMpcIndiControl, AntipodeUsesDeterministicBodyXAxis)
+TEST(OmMpcIndiControl, AntipodeDoesNotOverrideNominalRotation)
 {
 	const Vector3f gain{0.5f, 0.25f, 0.f};
 	const auto control = makeControl(gain);
@@ -99,7 +99,7 @@ TEST(OmMpcIndiControl, AntipodeUsesDeterministicBodyXAxis)
 	ASSERT_TRUE(control.update(Dcmf{}, Vector3f{}, nominal_thrust_body, Vector3f{},
 		measured_acceleration, allocated, output));
 	expectVectorNear(output.attitude_error, Vector3f{M_PI_F, 0.f, 0.f});
-	expectVectorNear(output.rates_setpoint, Vector3f{gain(0) * M_PI_F, 0.f, 0.f});
+	expectVectorNear(output.rates_setpoint, Vector3f{});
 }
 
 TEST(OmMpcIndiControl, ZeroCorrectedThrustRemainsFinite)
@@ -141,4 +141,63 @@ TEST(OmMpcIndiControl, MatchedInertialFiltersPreserveNominalDuringFastRotation)
 			(acceleration - gravity - force_ned * (kGravity / kHoverThrust)).norm());
 	}
 	EXPECT_GT(old_path_max_error, 1.f);
+}
+
+TEST(OmMpcIndiControl, ZeroCorrectedThrustKeepsNominalRatesWithoutRestoringThrust)
+{
+	const auto control = makeControl();
+	OmMpcIndiControl::Output output{};
+	const Vector3f nominal{0.f, 0.f, -kHoverThrust};
+	const Vector3f rates{-3.f, 0.f, 0.f};
+	ASSERT_TRUE(control.update(Dcmf{}, rates, nominal, Vector3f{},
+		Vector3f{0.f, 0.f, -kGravity}, nominal, output));
+	expectVectorNear(output.rates_setpoint, rates);
+	expectVectorNear(output.thrust_body, Vector3f{});
+}
+
+TEST(OmMpcIndiControl, SmallAngleRetainsGainAndAntipodeIsContinuous)
+{
+	const Vector3f gain{0.5f, 0.5f, 0.f};
+	const auto control = makeControl(gain);
+	const Vector3f nominal{0.f, 0.f, -kHoverThrust};
+	const Vector3f rates{-3.f, 0.f, 0.f};
+	for (float angle : {1e-3f, M_PI_F - 1e-3f, M_PI_F + 1e-3f}) {
+		const Vector3f corrected{0.f, kHoverThrust * sinf(angle), -kHoverThrust * cosf(angle)};
+		const Vector3f acceleration = (nominal - corrected) * (kGravity / kHoverThrust);
+		OmMpcIndiControl::Output output{};
+		ASSERT_TRUE(control.update(Dcmf{}, rates, nominal, Vector3f{}, acceleration, nominal, output));
+		EXPECT_NEAR(output.rates_setpoint(0), rates(0) + gain(0) * sinf(angle), kTolerance);
+		EXPECT_LT((output.rates_setpoint - rates).norm(), 1e-3f);
+	}
+}
+
+TEST(OmMpcIndiControl, VanishingCorrectedForceHasVanishingDirectionCorrection)
+{
+	const auto control = makeControl();
+	const Vector3f nominal{0.f, 0.f, -kHoverThrust};
+	const Vector3f rates{-3.f, 0.f, 0.f};
+	for (float magnitude : {1e-3f, 1e-4f, 1e-5f}) {
+		const Vector3f corrected{magnitude, 0.f, 0.f};
+		OmMpcIndiControl::Output output{};
+		ASSERT_TRUE(control.update(Dcmf{}, rates, nominal, Vector3f{},
+			(nominal - corrected) * (kGravity / kHoverThrust), nominal, output));
+		EXPECT_LE((output.rates_setpoint - rates).norm(), 3.f * magnitude / kHoverThrust + kTolerance);
+	}
+}
+
+TEST(OmMpcIndiControl, TiltCorrectionIsInvariantToWorldFrameRotation)
+{
+	const auto control = makeControl();
+	const Vector3f nominal{0.f, 0.f, -kHoverThrust};
+	const Vector3f rates{-3.f, 0.2f, 0.f};
+	const Vector3f corrected{0.1f, 0.2f, -0.3f};
+	const Dcmf rotated{Eulerf{0.4f, -0.6f, 0.9f}};
+	OmMpcIndiControl::Output original{}, transformed{};
+	ASSERT_TRUE(control.update(Dcmf{}, rates, nominal, Vector3f{},
+		Vector3f{0.f, 0.f, kGravity} + (nominal - corrected) * (kGravity / kHoverThrust), nominal, original));
+	ASSERT_TRUE(control.update(rotated, rates, nominal, Vector3f{},
+		Vector3f{0.f, 0.f, kGravity} + rotated * (nominal - corrected) * (kGravity / kHoverThrust),
+		rotated * nominal, transformed));
+	expectVectorNear(original.rates_setpoint, transformed.rates_setpoint);
+	expectVectorNear(original.thrust_body, transformed.thrust_body);
 }

@@ -53,6 +53,8 @@ void DuctedFanLiftDrag::Configure(const gz::sim::Entity &entity,
 
 	ReadIfPresent(sdf_clone, "radial_symmetry", _radial_symmetry);
 	ReadIfPresent(sdf_clone, "reversible", _reversible);
+	ReadIfPresent(sdf_clone, "axial_flow_only", _axial_flow_only);
+	ReadIfPresent(sdf_clone, "axial_momentum_flow", _axial_momentum_flow);
 	ReadIfPresent(sdf_clone, "a0", _alpha0);
 	ReadIfPresent(sdf_clone, "cla", _cla);
 	ReadIfPresent(sdf_clone, "cda", _cda);
@@ -70,6 +72,10 @@ void DuctedFanLiftDrag::Configure(const gz::sim::Entity &entity,
 	ReadIfPresent(sdf_clone, "link_name", _link_name);
 	ReadIfPresent(sdf_clone, "control_joint_name", _control_joint_name);
 	ReadIfPresent(sdf_clone, "control_joint_rad_to_cl", _control_joint_rad_to_cl);
+
+	_axial_flow_axis = _forward;
+	ReadIfPresent(sdf_clone, "axial_flow_axis", _axial_flow_axis);
+	_axial_flow_axis.Normalize();
 
 	_forward.Normalize();
 	_upward.Normalize();
@@ -143,8 +149,27 @@ void DuctedFanLiftDrag::PreUpdate(const gz::sim::UpdateInfo &info,
 		}
 	}
 
-	const gz::math::Vector3d air_velocity = _wash_only ? -wash_velocity_world :
-						link_velocity_world - wind_velocity - wash_velocity_world;
+	gz::math::Vector3d relative_velocity = link_velocity_world - wind_velocity;
+
+	if (_axial_flow_only) {
+		// Approximate duct shielding while retaining axial motion-induced inflow.
+		const gz::math::Vector3d flow_axis = pose->Rot().RotateVector(_axial_flow_axis);
+		relative_velocity = flow_axis * relative_velocity.Dot(flow_axis);
+	}
+
+	gz::math::Vector3d air_velocity = _wash_only ? -wash_velocity_world :
+						 relative_velocity - wash_velocity_world;
+
+	if (_axial_momentum_flow && _axial_flow_only && !_wash_only) {
+		// SHC09 powered axial-flow branch: v_e=-w/2+sqrt(w^2/4+v_h^2).
+		// PropellerWashVelocity supplies v_h=k_v*|Omega|, preserving the
+		// existing hover calibration. Retain vane lift and its actual CP.
+		const gz::math::Vector3d downstream = -pose->Rot().RotateVector(_axial_flow_axis);
+		const double w = relative_velocity.Dot(downstream);
+		const double v_h = wash_velocity_world.Dot(downstream);
+		const double v_e = -0.5 * w + std::sqrt(0.25 * w * w + v_h * v_h);
+		air_velocity = -downstream * v_e;
+	}
 
 	if (air_velocity.Length() <= 0.01) {
 		return;

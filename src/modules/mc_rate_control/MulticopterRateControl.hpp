@@ -61,6 +61,8 @@
 #include <uORB/topics/rc_channels.h>
 #include <uORB/topics/rate_ctrl_status.h>
 #include <uORB/topics/vehicle_angular_velocity.h>
+#include <uORB/topics/vehicle_attitude.h>
+#include <uORB/topics/vehicle_local_position.h>
 #include <uORB/topics/vehicle_control_mode.h>
 #include <uORB/topics/vehicle_land_detected.h>
 #include <uORB/topics/vehicle_rates_setpoint.h>
@@ -96,6 +98,10 @@ private:
 	 * initialize some vectors/matrices from parameters
 	 */
 	void parameters_updated();
+	bool vaneCompensationEnabled() const
+	{
+		return _param_mc_indi_vane_enable.get() && _param_mc_indi_vane_wash.get() > 0.f;
+	}
 
 	/** Compute INDI output from allocation feedback. Returns false if feedback is unavailable or stale. */
 	bool computeIndiTorqueSetpoint(const matrix::Vector3f &rates, const matrix::Vector3f &rates_setpoint,
@@ -119,6 +125,10 @@ private:
 	uORB::Subscription _vehicle_rates_setpoint_sub{ORB_ID(vehicle_rates_setpoint)};
 	uORB::Subscription _vehicle_status_sub{ORB_ID(vehicle_status)};
 	uORB::Subscription _allocation_value_sub{ORB_ID(allocation_value)};
+	uORB::Subscription _vane_attitude_sub{ORB_ID(vehicle_attitude)};
+	uORB::Subscription _vane_velocity_sub{ORB_ID(vehicle_local_position)};
+	float _vane_allocated_thrust{0.f};
+	hrt_abstime _vane_update_timestamp{0};
 	uORB::SubscriptionMultiArray<control_allocator_status_s, 2> _control_allocator_status_subs{
 		ORB_ID::control_allocator_status};
 
@@ -148,6 +158,7 @@ private:
 	struct IndiTorqueSample {
 		uint64_t time_us{0};
 		matrix::Vector3f allocated_torque{};
+		matrix::Vector3f raw_allocated_torque{};
 		matrix::Vector3f torque_setpoint_scale{};
 	};
 
@@ -210,6 +221,9 @@ private:
 		(ParamFloat<px4::params::MC_INDI_P_P>) _param_mc_indi_pitch_p,
 		(ParamFloat<px4::params::MC_INDI_Y_P>) _param_mc_indi_yaw_p,
 		(ParamFloat<px4::params::MC_INDI_T_DLY>) _param_mc_indi_torque_delay,
+		(ParamBool<px4::params::MC_INDI_V_EN>) _param_mc_indi_vane_enable,
+		(ParamFloat<px4::params::MC_INDI_V_W>) _param_mc_indi_vane_wash,
+		(ParamFloat<px4::params::MC_INDI_M_TAU>) _param_mc_indi_motor_tau,
 		(ParamFloat<px4::params::MC_J_X>) _param_mc_j_x,
 		(ParamFloat<px4::params::MC_J_Y>) _param_mc_j_y,
 		(ParamFloat<px4::params::MC_J_Z>) _param_mc_j_z,

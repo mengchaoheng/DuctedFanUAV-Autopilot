@@ -51,3 +51,8 @@ px4_add_module(
 		RateControl
 		px4_work_queue
 	)
+
+px4_add_unit_gtest(
+	SRC IndiControl/IndiControlTest.cpp
+	EXTRA_SRCS IndiControl/IndiControl.cpp
+)
