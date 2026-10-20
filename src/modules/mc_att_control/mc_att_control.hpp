@@ -121,9 +121,8 @@ private:
 	uORB::Subscription _om_command_sub{ORB_ID(om_mpc_command)};
 	uORB::Subscription _om_reference_sub{ORB_ID(om_mpc_reference)};
 	const param_t _om_enable_handle{param_find("MPC_OM_EN")};
-	float _om_blend{0.f};
 	uORB::PublicationData<om_mpc_status_s> _om_status_pub{ORB_ID(om_mpc_status)};
-	bool applyOmMpc(vehicle_rates_setpoint_s &rates_setpoint, float dt);
+	bool applyOmMpc(vehicle_rates_setpoint_s &rates_setpoint);
 	void publishOmMpcStatus(bool active);
 #endif
 

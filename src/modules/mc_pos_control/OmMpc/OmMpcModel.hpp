@@ -139,8 +139,8 @@ inline bool build(const Path &path, float elapsed, const Vector3f &position, con
 		memset(&p, 0, sizeof(p));
 		p.horizon = horizon;
 		p.dt = prediction_dt;
-		const float q[] {270.f, 270.f, 270.f, 10.f, 10.f, 10.f, 4.32f, 4.32f, 4.32f};
-		const float r[] {.25f, 1.f, 1.f, 1.f};
+		const float q[] {324.f, 324.f, 324.f, 10.f, 10.f, 10.f, 4.32f, 4.32f, 4.32f};
+		const float r[] {.25f, .8f, .8f, .8f};
 
 		for (int i = 0; i < 9; i++) {
 			p.q[i] = p.p[i] = q[i];

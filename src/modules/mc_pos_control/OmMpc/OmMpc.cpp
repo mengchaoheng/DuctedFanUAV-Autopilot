@@ -83,7 +83,7 @@ struct OmMpc::Runtime {
 	const param_t h_mpc_om_iter = param_find("MPC_OM_ITER");
 	const param_t h_cost[6] {param_find("MPC_OM_QPOS"), param_find("MPC_OM_QVEL"), param_find("MPC_OM_QROT"),
 		param_find("MPC_OM_RTHR"), param_find("MPC_OM_ROMG"), param_find("MPC_OM_PFAC")};
-	float cost[6] {270.f, 10.f, 4.32f, .25f, 1.f, 1.f};
+	float cost[6] {324.f, 10.f, 4.32f, .25f, .8f, 1.f};
 	uORB::Subscription parameter_sub{ORB_ID(parameter_update)};
 	bool config_valid{false}, model_initialized{false}, horizon_supported{true};
 	int prediction_horizon{15};
@@ -423,7 +423,7 @@ void OmMpc::Run()
 
 		// 3. Update/solve with the existing cold or warm deadline.
 		if (captured) {
-			const bool ready = built && om_float_update(problem, 1e-6f, OmQpLayout::OmErrorState);
+			const bool ready = built && om_float_update(problem, OmQpTolerance, OmQpLayout::OmErrorState);
 			const uint64_t update_end = wall_us();
 			OmFloatResult result{};
 			result.status = 7;

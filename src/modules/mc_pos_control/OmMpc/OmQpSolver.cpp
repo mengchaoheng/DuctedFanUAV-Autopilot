@@ -95,9 +95,9 @@ bool om_float_update(const OmFloatProblem &p, float tolerance, OmQpLayout layout
 	}
 
 	qp.options.lsType = QPDUNES_LS_ACCELERATED_GRADIENT_BISECTION_LS;
-	// A zero dual guess needs a tighter stop test in float32 to pass the
-	// independent finite-horizon KKT check. Warm solves retain the usual 1e-6.
-	qp.options.stationarityTolerance = (cold || !have_solution) ? fminf(tolerance, 3e-7f) : tolerance;
+	// Cold and resumed workspaces use the same float32 stopping criterion.
+	// Tightening it after a rejection can perpetuate roundoff-limited solves.
+	qp.options.stationarityTolerance = tolerance;
 	float q[81], r[16], terminal[81], lower_x[9], upper_x[9];
 
 	for (int j = 0; j < 9; j++) {

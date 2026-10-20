@@ -375,7 +375,7 @@ MulticopterAttitudeControl::Run()
 			rates_setpoint.timestamp = hrt_absolute_time();
 
 #ifdef CONFIG_MC_POS_CONTROL_OM_MPC
-			const bool om_active = applyOmMpc(rates_setpoint, dt);
+			const bool om_active = applyOmMpc(rates_setpoint);
 #endif
 
 			_vehicle_rates_setpoint_pub.publish(rates_setpoint);
@@ -385,7 +385,6 @@ MulticopterAttitudeControl::Run()
 
 		} else {
 #ifdef CONFIG_MC_POS_CONTROL_OM_MPC
-			_om_blend = 0.f; // Re-entry starts a new handover after leaving attitude control.
 			publishOmMpcStatus(false);
 #endif
 			_man_roll_input_filter.reset(0.f);
@@ -453,7 +452,7 @@ int MulticopterAttitudeControl::custom_command(int argc, char *argv[])
 }
 
 #ifdef CONFIG_MC_POS_CONTROL_OM_MPC
-bool MulticopterAttitudeControl::applyOmMpc(vehicle_rates_setpoint_s &rates_setpoint, float dt)
+bool MulticopterAttitudeControl::applyOmMpc(vehicle_rates_setpoint_s &rates_setpoint)
 {
 	// One publisher owns vehicle_rates_setpoint. A fresh OM-MPC command replaces
 	// attitude-loop output; ordinary control remains available for fallback.
@@ -469,16 +468,13 @@ bool MulticopterAttitudeControl::applyOmMpc(vehicle_rates_setpoint_s &rates_setp
 		&& _om_command_sub.copy(&command) && command.active && hrt_elapsed_time(&command.timestamp) < 60_ms
 		&& Vector3f(command.rates).isAllFinite() && Vector3f(command.thrust_body).isAllFinite();
 	if (om_active) {
-		_om_blend = math::min(_om_blend + dt / .5f, 1.f);
-		const float blend = _om_blend * _om_blend * (3.f - 2.f * _om_blend);
-		rates_setpoint.roll += blend * (command.rates[0] - rates_setpoint.roll);
-		rates_setpoint.pitch += blend * (command.rates[1] - rates_setpoint.pitch);
-		rates_setpoint.yaw += blend * (command.rates[2] - rates_setpoint.yaw);
-		for (int i = 0; i < 3; ++i) {
-			rates_setpoint.thrust_body[i] += blend * (command.thrust_body[i] - rates_setpoint.thrust_body[i]);
-		}
-	} else {
-		_om_blend = 0.f;
+		// The worker captures the reference under PID and checks convergence,
+		// bounds and deadlines before activation. Forward its paired rate/thrust
+		// command unchanged: an extra output blend is absent from the QP model.
+		rates_setpoint.roll = command.rates[0];
+		rates_setpoint.pitch = command.rates[1];
+		rates_setpoint.yaw = command.rates[2];
+		matrix::Vector3f(command.thrust_body).copyTo(rates_setpoint.thrust_body);
 	}
 	return om_active;
 }
