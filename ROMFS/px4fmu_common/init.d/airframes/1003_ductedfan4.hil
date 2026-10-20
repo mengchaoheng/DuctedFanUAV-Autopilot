@@ -16,6 +16,9 @@
 
 . ${R}etc/init.d/rc.mc_defaults
 
+# Keep onboard SD logs; disable the MAVLink logging backend by default.
+param set-default SDLOG_BACKEND 1
+
 # Gazebo Classic supplies simulated sensors and consumes HIL actuator outputs.
 param set SYS_HITL 1
 

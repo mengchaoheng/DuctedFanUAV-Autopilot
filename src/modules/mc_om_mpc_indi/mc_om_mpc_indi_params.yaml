@@ -105,7 +105,7 @@ parameters:
     MC_OM_TR_T:
       description:
         short: OM acceleration INDI transition time
-        long: Smoothstep transition from the nominal Lu command to the corrected command. Zero disables the transition and matches main.m.
+        long: Smoothstep transition from the nominal OM-MPC command to the corrected command. Zero disables the transition and matches main.m.
       type: float
       default: 0.0
       min: 0.0

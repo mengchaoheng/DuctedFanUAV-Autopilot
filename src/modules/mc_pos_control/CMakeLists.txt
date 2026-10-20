@@ -35,14 +35,28 @@ add_subdirectory(GotoControl)
 add_subdirectory(PositionControl)
 add_subdirectory(Takeoff)
 
+set(om_sources)
+set(om_depends)
+set(om_flags)
+
+if(CONFIG_MC_POS_CONTROL_OM_MPC)
+	add_subdirectory(OmMpc)
+	list(APPEND om_depends om_qpdunes)
+
+	list(APPEND om_sources OmMpc/OmMpc.cpp OmMpc/OmSolverRuntime.cpp)
+	set_source_files_properties(OmMpc/OmMpc.cpp PROPERTIES COMPILE_OPTIONS "-O3")
+	list(APPEND om_flags -DMC_POS_OM_MPC)
+endif()
+
 px4_add_module(
 	MODULE modules__mc_pos_control
 	MAIN mc_pos_control
-	COMPILE_FLAGS
-	SRCS
+	COMPILE_FLAGS ${om_flags}
+	SRCS ${om_sources}
 		MulticopterPositionControl.cpp
 		MulticopterPositionControl.hpp
 	MODULE_CONFIG
+		multicopter_om_mpc_params.yaml
 		multicopter_altitude_mode_params.yaml
 		multicopter_autonomous_params.yaml
 		multicopter_nudging_params.yaml
@@ -54,7 +68,7 @@ px4_add_module(
 		multicopter_stabilized_mode_params.yaml
 		multicopter_takeoff_land_params.yaml
 		multicopter_acceleration_indi_params.yaml
-	DEPENDS
+	DEPENDS ${om_depends}
 		GotoControl
 		PositionControl
 		Takeoff

@@ -180,6 +180,9 @@ void FlightTaskOrbit::_sanitizeParams(float &radius, float &velocity) const
 
 bool FlightTaskOrbit::activate(const trajectory_setpoint_s &last_setpoint)
 {
+#ifdef CONFIG_MC_POS_CONTROL_OM_MPC
+	om_mpc_reference_s inactive{}; inactive.timestamp = hrt_absolute_time(); _om_reference_pub.publish(inactive);
+#endif
 	bool ret = FlightTaskManualAltitudeSmoothVel::activate(last_setpoint);
 	_currently_orbiting = false;
 	_use_parameterized_geometry = _param_mc_orbit_source.get() == 1;
@@ -271,6 +274,10 @@ bool FlightTaskOrbit::update()
 	_adjustParametersByStick();
 
 	if (_hold_parameterized_origin) {
+#ifdef CONFIG_MC_POS_CONTROL_OM_MPC
+	om_mpc_reference_s inactive{}; inactive.timestamp = hrt_absolute_time(); _om_reference_pub.publish(inactive);
+#endif
+
 		// A zero configured phase rate is an explicit stationary trajectory. Do
 		// not enter the legacy altitude/velocity mode or advance an old phase.
 		ret = ret && FlightTaskManualAltitudeSmoothVel::update();
@@ -323,6 +330,20 @@ bool FlightTaskOrbit::update()
 		_yawspeed_setpoint = _heading_smoothing.getSmoothedHeadingRate();
 	}
 
+#ifdef CONFIG_MC_POS_CONTROL_OM_MPC
+	om_mpc_reference_s reference{};
+	reference.timestamp = hrt_absolute_time();
+	_center.copyTo(reference.center);
+	Vector3f{_radii(0), _radii(1), _vertical_amplitude}.copyTo(reference.amplitude);
+	Vector3f{1.f, 1.f, 1.f}.copyTo(reference.harmonic);
+	Vector3f{M_PI_2_F, 0.f, 0.f}.copyTo(reference.phase_offset);
+	reference.phase = _om_reference_phase;
+	reference.phase_rate = _trajectory_omega;
+	reference.yaw = _initial_heading;
+	reference.valid = ret && !_in_circle_approach && _use_parameterized_geometry
+		&& _yaw_behaviour == orbit_status_s::ORBIT_YAW_BEHAVIOUR_HOLD_INITIAL_HEADING;
+	_om_reference_pub.publish(reference);
+#endif
 	// publish information to UI
 	sendTelemetry();
 
@@ -480,6 +501,9 @@ void FlightTaskOrbit::_generate_circle_setpoints()
 	_position_setpoint = _center + position_offset;
 	_velocity_setpoint = phase_derivative * phase_rate;
 	_acceleration_setpoint = phase_second_derivative * phase_rate * phase_rate + phase_derivative * phase_acceleration;
+#ifdef CONFIG_MC_POS_CONTROL_OM_MPC
+	_om_reference_phase = _orbit_phase;
+#endif
 	_orbit_phase = wrap_2pi(_orbit_phase + phase_rate * _deltatime);
 }
 

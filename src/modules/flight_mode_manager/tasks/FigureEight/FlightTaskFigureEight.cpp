@@ -45,6 +45,9 @@ FlightTaskFigureEight::FlightTaskFigureEight()
 
 bool FlightTaskFigureEight::activate(const trajectory_setpoint_s &last_setpoint)
 {
+#ifdef CONFIG_MC_POS_CONTROL_OM_MPC
+	om_mpc_reference_s inactive{}; inactive.timestamp = hrt_absolute_time(); _om_reference_pub.publish(inactive);
+#endif
 	bool ret = FlightTaskManualAltitudeSmoothVel::activate(last_setpoint);
 
 	_use_parameterized_geometry = _param_mc_orbit_source.get() == 1;
@@ -187,6 +190,10 @@ bool FlightTaskFigureEight::update()
 	_configurePositionSmoothing();
 
 	if (_hold_parameterized_origin) {
+#ifdef CONFIG_MC_POS_CONTROL_OM_MPC
+	om_mpc_reference_s inactive{}; inactive.timestamp = hrt_absolute_time(); _om_reference_pub.publish(inactive);
+#endif
+
 		ret = ret && FlightTaskManualAltitudeSmoothVel::update();
 		_position_setpoint = _center;
 		_velocity_setpoint.setAll(0.f);
@@ -234,6 +241,20 @@ bool FlightTaskFigureEight::update()
 	}
 
 	_sendTelemetry();
+#ifdef CONFIG_MC_POS_CONTROL_OM_MPC
+	om_mpc_reference_s reference{};
+	reference.timestamp = hrt_absolute_time();
+	_center.copyTo(reference.center);
+	Vector3f{_major_radius, _minor_radius, _vertical_amplitude}.copyTo(reference.amplitude);
+	Vector3f{1.f, 2.f, 1.f}.copyTo(reference.harmonic);
+	reference.heading_rotation = _trajectory_heading;
+	reference.phase = _om_reference_phase;
+	reference.phase_rate = _trajectory_omega;
+	reference.yaw = _initial_heading;
+	reference.valid = ret && !_in_approach && _use_parameterized_geometry
+		&& _yaw_behaviour == orbit_status_s::ORBIT_YAW_BEHAVIOUR_HOLD_INITIAL_HEADING;
+	_om_reference_pub.publish(reference);
+#endif
 	return ret;
 }
 
@@ -412,6 +433,9 @@ void FlightTaskFigureEight::_generateTrackingSetpoints()
 	_jerk_setpoint(1) = NAN;
 
 	_generateYawSetpoint(feedforward_velocity);
+#ifdef CONFIG_MC_POS_CONTROL_OM_MPC
+	_om_reference_phase = _phase;
+#endif
 	_phase = wrap_2pi(_phase + phase_rate * _deltatime);
 }
 

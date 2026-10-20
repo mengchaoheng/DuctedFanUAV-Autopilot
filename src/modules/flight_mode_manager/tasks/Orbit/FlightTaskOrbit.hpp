@@ -43,6 +43,10 @@
  */
 
 #pragma once
+#include <px4_platform_common/defines.h>
+#ifdef CONFIG_MC_POS_CONTROL_OM_MPC
+#include <uORB/topics/om_mpc_reference.h>
+#endif
 
 #include "FlightTaskManualAltitudeSmoothVel.hpp"
 #include <uORB/PublicationMulti.hpp>
@@ -148,6 +152,10 @@ private:
 
 	orb_advert_t _mavlink_log_pub{nullptr};
 	uORB::PublicationMulti<orbit_status_s> _orbit_status_pub{ORB_ID(orbit_status)};
+#ifdef CONFIG_MC_POS_CONTROL_OM_MPC
+	uORB::Publication<om_mpc_reference_s> _om_reference_pub{ORB_ID(om_mpc_reference)};
+	float _om_reference_phase{0.f};
+#endif
 
 	DEFINE_PARAMETERS(
 		(ParamFloat<px4::params::MC_CIRC_AX>) _param_mc_circle_x_amplitude,

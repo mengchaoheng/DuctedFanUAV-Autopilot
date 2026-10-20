@@ -16,6 +16,9 @@
 
 . ${R}etc/init.d/rc.mc_defaults
 
+# Keep onboard SD logs; disable the MAVLink logging backend by default.
+param set-default SDLOG_BACKEND 1
+
 # Use the same two-matrix physical control-effectiveness model as the 22002
 # Gazebo Classic airframe: matrix 0 allocates rotor force and matrix 1 allocates
 # control-surface torque.

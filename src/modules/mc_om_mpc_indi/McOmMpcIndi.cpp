@@ -353,6 +353,17 @@ void McOmMpcIndi::Run()
 	_vehicle_control_mode_sub.update(&_vehicle_control_mode);
 	_vehicle_land_detected_sub.update(&_vehicle_land_detected);
 	_vehicle_status_sub.update(&_vehicle_status);
+#ifdef CONFIG_MC_POS_CONTROL_OM_MPC
+	// OM-MPC uses the attitude module's single rate-output arbitration.
+	// Do not let the optional OM adapter overwrite either Om or PID fallback.
+	int32_t om_enabled = 0;
+	param_get(param_find("MPC_OM_EN"), &om_enabled);
+	if (om_enabled == 1 && _vehicle_status.nav_state == vehicle_status_s::NAVIGATION_STATE_ORBIT) {
+		resetTransition();
+		perf_end(_loop_perf);
+		return;
+	}
+#endif
 	const bool requested = _nominal_setpoint.timestamp != 0
 			&& hrt_elapsed_time(&_nominal_setpoint.timestamp) < 100_ms
 			&& PX4_ISFINITE(_nominal_setpoint.thrust_acceleration)

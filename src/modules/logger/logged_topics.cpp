@@ -153,6 +153,12 @@ void LoggedTopics::add_default_topics()
 	add_topic("vehicle_local_position_setpoint", 100);
 	add_topic("vehicle_magnetometer", 200);
 	add_topic("vehicle_rates_setpoint", 20);
+#ifdef CONFIG_MC_POS_CONTROL_OM_MPC
+	// Keep every 50/100 Hz command, including isolated rejected attempts.
+	add_topic("om_mpc_command");
+	add_topic("om_mpc_status");
+	add_topic("om_mpc_reference", 20);
+#endif
 	add_topic("vehicle_roi", 1000);
 	add_topic("vehicle_status");
 	add_topic("vtx");

@@ -1,0 +1,151 @@
+module_name: mc_pos_control
+parameters:
+- group: Multicopter OM-MPC
+  definitions:
+    MPC_OM_EN:
+      description:
+        short: Enable experimental OM-MPC
+        long: |-
+          Runs OM-MPC in flight or simulation for a valid parameter-triggered constant
+          phase-rate Orbit or FigureEight reference after takeoff. Fixed-yaw
+          references are supported. Default position control is hot standby.
+      type: boolean
+      default: 0
+
+    MPC_OM_RATE:
+      description:
+        short: OM-MPC state update mode
+        long: |
+          100 processes each new local-position publication; 50 processes every
+          second publication. These are nominal Hz labels for a 100 Hz state
+          stream: actual control rate follows the state publication rate divided
+          by one or two. Pending groups are coalesced, never replayed as old QPs.
+          Warm deadlines follow the measured state period times the divisor,
+          capped at 20 ms. Cold setup has a separate 20 ms budget under PID.
+          Prediction node count and spacing are configured independently.
+      type: enum
+      values:
+        50: Every second state (nominal 50 Hz)
+        100: Every state (nominal 100 Hz)
+      default: 50
+
+    MPC_OM_N:
+      description:
+        short: OM-MPC prediction intervals
+        long: Number of prediction intervals. Lookahead is this count times MPC_OM_DT. SITL and hardware builds support up to 20; actual memory availability and computation deadlines are checked at runtime. Changing it resets the solver under PID ownership; the solver arena is sized by horizon. Costs and terminal weight remain unchanged.
+      type: enum
+      values:
+        10: 10 intervals
+        15: 15 intervals
+        20: 20 intervals
+      default: 15
+
+    MPC_OM_DT:
+      description:
+        short: OM-MPC prediction grid step
+        long: Prediction node spacing, independent of the state-triggered control rate. Lookahead is MPC_OM_N times this interval. For 0.6-1.0s use N10/dt=.06-.1, N15/dt=.04-.066667 or N20/dt=.03-.05. Changing it reinitializes the solver under PID ownership.
+      type: float
+      default: 0.04
+      min: 0.005
+      max: 0.1
+      unit: s
+
+    MPC_OM_EP:
+      description:
+        short: OM-MPC entry position error limit
+        long: Standby PID captures the moving reference before MPC first engages. This limit does not disengage an already active controller.
+      type: float
+      default: 1.0
+      min: 0.1
+      max: 5.0
+      unit: m
+
+    MPC_OM_ITER:
+      description:
+        short: OM-MPC maximum warm Newton iterations
+        long: |-
+          Stops warm solves after this many total Newton iterations, including a numerical
+          recovery attempt, with early termination on convergence. The test-stage
+          default is 100 so a tight iteration cap does not hide convergence behavior.
+          Cold initialization uses a separate 100-iteration/20ms budget under PID ownership at both rates.
+          Unconverged results remain inactive and standby PID controls. Finite workspace
+          is retained for the next fresh QP. This cap is not a hard wall-time deadline;
+          line search, frontend work and task preemption also contribute to elapsed time.
+      type: int32
+      default: 100
+      min: 1
+      max: 100
+
+    MPC_OM_EV:
+      description:
+        short: OM-MPC entry velocity error limit
+        long: Maximum velocity error for initial MPC engagement after standby PID captures the trajectory.
+      type: float
+      default: 2.0
+      min: 0.1
+      max: 10.0
+      unit: m/s
+
+    MPC_OM_ER:
+      description:
+        short: OM-MPC entry rotation error limit
+        long: Maximum SO(3) error angle between estimated and reference attitude for initial MPC engagement.
+      type: float
+      default: 35.0
+      min: 5.0
+      max: 90.0
+      unit: deg
+
+    MPC_OM_QPOS:
+      description:
+        short: OM-MPC position error weight
+        long: Positive diagonal cost for all three axes where applicable. Terminal cost is P=MPC_OM_PFAC*Q. A change resets and initializes under standby PID ownership; warm cycles reuse costs.
+      type: float
+      default: 270
+      min: 0.0001
+      max: 1000000
+
+    MPC_OM_QVEL:
+      description:
+        short: OM-MPC velocity error weight
+        long: Positive diagonal cost for all three axes where applicable. Terminal cost is P=MPC_OM_PFAC*Q. A change resets and initializes under standby PID ownership; warm cycles reuse costs.
+      type: float
+      default: 10
+      min: 0.0001
+      max: 10000
+
+    MPC_OM_QROT:
+      description:
+        short: OM-MPC SO3 error weight
+        long: Positive diagonal cost for all three axes where applicable. Terminal cost is P=MPC_OM_PFAC*Q. A change resets and initializes under standby PID ownership; warm cycles reuse costs.
+      type: float
+      default: 4.32
+      min: 0.0001
+      max: 10000
+
+    MPC_OM_RTHR:
+      description:
+        short: OM-MPC thrust acceleration input weight
+        long: Positive cost for the scalar thrust acceleration correction. A change reinitializes the solver under standby PID ownership.
+      type: float
+      default: 0.25
+      min: 0.0001
+      max: 10000
+
+    MPC_OM_ROMG:
+      description:
+        short: OM-MPC body rate input weight
+        long: Positive diagonal cost for all three body rate corrections. A change reinitializes the solver under standby PID ownership.
+      type: float
+      default: 1
+      min: 0.0001
+      max: 10000
+
+    MPC_OM_PFAC:
+      description:
+        short: OM-MPC terminal to stage cost ratio
+        long: Positive multiplier for the terminal state cost, P=MPC_OM_PFAC*Q. A change reinitializes the solver under standby PID ownership.
+      type: float
+      default: 1
+      min: 0.0001
+      max: 100

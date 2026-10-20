@@ -32,6 +32,9 @@
  ****************************************************************************/
 
 #include "MulticopterPositionControl.hpp"
+#ifdef MC_POS_OM_MPC
+#include "OmMpc/OmMpc.hpp"
+#endif
 
 #include <geo/geo.h>
 
@@ -91,11 +94,19 @@ MulticopterPositionControl::MulticopterPositionControl(bool vtol) :
 
 MulticopterPositionControl::~MulticopterPositionControl()
 {
+#ifdef MC_POS_OM_MPC
+	delete _om_mpc;
+#endif
 	perf_free(_cycle_perf);
 }
 
 bool MulticopterPositionControl::init()
 {
+#ifdef MC_POS_OM_MPC
+	// Queue creation can wait for the manager. Do it before joining lockstep
+	// execution, never from the position-control work queue's Run().
+	_om_mpc = new OmMpc();
+#endif
 	if (!_local_pos_sub.registerCallback()) {
 		PX4_ERR("callback registration failed");
 		return false;
@@ -486,6 +497,14 @@ void MulticopterPositionControl::Run()
 
 		_vehicle_land_detected_sub.update(&_vehicle_land_detected);
 		_vehicle_status_sub.update(&_vehicle_status);
+#ifdef MC_POS_OM_MPC
+		int32_t om_enabled = 0;
+		param_get(_om_enable_handle, &om_enabled);
+		if (_om_mpc && (om_enabled == 1 || _om_mpc->hasValidCommand())) {
+			// Also invalidate an active command promptly after disabling MPC.
+			_om_mpc->onLocalPositionUpdate();
+		}
+#endif
 		const bool indi_parameter_enabled = _param_mpc_indi_acc_en.get() == 1;
 		const bool indi_rc_valid = rcChannelValid(_rc_channels, kAccelerationIndiRcChannel);
 		const bool indi_rc_enabled = indi_rc_valid && _rc_channels.channels[kAccelerationIndiRcChannel] >= 0.f;
@@ -776,6 +795,11 @@ void MulticopterPositionControl::Run()
 
 			const hrt_abstime now = hrt_absolute_time();
 
+#ifdef MC_POS_OM_MPC
+			if (_om_mpc && _om_mpc->hasValidCommand()) {
+				_control.resetIntegral(); // Avoid winding up the PID while MPC supplies commands.
+			}
+#endif
 			// Run position control
 			if (_control.update(dt)) {
 
@@ -1112,6 +1136,15 @@ int MulticopterPositionControl::task_spawn(int argc, char *argv[])
 	desc.task_id = -1;
 
 	return PX4_ERROR;
+}
+
+int MulticopterPositionControl::print_status()
+{
+	perf_print_counter(_cycle_perf);
+#ifdef MC_POS_OM_MPC
+	if (_om_mpc) { _om_mpc->print_status(); }
+#endif
+	return 0;
 }
 
 int MulticopterPositionControl::custom_command(int argc, char *argv[])

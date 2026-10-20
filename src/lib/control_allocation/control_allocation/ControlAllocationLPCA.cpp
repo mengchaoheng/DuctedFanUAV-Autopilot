@@ -185,9 +185,11 @@ bool dispatchLPCAColumns(int cols, LPCAMethod method,
 		if constexpr (Rows <= 6) { return runLPCA<Rows, 6>(method, b_par, y_par, y_higher_par, y_lower_par, actuator_min, actuator_max, output, diagnostics); }
 		break;
 
+#if !defined(CONFIG_ARCH_BOARD_PX4_FMU_V5)
 	case 8:
 		if constexpr (Rows <= 8) { return runLPCA<Rows, 8>(method, b_par, y_par, y_higher_par, y_lower_par, actuator_min, actuator_max, output, diagnostics); }
 		break;
+#endif
 	}
 
 	return false;
@@ -540,7 +542,12 @@ ControlAllocationLPCA::lpcaUnavailableReason() const
 		return kLPCAUnavailableRows;
 	}
 
+	// v5 retains only the current quad/hex LPCA specializations to save flash.
+#if defined(CONFIG_ARCH_BOARD_PX4_FMU_V5)
+	if (_num_actuators != 4 && _num_actuators != 6) {
+#else
 	if (_num_actuators != 4 && _num_actuators != 6 && _num_actuators != 8) {
+#endif
 		return kLPCAUnavailableActuators;
 	}
 

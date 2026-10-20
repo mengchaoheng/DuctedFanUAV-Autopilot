@@ -58,6 +58,9 @@
 #include <px4_platform_common/px4_work_queue/ScheduledWorkItem.hpp>
 #include <px4_platform_common/posix.h>
 #include <px4_platform_common/tasks.h>
+#ifdef __PX4_POSIX
+#include <px4_platform_common/atomic.h>
+#endif
 #include <uORB/Publication.hpp>
 #include <uORB/Subscription.hpp>
 #include <uORB/SubscriptionCallback.hpp>
@@ -79,6 +82,10 @@
 
 using namespace time_literals;
 
+#ifdef MC_POS_OM_MPC
+class OmMpc;
+#endif
+
 class MulticopterPositionControl : public ModuleBase, public ModuleParams,
 	public px4::ScheduledWorkItem
 {
@@ -97,10 +104,16 @@ public:
 	/** @see ModuleBase */
 	static int print_usage(const char *reason = nullptr);
 
+	int print_status() override;
+
 	bool init();
 
 private:
 	void Run() override;
+#ifdef MC_POS_OM_MPC
+	OmMpc *_om_mpc{nullptr};
+	const param_t _om_enable_handle{param_find("MPC_OM_EN")};
+#endif
 
 	TakeoffHandling _takeoff; /**< state machine and ramp to bring the vehicle off the ground without jumps */
 

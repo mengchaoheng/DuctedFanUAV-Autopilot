@@ -374,9 +374,20 @@ MulticopterAttitudeControl::Run()
 			_thrust_setpoint_body.copyTo(rates_setpoint.thrust_body);
 			rates_setpoint.timestamp = hrt_absolute_time();
 
+#ifdef CONFIG_MC_POS_CONTROL_OM_MPC
+			const bool om_active = applyOmMpc(rates_setpoint, dt);
+#endif
+
 			_vehicle_rates_setpoint_pub.publish(rates_setpoint);
+#ifdef CONFIG_MC_POS_CONTROL_OM_MPC
+			publishOmMpcStatus(om_active);
+#endif
 
 		} else {
+#ifdef CONFIG_MC_POS_CONTROL_OM_MPC
+			_om_blend = 0.f; // Re-entry starts a new handover after leaving attitude control.
+			publishOmMpcStatus(false);
+#endif
 			_man_roll_input_filter.reset(0.f);
 			_man_pitch_input_filter.reset(0.f);
 			_yaw_setpoint_stabilized = NAN;
@@ -440,6 +451,51 @@ int MulticopterAttitudeControl::custom_command(int argc, char *argv[])
 {
 	return print_usage("unknown command");
 }
+
+#ifdef CONFIG_MC_POS_CONTROL_OM_MPC
+bool MulticopterAttitudeControl::applyOmMpc(vehicle_rates_setpoint_s &rates_setpoint, float dt)
+{
+	// One publisher owns vehicle_rates_setpoint. A fresh OM-MPC command replaces
+	// attitude-loop output; ordinary control remains available for fallback.
+	int32_t om_enabled = 0;
+	param_get(_om_enable_handle, &om_enabled);
+	om_mpc_command_s command{};
+	om_mpc_reference_s reference{};
+	vehicle_status_s status{};
+	const bool om_active = om_enabled == 1 && !_landed
+		&& _vehicle_control_mode.flag_armed && _vehicle_control_mode.flag_control_position_enabled
+		&& _vehicle_status_sub.copy(&status) && status.nav_state == vehicle_status_s::NAVIGATION_STATE_ORBIT
+		&& _om_reference_sub.copy(&reference) && reference.valid && hrt_elapsed_time(&reference.timestamp) < 100_ms
+		&& _om_command_sub.copy(&command) && command.active && hrt_elapsed_time(&command.timestamp) < 60_ms
+		&& Vector3f(command.rates).isAllFinite() && Vector3f(command.thrust_body).isAllFinite();
+	if (om_active) {
+		_om_blend = math::min(_om_blend + dt / .5f, 1.f);
+		const float blend = _om_blend * _om_blend * (3.f - 2.f * _om_blend);
+		rates_setpoint.roll += blend * (command.rates[0] - rates_setpoint.roll);
+		rates_setpoint.pitch += blend * (command.rates[1] - rates_setpoint.pitch);
+		rates_setpoint.yaw += blend * (command.rates[2] - rates_setpoint.yaw);
+		for (int i = 0; i < 3; ++i) {
+			rates_setpoint.thrust_body[i] += blend * (command.thrust_body[i] - rates_setpoint.thrust_body[i]);
+		}
+	} else {
+		_om_blend = 0.f;
+	}
+	return om_active;
+}
+
+void MulticopterAttitudeControl::publishOmMpcStatus(bool active)
+{
+	// Report final rate-setpoint ownership, not merely a successful QP.
+	// State changes publish immediately; the heartbeat is limited to 10 Hz.
+	auto &status = _om_status_pub.get();
+	const uint64_t now = hrt_absolute_time();
+	if (status.active != active || now - status.timestamp >= 100_ms) {
+		status.timestamp = now;
+		status.active = active;
+		_om_status_pub.update();
+	}
+}
+#endif
 
 int MulticopterAttitudeControl::print_usage(const char *reason)
 {

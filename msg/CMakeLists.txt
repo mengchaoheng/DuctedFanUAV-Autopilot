@@ -37,6 +37,9 @@ cmake_policy(SET CMP0057 NEW)
 include(px4_list_make_absolute)
 
 set(msg_files
+	OmMpcReference.msg
+	OmMpcCommand.msg
+	OmMpcStatus.msg
 	AccelerationIndiStatus.msg
 	ActionRequest.msg
 	ActuatorArmed.msg

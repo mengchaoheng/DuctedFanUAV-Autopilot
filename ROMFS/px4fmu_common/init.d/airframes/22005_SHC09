@@ -11,6 +11,9 @@
 
 
 . ${R}etc/init.d/rc.mc_defaults
+
+# Keep onboard SD logs; disable the MAVLink logging backend by default.
+param set-default SDLOG_BACKEND 1
 param set-default CA_AIRFRAME 16 #  9 or 16
 
 # Effectiveness unit contract (control_allocation/SHC09.m):

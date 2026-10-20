@@ -32,6 +32,12 @@
  ****************************************************************************/
 
 #pragma once
+#include <px4_platform_common/defines.h>
+#ifdef CONFIG_MC_POS_CONTROL_OM_MPC
+#include <uORB/topics/om_mpc_status.h>
+#include <uORB/topics/om_mpc_command.h>
+#include <uORB/topics/om_mpc_reference.h>
+#endif
 
 #include <matrix/matrix/math.hpp>
 #include <perf/perf_counter.h>
@@ -111,6 +117,15 @@ private:
 	uORB::Subscription _vehicle_land_detected_sub{ORB_ID(vehicle_land_detected)};
 	uORB::Subscription _vehicle_local_position_sub{ORB_ID(vehicle_local_position)};
 	uORB::Subscription _vehicle_status_sub{ORB_ID(vehicle_status)};
+#ifdef CONFIG_MC_POS_CONTROL_OM_MPC
+	uORB::Subscription _om_command_sub{ORB_ID(om_mpc_command)};
+	uORB::Subscription _om_reference_sub{ORB_ID(om_mpc_reference)};
+	const param_t _om_enable_handle{param_find("MPC_OM_EN")};
+	float _om_blend{0.f};
+	uORB::PublicationData<om_mpc_status_s> _om_status_pub{ORB_ID(om_mpc_status)};
+	bool applyOmMpc(vehicle_rates_setpoint_s &rates_setpoint, float dt);
+	void publishOmMpcStatus(bool active);
+#endif
 
 	uORB::SubscriptionCallbackWorkItem _vehicle_attitude_sub{this, ORB_ID(vehicle_attitude)};
 
