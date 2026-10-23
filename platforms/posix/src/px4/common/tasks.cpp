@@ -55,6 +55,7 @@
 #include <string>
 
 #include <px4_platform_common/tasks.h>
+#include <px4_platform_common/priority.h>
 #include <px4_platform_common/posix.h>
 #include <systemlib/err.h>
 
@@ -209,7 +210,7 @@ px4_task_t px4_task_spawn_cmd(const char *name, int scheduler, int priority, int
 	priority = SCHED_PRIORITY_DEFAULT;
 #endif
 
-	param.sched_priority = priority;
+	param.sched_priority = px4_sched_priority_clamp(priority);
 
 	rv = pthread_attr_setschedparam(&attr, &param);
 

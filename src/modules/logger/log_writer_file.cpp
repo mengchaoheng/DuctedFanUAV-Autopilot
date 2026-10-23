@@ -32,6 +32,7 @@
  ****************************************************************************/
 
 #include "log_writer_file.h"
+#include <px4_platform_common/priority.h>
 #include "messages.h"
 
 #include <fcntl.h>
@@ -288,7 +289,7 @@ int LogWriterFile::thread_start()
 
 	sched_param param;
 	/* low priority, as this is expensive disk I/O */
-	param.sched_priority = SCHED_PRIORITY_DEFAULT - 40;
+	param.sched_priority = px4_sched_priority_clamp(SCHED_PRIORITY_DEFAULT - 40);
 	(void)pthread_attr_setschedparam(&thr_attr, &param);
 
 #ifdef CONFIG_FS_LITTLEFS
