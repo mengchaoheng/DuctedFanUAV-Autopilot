@@ -6,9 +6,8 @@
 #
 # Author: Chaoheng Meng <chaohengmeng@163.com>
 
-
-
 . ${R}etc/init.d/rc.mc_defaults
+. ${R}etc/init.d-posix/rc.df4_control
 param set-default CA_AIRFRAME 16 # matrix 0: physical force, matrix 1: physical torque
 
 # CA16 publishes physical allocation feedback. mc_pos_control reads force from
@@ -23,69 +22,6 @@ param set-default CA_AIRFRAME 16 # matrix 0: physical force, matrix 1: physical 
 #   already includes the 20 deg maximum deflection. Do not multiply another
 #   motor-thrust or surface-deflection scale in control_allocator.
 
-param set-default MC_ROLL_P 4
-param set-default MC_ROLLRATE_P 0.45
-param set-default MC_ROLLRATE_I 0.3
-param set-default MC_ROLLRATE_D 0.0
-param set-default MC_ROLLRATE_FF 0
-
-param set-default MC_PITCH_P 4
-param set-default MC_PITCHRATE_P 0.45
-param set-default MC_PITCHRATE_I 0.3
-param set-default MC_PITCHRATE_D 0.0
-param set-default MC_PITCHRATE_FF 0
-
-param set-default MC_YAW_P 2.8
-param set-default MC_YAWRATE_P 0.4
-param set-default MC_YAWRATE_I 0.3
-param set-default MC_YAWRATE_D 0
-param set-default MC_YAWRATE_FF 0
-param set-default MC_YAW_TQ_CUTOFF 0
-
-param set-default MC_ATT_ERR_MODE 3
-param set-default MC_YAW_WEIGHT 1 # K_YAW=MC_YAW_P/MC_YAW_WEIGHT
-param set-default MPC_YAWRAUTO_ACC 180
-param set-default MPC_YAWRAUTO_MAX 90
-
-# 1. Rate INDI: angular acceleration feedback alpha_0
-param set-default IMU_GYRO_CUTOFF 110
-param set-default IMU_DGYRO_CUTOFF 10
-
-# Rate INDI: allocated physical torque feedback tau_0
-param set-default CA_TORQ_CUTOFF 10
-param set-default MC_INDI_T_DLY 0.020
-
-# Rate INDI: inertia model
-param set-default MC_J_X 0.01149
-param set-default MC_J_Y 0.01153
-param set-default MC_J_Z 0.00487
-
-# 2. Acc INDI: selected acceleration and allocated-thrust sources
-param set-default MPC_INDI_A_SRC 1
-param set-default MPC_INDI_F_SRC 1
-
-# SRC 0: velocity derivative
-param set-default MPC_VEL_LP 0
-param set-default MPC_VELD_LP 10
-
-# SRC 1 and SRC 2: direct acceleration candidates
-param set-default MPC_INDI_A_LP 10
-
-# SRC 2 upstream vehicle_acceleration filter
-param set-default IMU_ACCEL_CUTOFF 30
-
-# Acc INDI: physical force feedback F_0
-param set-default CA_FORCE_CUTOFF 10
-param set-default MPC_INDI_F_DLY 0.03
-
-# Acc INDI: mass/force model
-param set-default MPC_MASS 1.56
-
-
-# The 1.56 kg model hovers at motor signal x=0.7146. With the quadratic
-# thrust model MPC_THR_HOVER=x^2 and Fmax=mass*g/MPC_THR_HOVER.
-param set-default MPC_THR_HOVER 0.49
-param set-default THR_MDL_FAC 1
 param set-default RTL_RETURN_ALT 2.5
 param set-default RTL_DESCEND_ALT 2.5
 
@@ -94,7 +30,10 @@ param set-default MC_F8_AX 5
 param set-default MC_F8_AY 2.5
 param set-default MC_F8_AZ 0
 param set-default MC_F8_OMEGA 0.4
-param set-default MC_ORBIT_YAW_MOD 3
+# OM-MPC uses the analytic parameter trajectory with a fixed initial heading.
+# Orbit and MPC remain disabled until explicitly requested.
+param set-default MC_ORBIT_SRC 1
+param set-default MC_ORBIT_YAW_MOD 1
 
 param set-default CA_ROTOR_COUNT 1
 param set-default CA_ROTOR0_AX 0
@@ -103,7 +42,6 @@ param set-default CA_ROTOR0_AZ -1
 param set-default CA_ROTOR0_PX 0
 param set-default CA_ROTOR0_PY 0
 param set-default CA_ROTOR0_PZ 0.05
-param set-default CA_ROTOR0_CT 30
 param set-default CA_ROTOR0_KM 0
 
 param set-default CA_SV_CS_COUNT 4

@@ -207,6 +207,17 @@ bool FlightTaskOrbit::activate(const trajectory_setpoint_s &last_setpoint)
 			_trajectory_omega = math::constrain(_trajectory_omega, -omega_limit, omega_limit);
 		}
 	}
+	_phase_rate_limit = INFINITY;
+	float terminal_rate = _param_phase_rate_end.get();
+	if (_trajectory_acceleration_max > FLT_EPSILON) {
+		const float derivative_bound = sqrtf(_radii(0) * _radii(0) + _radii(1) * _radii(1) + _vertical_amplitude * _vertical_amplitude);
+		if (derivative_bound > FLT_EPSILON) {
+			const float limit = sqrtf(_trajectory_acceleration_max / derivative_bound);
+			_phase_rate_limit = limit;
+			terminal_rate = math::constrain(terminal_rate, -limit, limit);
+		}
+	}
+	_phase_ramp.reset(_trajectory_omega, terminal_rate, _param_phase_ramp_time.get());
 	_hold_parameterized_origin = _use_parameterized_geometry
 			&& (fabsf(_trajectory_omega) <= FLT_EPSILON || _orbit_radius <= FLT_EPSILON);
 	// Command mode keeps the original MAVLink radius/speed interface. It does
@@ -274,9 +285,6 @@ bool FlightTaskOrbit::update()
 	_adjustParametersByStick();
 
 	if (_hold_parameterized_origin) {
-#ifdef CONFIG_MC_POS_CONTROL_OM_MPC
-	om_mpc_reference_s inactive{}; inactive.timestamp = hrt_absolute_time(); _om_reference_pub.publish(inactive);
-#endif
 
 		// A zero configured phase rate is an explicit stationary trajectory. Do
 		// not enter the legacy altitude/velocity mode or advance an old phase.
@@ -292,6 +300,17 @@ bool FlightTaskOrbit::update()
 		_heading_smoothing.update(_yaw_setpoint, _deltatime);
 		_yaw_setpoint = _heading_smoothing.getSmoothedHeading();
 		_yawspeed_setpoint = _heading_smoothing.getSmoothedHeadingRate();
+#ifdef CONFIG_MC_POS_CONTROL_OM_MPC
+		// A fixed point is a zero-amplitude, zero-rate analytic reference.
+		// Keep the normal task setpoints and MPC prediction on the same point.
+		om_mpc_reference_s reference{};
+		reference.timestamp = hrt_absolute_time();
+		_center.copyTo(reference.center);
+		reference.yaw = _initial_heading;
+		reference.valid = ret && _use_parameterized_geometry
+			&& _yaw_behaviour == orbit_status_s::ORBIT_YAW_BEHAVIOUR_HOLD_INITIAL_HEADING;
+		_om_reference_pub.publish(reference);
+#endif
 		sendTelemetry();
 		return ret;
 	}
@@ -338,7 +357,9 @@ bool FlightTaskOrbit::update()
 	Vector3f{1.f, 1.f, 1.f}.copyTo(reference.harmonic);
 	Vector3f{M_PI_2_F, 0.f, 0.f}.copyTo(reference.phase_offset);
 	reference.phase = _om_reference_phase;
-	reference.phase_rate = _trajectory_omega;
+	reference.phase_rate = _reference_phase_rate;
+	reference.phase_acceleration = _reference_phase_acceleration;
+	reference.ramp_remaining = _reference_ramp_remaining;
 	reference.yaw = _initial_heading;
 	reference.valid = ret && !_in_circle_approach && _use_parameterized_geometry
 		&& _yaw_behaviour == orbit_status_s::ORBIT_YAW_BEHAVIOUR_HOLD_INITIAL_HEADING;
@@ -465,6 +486,11 @@ void FlightTaskOrbit::_generate_circle_approach_setpoints()
 
 void FlightTaskOrbit::_generate_circle_setpoints()
 {
+	if (_use_angular_frequency) {
+		_phase_ramp.retarget(math::constrain(_param_phase_rate_end.get(), -_phase_rate_limit, _phase_rate_limit),
+				     _param_phase_ramp_time.get());
+	}
+
 	/*
 	 * The ideal horizontal circle is parameterized by
 	 *
@@ -494,17 +520,20 @@ void FlightTaskOrbit::_generate_circle_setpoints()
 	const float tangential_acceleration = _deltatime > FLT_EPSILON
 					      ? (tangential_velocity - previous_velocity) / _deltatime : 0.f;
 
-	float phase_rate = _use_angular_frequency ? _trajectory_omega
+	float phase_rate = _use_angular_frequency ? _phase_ramp.rate()
 							: tangential_velocity / math::max(_orbit_radius, FLT_EPSILON);
-	const float phase_acceleration = _use_angular_frequency ? 0.f
+	const float phase_acceleration = _use_angular_frequency ? _phase_ramp.acceleration()
 							 : tangential_acceleration / math::max(_orbit_radius, FLT_EPSILON);
 	_position_setpoint = _center + position_offset;
 	_velocity_setpoint = phase_derivative * phase_rate;
 	_acceleration_setpoint = phase_second_derivative * phase_rate * phase_rate + phase_derivative * phase_acceleration;
 #ifdef CONFIG_MC_POS_CONTROL_OM_MPC
 	_om_reference_phase = _orbit_phase;
+	_reference_phase_rate = phase_rate;
+	_reference_phase_acceleration = phase_acceleration;
+	_reference_ramp_remaining = _phase_ramp.remaining();
 #endif
-	_orbit_phase = wrap_2pi(_orbit_phase + phase_rate * _deltatime);
+	_orbit_phase = wrap_2pi(_orbit_phase + (_use_angular_frequency ? _phase_ramp.advance(_deltatime) : phase_rate * _deltatime));
 }
 
 void FlightTaskOrbit::_setOrbitPhaseFromPosition()

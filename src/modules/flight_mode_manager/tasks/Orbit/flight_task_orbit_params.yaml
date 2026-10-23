@@ -57,3 +57,22 @@ parameters:
       max: 20.0
       increment: 0.1
       decimal: 1
+
+    MC_ORB_OM_END:
+      description:
+        short: Terminal harmonic phase rate
+        long: Signed terminal phase rate for parameterized Orbit and FigureEight. Used only when MC_ORB_OM_TIME is positive. Changing the target or duration restarts the ramp from the current rate without moving its phase or center.
+      type: float
+      default: 0.0
+      min: -20.0
+      max: 20.0
+      unit: rad/s
+    MC_ORB_OM_TIME:
+      description:
+        short: Harmonic phase-rate ramp duration
+        long: Linear speed-ramp duration after approach finishes. Zero preserves constant MC_CIRC_OMEGA or MC_F8_OMEGA. The terminal rate is held after this duration; references and prediction share the same finite schedule.
+      type: float
+      default: 0.0
+      min: 0.0
+      max: 120.0
+      unit: s

@@ -39,13 +39,13 @@ param set-default CA_WLS_FZ_W 0.03162278
 # Gazebo writes these vehicle properties directly on base_link. The IMU adds no
 # inertial link; the GPS and four rotor-link inertias are kept negligible.
 
-param set-default MC_INDI_P_P 16
-param set-default MC_INDI_R_P 16
+param set-default MC_INDI_P_P 15
+param set-default MC_INDI_R_P 15
 param set-default MC_INDI_Y_P 8
 # Residual torque feedback delay for the near-instantaneous 0.5 ms motor model.
-param set-default MC_INDI_T_DLY 0.008
+param set-default MC_INDI_T_DLY 0.004
 
-# Rate and EKF acceleration INDI: 100 Hz gyro, 8 Hz rate-feedback filters.
+# Rate and EKF acceleration INDI share the Iris plant across simulators.
 # PID gains below remain available when INDI is disabled.
 # Small attitude reference feed-forward: fast/slow SITL comparison, 2026-09-09.
 # Analytic yaw-rate commands retain unity feed-forward independently.
@@ -54,7 +54,30 @@ param set-default MC_REF_W_N 50.0
 param set-default MC_REF_FF_MAX 100.0
 param set-default MC_INDI_RATE_EN 1
 param set-default MPC_INDI_ACC_EN 1
+# Common Iris OM-MPC tuning; SIH and gz source this airframe too.
+# Keep controller settings here and simulator-specific plant/sensor settings
+# in each wrapper. Enabling the middle layer remains an explicit choice.
+param set-default MPC_OM_N 15
+param set-default MPC_OM_DT 0.04
+param set-default MPC_OM_RATE 50
+param set-default MPC_OM_QPOS 324
+param set-default MPC_OM_QVEL 10
+param set-default MPC_OM_QROT 4.32
+param set-default MPC_OM_RTHR 0.25
+param set-default MPC_OM_ROMG 5
+param set-default MPC_OM_PFAC 1
 param set-default MC_OM_INDI_EN 0
+param set-default MC_OM_ACC_EN 1
+param set-default MC_OM_ACC_GAIN 1.0
+param set-default MC_OM_A_SRC 1
+param set-default MC_OM_RATE_MAX 250.0
+param set-default MC_OM_A_LP 8.0
+param set-default MC_OM_F_DLY 0.004
+param set-default MC_OM_TR_T 1.0
+param set-default MC_OM_KPHI_R 6.0
+param set-default MC_OM_KPHI_P 6.0
+param set-default MC_OM_KPHI_Y 0.0
+param set-default MC_OM_HOVER 0.2163
 
 # User's latest attitude/PID-rate tuning; EKF velocity P gains refined in SITL.
 param set-default MC_ROLL_P 6.5
@@ -85,8 +108,8 @@ param set-default MPC_YAWRAUTO_MAX 360
 # Feedback filters validated with the 0.5 ms SITL motor model.
 # MC_YAW_TQ_CUTOFF remains disabled above.
 param set-default IMU_GYRO_CUTOFF 100
-param set-default IMU_DGYRO_CUTOFF 8
-param set-default CA_TORQ_CUTOFF 8
+param set-default IMU_DGYRO_CUTOFF 20
+param set-default CA_TORQ_CUTOFF 20
 
 # Rate INDI: inertia model
 param set-default MC_J_X 0.0025

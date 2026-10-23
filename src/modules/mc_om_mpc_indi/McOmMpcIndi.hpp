@@ -20,6 +20,8 @@
 #include <uORB/topics/allocation_value.h>
 #include <uORB/topics/om_mpc_indi_status.h>
 #include <uORB/topics/om_mpc_setpoint.h>
+#include <uORB/topics/om_mpc_command.h>
+#include <uORB/topics/om_mpc_indi_command.h>
 #include <uORB/topics/parameter_update.h>
 #include <uORB/topics/rate_ctrl_status.h>
 #include <uORB/topics/vehicle_acceleration.h>
@@ -83,6 +85,7 @@ private:
 
 	uORB::SubscriptionCallbackWorkItem _vehicle_attitude_sub{this, ORB_ID(vehicle_attitude)};
 	uORB::Subscription _om_mpc_setpoint_sub{ORB_ID(om_mpc_setpoint)};
+	uORB::Subscription _onboard_command_sub{ORB_ID(om_mpc_command)};
 	uORB::Subscription _vehicle_local_position_sub{ORB_ID(vehicle_local_position)};
 	uORB::Subscription _vehicle_acceleration_sub{ORB_ID(vehicle_acceleration)};
 	uORB::Subscription _vehicle_angular_velocity_sub{ORB_ID(vehicle_angular_velocity)};
@@ -95,10 +98,14 @@ private:
 
 	uORB::Publication<vehicle_rates_setpoint_s> _setpoint_pub{ORB_ID(vehicle_rates_setpoint)};
 	uORB::Publication<om_mpc_indi_status_s> _status_pub{ORB_ID(om_mpc_indi_status)};
+	uORB::Publication<om_mpc_indi_command_s> _onboard_correction_pub{ORB_ID(om_mpc_indi_command)};
 
 	vehicle_attitude_s _vehicle_attitude{};
 	vehicle_angular_velocity_s _vehicle_angular_velocity{};
 	om_mpc_setpoint_s _nominal_setpoint{};
+	om_mpc_command_s _onboard_command{};
+	bool _onboard_enabled{false};
+	const param_t _onboard_enable_handle{param_find("MPC_OM_EN")};
 	vehicle_control_mode_s _vehicle_control_mode{};
 	vehicle_land_detected_s _vehicle_land_detected{};
 	vehicle_status_s _vehicle_status{};

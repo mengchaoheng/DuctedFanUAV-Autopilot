@@ -37,6 +37,7 @@
 #include <uORB/topics/om_mpc_status.h>
 #include <uORB/topics/om_mpc_command.h>
 #include <uORB/topics/om_mpc_reference.h>
+#include <uORB/topics/om_mpc_indi_command.h>
 #endif
 
 #include <matrix/matrix/math.hpp>
@@ -120,6 +121,10 @@ private:
 #ifdef CONFIG_MC_POS_CONTROL_OM_MPC
 	uORB::Subscription _om_command_sub{ORB_ID(om_mpc_command)};
 	uORB::Subscription _om_reference_sub{ORB_ID(om_mpc_reference)};
+	uORB::Subscription _om_indi_command_sub{ORB_ID(om_mpc_indi_command)};
+	const param_t _om_indi_enable_handle{param_find("MC_OM_INDI_EN")};
+	const param_t _om_acc_enable_handle{param_find("MC_OM_ACC_EN")};
+	bool _om_acceleration_indi_active{false};
 	const param_t _om_enable_handle{param_find("MPC_OM_EN")};
 	uORB::PublicationData<om_mpc_status_s> _om_status_pub{ORB_ID(om_mpc_status)};
 	bool applyOmMpc(vehicle_rates_setpoint_s &rates_setpoint);

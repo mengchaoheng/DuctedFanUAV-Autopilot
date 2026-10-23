@@ -41,6 +41,7 @@ px4_add_romfs_files(
 	px4-rc.mavlinksim
 	px4-rc.sihsim
 	px4-rc.rotorpy
+	rc.df4_control
 	rc.replay
 	rcS
 )

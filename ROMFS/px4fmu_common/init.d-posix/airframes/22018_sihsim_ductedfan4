@@ -9,11 +9,21 @@
 
 . ${R}etc/init.d-posix/airframes/22002_gazebo-classic_ductedfan4
 
-# SIH INDI feedback alignment; retain the Classic gains and filters.
-param set-default MC_INDI_RATE_EN 1
-param set-default MPC_INDI_ACC_EN 1
-param set-default MC_INDI_T_DLY 0.028
-param set-default MPC_INDI_F_DLY 0.030
+# Small extra body damping, informed by flight logs but not a unique plant fit.
+# Keep this separate from the vane aerodynamic forces/moments below.
+# Low-speed effective hull drag fitted to flight logs 108/109.
+# Like the Gazebo DF4 hull force, it acts at the vehicle centre of mass.
+param set-default SIH_KDV 0.9
+param set-default SIH_KDW 0.003
+
+# Flight logs 108/109: fit the 8-20 Hz sensor floor through the 250 Hz front-end.
+# The larger >20 Hz flight residual contains vibration: replacing all of it
+# with white noise overexcites the low-frequency INDI acceleration feedback.
+# High-frequency structural vibration is not reproduced by this white model.
+param set-default SIH_GYRO_XY 0.01
+param set-default SIH_GYRO_Z 0.02
+param set-default SIH_ACC_XY 0.1
+param set-default SIH_ACC_Z 0.1
 
 PX4_SIMULATOR=${PX4_SIMULATOR:=sihsim}
 PX4_SIM_MODEL=${PX4_SIM_MODEL:=ductedfan4}
@@ -39,33 +49,39 @@ param set-default SIH_IYZ 0
 # Rotor maximum thrust for the simple DF plant, independent of allocation.
 param set-default SIH_T_MAX 29.9584438
 
-# Match the Classic motor lag; keep an independently adjustable SIH servo lag.
+# Vane cp is 0.156 m below base_link; CAD CoM is 0.011 m above it.
+# SIH integrates at the CoM, while the Gazebo cp is relative to base_link.
+param set-default SIH_DF_ARM 0.167
+
+# Rotor response is unchanged; the servo candidate is shared with Gazebo.
 param set-default SIH_T_TAU 0.03
 
+# KST X08H V6 at 8 V: 10 ms first-order approximation, pending bench calibration.
+param set-default SIH_SV_TAU 0.01
 
-# Matched physical model and IMU noise; PID tuning is inherited above.
-param set-default SIH_SV_TAU 0.03
-
-# Gazebo Classic ductedfan4 disturbance preset: body FLU -> FRD.
-# Single window starts after enable; disabled by default, as running_time is zero.
+# Authority-normalized sine preset, shared with Classic/gz (2026-10-22).
+# F/(m*a_cap): 3/3/10%; tau/(J*alpha_cap): 5/5/3%, XYZ/RPY.
+# Vertical a_cap is the smaller upward/downward thrust reserve; see the
+# hover_indi6_authority report for physical limits and FRD/FLU conversion.
+# SIH_DIST_EN=0 disables loads; enabling starts one 1000 s window immediately.
 param set-default SIH_DIST_EN 0
 param set-default SIH_DIST_START 0
-param set-default SIH_DIST_DUR 200
+param set-default SIH_DIST_DUR 1000
 param set-default SIH_DF_BX 0
 param set-default SIH_DF_BY 0
 param set-default SIH_DF_BZ 0
-param set-default SIH_DF_AX 1
-param set-default SIH_DF_AY -1
-param set-default SIH_DF_AZ -3
-param set-default SIH_DF_HX 0.2
+param set-default SIH_DF_AX 0.458960563
+param set-default SIH_DF_AY 0.458960563
+param set-default SIH_DF_AZ 1.17036721
+param set-default SIH_DF_HX 0.1
 param set-default SIH_DF_HY 0.2
-param set-default SIH_DF_HZ 0.2
+param set-default SIH_DF_HZ 0.3
 param set-default SIH_DM_BX 0
 param set-default SIH_DM_BY 0
 param set-default SIH_DM_BZ 0
-param set-default SIH_DM_AX 0.05
-param set-default SIH_DM_AY -0.05
-param set-default SIH_DM_AZ -0.01
+param set-default SIH_DM_AX 0.0173225155
+param set-default SIH_DM_AY 0.0173225155
+param set-default SIH_DM_AZ 0.00858864842
 param set-default SIH_DM_HX 0.2
 param set-default SIH_DM_HY 0.4
 param set-default SIH_DM_HZ 0.2

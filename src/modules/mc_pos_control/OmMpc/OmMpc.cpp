@@ -11,6 +11,7 @@
 #include <uORB/topics/om_mpc_reference.h>
 #include <uORB/topics/om_mpc_command.h>
 #include <uORB/topics/om_mpc_status.h>
+#include <uORB/topics/om_mpc_indi_status.h>
 #include <uORB/topics/vehicle_local_position.h>
 #include <uORB/topics/vehicle_attitude.h>
 #include <uORB/topics/vehicle_status.h>
@@ -81,13 +82,14 @@ struct OmMpc::Runtime {
 	const param_t h_mpc_om_n = param_find("MPC_OM_N");
 	const param_t h_mpc_om_dt = param_find("MPC_OM_DT");
 	const param_t h_mpc_om_iter = param_find("MPC_OM_ITER");
+	const param_t h_mpc_om_d_gain = param_find("MPC_OM_D_GAIN");
 	const param_t h_cost[6] {param_find("MPC_OM_QPOS"), param_find("MPC_OM_QVEL"), param_find("MPC_OM_QROT"),
 		param_find("MPC_OM_RTHR"), param_find("MPC_OM_ROMG"), param_find("MPC_OM_PFAC")};
 	float cost[6] {324.f, 10.f, 4.32f, .25f, .8f, 1.f};
 	uORB::Subscription parameter_sub{ORB_ID(parameter_update)};
 	bool config_valid{false}, model_initialized{false}, horizon_supported{true};
 	int prediction_horizon{15};
-	float prediction_dt{.04f};
+	float prediction_dt{.04f}, disturbance_gain{0.f};
 	float hover{.2163f}, max_normalized{1.f}, max_thrust{0.f};
 	Vector3f rate_limits{}, entry_limits{};
 	int iteration_limit{100};
@@ -121,6 +123,7 @@ struct OmMpc::Runtime {
 			memcpy(cost, next_cost, sizeof(cost));
 			prediction_horizon = next_n;
 			prediction_dt = next_dt;
+			disturbance_gain = fminf(fmaxf(parameter(h_mpc_om_d_gain, 0.f), 0.f), 1.f);
 			hover = parameter(h_mpc_thr_hover, .2163f);
 			max_normalized = parameter(h_mpc_thr_max, 1.f);
 			max_thrust = hover > .01f ? 9.80665f * max_normalized / hover : 0.f;
@@ -143,6 +146,7 @@ struct OmMpc::Runtime {
 
 	OmCpuMonitor cpu_monitor;
 	uORB::Subscription ref_sub {ORB_ID(om_mpc_reference)}, pos_sub {ORB_ID(vehicle_local_position)}, att_sub {ORB_ID(vehicle_attitude)},
+	     disturbance_sub{ORB_ID(om_mpc_indi_status)},
 	     status_sub{ORB_ID(vehicle_status)}, mode_sub{ORB_ID(vehicle_control_mode)}, land_sub{ORB_ID(vehicle_land_detected)};
 	uORB::Publication<om_mpc_command_s> publication{ORB_ID(om_mpc_command)};
 	// Runtime is heap-allocated; the problem never occupies the 8 KiB worker stack.
@@ -369,6 +373,8 @@ void OmMpc::Run()
 		path.offset = Vector3f(ref.phase_offset);
 		path.phase = ref.phase;
 		path.omega = ref.phase_rate;
+		path.omega_dot = ref.phase_acceleration;
+		path.ramp_time = ref.ramp_remaining;
 		path.rotation = ref.heading_rotation;
 		path.yaw = ref.yaw;
 		const float hover = _runtime->hover, max_normalized = _runtime->max_normalized;
@@ -376,9 +382,20 @@ void OmMpc::Run()
 		// Evaluate it at this fresh state release and at every prediction knot;
 		// MPC does not need a new reference message for each state publication.
 		const float elapsed = hrt_elapsed_time(&ref.timestamp) * 1e-6f;
+		// Use only a fresh matched estimate from the already active INDI bridge.
+		// With gain zero, stale feedback, or a disabled publisher, stay nominal.
+		Vector3f predicted_disturbance{};
+		om_mpc_indi_status_s feedback{};
+		if (_runtime->disturbance_gain > 0.f && _runtime->disturbance_sub.copy(&feedback)
+		    && feedback.disturbance_valid && feedback.timestamp != 0 && feedback.timestamp_sample != 0
+		    && hrt_elapsed_time(&feedback.timestamp) < 100000
+		    && hrt_elapsed_time(&feedback.timestamp_sample) < 100000
+		    && Vector3f(feedback.acceleration_disturbance).isAllFinite()) {
+			predicted_disturbance = Vector3f(feedback.acceleration_disturbance) * _runtime->disturbance_gain;
+		}
 		const bool built = hover > .01f && om_mpc::build(path, elapsed, Vector3f{pos.x, pos.y, pos.z}, Vector3f{pos.vx, pos.vy, pos.vz},
 				   matrix::Dcmf(matrix::Quatf(att.q)), _runtime->max_thrust, _runtime->rate_limits, problem, _runtime->model_initialized,
-				   _runtime->prediction_dt, _runtime->prediction_horizon);
+				   _runtime->prediction_dt, _runtime->prediction_horizon, predicted_disturbance);
 		if (built && !_runtime->model_initialized) {
 			// A weight change resets the workspace under PID ownership. Warm
 			// cycles reuse these diagonal costs and the solver factorization.
@@ -462,6 +479,7 @@ void OmMpc::Run()
 			if (valid && !cold && setting(h_mpc_om_en) == 1 && status_sub.copy(&status)
 			    && status.nav_state == vehicle_status_s::NAVIGATION_STATE_ORBIT) {
 				output.active = true;
+				predicted_disturbance.copyTo(output.mpc_disturbance);
 				published_cpu = cpu_begin != UINT64_MAX && cpu_end != UINT64_MAX && cpu_end >= cpu_begin ? cpu : UINT64_MAX;
 				engaged = true;
 

@@ -39,6 +39,7 @@ include(px4_list_make_absolute)
 set(msg_files
 	OmMpcReference.msg
 	OmMpcCommand.msg
+	OmMpcIndiCommand.msg
 	OmMpcStatus.msg
 	AccelerationIndiStatus.msg
 	ActionRequest.msg

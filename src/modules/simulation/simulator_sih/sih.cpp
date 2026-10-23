@@ -267,6 +267,19 @@ void Sih::parameters_updated()
 	_L_PITCH = _sih_l_pitch.get();
 	_KDV = _sih_kdv.get();
 	_KDW = _sih_kdw.get();
+	_iris_drag = Vector3f(_sih_ir_kdx.get(), _sih_ir_kdy.get(), _sih_ir_kdz.get());
+	_iris_angular_drag = Vector3f(_sih_ir_kwx.get(), _sih_ir_kwy.get(), _sih_ir_kwz.get());
+
+	for (int i = 0; i < 3; ++i) {
+		if (_iris_drag(i) < 0.f) {
+			_iris_drag(i) = _KDV;
+		}
+
+		if (_iris_angular_drag(i) < 0.f) {
+			_iris_angular_drag(i) = _KDW;
+		}
+	}
+
 	_F_T_MAX = _sih_f_thrust_max.get();
 	_F_Q_MAX = _sih_f_torque_max.get();
 
@@ -508,8 +521,17 @@ void Sih::generate_force_and_torques(const float dt)
 					 _Q_MAX * (+_u[0] + _u[1] - _u[2] - _u[3]));
 		}
 
-		_Fa_E = -_KDV * _R_N2E * _v_apparent_N; // first order drag to slow down the aircraft
-		_Ma_B = -_KDW * _w_B; // first order angular damper
+		if (_vehicle == VehicleType::Iris) {
+			// Body-axis linear drag from Sun et al. (2022), Eq. (9), Table II.
+			const Vector3f force_body(-_iris_drag(0) * _v_B(0), -_iris_drag(1) * _v_B(1), -_iris_drag(2) * _v_B(2));
+			_Fa_E = _q_E.rotateVector(force_body);
+			_Ma_B = Vector3f(-_iris_angular_drag(0) * _w_B(0), -_iris_angular_drag(1) * _w_B(1),
+					-_iris_angular_drag(2) * _w_B(2));
+
+		} else {
+			_Fa_E = -_KDV * _R_N2E * _v_apparent_N;
+			_Ma_B = -_KDW * _w_B;
+		}
 
 	} else if (_vehicle == VehicleType::Hexacopter) {
 		/*     m5    m0      ┬

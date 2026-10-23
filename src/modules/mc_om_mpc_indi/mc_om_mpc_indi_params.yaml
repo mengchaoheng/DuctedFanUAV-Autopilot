@@ -4,11 +4,13 @@ parameters:
   definitions:
     MC_OM_INDI_EN:
       description:
-        short: Enable external OM-MPC INDI middle layer
+        short: Enable OM-MPC INDI middle layer
         long: |-
-          Starts the isolated acceleration-INDI/lift bridge. The bridge is
-          active only while fresh OmMpcSetpoint commands arrive; other
-          controllers use their existing paths and are unaffected.
+          Enables the isolated acceleration-INDI/lift bridge. It accepts fresh
+          onboard OmMpcCommand or external OmMpcSetpoint commands and publishes
+          a disturbance estimate when MC_OM_DIST_EN and matched measurements permit.
+          Onboard corrections return through mc_att_control's single output
+          arbitration. Other controllers keep their existing paths.
       type: boolean
       default: 0
     MC_OM_ACC_EN:
@@ -34,7 +36,11 @@ parameters:
     MC_OM_DIST_EN:
       description:
         short: Enable OM disturbance feedback to MPC
-        long: Independent PX4-side ablation gate for publishing a valid matched acceleration disturbance to ROS.
+        long: |-
+          Publishes valid matched acceleration-disturbance estimates to onboard
+          or ROS MPC. Zero disables prediction feedback without disabling
+          acceleration INDI. Onboard MPC scales the estimate with MPC_OM_D_GAIN;
+          ROS MPC uses its own gain. Stale or unmatched measurements remain invalid.
       type: boolean
       default: 1
     MC_OM_RATE_MAX:

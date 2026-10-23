@@ -2,3 +2,4 @@
 # Published by mc_att_control after publishing a rate/thrust setpoint using MPC.
 uint64 timestamp
 bool active
+bool acceleration_indi_active # corrected command adopted at final arbitration

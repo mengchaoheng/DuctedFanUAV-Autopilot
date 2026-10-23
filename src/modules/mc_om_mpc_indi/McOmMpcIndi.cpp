@@ -64,11 +64,34 @@ bool McOmMpcIndi::init()
 
 void McOmMpcIndi::parametersUpdated()
 {
+	const bool acceleration_was_enabled = _param_enable.get() == 1
+			&& _param_acceleration_enable.get() == 1;
 	updateParams();
+	int32_t onboard_enabled = 0;
+	param_get(_onboard_enable_handle, &onboard_enabled);
+	_onboard_enabled = onboard_enabled == 1;
 	_control.setParams(
 		Vector3f(_param_kphi_roll.get(), _param_kphi_pitch.get(), _param_kphi_yaw.get()),
 		math::constrain(_param_acceleration_gain.get(), 0.f, 1.f),
 		_param_hover_thrust.get(), CONSTANTS_ONE_G);
+
+	if (!acceleration_was_enabled && _param_enable.get() == 1
+	    && _param_acceleration_enable.get() == 1) {
+		// Disabled operation follows the slower nominal-command rate. Its lifetime
+		// sample-interval averages must not configure filters at the faster feedback
+		// rate after re-enabling. Rebuild both matched histories together; nominal
+		// MPC retains control until fresh acceleration and delayed force are valid.
+		_ekf_acceleration_filter = AccelerationFilterState{};
+		_imu_acceleration_filter = AccelerationFilterState{};
+		_force_filter = AccelerationFilterState{};
+		_force_history.reset();
+		_force_history_last_timestamp = 0;
+		_force_feedback_timestamp = 0;
+		_last_run_timestamp = 0;
+		_last_control_acceleration_timestamp = 0;
+		_last_control_acceleration_source = 0;
+		resetTransition();
+	}
 }
 
 void McOmMpcIndi::updateAccelerationFilter(const Vector3f &raw, uint64_t timestamp,
@@ -349,21 +372,30 @@ void McOmMpcIndi::Run()
 	const uint64_t now = hrt_absolute_time();
 	const Dcmf attitude(Quatf(_vehicle_attitude.q));
 
-	const bool nominal_setpoint_updated = _om_mpc_setpoint_sub.update(&_nominal_setpoint);
+	bool nominal_setpoint_updated = false;
 	_vehicle_control_mode_sub.update(&_vehicle_control_mode);
 	_vehicle_land_detected_sub.update(&_vehicle_land_detected);
 	_vehicle_status_sub.update(&_vehicle_status);
-#ifdef CONFIG_MC_POS_CONTROL_OM_MPC
-	// OM-MPC uses the attitude module's single rate-output arbitration.
-	// Do not let the optional OM adapter overwrite either Om or PID fallback.
-	int32_t om_enabled = 0;
-	param_get(param_find("MPC_OM_EN"), &om_enabled);
-	if (om_enabled == 1 && _vehicle_status.nav_state == vehicle_status_s::NAVIGATION_STATE_ORBIT) {
-		resetTransition();
-		perf_end(_loop_perf);
-		return;
+	const bool onboard = _onboard_enabled
+		&& _vehicle_status.nav_state == vehicle_status_s::NAVIGATION_STATE_ORBIT;
+	if (onboard) {
+		nominal_setpoint_updated = _onboard_command_sub.update(&_onboard_command);
+		_nominal_setpoint = {};
+		if (_onboard_command.active && hrt_elapsed_time(&_onboard_command.timestamp) < 60_ms) {
+			_nominal_setpoint.timestamp = _onboard_command.timestamp;
+			_nominal_setpoint.thrust_acceleration = -_onboard_command.thrust_body[2]
+				* CONSTANTS_ONE_G / _param_hover_thrust.get();
+			Vector3f(_onboard_command.rates).copyTo(_nominal_setpoint.rates);
+			// Carry the exact disturbance used by this QP, not the newest estimate.
+			// This prevents the downstream INDI layer from compensating it twice.
+			Vector3f(_onboard_command.mpc_disturbance).copyTo(_nominal_setpoint.mpc_disturbance);
+		}
+	} else {
+		nominal_setpoint_updated = _om_mpc_setpoint_sub.updated();
+		if (!_om_mpc_setpoint_sub.copy(&_nominal_setpoint)) {
+			_nominal_setpoint = {};
+		}
 	}
-#endif
 	const bool requested = _nominal_setpoint.timestamp != 0
 			&& hrt_elapsed_time(&_nominal_setpoint.timestamp) < 100_ms
 			&& PX4_ISFINITE(_nominal_setpoint.thrust_acceleration)
@@ -491,11 +523,23 @@ void McOmMpcIndi::Run()
 	output.pitch = output_rates(1);
 	output.yaw = output_rates(2);
 	output_thrust.copyTo(output.thrust_body);
-	const bool disturbance_valid = feedback_valid && disturbance.isAllFinite()
-			&& _param_disturbance_enable.get() == 1
-			&& (_param_acceleration_enable.get() != 1 || _transition_progress >= 1.f);
+	// The shared gate controls feedback to onboard and ROS MPC, independently
+	// of acceleration INDI. Measurement validity is still required when enabled.
+	const bool disturbance_valid = _param_disturbance_enable.get() == 1
+			&& feedback_valid && disturbance.isAllFinite();
 
-	_setpoint_pub.publish(output);
+	if (onboard) {
+		// Never compete with mc_att_control for the final onboard rate output.
+		om_mpc_indi_command_s correction{};
+		correction.timestamp = output.timestamp;
+		correction.timestamp_nominal = _onboard_command.timestamp;
+		output_rates.copyTo(correction.rates);
+		output_thrust.copyTo(correction.thrust_body);
+		correction.active = acceleration_active;
+		_onboard_correction_pub.publish(correction);
+	} else {
+		_setpoint_pub.publish(output);
+	}
 	publishStatus(now, selected.timestamp, acceleration_active,
 		disturbance_valid, disturbance, acceleration_ned, allocated_force_ned,
 		nominal_rates, corrected);
@@ -535,10 +579,11 @@ int McOmMpcIndi::print_usage(const char *reason)
 	PRINT_MODULE_DESCRIPTION(
 		R"DESCR_STR(
 ### Description
-OM-MPC acceleration-INDI middle layer. It consumes the external nominal
-OmMpcSetpoint, estimator/IMU acceleration and allocator feedback, then publishes
-the standard VehicleRatesSetpoint consumed by mc_rate_control. Other controllers
-remain on their existing setpoint paths.
+OM-MPC acceleration-INDI middle layer. It uses estimator/IMU acceleration and
+allocator feedback to correct onboard OmMpcCommand or external OmMpcSetpoint.
+Onboard corrections pass through mc_att_control's output arbitration; the
+external path publishes VehicleRatesSetpoint directly. Other controllers keep
+their existing setpoint paths.
 )DESCR_STR");
 	PRINT_MODULE_USAGE_NAME("mc_om_mpc_indi", "controller");
 	PRINT_MODULE_USAGE_COMMAND("start");

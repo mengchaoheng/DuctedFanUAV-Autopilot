@@ -454,6 +454,7 @@ int MulticopterAttitudeControl::custom_command(int argc, char *argv[])
 #ifdef CONFIG_MC_POS_CONTROL_OM_MPC
 bool MulticopterAttitudeControl::applyOmMpc(vehicle_rates_setpoint_s &rates_setpoint)
 {
+	_om_acceleration_indi_active = false;
 	// One publisher owns vehicle_rates_setpoint. A fresh OM-MPC command replaces
 	// attitude-loop output; ordinary control remains available for fallback.
 	int32_t om_enabled = 0;
@@ -475,6 +476,25 @@ bool MulticopterAttitudeControl::applyOmMpc(vehicle_rates_setpoint_s &rates_setp
 		rates_setpoint.pitch = command.rates[1];
 		rates_setpoint.yaw = command.rates[2];
 		matrix::Vector3f(command.thrust_body).copyTo(rates_setpoint.thrust_body);
+		int32_t indi_enabled = 0, acc_enabled = 0;
+		param_get(_om_indi_enable_handle, &indi_enabled);
+		param_get(_om_acc_enable_handle, &acc_enabled);
+		om_mpc_indi_command_s correction{};
+		// The attitude and middle-layer callbacks are asynchronous. Hold the
+		// latest complete corrected pair for at most 20 ms, including across a
+		// QP update; requiring an exact match would drop INDI once every QP cycle.
+		if (indi_enabled == 1 && acc_enabled == 1
+		    && _om_indi_command_sub.copy(&correction) && correction.active
+		    && correction.timestamp_nominal <= command.timestamp
+		    && hrt_elapsed_time(&correction.timestamp_nominal) < 60_ms
+		    && hrt_elapsed_time(&correction.timestamp) < 20_ms
+		    && Vector3f(correction.rates).isAllFinite() && Vector3f(correction.thrust_body).isAllFinite()) {
+			rates_setpoint.roll = correction.rates[0];
+			rates_setpoint.pitch = correction.rates[1];
+			rates_setpoint.yaw = correction.rates[2];
+			Vector3f(correction.thrust_body).copyTo(rates_setpoint.thrust_body);
+			_om_acceleration_indi_active = true;
+		}
 	}
 	return om_active;
 }
@@ -485,9 +505,12 @@ void MulticopterAttitudeControl::publishOmMpcStatus(bool active)
 	// State changes publish immediately; the heartbeat is limited to 10 Hz.
 	auto &status = _om_status_pub.get();
 	const uint64_t now = hrt_absolute_time();
-	if (status.active != active || now - status.timestamp >= 100_ms) {
+	const bool acceleration_indi_active = active && _om_acceleration_indi_active;
+	if (status.active != active || status.acceleration_indi_active != acceleration_indi_active
+	    || now - status.timestamp >= 100_ms) {
 		status.timestamp = now;
 		status.active = active;
+		status.acceleration_indi_active = acceleration_indi_active;
 		_om_status_pub.update();
 	}
 }

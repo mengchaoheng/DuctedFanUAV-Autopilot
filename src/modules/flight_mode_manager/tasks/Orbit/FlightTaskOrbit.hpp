@@ -54,6 +54,7 @@
 #include <lib/slew_rate/SlewRateYaw.hpp>
 #include <lib/motion_planning/HeadingSmoothing.hpp>
 #include <lib/motion_planning/HarmonicTrajectory2D.hpp>
+#include <lib/motion_planning/PhaseRateRamp.hpp>
 #include <lib/motion_planning/PositionSmoothing.hpp>
 #include <lib/motion_planning/VelocitySmoothing.hpp>
 #include <lib/slew_rate/SlewRate.hpp>
@@ -131,6 +132,9 @@ private:
 	float _orbit_radius{};
 	matrix::Vector2f _radii{};
 	float _vertical_amplitude{};
+	motion_planning::PhaseRateRamp _phase_ramp{};
+	float _phase_rate_limit{INFINITY};
+	float _reference_phase_rate{}, _reference_phase_acceleration{}, _reference_ramp_remaining{};
 	float _trajectory_omega{};
 	float _orbit_phase{};
 	float _trajectory_acceleration_max{_default_acceleration_max};
@@ -164,6 +168,8 @@ private:
 		(ParamFloat<px4::params::MC_CIRC_OMEGA>) _param_mc_circle_omega,
 		(ParamFloat<px4::params::MC_CIRC_ACC>) _param_mc_circle_acceleration,
 		(ParamFloat<px4::params::MC_ORBIT_RAD_MAX>) _param_mc_orbit_rad_max,
+		(ParamFloat<px4::params::MC_ORB_OM_END>) _param_phase_rate_end,
+		(ParamFloat<px4::params::MC_ORB_OM_TIME>) _param_phase_ramp_time,
 		(ParamInt<px4::params::MC_ORBIT_SRC>) _param_mc_orbit_source,
 		(ParamInt<px4::params::MC_ORBIT_YAW_MOD>) _param_mc_orbit_yaw_mod,
 		(ParamFloat<px4::params::MPC_XY_CRUISE>) _param_mpc_xy_cruise, /**< cruise speed for circle approach */

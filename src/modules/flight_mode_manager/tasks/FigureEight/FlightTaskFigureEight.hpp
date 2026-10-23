@@ -41,6 +41,7 @@
 
 #include <lib/motion_planning/HeadingSmoothing.hpp>
 #include <lib/motion_planning/HarmonicTrajectory2D.hpp>
+#include <lib/motion_planning/PhaseRateRamp.hpp>
 #include <lib/motion_planning/PositionSmoothing.hpp>
 #include <lib/slew_rate/SlewRate.hpp>
 #include <uORB/PublicationMulti.hpp>
@@ -114,6 +115,9 @@ private:
 	float _minor_radius{2.5f};
 	float _vertical_amplitude{0.f};
 	float _trajectory_velocity{1.f}; // MAVLink command-mode tangential speed
+	motion_planning::PhaseRateRamp _phase_ramp{};
+	float _phase_rate_limit{INFINITY};
+	float _reference_phase_rate{}, _reference_phase_acceleration{}, _reference_ramp_remaining{};
 	float _trajectory_omega{0.f};
 	float _phase{0.f};
 	float _trajectory_heading{0.f};
@@ -144,6 +148,8 @@ private:
 		(ParamFloat<px4::params::MC_F8_HDG>) _param_mc_f8_heading,
 		(ParamFloat<px4::params::MC_F8_ACC>) _param_mc_f8_acceleration,
 		(ParamFloat<px4::params::MC_ORBIT_RAD_MAX>) _param_mc_orbit_rad_max,
+		(ParamFloat<px4::params::MC_ORB_OM_END>) _param_phase_rate_end,
+		(ParamFloat<px4::params::MC_ORB_OM_TIME>) _param_phase_ramp_time,
 		(ParamInt<px4::params::MC_ORBIT_SRC>) _param_mc_orbit_source,
 		(ParamInt<px4::params::MC_ORBIT_YAW_MOD>) _param_mc_orbit_yaw_mod,
 		(ParamFloat<px4::params::MPC_XY_CRUISE>) _param_mpc_xy_cruise,

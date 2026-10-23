@@ -7,7 +7,7 @@
 
 // Nominal on-manifold / ROS error model in float32.
 // Reference discretization mismatch is neglected, as in the ROS/MATLAB OM-MPC path.
-// NED + FRD, right SO(3) error, no disturbance model in this first integration.
+// NED + FRD, right SO(3) error; optional constant NED acceleration disturbance.
 namespace om_mpc
 {
 using matrix::Vector3f;
@@ -15,7 +15,7 @@ using matrix::Matrix3f;
 using matrix::Dcmf;
 struct Path {
 	Vector3f center{}, amplitude{}, harmonic{}, offset{};
-	float phase{}, omega{}, rotation{}, yaw{};
+	float phase{}, omega{}, omega_dot{}, ramp_time{}, rotation{}, yaw{};
 };
 
 struct Knot {
@@ -72,14 +72,25 @@ inline bool reference(const Path &p, float t, Knot &out, const Dcmf &heading, co
 		      const ReferenceScales &scales)
 {
 	Vector3f derivatives[4];
-
+	const float ramp_t = fminf(fmaxf(t, 0.f), fmaxf(p.ramp_time, 0.f));
+	const float phase = p.phase + p.omega * t + p.omega_dot * ramp_t * (t - .5f * ramp_t);
+	const float omega = p.omega + p.omega_dot * ramp_t;
+	const float alpha = t < p.ramp_time ? p.omega_dot : 0.f;
 	for (int i = 0; i < 3; i++) {
-		const float theta = p.harmonic(i) * (p.phase + p.omega * t) + p.offset(i);
+		const float theta = p.harmonic(i) * phase + p.offset(i);
 		const float sine = sinf(theta), cosine = cosf(theta);
 		derivatives[0](i) = scales.position(i) * sine;
-		derivatives[1](i) = scales.velocity(i) * cosine;
-		derivatives[2](i) = scales.acceleration(i) * sine;
-		derivatives[3](i) = scales.jerk(i) * cosine;
+		if (fabsf(p.omega_dot) <= 0.f) {
+			// An exact zero preserves the validated constant-speed arithmetic.
+			derivatives[1](i) = scales.velocity(i) * cosine;
+			derivatives[2](i) = scales.acceleration(i) * sine;
+			derivatives[3](i) = scales.jerk(i) * cosine;
+		} else {
+			const float h = p.harmonic(i), w = h * omega, a = h * alpha;
+			derivatives[1](i) = p.amplitude(i) * w * cosine;
+			derivatives[2](i) = p.amplitude(i) * (-w * w * sine + a * cosine);
+			derivatives[3](i) = p.amplitude(i) * (-w * w * w * cosine - 3.f * w * a * sine);
+		}
 	}
 
 	for (auto &v : derivatives) {
@@ -126,9 +137,10 @@ inline bool reference(const Path &p, float t, Knot &out)
 
 inline bool build(const Path &path, float elapsed, const Vector3f &position, const Vector3f &velocity,
 		  const Dcmf &rotation, float max_thrust, const Vector3f &rate_limit, OmFloatProblem &p,
-		  bool reuse_structure = false, float prediction_dt = .04f, int horizon = 15)
+		  bool reuse_structure = false, float prediction_dt = .04f, int horizon = 15,
+		  const Vector3f &acceleration_disturbance = Vector3f{})
 {
-	if (horizon < 1 || horizon > OmMaxHorizon) { return false; }
+	if (horizon < 1 || horizon > OmMaxHorizon || !acceleration_disturbance.isAllFinite()) { return false; }
 
 	if (!std::isfinite(prediction_dt) || prediction_dt < .005f || prediction_dt > .1f) { return false; }
 
@@ -220,10 +232,12 @@ inline bool build(const Path &path, float elapsed, const Vector3f &position, con
 
 		const Matrix3f gx = identity - K * sinc + K2 * cosc;
 		const Matrix3f gf = identity - K * (t2 < .01f ? (.5f - t2 / 24.f) : cosc) + K2 * jc;
-		// Nominal on-manifold model: c=0; retain Exp(-h*w_d) and the SO(3) right Jacobian.
+		// main.m uses c=[0; dt*d_hat; 0], with the same d_hat at every knot.
+		// Always overwrite it: disabling feedback must clear a reused QP too.
 		const float thrust_step = p.dt * ref.thrust;
 
 		for (int i = 0; i < 3; i++) {
+			p.c[k][i + 3] = p.dt * acceleration_disturbance(i);
 			p.b[k][(i + 3) * 4] = -p.dt * ref.rotation(i, 2);
 
 			for (int j = 0; j < 3; j++) {

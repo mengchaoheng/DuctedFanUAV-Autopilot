@@ -112,17 +112,17 @@ param set-default SENS_GPS1_DELAY 0
 
 param set-default SIH_SV_TAU 0.03
 
-# Gazebo Classic ductedfan4 disturbance preset: body FLU -> FRD.
-# Single window starts after enable; disabled by default, as running_time is zero.
+# Classic sine disturbance preset, converted from body FLU to body FRD.
+# SIH_DIST_EN=0 disables loads; enabling starts one 1000 s window immediately.
 param set-default SIH_DIST_EN 0
 param set-default SIH_DIST_START 0
-param set-default SIH_DIST_DUR 200
+param set-default SIH_DIST_DUR 1000
 param set-default SIH_DF_BX 0
 param set-default SIH_DF_BY 0
 param set-default SIH_DF_BZ 0
 param set-default SIH_DF_AX 1
 param set-default SIH_DF_AY -1
-param set-default SIH_DF_AZ -3
+param set-default SIH_DF_AZ -2
 param set-default SIH_DF_HX 0.2
 param set-default SIH_DF_HY 0.2
 param set-default SIH_DF_HZ 0.2

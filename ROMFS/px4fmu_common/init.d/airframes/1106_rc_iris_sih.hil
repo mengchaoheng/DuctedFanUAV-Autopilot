@@ -235,11 +235,11 @@ param set-default UXRCE_DDS_CFG 2
 
 param set-default SENS_GPS0_DELAY 0
 
-# Gazebo Classic iris disturbance preset: body FLU -> FRD.
-# Single window starts after enable; disabled by default, as running_time is zero.
+# Classic sine disturbance preset, converted from body FLU to body FRD.
+# SIH_DIST_EN=0 disables loads; enabling starts one 1000 s window immediately.
 param set-default SIH_DIST_EN 0
 param set-default SIH_DIST_START 0
-param set-default SIH_DIST_DUR 200
+param set-default SIH_DIST_DUR 1000
 param set-default SIH_DF_BX 0
 param set-default SIH_DF_BY 0
 param set-default SIH_DF_BZ 0

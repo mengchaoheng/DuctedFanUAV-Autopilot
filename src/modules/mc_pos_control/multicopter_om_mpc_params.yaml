@@ -6,8 +6,8 @@ parameters:
       description:
         short: Enable experimental OM-MPC
         long: |-
-          Runs OM-MPC in flight or simulation for a valid parameter-triggered constant
-          phase-rate Orbit or FigureEight reference after takeoff. Fixed-yaw
+          Runs OM-MPC in flight or simulation for a valid parameter-triggered analytic
+          Orbit or FigureEight reference (including stationary hold) after takeoff. Fixed-yaw
           references are supported. Default position control is hot standby.
       type: boolean
       default: 0
@@ -28,6 +28,24 @@ parameters:
         50: Every second state (nominal 50 Hz)
         100: Every state (nominal 100 Hz)
       default: 50
+
+    MPC_OM_D_GAIN:
+      description:
+        short: OM-MPC acceleration disturbance prediction gain
+        long: |-
+          Fraction of the fresh acceleration disturbance estimated by the
+          OM INDI bridge, held constant across the prediction horizon.
+          MC_OM_DIST_EN controls feedback publication for both onboard and ROS MPC.
+          This gain only scales onboard prediction; zero also preserves nominal MPC.
+          The bridge must have fresh matched acceleration and force data.
+          The applied value travels with each MPC command
+          so acceleration INDI corrects only the remaining mismatch.
+      type: float
+      default: 0.25
+      min: 0.0
+      max: 1.0
+      decimal: 2
+      increment: 0.05
 
     MPC_OM_N:
       description:

@@ -74,6 +74,17 @@ bool FlightTaskFigureEight::activate(const trajectory_setpoint_s &last_setpoint)
 			_trajectory_omega = math::constrain(_trajectory_omega, -omega_limit, omega_limit);
 		}
 	}
+	_phase_rate_limit = INFINITY;
+	float terminal_rate = _param_phase_rate_end.get();
+	if (_param_mc_f8_acceleration.get() > FLT_EPSILON) {
+		const float derivative_bound = sqrtf(_major_radius * _major_radius + 16.f * _minor_radius * _minor_radius + 16.f * _vertical_amplitude * _vertical_amplitude);
+		if (derivative_bound > FLT_EPSILON) {
+			const float limit = sqrtf(_param_mc_f8_acceleration.get() / derivative_bound);
+			_phase_rate_limit = limit;
+			terminal_rate = math::constrain(terminal_rate, -limit, limit);
+		}
+	}
+	_phase_ramp.reset(_trajectory_omega, terminal_rate, _param_phase_ramp_time.get());
 	_hold_parameterized_origin = _use_parameterized_geometry
 			&& (fabsf(_trajectory_omega) <= FLT_EPSILON
 			    || (_major_radius <= FLT_EPSILON && _minor_radius <= FLT_EPSILON));
@@ -190,9 +201,6 @@ bool FlightTaskFigureEight::update()
 	_configurePositionSmoothing();
 
 	if (_hold_parameterized_origin) {
-#ifdef CONFIG_MC_POS_CONTROL_OM_MPC
-	om_mpc_reference_s inactive{}; inactive.timestamp = hrt_absolute_time(); _om_reference_pub.publish(inactive);
-#endif
 
 		ret = ret && FlightTaskManualAltitudeSmoothVel::update();
 		_position_setpoint = _center;
@@ -208,6 +216,17 @@ bool FlightTaskFigureEight::update()
 			_yaw_setpoint = _heading_smoothing.getSmoothedHeading();
 			_yawspeed_setpoint = _heading_smoothing.getSmoothedHeadingRate();
 		}
+#ifdef CONFIG_MC_POS_CONTROL_OM_MPC
+		// A fixed point is a zero-amplitude, zero-rate analytic reference.
+		// Keep the normal task setpoints and MPC prediction on the same point.
+		om_mpc_reference_s reference{};
+		reference.timestamp = hrt_absolute_time();
+		_center.copyTo(reference.center);
+		reference.yaw = _initial_heading;
+		reference.valid = ret && _use_parameterized_geometry
+			&& _yaw_behaviour == orbit_status_s::ORBIT_YAW_BEHAVIOUR_HOLD_INITIAL_HEADING;
+		_om_reference_pub.publish(reference);
+#endif
 		_sendTelemetry();
 		return ret;
 	}
@@ -246,10 +265,12 @@ bool FlightTaskFigureEight::update()
 	reference.timestamp = hrt_absolute_time();
 	_center.copyTo(reference.center);
 	Vector3f{_major_radius, _minor_radius, _vertical_amplitude}.copyTo(reference.amplitude);
-	Vector3f{1.f, 2.f, 1.f}.copyTo(reference.harmonic);
+	Vector3f{1.f, 2.f, 2.f}.copyTo(reference.harmonic);
 	reference.heading_rotation = _trajectory_heading;
 	reference.phase = _om_reference_phase;
-	reference.phase_rate = _trajectory_omega;
+	reference.phase_rate = _reference_phase_rate;
+	reference.phase_acceleration = _reference_phase_acceleration;
+	reference.ramp_remaining = _reference_ramp_remaining;
 	reference.yaw = _initial_heading;
 	reference.valid = ret && !_in_approach && _use_parameterized_geometry
 		&& _yaw_behaviour == orbit_status_s::ORBIT_YAW_BEHAVIOUR_HOLD_INITIAL_HEADING;
@@ -361,6 +382,11 @@ void FlightTaskFigureEight::_generateApproachSetpoints()
 
 void FlightTaskFigureEight::_generateTrackingSetpoints()
 {
+	if (_use_angular_frequency) {
+		_phase_ramp.retarget(math::constrain(_param_phase_rate_end.get(), -_phase_rate_limit, _phase_rate_limit),
+				     _param_phase_ramp_time.get());
+	}
+
 	/*
 	 * With q(theta) = [A sin(theta), B sin(2 theta)]^T and
 	 * p(theta) = center + R(psi) q(theta), the derivatives are
@@ -400,10 +426,10 @@ void FlightTaskFigureEight::_generateTrackingSetpoints()
 
 	if (_use_angular_frequency) {
 		// The parameterized harmonic form uses the same phase convention as
-		// the benchmark reference: theta_dot is the configured omega. Limit
-		// The activation-time global limit keeps this configured omega constant.
-		phase_rate = _trajectory_omega;
-		phase_acceleration = 0.f;
+		// the benchmark reference. The optional finite ramp supplies its rate
+		// and acceleration; the MPC reference uses the same phase schedule.
+		phase_rate = _phase_ramp.rate();
+		phase_acceleration = _phase_ramp.acceleration();
 
 	} else {
 		const float target_speed = math::signNoZero(_trajectory_velocity)
@@ -435,8 +461,11 @@ void FlightTaskFigureEight::_generateTrackingSetpoints()
 	_generateYawSetpoint(feedforward_velocity);
 #ifdef CONFIG_MC_POS_CONTROL_OM_MPC
 	_om_reference_phase = _phase;
+	_reference_phase_rate = phase_rate;
+	_reference_phase_acceleration = phase_acceleration;
+	_reference_ramp_remaining = _phase_ramp.remaining();
 #endif
-	_phase = wrap_2pi(_phase + phase_rate * _deltatime);
+	_phase = wrap_2pi(_phase + (_use_angular_frequency ? _phase_ramp.advance(_deltatime) : phase_rate * _deltatime));
 }
 
 void FlightTaskFigureEight::_generateYawSetpoint(const Vector2f &tangent_velocity)

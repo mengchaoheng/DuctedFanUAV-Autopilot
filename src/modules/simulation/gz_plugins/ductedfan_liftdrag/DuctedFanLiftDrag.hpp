@@ -78,6 +78,9 @@ private:
 	bool _wash_only{false};
 
 	gz::math::Vector3d _cp{0.0, 0.0, 0.0};
+	// Optional body-axis drag [N/(m/s)], applied at cp, independently of rotor wash.
+	gz::math::Vector3d _linear_drag{0.0, 0.0, 0.0};
+	gz::math::Vector3d _angular_drag{0.0, 0.0, 0.0}; // [Nm/(rad/s)]
 	gz::math::Vector3d _forward{1.0, 0.0, 0.0};
 	gz::math::Vector3d _upward{0.0, 0.0, 1.0};
 };

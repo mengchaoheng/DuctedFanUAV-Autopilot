@@ -133,7 +133,7 @@ modes does **not** change these required PX4 settings:
 | ROS mode | PX4 settings |
 | --- | --- |
 | 6, Lu + PID | `MC_INDI_RATE_EN=0`; RC12 must not request native rate INDI |
-| 8, OM | `MC_OM_INDI_EN=1`, `MC_OM_ACC_EN=1`, `MC_OM_DIST_EN=1`, `MC_INDI_RATE_EN=1` |
+| 8, OM | `MC_OM_INDI_EN=1`, `MC_OM_ACC_EN=1`, `MC_OM_DIST_EN=1`, `MC_INDI_RATE_EN=1`; ROS `disturbance_gain` scales valid feedback |
 
 Enable OM before reboot, or start `mc_om_mpc_indi` manually if it was disabled
 at boot. Verify PX4 `uxrce_dds_client status`, `pwm_out_sim status`,

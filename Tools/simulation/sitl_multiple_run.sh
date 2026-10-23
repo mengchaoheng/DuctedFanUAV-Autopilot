@@ -17,10 +17,40 @@ src_path="$SCRIPT_DIR/../../"
 
 build_path=${src_path}/build/${build_target}
 
-echo "killing running instances"
-pkill -x px4 || true
+if [ ! -x "$build_path/bin/px4" ]; then
+	echo "PX4 binary not found: $build_path/bin/px4" >&2
+	exit 1
+fi
 
-sleep 1
+# Starting another batch must never stop an unrelated flight. Check the same
+# per-instance POSIX locks as PX4 before opening/truncating any instance logs.
+if ! python3 - "$sitl_num" <<'PY'
+import fcntl
+import os
+import sys
+
+try:
+    count = int(sys.argv[1])
+    if not 1 <= count <= 255:
+        raise ValueError
+except ValueError:
+    sys.exit("Instance count must be an integer from 1 to 255")
+
+for instance in range(count):
+    try:
+        fd = os.open(f"/tmp/px4_lock-{instance}", os.O_RDWR)
+    except FileNotFoundError:
+        continue
+    try:
+        fcntl.lockf(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+    except BlockingIOError:
+        sys.exit(f"PX4 instance {instance} is already running; no instances were started or stopped")
+    finally:
+        os.close(fd)
+PY
+then
+	exit 1
+fi
 
 export PX4_SIM_MODEL=${sim_model}
 

@@ -40,6 +40,9 @@ bool OmMpcIndiControl::update(const Dcmf &R_to_ned, const Vector3f &nominal_rate
 
 	const Vector3f nominal_thrust_ned = R_to_ned * nominal_thrust_body;
 	const Vector3f gravity_ned{0.f, 0.f, _gravity};
+	// Paper: a_M = g*e3 + beta_M + d_bar; beta_c = beta_f + a_M - a_f.
+	// Carrying this command's d_bar preserves that target when feedback toggles;
+	// it does not switch INDI on/off or change the incremental control law.
 	const Vector3f acceleration_target = gravity_ned
 			+ nominal_thrust_ned * (_gravity / _hover_thrust) + mpc_disturbance_ned;
 	Vector3f corrected_thrust_ned = allocated_thrust_ned
