@@ -23,14 +23,13 @@ parameters:
         long: Selects the trajectory task when entering Orbit mode. The selection is latched until Orbit mode is exited.
       type: enum
       values:
-        0: Circle
+        0: Circle / Ellipse / Sine Line
         1: Figure Eight
-        2: Ellipse / Sine Line
       default: 0
     MC_ORBIT_YAW_MOD:
       description:
         short: Yaw mode during trajectory
-        long: Global yaw behavior used by Circle, Figure Eight and Sine Line tasks unless a MAVLink orbit command supplies another behavior.
+        long: Global yaw behavior used by Circle and Figure Eight tasks unless a MAVLink orbit command supplies another behavior.
       type: enum
       values:
         0: Front to center

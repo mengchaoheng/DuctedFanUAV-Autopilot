@@ -56,7 +56,6 @@ if(NOT px4_constrained_flash_build)
 		AutoFollowTarget
 		FigureEight
 		Orbit
-		SineLine
 	)
 endif()
 

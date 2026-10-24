@@ -138,13 +138,6 @@ param set-default MC_CIRC_AY 3
 param set-default MC_CIRC_AZ 0
 param set-default MC_CIRC_OMEGA 0.2
 
-param set-default MC_SL_ACC 2
-param set-default MC_SL_AX 0
-param set-default MC_SL_AY 3
-param set-default MC_SL_AZ 0
-param set-default MC_SL_OMEGA 0.2
-
-
 # Effectiveness unit contract (control_allocation/df4.m):
 #   v = [tau; F] = B*u, with tau [N m], F [N]. The physical actuator vector u
 #   contains rotor thrust [N] and surface deflection [rad]. Parameters use
