@@ -1,6 +1,6 @@
 module_name: flight_mode_manager
 parameters:
-- group: Orbit - global control
+- group: Orbit - control
   definitions:
     MC_ORBIT_EN:
       description:
@@ -23,8 +23,10 @@ parameters:
         long: Selects the trajectory task when entering Orbit mode. The selection is latched until Orbit mode is exited.
       type: enum
       values:
-        0: Circle / Ellipse / Sine Line
-        1: Figure Eight
+        0: Horizontal Circle / Ellipse
+        1: Horizontal Figure Eight
+        2: Vertical Circle / Ellipse
+        3: Vertical Figure Eight
       default: 0
     MC_ORBIT_YAW_MOD:
       description:
@@ -49,3 +51,21 @@ parameters:
       max: 10000.0
       increment: 0.5
       decimal: 1
+    MC_ORB_OM_END:
+      description:
+        short: Terminal harmonic phase rate
+        long: Signed terminal phase rate for parameterized Orbit and FigureEight. Used only when MC_ORB_OM_TIME is positive. Changing the target or duration restarts the ramp from the current rate without moving its phase or center.
+      type: float
+      default: 0.0
+      min: -20.0
+      max: 20.0
+      unit: rad/s
+    MC_ORB_OM_TIME:
+      description:
+        short: Harmonic phase-rate ramp duration
+        long: Linear speed-ramp duration after approach finishes. Zero preserves the selected horizontal or vertical trajectory phase rate. The terminal rate is held after this duration; references and prediction share the same finite schedule.
+      type: float
+      default: 0.0
+      min: 0.0
+      max: 120.0
+      unit: s

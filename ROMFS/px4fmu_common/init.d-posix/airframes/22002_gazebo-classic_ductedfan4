@@ -25,11 +25,6 @@ param set-default CA_AIRFRAME 16 # matrix 0: physical force, matrix 1: physical 
 param set-default RTL_RETURN_ALT 2.5
 param set-default RTL_DESCEND_ALT 2.5
 
-param set-default MC_F8_ACC 10
-param set-default MC_F8_AX 5
-param set-default MC_F8_AY 2.5
-param set-default MC_F8_AZ 0
-param set-default MC_F8_OMEGA 0.4
 # OM-MPC uses the analytic parameter trajectory with a fixed initial heading.
 # Orbit and MPC remain disabled until explicitly requested.
 param set-default MC_ORBIT_SRC 1

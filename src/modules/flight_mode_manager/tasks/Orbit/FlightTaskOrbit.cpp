@@ -190,15 +190,18 @@ bool FlightTaskOrbit::activate(const trajectory_setpoint_s &last_setpoint)
 			? math::max(_param_mc_circle_acceleration.get(), 0.f)
 			: _default_acceleration_max;
 
-	_radii = {_param_mc_circle_x_amplitude.get(), _param_mc_circle_y_amplitude.get()};
+	// Latch the selected geometry with the task; tracking and MPC share these amplitudes.
+	const bool vertical = _use_parameterized_geometry && _param_mc_orbit_shape.get() == 2;
+	_radii = {vertical ? _param_vertical_x_amplitude.get() : _param_mc_circle_x_amplitude.get(),
+		  vertical ? 0.f : _param_mc_circle_y_amplitude.get()};
 	_radii(0) = math::constrain(fabsf(_radii(0)), 0.f, _param_mc_orbit_rad_max.get());
 	_radii(1) = math::constrain(fabsf(_radii(1)), 0.f, _param_mc_orbit_rad_max.get());
-	_vertical_amplitude = math::constrain(fabsf(_param_mc_circle_z_amplitude.get()), 0.f,
-						_param_mc_orbit_rad_max.get());
+	const float z_amplitude = vertical ? _param_vertical_z_amplitude.get() : 0.f;
+	_vertical_amplitude = math::constrain(fabsf(z_amplitude), 0.f, _param_mc_orbit_rad_max.get());
 	_orbit_radius = math::max(_radii(0), _radii(1));
 	_orbit_radius = _use_parameterized_geometry ? _orbit_radius : _radius_min;
 	_use_angular_frequency = _use_parameterized_geometry;
-	_trajectory_omega = _param_mc_circle_omega.get();
+	_trajectory_omega = vertical ? _param_vertical_omega.get() : _param_mc_circle_omega.get();
 	if (_use_parameterized_geometry && _trajectory_acceleration_max > FLT_EPSILON) {
 		const float second_derivative_bound = sqrtf(_radii(0) * _radii(0) + _radii(1) * _radii(1)
 									 + _vertical_amplitude * _vertical_amplitude);
@@ -371,14 +374,38 @@ bool FlightTaskOrbit::update()
 	return ret;
 }
 
+float FlightTaskOrbit::_approachAcceptanceRadius() const
+{
+	if (!_use_parameterized_geometry) {
+		return _horizontal_acceptance_radius;
+	}
+
+	// A fixed 2 m tolerance starts small circles near their centre. Require
+	// arrival within 10% of the smallest nonzero semi-axis instead.
+	float radius = _radii(0) > FLT_EPSILON ? _radii(0) : _orbit_radius;
+
+	if (_radii(1) > FLT_EPSILON) {
+		radius = math::min(radius, _radii(1));
+	}
+
+	if (_vertical_amplitude > FLT_EPSILON) {
+		radius = math::min(radius, _vertical_amplitude);
+	}
+
+	return math::constrain(0.1f * radius, 0.05f, 0.5f);
+}
+
 void FlightTaskOrbit::_updateTrajectoryBoundaries()
 {
+	const float acceptance_radius = _approachAcceptanceRadius();
+
 	// update params of the position smoothing
 	_position_smoothing.setMaxAllowedHorizontalError(_param_mpc_xy_err_max.get());
-	_position_smoothing.setVerticalAcceptanceRadius(_param_nav_mc_alt_rad.get());
+	_position_smoothing.setVerticalAcceptanceRadius(_use_parameterized_geometry
+			? acceptance_radius : _param_nav_mc_alt_rad.get());
 	_position_smoothing.setCruiseSpeed(_param_mpc_xy_cruise.get());
 	_position_smoothing.setHorizontalTrajectoryGain(_param_mpc_xy_traj_p.get());
-	_position_smoothing.setTargetAcceptanceRadius(_horizontal_acceptance_radius);
+	_position_smoothing.setTargetAcceptanceRadius(acceptance_radius);
 
 	// Update the constraints of the trajectories
 	_position_smoothing.setMaxAccelerationXY(_param_mpc_acc_hor.get()); // TODO : Should be computed using heading
@@ -403,7 +430,7 @@ bool FlightTaskOrbit::_is_position_on_circle() const
 			{_radii(0), _radii(1), _vertical_amplitude},
 			{1.f, 1.f, 1.f},
 			{M_PI_2_F, 0.f, 0.f}};
-		return (_center + curve.evaluate(_orbit_phase, 0) - _position).norm() < _horizontal_acceptance_radius;
+		return (_center + curve.evaluate(_orbit_phase, 0) - _position).norm() < _approachAcceptanceRadius();
 	}
 
 	return (fabsf(Vector2f(_position - _center).length() - _orbit_radius) < _horizontal_acceptance_radius)
@@ -539,8 +566,12 @@ void FlightTaskOrbit::_generate_circle_setpoints()
 void FlightTaskOrbit::_setOrbitPhaseFromPosition()
 {
 	if (_use_parameterized_geometry && (_radii(0) > FLT_EPSILON || _radii(1) > FLT_EPSILON)) {
-		const Vector2f delta = (_position - _center).xy();
-		_orbit_phase = wrap_2pi(atan2f(delta(1) / math::max(_radii(1), FLT_EPSILON),
+		// Use the selected circle plane, including Z for a vertical circle.
+		const Vector3f delta = _position - _center;
+		const bool vertical = _vertical_amplitude > FLT_EPSILON;
+		const float sine_coordinate = vertical ? delta(2) : delta(1);
+		const float sine_radius = vertical ? _vertical_amplitude : _radii(1);
+		_orbit_phase = wrap_2pi(atan2f(sine_coordinate / math::max(sine_radius, FLT_EPSILON),
 						 delta(0) / math::max(_radii(0), FLT_EPSILON)));
 		return;
 	}

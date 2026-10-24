@@ -51,17 +51,22 @@ bool FlightTaskFigureEight::activate(const trajectory_setpoint_s &last_setpoint)
 	bool ret = FlightTaskManualAltitudeSmoothVel::activate(last_setpoint);
 
 	_use_parameterized_geometry = _param_mc_orbit_source.get() == 1;
+	// Latch the selected geometry with the task; heading applies to both presets.
+	const bool vertical = _use_parameterized_geometry && _param_mc_orbit_shape.get() == 3;
+	const Vector3f amplitude{vertical ? _param_vertical_x_amplitude.get() : _param_mc_f8_x_amplitude.get(),
+				vertical ? 0.f : _param_mc_f8_y_amplitude.get(),
+				vertical ? _param_vertical_z_amplitude.get() : 0.f};
 	_major_radius = _use_parameterized_geometry
-			? math::constrain(fabsf(_param_mc_f8_x_amplitude.get()), 0.f, _param_mc_orbit_rad_max.get())
+			? math::constrain(fabsf(amplitude(0)), 0.f, _param_mc_orbit_rad_max.get())
 			: kInitialMajorRadius;
 	_minor_radius = _use_parameterized_geometry
-			? math::constrain(fabsf(_param_mc_f8_y_amplitude.get()), 0.f, _param_mc_orbit_rad_max.get())
+			? math::constrain(fabsf(amplitude(1)), 0.f, _param_mc_orbit_rad_max.get())
 			: kInitialMajorRadius * 0.5f;
 	_vertical_amplitude = _use_parameterized_geometry
-			? math::constrain(fabsf(_param_mc_f8_z_amplitude.get()), 0.f, _param_mc_orbit_rad_max.get())
+			? math::constrain(fabsf(amplitude(2)), 0.f, _param_mc_orbit_rad_max.get())
 			: 0.f;
 	_use_angular_frequency = _use_parameterized_geometry;
-	_trajectory_omega = _param_mc_f8_omega.get();
+	_trajectory_omega = vertical ? _param_vertical_omega.get() : _param_mc_f8_omega.get();
 	if (_use_parameterized_geometry && _param_mc_f8_acceleration.get() > FLT_EPSILON) {
 		// Conservative bound for ||q_theta_theta|| over the complete figure:
 		// sqrt(Ax^2 + 16 Ay^2 + 16 Az^2). This keeps the effective Omega

@@ -254,7 +254,7 @@ void FlightModeManager::start_flight_task()
 		if (orbit_task_active || figure_eight_task_active) {
 			error = FlightTaskError::NoError;
 
-		} else if (_param_mc_orbit_shape.get() == 1) {
+		} else if (_param_mc_orbit_shape.get() == 1 || _param_mc_orbit_shape.get() == 3) {
 			error = switchTask(FlightTaskIndex::FigureEight);
 
 		} else {

@@ -127,16 +127,14 @@ param set-default MC_ORBIT_RAD_MAX 5
 param set-default MC_ORBIT_YAW_MOD 1
 
 param set-default MC_F8_ACC 2
-param set-default MC_F8_AX 3
-param set-default MC_F8_AY 1.5
-param set-default MC_F8_AZ 0
-param set-default MC_F8_OMEGA 0.2
+param set-default MC_HF8_AX 3
+param set-default MC_HF8_AY 1.5
+param set-default MC_HF8_OMEGA 0.2
 
 param set-default MC_CIRC_ACC 2
-param set-default MC_CIRC_AX 3
-param set-default MC_CIRC_AY 3
-param set-default MC_CIRC_AZ 0
-param set-default MC_CIRC_OMEGA 0.2
+param set-default MC_HCIRC_AX 3
+param set-default MC_HCIRC_AY 3
+param set-default MC_HCIRC_OMEGA 0.2
 
 # Effectiveness unit contract (control_allocation/df4.m):
 #   v = [tau; F] = B*u, with tau [N m], F [N]. The physical actuator vector u

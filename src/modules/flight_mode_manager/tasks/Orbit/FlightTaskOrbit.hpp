@@ -35,9 +35,9 @@
  * @file FlightTaskOrbit.hpp
  *
  * Flight task for orbiting in a circle around a target position. The circle
- * is the first harmonic specialization of HarmonicTrajectory2D. The
- * parameter-triggered reference has independent MC_CIRC_AX/AY/AZ axes and
- * a signed MC_CIRC_OMEGA phase rate.
+ * uses first-harmonic geometry. MC_ORBIT_SHAPE selects horizontal MC_HCIRC_AX/AY
+ * or vertical MC_VCIRC_AX/AZ amplitudes, with a separate signed phase rate
+ * for each plane. The command-driven MAVLink geometry is unchanged.
  *
  * @author Matthias Grob <maetugr@gmail.com>
  */
@@ -83,6 +83,7 @@ private:
 	static constexpr float _radius_min = 1.f;
 	static constexpr float _default_acceleration_max = 2.f;
 	static constexpr float _horizontal_acceptance_radius = 2.f;
+	float _approachAcceptanceRadius() const;
 
 	/**
 	 * Check the feasibility of orbit parameters with respect to
@@ -162,10 +163,13 @@ private:
 #endif
 
 	DEFINE_PARAMETERS(
-		(ParamFloat<px4::params::MC_CIRC_AX>) _param_mc_circle_x_amplitude,
-		(ParamFloat<px4::params::MC_CIRC_AY>) _param_mc_circle_y_amplitude,
-		(ParamFloat<px4::params::MC_CIRC_AZ>) _param_mc_circle_z_amplitude,
-		(ParamFloat<px4::params::MC_CIRC_OMEGA>) _param_mc_circle_omega,
+		(ParamInt<px4::params::MC_ORBIT_SHAPE>) _param_mc_orbit_shape,
+		(ParamFloat<px4::params::MC_VCIRC_AX>) _param_vertical_x_amplitude,
+		(ParamFloat<px4::params::MC_VCIRC_AZ>) _param_vertical_z_amplitude,
+		(ParamFloat<px4::params::MC_VCIRC_OMEGA>) _param_vertical_omega,
+		(ParamFloat<px4::params::MC_HCIRC_AX>) _param_mc_circle_x_amplitude,
+		(ParamFloat<px4::params::MC_HCIRC_AY>) _param_mc_circle_y_amplitude,
+		(ParamFloat<px4::params::MC_HCIRC_OMEGA>) _param_mc_circle_omega,
 		(ParamFloat<px4::params::MC_CIRC_ACC>) _param_mc_circle_acceleration,
 		(ParamFloat<px4::params::MC_ORBIT_RAD_MAX>) _param_mc_orbit_rad_max,
 		(ParamFloat<px4::params::MC_ORB_OM_END>) _param_phase_rate_end,

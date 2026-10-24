@@ -2,7 +2,7 @@
 # DF4 controller defaults shared by Classic, gz and (via Classic) SIH.
 # Baseline: flight logs 108/109, 2026-08-19. Horizontal gains and INDI
 # feedback filters refined by the 2026-10-22 SIH hover comparisons.
-# Only controller/filter defaults are shared: each simulator keeps its own
+# Controller/filter and trajectory defaults are shared: each simulator keeps its own
 # sensor setup, actuator mapping and physical plant. Saved parameters still win.
 
 # Attitude and PID rate control.
@@ -88,6 +88,27 @@ param set-default MPC_THR_MIN 0.12
 param set-default MPC_THR_MAX 1
 param set-default MPC_THR_XY_MARG 0.3
 param set-default THR_MDL_FAC 1
+
+# Independent horizontal/vertical presets shared by all three DF4 simulators.
+# MC_ORBIT_SHAPE: 0=horizontal circle, 1=horizontal figure eight,
+# 2=vertical circle, 3=vertical figure eight. Exit and re-enter Orbit to switch.
+param set-default MC_ORBIT_SHAPE 2
+param set-default MC_HCIRC_AX 4.5
+param set-default MC_HCIRC_AY 4.5
+param set-default MC_HCIRC_OMEGA 0.6
+param set-default MC_CIRC_ACC 5
+param set-default MC_HF8_AX 4.5
+param set-default MC_HF8_AY 4.5
+param set-default MC_HF8_OMEGA 0.3
+param set-default MC_F8_HDG 90
+param set-default MC_F8_ACC 10
+param set-default MC_VCIRC_AX 2
+param set-default MC_VCIRC_AZ 2
+param set-default MC_VCIRC_OMEGA 0.4
+param set-default MC_VF8_AX 2
+param set-default MC_VF8_AZ 2
+param set-default MC_VF8_OMEGA 0.25
+param set-default MC_ORB_OM_TIME 0
 
 # Trajectory limits; the experiment may override the path, not the controller.
 param set-default MPC_VEL_MANUAL 6
