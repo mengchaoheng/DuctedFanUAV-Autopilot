@@ -26,6 +26,17 @@ param set SYS_HITL 1
 param set-default CBRK_SUPPLY_CHK 894281
 
 param set-default CA_AIRFRAME 16 # matrix 0: physical force, matrix 1: physical torque
+param set-default CA_METHOD 7
+# Match the DF4 SITL physical-WLS tuning (thrust in N, vane angles in rad).
+# The split motor/surface problems retain the physical identity-weight minimizers.
+param set-default CA_WLS_GAM 1000000
+param set-default CA_WLS_U_W 1
+param set-default CA_WLS_FX_W 1
+param set-default CA_WLS_FY_W 1
+param set-default CA_WLS_FZ_W 1
+param set-default CA_WLS_R_W 0.67339009
+param set-default CA_WLS_P_W 0.67339009
+param set-default CA_WLS_Y_W 0.78694933
 
 # Effectiveness unit contract (control_allocation/df4.m):
 #   v = [tau; F] = B*u, with tau [N m], F [N]. The physical actuator vector u

@@ -108,9 +108,22 @@ param set-default MPC_YAWRAUTO_ACC 180
 param set-default MPC_YAWRAUTO_MAX 90
 param set-default MPC_LAND_SPEED 0.6
 
-# Allocation uses the flown method and the same physical effectiveness model.
-param set-default CA_METHOD 2
+# Use constrained WLS with the existing physical effectiveness model.
+param set-default CA_METHOD 7
 param set-default CA_ROTOR0_CT 30
+# Physical WLS factors W_z=I, W_mu=I (thrust in N, vane angles in rad).
+# With the current block-diagonal model, divide the motor cost by 30^2
+# and the surface cost by 0.3491^2 without changing either minimizer.
+# Thus one actuator factor suffices: force factor=1, torque factors=1/(0.3491*D_tau).
+# Recompute these factors if the geometry or maximum vane angle changes.
+param set-default CA_WLS_GAM 1000000
+param set-default CA_WLS_U_W 1
+param set-default CA_WLS_FX_W 1
+param set-default CA_WLS_FY_W 1
+param set-default CA_WLS_FZ_W 1
+param set-default CA_WLS_R_W 0.67339009
+param set-default CA_WLS_P_W 0.67339009
+param set-default CA_WLS_Y_W 0.78694933
 
 # Shared OM-MPC grid and weights. The larger body-rate penalty accommodates
 # DF4 actuator dynamics; MPC and its middle layer are enabled only on request.

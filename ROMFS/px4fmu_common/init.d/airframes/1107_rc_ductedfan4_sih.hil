@@ -13,6 +13,17 @@
 param set-default SDLOG_BACKEND 1
 
 param set-default CA_AIRFRAME 16
+param set-default CA_METHOD 7
+# Match the DF4 SITL physical-WLS tuning (thrust in N, vane angles in rad).
+# The split motor/surface problems retain the physical identity-weight minimizers.
+param set-default CA_WLS_GAM 1000000
+param set-default CA_WLS_U_W 1
+param set-default CA_WLS_FX_W 1
+param set-default CA_WLS_FY_W 1
+param set-default CA_WLS_FZ_W 1
+param set-default CA_WLS_R_W 0.67339009
+param set-default CA_WLS_P_W 0.67339009
+param set-default CA_WLS_Y_W 0.78694933
 
 # Match the controller baseline used by 22002_gazebo-classic_ductedfan4.
 param set-default MC_ROLL_P 4
