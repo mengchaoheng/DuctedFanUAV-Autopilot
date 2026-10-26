@@ -5,7 +5,7 @@ parameters:
     MC_HF8_AX:
       description:
         short: Horizontal figure-eight X amplitude
-        long: Fundamental sin(theta) amplitude in the local shape frame; used when MC_ORBIT_SHAPE=1. Altitude is constant.
+        long: Fundamental sin(theta) amplitude in the local shape frame; used when MC_ORBIT_SHAPE=1.
       type: float
       default: 5.0
       unit: m
@@ -24,6 +24,17 @@ parameters:
       max: 10000.0
       increment: 0.5
       decimal: 1
+    MC_HF8_AZ:
+      description:
+        short: Horizontal figure-eight height amplitude
+        long: Signed positive-up height amplitude about the altitude at task entry, using sin(2 theta). Used when MC_ORBIT_SHAPE=1. Zero preserves the constant-altitude horizontal figure eight. Positive values raise the positive local-shape Y side; negative values reverse the tilt. Geometry is latched at task entry.
+      type: float
+      default: 0.0
+      unit: m
+      min: -10000.0
+      max: 10000.0
+      increment: 0.1
+      decimal: 2
     MC_HF8_OMEGA:
       description:
         short: Horizontal figure-eight phase rate

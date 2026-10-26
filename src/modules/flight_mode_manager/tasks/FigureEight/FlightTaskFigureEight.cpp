@@ -55,7 +55,7 @@ bool FlightTaskFigureEight::activate(const trajectory_setpoint_s &last_setpoint)
 	const bool vertical = _use_parameterized_geometry && _param_mc_orbit_shape.get() == 3;
 	const Vector3f amplitude{vertical ? _param_vertical_x_amplitude.get() : _param_mc_f8_x_amplitude.get(),
 				vertical ? 0.f : _param_mc_f8_y_amplitude.get(),
-				vertical ? _param_vertical_z_amplitude.get() : 0.f};
+				vertical ? fabsf(_param_vertical_z_amplitude.get()) : -_param_mc_f8_z_amplitude.get()};
 	_major_radius = _use_parameterized_geometry
 			? math::constrain(fabsf(amplitude(0)), 0.f, _param_mc_orbit_rad_max.get())
 			: kInitialMajorRadius;
@@ -63,7 +63,8 @@ bool FlightTaskFigureEight::activate(const trajectory_setpoint_s &last_setpoint)
 			? math::constrain(fabsf(amplitude(1)), 0.f, _param_mc_orbit_rad_max.get())
 			: kInitialMajorRadius * 0.5f;
 	_vertical_amplitude = _use_parameterized_geometry
-			? math::constrain(fabsf(amplitude(2)), 0.f, _param_mc_orbit_rad_max.get())
+			// Horizontal height amplitude is positive up; references use NED Z.
+			? math::constrain(amplitude(2), -_param_mc_orbit_rad_max.get(), _param_mc_orbit_rad_max.get())
 			: 0.f;
 	_use_angular_frequency = _use_parameterized_geometry;
 	_trajectory_omega = vertical ? _param_vertical_omega.get() : _param_mc_f8_omega.get();
@@ -92,7 +93,8 @@ bool FlightTaskFigureEight::activate(const trajectory_setpoint_s &last_setpoint)
 	_phase_ramp.reset(_trajectory_omega, terminal_rate, _param_phase_ramp_time.get());
 	_hold_parameterized_origin = _use_parameterized_geometry
 			&& (fabsf(_trajectory_omega) <= FLT_EPSILON
-			    || (_major_radius <= FLT_EPSILON && _minor_radius <= FLT_EPSILON));
+			    || (_major_radius <= FLT_EPSILON && _minor_radius <= FLT_EPSILON
+				&& fabsf(_vertical_amplitude) <= FLT_EPSILON));
 	_trajectory_velocity = _use_parameterized_geometry ? _trajectory_omega * math::max(_major_radius, _minor_radius) : 1.f;
 	if (!_use_parameterized_geometry) {
 		_sanitizeParameters(_major_radius, _trajectory_velocity);

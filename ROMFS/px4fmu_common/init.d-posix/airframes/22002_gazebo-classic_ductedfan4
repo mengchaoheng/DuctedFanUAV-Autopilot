@@ -62,3 +62,10 @@ param set-default PWM_MAIN_FUNC5 204
 
 param set-default SDLOG_PROFILE 27
 param set-default SDLOG_MODE 0
+
+# Local OM-MPC / INDI tuning, validated on hover and horizontal figure eight.
+param set-default MPC_OM_QROT 10.368
+param set-default MPC_OM_ROMG 16
+param set-default MC_OM_KPHI_R 3.6
+param set-default MC_OM_KPHI_P 3.6
+param set-default MPC_OM_D_GAIN 0.25

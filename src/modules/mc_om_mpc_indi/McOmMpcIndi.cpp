@@ -64,19 +64,13 @@ bool McOmMpcIndi::init()
 
 void McOmMpcIndi::parametersUpdated()
 {
-	const bool acceleration_was_enabled = _param_enable.get() == 1
-			&& _param_acceleration_enable.get() == 1;
+	const bool was_enabled = _param_enable.get() == 1;
 	updateParams();
 	int32_t onboard_enabled = 0;
 	param_get(_onboard_enable_handle, &onboard_enabled);
 	_onboard_enabled = onboard_enabled == 1;
-	_control.setParams(
-		Vector3f(_param_kphi_roll.get(), _param_kphi_pitch.get(), _param_kphi_yaw.get()),
-		math::constrain(_param_acceleration_gain.get(), 0.f, 1.f),
-		_param_hover_thrust.get(), CONSTANTS_ONE_G);
 
-	if (!acceleration_was_enabled && _param_enable.get() == 1
-	    && _param_acceleration_enable.get() == 1) {
+	if (!was_enabled && _param_enable.get() == 1) {
 		// Disabled operation follows the slower nominal-command rate. Its lifetime
 		// sample-interval averages must not configure filters at the faster feedback
 		// rate after re-enabling. Rebuild both matched histories together; nominal
@@ -378,13 +372,34 @@ void McOmMpcIndi::Run()
 	_vehicle_status_sub.update(&_vehicle_status);
 	const bool onboard = _onboard_enabled
 		&& _vehicle_status.nav_state == vehicle_status_s::NAVIGATION_STATE_ORBIT;
+	float hover_thrust = _param_hover_thrust.get();
 	if (onboard) {
 		nominal_setpoint_updated = _onboard_command_sub.update(&_onboard_command);
+		// Preserve the scale used by this QP even if HTE updates before we run.
+		hover_thrust = _onboard_command.hover_thrust;
+
+	} else {
+		// ROS supplies physical acceleration. Map it with the same HTE policy
+		// as onboard MPC, falling back if the estimator stops or invalidates.
+		hover_thrust_estimate_s estimate{};
+		if (_hover_thrust_estimate_sub.copy(&estimate) && estimate.valid && estimate.timestamp != 0
+		    && hrt_elapsed_time(&estimate.timestamp) < 1_s
+		    && PX4_ISFINITE(estimate.hover_thrust) && estimate.hover_thrust > .01f
+		    && estimate.hover_thrust <= 1.f) {
+			hover_thrust = estimate.hover_thrust;
+		}
+	}
+	_control.setParams(
+		Vector3f(_param_kphi_roll.get(), _param_kphi_pitch.get(), _param_kphi_yaw.get()),
+		math::constrain(_param_acceleration_gain.get(), 0.f, 1.f),
+		hover_thrust, CONSTANTS_ONE_G);
+	if (onboard) {
 		_nominal_setpoint = {};
-		if (_onboard_command.active && hrt_elapsed_time(&_onboard_command.timestamp) < 60_ms) {
+		if (_onboard_command.active && hrt_elapsed_time(&_onboard_command.timestamp) < 60_ms
+		    && PX4_ISFINITE(hover_thrust) && hover_thrust > FLT_EPSILON) {
 			_nominal_setpoint.timestamp = _onboard_command.timestamp;
 			_nominal_setpoint.thrust_acceleration = -_onboard_command.thrust_body[2]
-				* CONSTANTS_ONE_G / _param_hover_thrust.get();
+				* CONSTANTS_ONE_G / hover_thrust;
 			Vector3f(_onboard_command.rates).copyTo(_nominal_setpoint.rates);
 			// Carry the exact disturbance used by this QP, not the newest estimate.
 			// This prevents the downstream INDI layer from compensating it twice.
@@ -410,10 +425,10 @@ void McOmMpcIndi::Run()
 		return;
 	}
 
-	// With the acceleration middle layer disabled this module is a literal
-	// message adapter: publish each 100 Hz MPC command once. Sensor-rate
-	// execution is only needed when acceleration INDI is enabled.
-	if (_param_acceleration_enable.get() != 1 && !nominal_setpoint_updated) {
+	// When disabled, retain the external ROS nominal-command adapter. Onboard
+	// nominal commands already bypass this module through mc_att_control.
+	// Feedback-rate execution is only needed while the middle layer is enabled.
+	if (_param_enable.get() != 1 && !nominal_setpoint_updated) {
 		perf_end(_loop_perf);
 		return;
 	}
@@ -421,11 +436,11 @@ void McOmMpcIndi::Run()
 	updateSensorInputs();
 	updateForceHistory();
 
-	const bool acceleration_requested = _param_acceleration_enable.get() == 1;
+	const bool middle_layer_enabled = _param_enable.get() == 1;
 	const AccelerationFilterState &selected = source == 2
 			? _imu_acceleration_filter : _ekf_acceleration_filter;
 
-	if (acceleration_requested) {
+	if (middle_layer_enabled) {
 		// The bridge is algebraic in acceleration, so a held acceleration sample
 		// must not stall attitude/rate-setpoint updates. Run from the 250 Hz
 		// attitude callback (bounded by MC_OM_RATE_MAX), while the matched
@@ -454,7 +469,7 @@ void McOmMpcIndi::Run()
 
 	const bool flight_enabled = _vehicle_control_mode.flag_armed
 			&& _vehicle_status.takeoff_time != 0 && !_vehicle_land_detected.landed;
-	const bool enabled = requested && _param_enable.get() == 1 && flight_enabled
+	const bool enabled = requested && middle_layer_enabled && flight_enabled
 			&& _control.paramsValid() && attitude.isAllFinite();
 
 	const bool acceleration_fresh = selected.timestamp > 0
@@ -477,12 +492,12 @@ void McOmMpcIndi::Run()
 	const Vector3f nominal_rates(_nominal_setpoint.rates);
 	const Vector3f nominal_thrust{0.f, 0.f,
 		-math::constrain(_nominal_setpoint.thrust_acceleration
-				 * _param_hover_thrust.get() / CONSTANTS_ONE_G, 0.f, 1.f)};
+				 * hover_thrust / CONSTANTS_ONE_G, 0.f, 1.f)};
 	const Vector3f mpc_disturbance(_nominal_setpoint.mpc_disturbance);
 
-	if (feedback_valid && _param_hover_thrust.get() > FLT_EPSILON) {
+	if (feedback_valid && hover_thrust > FLT_EPSILON) {
 		const Vector3f disturbance_raw = acceleration_ned - Vector3f{0.f, 0.f, CONSTANTS_ONE_G}
-				- allocated_force_ned * (CONSTANTS_ONE_G / _param_hover_thrust.get());
+				- allocated_force_ned * (CONSTANTS_ONE_G / hover_thrust);
 		disturbance = constrainDisturbance(disturbance_raw,
 				math::max(_param_disturbance_limit.get(), 0.f));
 		// The callback already supplies the newest estimated attitude. Do not
@@ -492,8 +507,7 @@ void McOmMpcIndi::Run()
 			mpc_disturbance, acceleration_ned, allocated_force_ned, corrected);
 	}
 
-	const bool acceleration_active = enabled && acceleration_requested
-			&& corrected_valid;
+	const bool acceleration_active = enabled && corrected_valid;
 
 	if (acceleration_active != _acceleration_active_previous) {
 		_transition_elapsed = 0.f;

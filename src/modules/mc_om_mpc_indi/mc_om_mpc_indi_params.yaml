@@ -1,24 +1,21 @@
 module_name: mc_om_mpc_indi
 parameters:
-- group: Multicopter OM-MPC INDI
+- group: Multicopter OM-MPC
   definitions:
     MC_OM_INDI_EN:
       description:
         short: Enable OM-MPC INDI middle layer
         long: |-
-          Enables the isolated acceleration-INDI/lift bridge. It accepts fresh
+          Enables acceleration-INDI/lift corrections and matched disturbance
+          estimation together. It accepts fresh
           onboard OmMpcCommand or external OmMpcSetpoint commands and publishes
           a disturbance estimate when MC_OM_DIST_EN and matched measurements permit.
+          Zero bypasses onboard corrections and preserves nominal external
+          command forwarding; it does not provide valid disturbance feedback.
           Onboard corrections return through mc_att_control's single output
           arbitration. Other controllers keep their existing paths.
       type: boolean
       default: 0
-    MC_OM_ACC_EN:
-      description:
-        short: Enable OM acceleration INDI and lift
-        long: Independent PX4-side ablation gate for acceleration INDI, minimum-rotation lift and body-rate reference compensation.
-      type: boolean
-      default: 1
     MC_OM_ACC_GAIN:
       description:
         short: OM acceleration increment gain
@@ -143,12 +140,3 @@ parameters:
       min: 0.0
       unit: 1/s
       decimal: 2
-    MC_OM_HOVER:
-      description:
-        short: OM bridge hover thrust
-        long: Normalized thrust corresponding to one g for the controlled vehicle.
-      type: float
-      default: 0.216
-      min: 0.01
-      max: 0.9
-      decimal: 4

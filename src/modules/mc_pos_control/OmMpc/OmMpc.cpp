@@ -8,6 +8,7 @@
 #include <uORB/Publication.hpp>
 #include <uORB/Subscription.hpp>
 #include <uORB/topics/parameter_update.h>
+#include <uORB/topics/hover_thrust_estimate.h>
 #include <uORB/topics/om_mpc_reference.h>
 #include <uORB/topics/om_mpc_command.h>
 #include <uORB/topics/om_mpc_status.h>
@@ -87,10 +88,11 @@ struct OmMpc::Runtime {
 		param_find("MPC_OM_RTHR"), param_find("MPC_OM_ROMG"), param_find("MPC_OM_PFAC")};
 	float cost[6] {324.f, 10.f, 4.32f, .25f, .8f, 1.f};
 	uORB::Subscription parameter_sub{ORB_ID(parameter_update)};
+	uORB::Subscription hover_sub{ORB_ID(hover_thrust_estimate)};
 	bool config_valid{false}, model_initialized{false}, horizon_supported{true};
 	int prediction_horizon{15};
 	float prediction_dt{.04f}, disturbance_gain{0.f};
-	float hover{.2163f}, max_normalized{1.f}, max_thrust{0.f};
+	float hover{.2163f}, configured_hover{.2163f}, max_normalized{1.f}, max_thrust{0.f};
 	Vector3f rate_limits{}, entry_limits{};
 	int iteration_limit{100};
 	void update_config()
@@ -124,9 +126,8 @@ struct OmMpc::Runtime {
 			prediction_horizon = next_n;
 			prediction_dt = next_dt;
 			disturbance_gain = fminf(fmaxf(parameter(h_mpc_om_d_gain, 0.f), 0.f), 1.f);
-			hover = parameter(h_mpc_thr_hover, .2163f);
+			configured_hover = parameter(h_mpc_thr_hover, .2163f);
 			max_normalized = parameter(h_mpc_thr_max, 1.f);
-			max_thrust = hover > .01f ? 9.80665f * max_normalized / hover : 0.f;
 			rate_limits = {parameter(h_mc_rollrate_max, 1145.9156f) *.01745329252f,
 				       parameter(h_mc_pitchrate_max, 1145.9156f) *.01745329252f,
 				       parameter(h_mc_yawrate_max, 458.3662f) *.01745329252f
@@ -142,6 +143,15 @@ struct OmMpc::Runtime {
 
 			config_valid = true;
 		}
+
+		// Follow valid HTE updates without rebuilding the QP workspace. Bounds
+		// are updated by build(); a stopped/invalid estimator uses the parameter.
+		hover_thrust_estimate_s estimate{};
+		hover = hover_sub.copy(&estimate) && estimate.valid && estimate.timestamp != 0
+			&& hrt_elapsed_time(&estimate.timestamp) < 1000000
+			&& std::isfinite(estimate.hover_thrust) && estimate.hover_thrust > .01f
+			&& estimate.hover_thrust <= 1.f ? estimate.hover_thrust : configured_hover;
+		max_thrust = hover > .01f ? 9.80665f * max_normalized / hover : 0.f;
 	}
 
 	OmCpuMonitor cpu_monitor;
@@ -378,6 +388,7 @@ void OmMpc::Run()
 		path.rotation = ref.heading_rotation;
 		path.yaw = ref.yaw;
 		const float hover = _runtime->hover, max_normalized = _runtime->max_normalized;
+		output.hover_thrust = hover;
 		// Flight tasks publish geometry/phase at their own cadence (~50 Hz).
 		// Evaluate it at this fresh state release and at every prediction knot;
 		// MPC does not need a new reference message for each state publication.

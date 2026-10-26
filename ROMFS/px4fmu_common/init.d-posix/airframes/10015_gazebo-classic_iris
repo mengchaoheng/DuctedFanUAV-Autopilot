@@ -53,32 +53,32 @@ param set-default MC_INDI_T_DLY 0.004
 param set-default MC_REF_FF 0.25
 param set-default MC_REF_W_N 50.0
 param set-default MC_REF_FF_MAX 100.0
-param set-default MC_INDI_RATE_EN 1
-param set-default MPC_INDI_ACC_EN 1
+param set-default MC_INDI_RATE_EN 0
+param set-default MPC_INDI_ACC_EN 0
 # Common Iris OM-MPC tuning; SIH and gz source this airframe too.
 # Keep controller settings here and simulator-specific plant/sensor settings
 # in each wrapper. Enabling the middle layer remains an explicit choice.
+param set-default MPC_OM_EN 0
 param set-default MPC_OM_N 15
 param set-default MPC_OM_DT 0.04
 param set-default MPC_OM_RATE 50
 param set-default MPC_OM_QPOS 324
 param set-default MPC_OM_QVEL 10
-param set-default MPC_OM_QROT 4.32
+param set-default MPC_OM_QROT 5.184
 param set-default MPC_OM_RTHR 0.25
-param set-default MPC_OM_ROMG 5
+param set-default MPC_OM_ROMG 4
 param set-default MPC_OM_PFAC 1
 param set-default MC_OM_INDI_EN 0
-param set-default MC_OM_ACC_EN 1
+param set-default MC_OM_DIST_EN 0
 param set-default MC_OM_ACC_GAIN 1.0
 param set-default MC_OM_A_SRC 1
 param set-default MC_OM_RATE_MAX 250.0
 param set-default MC_OM_A_LP 8.0
 param set-default MC_OM_F_DLY 0.004
 param set-default MC_OM_TR_T 1.0
-param set-default MC_OM_KPHI_R 6.0
-param set-default MC_OM_KPHI_P 6.0
+param set-default MC_OM_KPHI_R 7.2
+param set-default MC_OM_KPHI_P 7.2
 param set-default MC_OM_KPHI_Y 0.0
-param set-default MC_OM_HOVER 0.2163
 
 # User's latest attitude/PID-rate tuning; EKF velocity P gains refined in SITL.
 param set-default MC_ROLL_P 6.5
@@ -211,3 +211,37 @@ param set-default PWM_MAIN_FUNC4 104
 # Autotune identifies PID candidates; validate before applying them.
 param set-default MC_AT_EN 1
 param set-default MC_AT_APPLY 0
+
+# Prediction feedback gain shared by the three Iris simulators.
+param set-default MPC_OM_D_GAIN 0.25
+
+# Fixed-speed presets from the formal report; SIH and gz inherit these too.
+# Tracking remains off. Yaw mode 1 holds the heading at trajectory entry.
+param set-default MC_ORBIT_EN 0
+param set-default MC_ORBIT_SRC 1
+param set-default MC_ORBIT_YAW_MOD 1
+param set-default MC_ORBIT_SHAPE 0
+param set-default MC_HCIRC_AX 2
+param set-default MC_HCIRC_AY 2
+param set-default MC_HCIRC_OMEGA 1.2
+param set-default MC_VCIRC_AX 2
+param set-default MC_VCIRC_AZ 2
+param set-default MC_VCIRC_OMEGA 1.3
+param set-default MC_HF8_AX 2
+param set-default MC_HF8_AY 2
+param set-default MC_HF8_OMEGA 0.775
+param set-default MC_VF8_AX 2
+param set-default MC_VF8_AZ 2
+param set-default MC_VF8_OMEGA 0.85
+param set-default MC_CIRC_ACC 0
+param set-default MC_F8_ACC 0
+param set-default MC_ORB_OM_TIME 0
+param set-default MC_ORB_OM_END 0
+
+# Figure-eight heading is shared: initialize it for the shape selected at boot.
+# Online plane changes must also update MC_F8_HDG.
+param set-default MC_F8_HDG 0
+if param compare MC_ORBIT_SHAPE 3
+then
+	param set-default MC_F8_HDG 90
+fi

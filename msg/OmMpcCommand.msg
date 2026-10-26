@@ -3,6 +3,7 @@ uint64 timestamp
 uint64 timestamp_sample
 uint64 reference_timestamp
 float32[3] rates
+float32 hover_thrust          # thrust scale used by this QP and its downstream INDI correction
 float32[3] thrust_body
 float32[3] mpc_disturbance      # NED acceleration used by this QP [m/s^2]; zero for nominal MPC
 float32[3] position_error

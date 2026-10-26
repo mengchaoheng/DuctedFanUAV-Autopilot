@@ -92,6 +92,7 @@ param set-default THR_MDL_FAC 1
 # Independent horizontal/vertical presets shared by all three DF4 simulators.
 # MC_ORBIT_SHAPE: 0=horizontal circle, 1=horizontal figure eight,
 # 2=vertical circle, 3=vertical figure eight. Exit and re-enter Orbit to switch.
+param set-default MC_ORBIT_EN 0
 param set-default MC_ORBIT_SHAPE 2
 param set-default MC_HCIRC_AX 4.5
 param set-default MC_HCIRC_AY 4.5
@@ -100,7 +101,7 @@ param set-default MC_CIRC_ACC 5
 param set-default MC_HF8_AX 4.5
 param set-default MC_HF8_AY 4.5
 param set-default MC_HF8_OMEGA 0.3
-param set-default MC_F8_HDG 90
+param set-default MC_F8_HDG 0
 param set-default MC_F8_ACC 10
 param set-default MC_VCIRC_AX 2
 param set-default MC_VCIRC_AZ 2
@@ -148,6 +149,7 @@ param set-default CA_WLS_Y_W 0.78694933
 
 # Shared OM-MPC grid and weights. The larger body-rate penalty accommodates
 # DF4 actuator dynamics; MPC and its middle layer are enabled only on request.
+param set-default MPC_OM_EN 0
 param set-default MPC_OM_RATE 50
 param set-default MPC_OM_N 15
 param set-default MPC_OM_DT 0.04
@@ -157,3 +159,17 @@ param set-default MPC_OM_QROT 8.64
 param set-default MPC_OM_RTHR 0.25
 param set-default MPC_OM_ROMG 20
 param set-default MPC_OM_PFAC 1
+
+# Match the validated OM-MPC middle-layer tuning without enabling it at boot.
+param set-default MC_OM_INDI_EN 0
+param set-default MC_OM_DIST_EN 0
+param set-default MC_OM_ACC_GAIN 1
+param set-default MC_OM_A_SRC 1
+param set-default MC_OM_A_LP 8
+param set-default MC_OM_RATE_MAX 250
+param set-default MC_OM_F_DLY 0.035
+param set-default MC_OM_TR_T 1
+param set-default MC_OM_KPHI_R 3
+param set-default MC_OM_KPHI_P 3
+param set-default MC_OM_KPHI_Y 0
+param set-default MC_OM_D_LIM 0

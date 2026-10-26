@@ -55,7 +55,8 @@
  *   q(theta) = [A sin(theta), B sin(2 theta)]^T
  *   p(theta) = center + R(psi) q(theta)
  *
- * Horizontal geometry uses MC_HF8_AX/AY. Vertical geometry uses MC_VF8_AX/AZ
+ * Horizontal geometry uses MC_HF8_AX/AY, with optional positive-up height
+ * MC_HF8_AZ sin(2 theta) about the entry altitude. Vertical geometry uses MC_VF8_AX/AZ
  * with sin(theta)/sin(2 theta), respectively. MC_F8_HDG rotates either
  * plane about local Z. Each plane has its own signed phase rate; zero
  * explicitly holds the trajectory origin.
@@ -148,6 +149,7 @@ private:
 		(ParamFloat<px4::params::MC_VF8_OMEGA>) _param_vertical_omega,
 		(ParamFloat<px4::params::MC_HF8_AX>) _param_mc_f8_x_amplitude,
 		(ParamFloat<px4::params::MC_HF8_AY>) _param_mc_f8_y_amplitude,
+		(ParamFloat<px4::params::MC_HF8_AZ>) _param_mc_f8_z_amplitude,
 		(ParamFloat<px4::params::MC_HF8_OMEGA>) _param_mc_f8_omega,
 		(ParamFloat<px4::params::MC_F8_HDG>) _param_mc_f8_heading,
 		(ParamFloat<px4::params::MC_F8_ACC>) _param_mc_f8_acceleration,

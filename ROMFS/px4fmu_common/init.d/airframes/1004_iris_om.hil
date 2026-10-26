@@ -120,7 +120,6 @@ param set-default CA_ROTOR3_PY 0.20
 param set-default CA_ROTOR3_KM -0.0157
 param set-default CA_ROTOR3_CT 8.5
 param set-default MC_OM_INDI_EN 1
-param set-default MC_OM_ACC_EN 1
 param set-default MC_OM_ACC_GAIN 1.0
 param set-default MC_OM_DIST_EN 1
 param set-default MC_OM_A_SRC 1

@@ -16,14 +16,12 @@
 param set-default SIH_KDV 0.9
 param set-default SIH_KDW 0.003
 
-# Flight logs 108/109: fit the 8-20 Hz sensor floor through the 250 Hz front-end.
-# The larger >20 Hz flight residual contains vibration: replacing all of it
-# with white noise overexcites the low-frequency INDI acceleration feedback.
-# High-frequency structural vibration is not reproduced by this white model.
-param set-default SIH_GYRO_XY 0.01
+# Approximate the 8-20 Hz flight-log feedback noise floor at 250 Hz.
+# Keep the native Gaussian generator; structural vibration is not modeled.
+param set-default SIH_ACC_XY 0.06
+param set-default SIH_ACC_Z 0.06
+param set-default SIH_GYRO_XY 0.02
 param set-default SIH_GYRO_Z 0.02
-param set-default SIH_ACC_XY 0.1
-param set-default SIH_ACC_Z 0.1
 
 PX4_SIMULATOR=${PX4_SIMULATOR:=sihsim}
 PX4_SIM_MODEL=${PX4_SIM_MODEL:=ductedfan4}
@@ -85,3 +83,8 @@ param set-default SIH_DM_AZ 0.00858864842
 param set-default SIH_DM_HX 0.2
 param set-default SIH_DM_HY 0.4
 param set-default SIH_DM_HZ 0.2
+
+# Local OM-MPC / INDI tuning, validated on hover and horizontal figure eight.
+param set-default MC_OM_A_LP 9.6
+param set-default MC_OM_F_DLY 0.03
+param set-default MPC_OM_D_GAIN 0.75

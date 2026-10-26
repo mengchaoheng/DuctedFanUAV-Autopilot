@@ -18,6 +18,7 @@
 #include <uORB/Subscription.hpp>
 #include <uORB/SubscriptionCallback.hpp>
 #include <uORB/topics/allocation_value.h>
+#include <uORB/topics/hover_thrust_estimate.h>
 #include <uORB/topics/om_mpc_indi_status.h>
 #include <uORB/topics/om_mpc_setpoint.h>
 #include <uORB/topics/om_mpc_command.h>
@@ -95,6 +96,7 @@ private:
 	uORB::Subscription _vehicle_status_sub{ORB_ID(vehicle_status)};
 	uORB::Subscription _rate_ctrl_status_sub{ORB_ID(rate_ctrl_status)};
 	uORB::Subscription _parameter_update_sub{ORB_ID(parameter_update)};
+	uORB::Subscription _hover_thrust_estimate_sub{ORB_ID(hover_thrust_estimate)};
 
 	uORB::Publication<vehicle_rates_setpoint_s> _setpoint_pub{ORB_ID(vehicle_rates_setpoint)};
 	uORB::Publication<om_mpc_indi_status_s> _status_pub{ORB_ID(om_mpc_indi_status)};
@@ -131,7 +133,6 @@ private:
 
 	DEFINE_PARAMETERS(
 		(ParamInt<px4::params::MC_OM_INDI_EN>) _param_enable,
-		(ParamInt<px4::params::MC_OM_ACC_EN>) _param_acceleration_enable,
 		(ParamFloat<px4::params::MC_OM_ACC_GAIN>) _param_acceleration_gain,
 		(ParamInt<px4::params::MC_OM_DIST_EN>) _param_disturbance_enable,
 		(ParamFloat<px4::params::MC_OM_RATE_MAX>) _param_rate_max,
@@ -143,6 +144,6 @@ private:
 		(ParamFloat<px4::params::MC_OM_KPHI_R>) _param_kphi_roll,
 		(ParamFloat<px4::params::MC_OM_KPHI_P>) _param_kphi_pitch,
 		(ParamFloat<px4::params::MC_OM_KPHI_Y>) _param_kphi_yaw,
-		(ParamFloat<px4::params::MC_OM_HOVER>) _param_hover_thrust
+		(ParamFloat<px4::params::MPC_THR_HOVER>) _param_hover_thrust
 	)
 };

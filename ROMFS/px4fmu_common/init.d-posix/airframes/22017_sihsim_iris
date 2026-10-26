@@ -90,3 +90,11 @@ param set-default SIH_DM_AZ 0.00313348436
 param set-default SIH_DM_HX 0.2
 param set-default SIH_DM_HY 0.4
 param set-default SIH_DM_HZ 0.2
+
+# Local OM-MPC / INDI tuning, validated on hover and horizontal figure eight.
+param set-default MC_INDI_R_P 18
+param set-default MC_INDI_P_P 18
+param set-default MC_INDI_Y_P 9.6
+param set-default MC_INDI_T_DLY 0.002
+param set-default IMU_DGYRO_CUTOFF 24
+param set-default CA_TORQ_CUTOFF 24
