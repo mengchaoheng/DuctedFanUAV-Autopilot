@@ -26,9 +26,20 @@ foreach(qp_file dual_qp.c matrix_vector.c setup_qp.c qpdunes_utils.c stage_qp_so
 endforeach()
 px4_add_library(om_qpdunes ${qp_sources}
   ${CMAKE_CURRENT_SOURCE_DIR}/OmQpSolver.cpp ${CMAKE_CURRENT_SOURCE_DIR}/OmQpArena.c)
-# Shared bound for SITL and NuttX. Arena allocation follows the requested N;
-# allocation failure still rejects setup while the standby PID owns output.
-target_compile_definitions(om_qpdunes PUBLIC OM_MPC_MAX_HORIZON=20)
+# Host experiments may use larger grids without increasing flight hardware memory.
+# Arena allocation follows the requested N; failed setup retains PID ownership.
+if(PLATFORM STREQUAL "posix")
+  target_compile_definitions(om_qpdunes PUBLIC OM_MPC_MAX_HORIZON=160)
+else()
+  target_compile_definitions(om_qpdunes PUBLIC OM_MPC_MAX_HORIZON=20)
+endif()
+option(OM_MPC_OFFLINE_BENCHMARK "POSIX lockstep algorithm study without wall-clock deadlines" OFF)
+if(OM_MPC_OFFLINE_BENCHMARK)
+  if(NOT PLATFORM STREQUAL "posix")
+    message(FATAL_ERROR "OM_MPC_OFFLINE_BENCHMARK is restricted to POSIX simulation")
+  endif()
+  target_compile_definitions(om_qpdunes PUBLIC OM_MPC_OFFLINE_BENCHMARK=1)
+endif()
 target_include_directories(om_qpdunes PUBLIC ${CMAKE_CURRENT_SOURCE_DIR} ${OM_FLOAT_SOURCE}
   PRIVATE ${QP_SOURCE}/include ${QP_SOURCE}/include/qp ${CMAKE_CURRENT_SOURCE_DIR})
 target_compile_definitions(om_qpdunes PRIVATE __USE_SINGLE_PRECISION__ __SIMPLE_BOUNDS_ONLY__

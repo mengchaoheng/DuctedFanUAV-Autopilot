@@ -9,8 +9,29 @@ parameters:
           Runs OM-MPC in flight or simulation for a valid parameter-triggered analytic
           Orbit or FigureEight reference (including stationary hold) after takeoff. Fixed-yaw
           references are supported. Default position control is hot standby.
+          Parameter enable and RC9 middle/high (normalized value >= 0) are
+          combined with OR logic. RC must be present, finite and younger than
+          500 ms. RC low or signal loss leaves parameter enable available.
       type: boolean
       default: 0
+
+    MPC_OM_TR_T:
+      description:
+        short: PID to OM-MPC takeover time
+        long: |-
+          Entry-only smoothstep decay of the difference between the last applied
+          output and the first valid MPC output. After this interval MPC output
+          is forwarded unchanged. PID keeps updating its integral and anti-windup
+          in the background. Disabling MPC or losing a valid command returns
+          directly to PID. Zero disables the entry transition.
+          Duration is latched on entry and limited to five seconds.
+      type: float
+      default: 0.5
+      min: 0.0
+      max: 5.0
+      unit: s
+      decimal: 2
+      increment: 0.1
 
     MPC_OM_RATE:
       description:
@@ -50,12 +71,18 @@ parameters:
     MPC_OM_N:
       description:
         short: OM-MPC prediction intervals
-        long: Number of prediction intervals. Lookahead is this count times MPC_OM_DT. SITL and hardware builds support up to 20; actual memory availability and computation deadlines are checked at runtime. Changing it resets the solver under PID ownership; the solver arena is sized by horizon. Costs and terminal weight remain unchanged.
+        long: Number of prediction intervals. Lookahead is this count times MPC_OM_DT. POSIX SITL supports integer grids from 1 to 160; flight hardware supports only 10, 15 and 20. Memory availability and computation deadlines are checked at runtime. Changing it resets the solver under PID ownership; the solver arena is sized by horizon. Costs and terminal weight remain unchanged.
       type: enum
       values:
         10: 10 intervals
         15: 15 intervals
         20: 20 intervals
+        30: 30 intervals (SITL only)
+        40: 40 intervals (SITL only)
+        60: 60 intervals (SITL only)
+        80: 80 intervals (SITL only)
+        125: 125 intervals (SITL only)
+        160: 160 intervals (SITL only)
       default: 15
 
     MPC_OM_DT:

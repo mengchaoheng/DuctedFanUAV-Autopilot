@@ -8,7 +8,8 @@ inline constexpr unsigned om_arena_capacity(int horizon)
 {
 	// nx=9, nu=4 float32, with headroom for both 32- and 64-bit pointers.
 	// N15 uses 75232 bytes on v5 and 78832 bytes on the SITL host.
-	return horizon <= 10 ? 65536u : horizon <= 15 ? 81920u : 106496u;
+	return horizon <= 10 ? 65536u : horizon <= 15 ? 81920u : horizon <= 20 ? 106496u :
+	       106496u + unsigned(horizon - 20) * 8192u;
 }
 // Fixed-size, row-major, Eigen-free interchange for the OM-MPC error-state OCP.
 struct OmFloatProblem {

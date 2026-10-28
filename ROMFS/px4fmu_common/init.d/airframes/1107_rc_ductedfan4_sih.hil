@@ -26,21 +26,21 @@ param set-default CA_WLS_P_W 0.67339009
 param set-default CA_WLS_Y_W 0.78694933
 
 # Match the controller baseline used by 22002_gazebo-classic_ductedfan4.
-param set-default MC_ROLL_P 4
-param set-default MC_ROLLRATE_P 0.45
+param set-default MC_ROLL_P 6
+param set-default MC_ROLLRATE_P 0.4
 param set-default MC_ROLLRATE_I 0.3
 param set-default MC_ROLLRATE_D 0.0
 param set-default MC_ROLLRATE_FF 0
 
-param set-default MC_PITCH_P 4
-param set-default MC_PITCHRATE_P 0.45
+param set-default MC_PITCH_P 6
+param set-default MC_PITCHRATE_P 0.4
 param set-default MC_PITCHRATE_I 0.3
 param set-default MC_PITCHRATE_D 0.0
 param set-default MC_PITCHRATE_FF 0
 
-param set-default MC_YAW_P 2.8
-param set-default MC_YAWRATE_P 0.4
-param set-default MC_YAWRATE_I 0.3
+param set-default MC_YAW_P 5
+param set-default MC_YAWRATE_P 0.3
+param set-default MC_YAWRATE_I 0.2
 param set-default MC_YAWRATE_D 0
 param set-default MC_YAWRATE_FF 0
 param set-default MC_YAW_TQ_CUTOFF 0
@@ -48,8 +48,8 @@ param set-default MC_ATT_ERR_MODE 3
 param set-default MC_YAW_WEIGHT 1
 
 param set-default IMU_GYRO_CUTOFF 110
-param set-default IMU_DGYRO_CUTOFF 10
-param set-default CA_TORQ_CUTOFF 10
+param set-default IMU_DGYRO_CUTOFF 8
+param set-default CA_TORQ_CUTOFF 8
 param set-default MC_INDI_T_DLY 0.020
 
 param set-default MC_J_X 0.01149
@@ -59,14 +59,14 @@ param set-default MC_J_Z 0.00487
 param set-default MPC_INDI_A_SRC 1
 param set-default MPC_INDI_F_SRC 1
 param set-default MPC_VEL_LP 0
-param set-default MPC_VELD_LP 10
-param set-default MPC_INDI_A_LP 10
+param set-default MPC_VELD_LP 8
+param set-default MPC_INDI_A_LP 8
 param set-default IMU_ACCEL_CUTOFF 30
-param set-default CA_FORCE_CUTOFF 10
-param set-default MPC_INDI_F_DLY 0.03
+param set-default CA_FORCE_CUTOFF 8
+param set-default MPC_INDI_F_DLY 0.035
 
 param set-default MPC_MASS 1.56
-param set-default MPC_THR_HOVER 0.49
+param set-default MPC_THR_HOVER 0.51
 param set-default THR_MDL_FAC 1
 
 # Physical CA_AIRFRAME=16 contract: one rotor force matrix plus four vane moments.
@@ -121,7 +121,7 @@ param set-default HIL_ACT_FUNC5 204
 param set-default SENS_GPS0_DELAY 0
 param set-default SENS_GPS1_DELAY 0
 
-param set-default SIH_SV_TAU 0.03
+param set-default SIH_SV_TAU 0.01
 
 # Classic sine disturbance preset, converted from body FLU to body FRD.
 # SIH_DIST_EN=0 disables loads; enabling starts one 1000 s window immediately.
@@ -146,3 +146,95 @@ param set-default SIH_DM_AZ -0.01
 param set-default SIH_DM_HX 0.2
 param set-default SIH_DM_HY 0.4
 param set-default SIH_DM_HZ 0.2
+
+# Confirmed MPC candidates (RATE is a state-update mode, not a fixed timer):
+# A/default: RATE=50, N15, dt=0.05 (H=0.75 s).
+# B: RATE=50, N20, dt=0.04 (H=0.80 s).
+# C: RATE=100, N20, dt=0.04 (H=0.80 s).
+# MPC_OM_TR_T=1 gives a one-second entry; saved parameters still win.
+
+# Explicit log109 control baseline and confirmed SIH updates
+param set-default MPC_XY_P 0.95
+param set-default MPC_Z_P 1
+param set-default MPC_XY_VEL_P_ACC 1.8
+param set-default MPC_XY_VEL_I_ACC 0.4
+param set-default MPC_XY_VEL_D_ACC 0.2
+param set-default MPC_Z_VEL_P_ACC 4
+param set-default MPC_Z_VEL_I_ACC 2
+param set-default MPC_Z_VEL_D_ACC 0
+param set-default MPC_VEL_MANUAL 6
+param set-default MPC_XY_VEL_MAX 8
+param set-default MPC_Z_VEL_MAX_DN 1
+param set-default MPC_Z_V_AUTO_DN 1
+param set-default MPC_ACC_HOR 5
+param set-default MPC_YAWRAUTO_ACC 180
+param set-default MPC_YAWRAUTO_MAX 90
+param set-default MPC_LAND_SPEED 0.6
+param set-default MC_INDI_RATE_EN 0
+param set-default MPC_INDI_ACC_EN 0
+param set-default MC_INDI_R_P 12
+param set-default MC_INDI_P_P 12
+param set-default MC_INDI_Y_P 12
+param set-default MC_CIRC_ACC 5
+param set-default SIH_DF_ARM 0.167
+param set-default SIH_KDV 0.9
+param set-default SIH_KDW 0.003
+param set-default SIH_ACC_XY 0.06
+param set-default SIH_ACC_Z 0.06
+param set-default SIH_GYRO_XY 0.02
+param set-default SIH_GYRO_Z 0.02
+param set-default SDLOG_PROFILE 27
+
+# MPC and middle-layer configuration
+param set-default MC_OM_ACC_GAIN 1
+param set-default MC_OM_TR_T 1
+param set-default MC_OM_KPHI_R 3.6
+param set-default MC_OM_KPHI_P 3.6
+param set-default MC_OM_KPHI_Y 0
+param set-default MC_OM_D_LIM 0
+param set-default MPC_OM_EN 0
+param set-default MC_OM_INDI_EN 0
+param set-default MC_OM_DIST_EN 0
+param set-default MPC_OM_TR_T 1
+param set-default MPC_OM_RATE 50
+param set-default MPC_OM_N 15
+param set-default MPC_OM_DT 0.05
+param set-default MPC_OM_QPOS 486
+param set-default MPC_OM_QVEL 10
+param set-default MPC_OM_QROT 10.368
+param set-default MPC_OM_RTHR 0.25
+param set-default MPC_OM_ROMG 16
+param set-default MPC_OM_PFAC 1
+param set-default MC_OM_A_SRC 1
+param set-default MC_OM_A_LP 9.6
+param set-default MC_OM_RATE_MAX 250
+param set-default MC_OM_F_DLY 0.03
+param set-default MPC_OM_D_GAIN 0.75
+
+# SIH-validated reference trajectory
+param set-default MC_ORBIT_EN 0
+param set-default MC_ORBIT_SHAPE 1
+param set-default MC_ORBIT_SRC 1
+param set-default MC_ORBIT_YAW_MOD 1
+param set-default MC_ORBIT_RAD_MAX 5
+param set-default MC_HCIRC_AX 4.5
+param set-default MC_HCIRC_AY 4.5
+param set-default MC_HCIRC_OMEGA 0.6
+param set-default MC_HF8_AX 4.5
+param set-default MC_HF8_AY 4.5
+param set-default MC_HF8_OMEGA 0.3
+param set-default MC_F8_HDG 90
+param set-default MC_F8_ACC 10
+param set-default MC_HF8_AZ 1
+
+# Sampling/filter setup and enforced single EKF
+param set-default IMU_GYRO_RATEMAX 250
+param set-default IMU_GYRO_NF0_FRQ 60
+param set-default IMU_GYRO_NF0_BW 10
+param set-default IMU_GYRO_NF1_FRQ 35
+param set-default IMU_GYRO_NF1_BW 10
+param set-default IMU_INTEG_RATE 250
+param set SENS_IMU_MODE 1
+param set SENS_MAG_MODE 1
+param set EKF2_MULTI_IMU 0
+param set EKF2_MULTI_MAG 0

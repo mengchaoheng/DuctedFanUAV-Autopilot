@@ -48,8 +48,8 @@ param set-default MC_PITCHRATE_D 0.0
 param set-default MC_PITCHRATE_FF 0
 
 param set-default MC_YAW_P 5
-param set-default MC_YAWRATE_P 0.2
-param set-default MC_YAWRATE_I 0.1
+param set-default MC_YAWRATE_P 0.3
+param set-default MC_YAWRATE_I 0.2
 param set-default MC_YAWRATE_D 0
 param set-default MC_YAWRATE_FF 0
 param set-default MC_YAW_TQ_CUTOFF 0
@@ -73,16 +73,16 @@ param set-default MPC_XY_VEL_MAX 8
 # param set-default MPC_Z_VEL_P_ACC 4
 
 # 1. Rate INDI: angular acceleration feedback alpha_0
-param set-default IMU_GYRO_RATEMAX 800
+param set-default IMU_GYRO_RATEMAX 250
 param set-default IMU_GYRO_CUTOFF 110
-param set-default IMU_DGYRO_CUTOFF 10
-param set-default IMU_GYRO_NF0_FRQ 35
+param set-default IMU_DGYRO_CUTOFF 8
+param set-default IMU_GYRO_NF0_FRQ 60
 param set-default IMU_GYRO_NF0_BW 10
-param set-default IMU_GYRO_NF1_FRQ 50
+param set-default IMU_GYRO_NF1_FRQ 35
 param set-default IMU_GYRO_NF1_BW 10
 
 # Rate INDI: allocated physical torque feedback tau_0
-param set-default CA_TORQ_CUTOFF 10
+param set-default CA_TORQ_CUTOFF 8
 param set-default MC_INDI_T_DLY 0.020
 
 # Rate INDI: inertia model
@@ -90,25 +90,24 @@ param set-default MC_J_X 0.01149
 param set-default MC_J_Y 0.01153
 param set-default MC_J_Z 0.00487
 
-
 # 2. Acc INDI: selected acceleration source
 param set-default MPC_INDI_A_SRC 1
 
 # SRC 0: velocity derivative
 param set-default MPC_VEL_LP 0
-param set-default MPC_VELD_LP 10
+param set-default MPC_VELD_LP 8
 # param set-default MPC_VEL_NF_FRQ 0
 # param set-default MPC_VEL_NF_BW 20
 
 # SRC 1 and SRC 2: direct acceleration candidates
-param set-default MPC_INDI_A_LP 10
+param set-default MPC_INDI_A_LP 8
 
 # SRC 2 upstream vehicle_acceleration filter
 param set-default IMU_ACCEL_CUTOFF 30
 
 # Acc INDI: physical force feedback F_0
-param set-default CA_FORCE_CUTOFF 10
-param set-default MPC_INDI_F_DLY 0.02
+param set-default CA_FORCE_CUTOFF 8
+param set-default MPC_INDI_F_DLY 0.035
 
 # Acc INDI: mass/force model
 param set-default MPC_MASS 1.56
@@ -117,7 +116,7 @@ param set-default MPC_MASS 1.56
 # Preserve that measured signal with the quadratic thrust model:
 #   MPC_THR_HOVER = x^2 = 0.510653
 #   Fmax = mass*g/MPC_THR_HOVER = 29.9584 N
-param set-default MPC_THR_HOVER 0.49
+param set-default MPC_THR_HOVER 0.51
 param set-default THR_MDL_FAC 1
 param set-default RTL_RETURN_ALT 2.5
 param set-default RTL_DESCEND_ALT 2.5
@@ -126,15 +125,15 @@ param set-default NAV_ACC_RAD 2
 param set-default MC_ORBIT_RAD_MAX 5
 param set-default MC_ORBIT_YAW_MOD 1
 
-param set-default MC_F8_ACC 2
-param set-default MC_HF8_AX 3
-param set-default MC_HF8_AY 1.5
-param set-default MC_HF8_OMEGA 0.2
+param set-default MC_F8_ACC 10
+param set-default MC_HF8_AX 4.5
+param set-default MC_HF8_AY 4.5
+param set-default MC_HF8_OMEGA 0.3
 
-param set-default MC_CIRC_ACC 2
-param set-default MC_HCIRC_AX 3
-param set-default MC_HCIRC_AY 3
-param set-default MC_HCIRC_OMEGA 0.2
+param set-default MC_CIRC_ACC 5
+param set-default MC_HCIRC_AX 4.5
+param set-default MC_HCIRC_AY 4.5
+param set-default MC_HCIRC_OMEGA 0.6
 
 # Effectiveness unit contract (control_allocation/df4.m):
 #   v = [tau; F] = B*u, with tau [N m], F [N]. The physical actuator vector u
@@ -166,8 +165,6 @@ param set-default CA_SV_CS2_TRQ_Y 0.068681
 param set-default CA_SV_CS3_TRQ_R 0
 param set-default CA_SV_CS3_TRQ_P 0.166227
 param set-default CA_SV_CS3_TRQ_Y 0.068681
-
-
 
 # CUAV V5 Nano has no PX4IO. With the px4_fmu-v5 build its physical M1-M8
 # outputs are the FMU outputs exposed by PX4 as PWM AUX. M2-M4 are unused.
@@ -222,14 +219,14 @@ param set-default MAV_0_CONFIG 101
 param set-default SER_TEL1_BAUD 57600 # CUAV 57600, other 921600
 
 # Run one EKF instance. The sensor hub selects one primary IMU and magnetometer.
-# Single EKF
-param set-default EKF2_MULTI_IMU 0
-param set-default EKF2_MULTI_MAG 0
-param set-default SENS_IMU_MODE 1
-param set-default SENS_MAG_MODE 1
+# Force single EKF even if older saved parameters selected multiple instances.
+param set EKF2_MULTI_IMU 0
+param set EKF2_MULTI_MAG 0
+param set SENS_IMU_MODE 1
+param set SENS_MAG_MODE 1
 
 # Enable only GNSS0 + barometer + magnetometer
-# param set-default EKF2_SENS_EN 1281
+# EKF2_SENS_EN is set to the log109 mask below (GNSS1 disabled).
 
 # IMU state estimation
 # param set-default EKF2_IMU_CTRL 7
@@ -256,20 +253,101 @@ param set-default SENS_MAG_MODE 1
 # The CUAV V5 Nano is upright with its heading arrow pointing aft.
 param set-default SENS_BOARD_ROT 4 # Yaw 180 deg
 
-# CUAV V5 Nano IMUs and the GNSS antenna are mounted directly above the
-# centre of gravity. PX4 body axes are FRD, so 12 cm above is Z = -0.12 m.
+# Body FRD installation offsets: IMU 12 cm above CG; GNSS 20 cm above CG.
 # param set-default EKF2_IMU_POS_X 0
 # param set-default EKF2_IMU_POS_Y 0
 param set-default EKF2_IMU_POS_Z -0.12
 # param set-default SENS_GPS0_OFFX 0
 # param set-default SENS_GPS0_OFFY 0
-param set-default SENS_GPS0_OFFZ -0.13
-
+param set-default SENS_GPS0_OFFZ -0.20
 
 param set-default SDLOG_PROFILE  1
-
 
 # For future
 # param set-default RPM_CAP_ENABLE 1
 # param set-default PWM_AUX_FUNC9 2070   # A1 / Capture 1 = RPM Input
 # param set-default RPM_PULS_PER_REV N # motor
+
+# Confirmed MPC candidates (RATE is a state-update mode, not a fixed timer):
+# A/default: RATE=50, N15, dt=0.05 (H=0.75 s).
+# B: RATE=50, N20, dt=0.04 (H=0.80 s).
+# C: RATE=100, N20, dt=0.04 (H=0.80 s).
+# MPC_OM_TR_T=1 gives a one-second entry; saved parameters still win.
+
+# log109 non-default RC and flight-operation settings
+param set-default MAV_TYPE 3
+param set-default RC_INPUT_PROTO 2
+param set-default RC_MAP_ROLL 4
+param set-default RC_MAP_PITCH 2
+param set-default RC_MAP_THROTTLE 3
+param set-default RC_MAP_YAW 1
+param set-default RC_MAP_ARM_SW 6
+param set-default RC_MAP_FLTMODE 5
+param set-default COM_FLTMODE1 8
+param set-default COM_FLTMODE4 1
+param set-default COM_FLTMODE6 2
+param set-default COM_PREARM_MODE 2
+param set-default MAN_ARM_GESTURE 0
+param set-default COM_HOME_IN_AIR 1
+param set-default NAV_RCL_ACT 1
+param set-default MIS_TAKEOFF_ALT 0.8
+param set-default LNDMC_Z_VEL_MAX 0.2
+param set-default BAT_LOW_THR 0.12
+param set-default MAV_0_RATE 0
+
+# Explicit log109 control baseline and confirmed SIH updates
+param set-default MPC_XY_P 0.95
+param set-default MPC_Z_P 1
+param set-default MPC_XY_VEL_P_ACC 1.8
+param set-default MPC_XY_VEL_I_ACC 0.4
+param set-default MPC_XY_VEL_D_ACC 0.2
+param set-default MPC_Z_VEL_P_ACC 4
+param set-default MPC_Z_VEL_I_ACC 2
+param set-default MPC_Z_VEL_D_ACC 0
+param set-default MPC_Z_VEL_MAX_DN 1
+param set-default MPC_Z_V_AUTO_DN 1
+param set-default MPC_ACC_HOR 5
+param set-default MPC_LAND_SPEED 0.6
+param set-default MC_INDI_RATE_EN 0
+param set-default MPC_INDI_ACC_EN 0
+param set-default MC_INDI_R_P 12
+param set-default MC_INDI_P_P 12
+param set-default MC_INDI_Y_P 12
+param set-default EKF2_SENS_EN 8189
+param set-default EKF2_GND_EFF_DZ 0
+
+# MPC and middle-layer configuration
+param set-default MC_OM_ACC_GAIN 1
+param set-default MC_OM_TR_T 1
+param set-default MC_OM_KPHI_R 3.6
+param set-default MC_OM_KPHI_P 3.6
+param set-default MC_OM_KPHI_Y 0
+param set-default MC_OM_D_LIM 0
+param set-default MPC_OM_EN 0
+param set-default MC_OM_INDI_EN 0
+param set-default MC_OM_DIST_EN 0
+param set-default MPC_OM_TR_T 1
+param set-default MPC_OM_RATE 50
+param set-default MPC_OM_N 15
+param set-default MPC_OM_DT 0.05
+param set-default MPC_OM_QPOS 486
+param set-default MPC_OM_QVEL 10
+param set-default MPC_OM_QROT 10.368
+param set-default MPC_OM_RTHR 0.25
+param set-default MPC_OM_ROMG 16
+param set-default MPC_OM_PFAC 1
+param set-default MC_OM_A_SRC 1
+param set-default MC_OM_A_LP 9.6
+param set-default MC_OM_RATE_MAX 250
+param set-default MC_OM_F_DLY 0.03
+param set-default MPC_OM_D_GAIN 0.75
+
+# SIH-validated reference trajectory
+param set-default MC_ORBIT_EN 0
+param set-default MC_ORBIT_SHAPE 1
+param set-default MC_ORBIT_SRC 1
+param set-default MC_F8_HDG 90
+param set-default MC_HF8_AZ 1
+
+# Sampling/filter setup and enforced single EKF
+param set-default IMU_INTEG_RATE 250

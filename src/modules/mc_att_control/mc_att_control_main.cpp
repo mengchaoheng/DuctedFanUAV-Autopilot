@@ -385,6 +385,7 @@ MulticopterAttitudeControl::Run()
 
 		} else {
 #ifdef CONFIG_MC_POS_CONTROL_OM_MPC
+			_om_takeover.reset();
 			publishOmMpcStatus(false);
 #endif
 			_man_roll_input_filter.reset(0.f);
@@ -455,23 +456,31 @@ int MulticopterAttitudeControl::custom_command(int argc, char *argv[])
 bool MulticopterAttitudeControl::applyOmMpc(vehicle_rates_setpoint_s &rates_setpoint)
 {
 	_om_acceleration_indi_active = false;
+	OmMpcTakeover::Command pid{};
+	const Vector3f pid_rates{rates_setpoint.roll, rates_setpoint.pitch, rates_setpoint.yaw};
+
+	for (int i = 0; i < 3; ++i) {
+		pid(i) = pid_rates(i);
+		pid(i + 3) = rates_setpoint.thrust_body[i];
+	}
 	// One publisher owns vehicle_rates_setpoint. A fresh OM-MPC command replaces
 	// attitude-loop output; ordinary control remains available for fallback.
 	int32_t om_enabled = 0;
 	param_get(_om_enable_handle, &om_enabled);
+	_om_rc_sub.update(&_om_rc);
+	const uint64_t now = hrt_absolute_time();
 	om_mpc_command_s command{};
 	om_mpc_reference_s reference{};
 	vehicle_status_s status{};
-	const bool om_active = om_enabled == 1 && !_landed
+	const bool om_active = om_mpc::mpcRequested(om_enabled == 1, _om_rc, now) && !_landed
 		&& _vehicle_control_mode.flag_armed && _vehicle_control_mode.flag_control_position_enabled
 		&& _vehicle_status_sub.copy(&status) && status.nav_state == vehicle_status_s::NAVIGATION_STATE_ORBIT
 		&& _om_reference_sub.copy(&reference) && reference.valid && hrt_elapsed_time(&reference.timestamp) < 100_ms
 		&& _om_command_sub.copy(&command) && command.active && hrt_elapsed_time(&command.timestamp) < 60_ms
 		&& Vector3f(command.rates).isAllFinite() && Vector3f(command.thrust_body).isAllFinite();
 	if (om_active) {
-		// The worker captures the reference under PID and checks convergence,
-		// bounds and deadlines before activation. Forward its paired rate/thrust
-		// command unchanged: an extra output blend is absent from the QP model.
+		// The worker checks capture, convergence, bounds and deadlines first.
+		// Select a complete MPC command before applying the entry-only transfer.
 		rates_setpoint.roll = command.rates[0];
 		rates_setpoint.pitch = command.rates[1];
 		rates_setpoint.yaw = command.rates[2];
@@ -482,7 +491,7 @@ bool MulticopterAttitudeControl::applyOmMpc(vehicle_rates_setpoint_s &rates_setp
 		// The attitude and middle-layer callbacks are asynchronous. Hold the
 		// latest complete corrected pair for at most 20 ms, including across a
 		// QP update; requiring an exact match would drop INDI once every QP cycle.
-		if (indi_enabled == 1
+		if (om_mpc::middleLayerRequested(indi_enabled == 1, _om_rc, now)
 		    && _om_indi_command_sub.copy(&correction) && correction.active
 		    && correction.timestamp_nominal <= command.timestamp
 		    && hrt_elapsed_time(&correction.timestamp_nominal) < 60_ms
@@ -495,6 +504,53 @@ bool MulticopterAttitudeControl::applyOmMpc(vehicle_rates_setpoint_s &rates_setp
 			_om_acceleration_indi_active = true;
 		}
 	}
+
+	OmMpcTakeover::Command target{};
+	const Vector3f selected_rates{rates_setpoint.roll, rates_setpoint.pitch, rates_setpoint.yaw};
+
+	for (int i = 0; i < 3; ++i) {
+		target(i) = selected_rates(i);
+		target(i + 3) = rates_setpoint.thrust_body[i];
+	}
+
+	float transition_time = .5f;
+	param_get(_om_transition_time_handle, &transition_time);
+	auto output = _om_takeover.update(om_active, pid, target, now, transition_time);
+
+	if (om_active && _om_takeover.progress() < 1.f) {
+		// The transient offset must not extend physical command limits. These
+		// entry-only limits leave the established MPC/INDI steady output intact.
+		const Vector3f rate_limit{math::radians(_param_mc_rollrate_max.get()),
+					 math::radians(_param_mc_pitchrate_max.get()),
+					 math::radians(_param_mc_yawrate_max.get())};
+
+		for (int i = 0; i < 3; ++i) {
+			output(i) = math::constrain(output(i), -rate_limit(i), rate_limit(i));
+		}
+
+		Vector3f thrust{output(3), output(4), output(5)};
+		thrust(2) = math::min(thrust(2), 0.f);
+		const float maximum = math::constrain(_param_mpc_thr_max.get(), 0.f, 1.f);
+		const float magnitude = thrust.norm();
+
+		if (magnitude > maximum) {
+			thrust *= maximum / magnitude;
+		}
+
+		for (int i = 0; i < 3; ++i) {
+			output(i + 3) = thrust(i);
+		}
+	}
+
+	_om_takeover.recordApplied(output, now);
+	rates_setpoint.roll = output(0);
+	rates_setpoint.pitch = output(1);
+	rates_setpoint.yaw = output(2);
+
+	for (int i = 0; i < 3; ++i) {
+		rates_setpoint.thrust_body[i] = output(i + 3);
+	}
+
 	return om_active;
 }
 
@@ -505,11 +561,14 @@ void MulticopterAttitudeControl::publishOmMpcStatus(bool active)
 	auto &status = _om_status_pub.get();
 	const uint64_t now = hrt_absolute_time();
 	const bool acceleration_indi_active = active && _om_acceleration_indi_active;
+	const float takeover_progress = active ? _om_takeover.progress() : 0.f;
 	if (status.active != active || status.acceleration_indi_active != acceleration_indi_active
+	    || (status.takeover_progress < 1.f && takeover_progress >= 1.f)
 	    || now - status.timestamp >= 100_ms) {
 		status.timestamp = now;
 		status.active = active;
 		status.acceleration_indi_active = acceleration_indi_active;
+		status.takeover_progress = takeover_progress;
 		_om_status_pub.update();
 	}
 }

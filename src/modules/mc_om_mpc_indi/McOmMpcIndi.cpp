@@ -64,13 +64,15 @@ bool McOmMpcIndi::init()
 
 void McOmMpcIndi::parametersUpdated()
 {
-	const bool was_enabled = _param_enable.get() == 1;
 	updateParams();
 	int32_t onboard_enabled = 0;
 	param_get(_onboard_enable_handle, &onboard_enabled);
 	_onboard_enabled = onboard_enabled == 1;
+}
 
-	if (!was_enabled && _param_enable.get() == 1) {
+void McOmMpcIndi::updateEnableState(bool middle_layer_enabled)
+{
+	if (!_middle_layer_enabled_previous && middle_layer_enabled) {
 		// Disabled operation follows the slower nominal-command rate. Its lifetime
 		// sample-interval averages must not configure filters at the faster feedback
 		// rate after re-enabling. Rebuild both matched histories together; nominal
@@ -86,6 +88,8 @@ void McOmMpcIndi::parametersUpdated()
 		_last_control_acceleration_source = 0;
 		resetTransition();
 	}
+
+	_middle_layer_enabled_previous = middle_layer_enabled;
 }
 
 void McOmMpcIndi::updateAccelerationFilter(const Vector3f &raw, uint64_t timestamp,
@@ -355,6 +359,11 @@ void McOmMpcIndi::Run()
 		parametersUpdated();
 	}
 
+	_rc_channels_sub.update(&_rc_channels);
+	const uint64_t now = hrt_absolute_time();
+	const bool middle_layer_enabled = om_mpc::middleLayerRequested(_param_enable.get() == 1, _rc_channels, now);
+	updateEnableState(middle_layer_enabled);
+
 	_vehicle_attitude_sub.update(&_vehicle_attitude);
 
 	if (_vehicle_attitude.timestamp == 0
@@ -363,14 +372,13 @@ void McOmMpcIndi::Run()
 		return;
 	}
 
-	const uint64_t now = hrt_absolute_time();
 	const Dcmf attitude(Quatf(_vehicle_attitude.q));
 
 	bool nominal_setpoint_updated = false;
 	_vehicle_control_mode_sub.update(&_vehicle_control_mode);
 	_vehicle_land_detected_sub.update(&_vehicle_land_detected);
 	_vehicle_status_sub.update(&_vehicle_status);
-	const bool onboard = _onboard_enabled
+	const bool onboard = om_mpc::mpcRequested(_onboard_enabled, _rc_channels, now)
 		&& _vehicle_status.nav_state == vehicle_status_s::NAVIGATION_STATE_ORBIT;
 	float hover_thrust = _param_hover_thrust.get();
 	if (onboard) {
@@ -428,7 +436,7 @@ void McOmMpcIndi::Run()
 	// When disabled, retain the external ROS nominal-command adapter. Onboard
 	// nominal commands already bypass this module through mc_att_control.
 	// Feedback-rate execution is only needed while the middle layer is enabled.
-	if (_param_enable.get() != 1 && !nominal_setpoint_updated) {
+	if (!middle_layer_enabled && !nominal_setpoint_updated) {
 		perf_end(_loop_perf);
 		return;
 	}
@@ -436,7 +444,6 @@ void McOmMpcIndi::Run()
 	updateSensorInputs();
 	updateForceHistory();
 
-	const bool middle_layer_enabled = _param_enable.get() == 1;
 	const AccelerationFilterState &selected = source == 2
 			? _imu_acceleration_filter : _ekf_acceleration_filter;
 
@@ -539,7 +546,7 @@ void McOmMpcIndi::Run()
 	output_thrust.copyTo(output.thrust_body);
 	// The shared gate controls feedback to onboard and ROS MPC, independently
 	// of acceleration INDI. Measurement validity is still required when enabled.
-	const bool disturbance_valid = _param_disturbance_enable.get() == 1
+	const bool disturbance_valid = om_mpc::disturbanceRequested(_param_disturbance_enable.get() == 1, _rc_channels, now)
 			&& feedback_valid && disturbance.isAllFinite();
 
 	if (onboard) {

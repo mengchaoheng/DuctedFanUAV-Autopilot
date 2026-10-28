@@ -6,6 +6,7 @@
 #pragma once
 
 #include "OmMpcIndiControl.hpp"
+#include <lib/controllib/OmMpcEnable.hpp>
 
 #include <lib/mathlib/math/filter/LowPassFilter2p.hpp>
 #include <lib/mathlib/math/WelfordMean.hpp>
@@ -70,6 +71,7 @@ private:
 	static constexpr size_t kForceHistoryLength{128};
 
 	void parametersUpdated();
+	void updateEnableState(bool middle_layer_enabled);
 	void updateAccelerationFilter(const matrix::Vector3f &raw, uint64_t timestamp,
 		AccelerationFilterState &state);
 	void updateSensorInputs();
@@ -97,6 +99,8 @@ private:
 	uORB::Subscription _rate_ctrl_status_sub{ORB_ID(rate_ctrl_status)};
 	uORB::Subscription _parameter_update_sub{ORB_ID(parameter_update)};
 	uORB::Subscription _hover_thrust_estimate_sub{ORB_ID(hover_thrust_estimate)};
+	uORB::Subscription _rc_channels_sub{ORB_ID(rc_channels)};
+	rc_channels_s _rc_channels{};
 
 	uORB::Publication<vehicle_rates_setpoint_s> _setpoint_pub{ORB_ID(vehicle_rates_setpoint)};
 	uORB::Publication<om_mpc_indi_status_s> _status_pub{ORB_ID(om_mpc_indi_status)};
@@ -107,6 +111,7 @@ private:
 	om_mpc_setpoint_s _nominal_setpoint{};
 	om_mpc_command_s _onboard_command{};
 	bool _onboard_enabled{false};
+	bool _middle_layer_enabled_previous{false};
 	const param_t _onboard_enable_handle{param_find("MPC_OM_EN")};
 	vehicle_control_mode_s _vehicle_control_mode{};
 	vehicle_land_detected_s _vehicle_land_detected{};

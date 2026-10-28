@@ -43,6 +43,7 @@
 #include <lib/matrix/matrix/math.hpp>
 #include <px4_platform_common/events.h>
 #include "PositionControl/ControlMath.hpp"
+#include <lib/controllib/OmMpcEnable.hpp>
 
 using namespace matrix;
 
@@ -500,7 +501,8 @@ void MulticopterPositionControl::Run()
 #ifdef MC_POS_OM_MPC
 		int32_t om_enabled = 0;
 		param_get(_om_enable_handle, &om_enabled);
-		if (_om_mpc && (om_enabled == 1 || _om_mpc->hasValidCommand())) {
+		if (_om_mpc && (om_mpc::mpcRequested(om_enabled == 1, _rc_channels, hrt_absolute_time())
+			       || _om_mpc->hasValidCommand())) {
 			// Also invalidate an active command promptly after disabling MPC.
 			_om_mpc->onLocalPositionUpdate();
 		}
@@ -795,11 +797,8 @@ void MulticopterPositionControl::Run()
 
 			const hrt_abstime now = hrt_absolute_time();
 
-#ifdef MC_POS_OM_MPC
-			if (_om_mpc && _om_mpc->hasValidCommand()) {
-				_control.resetIntegral(); // Avoid winding up the PID while MPC supplies commands.
-			}
-#endif
+			// Keep the ordinary position/velocity PID, integral and existing
+			// anti-windup running while MPC owns the final output as well.
 			// Run position control
 			if (_control.update(dt)) {
 

@@ -18,11 +18,22 @@
 #include <uORB/topics/vehicle_status.h>
 #include <uORB/topics/vehicle_control_mode.h>
 #include <uORB/topics/vehicle_land_detected.h>
+#include <lib/controllib/OmMpcEnable.hpp>
 #include <time.h>
 #include <unistd.h>
 using matrix::Vector3f;
 namespace
 {
+#ifdef OM_MPC_OFFLINE_BENCHMARK
+#ifndef __PX4_POSIX
+#error "Offline MPC timing is only available for POSIX simulation"
+#endif
+// Explicit, non-default research build: lockstep waits for the optimization.
+// Convergence, feasibility, state validity and command ownership stay checked.
+static constexpr bool enforce_wall_deadline = false;
+#else
+static constexpr bool enforce_wall_deadline = true;
+#endif
 float parameter(param_t handle, float fallback)
 {
 	float v = fallback;
@@ -88,6 +99,8 @@ struct OmMpc::Runtime {
 		param_find("MPC_OM_RTHR"), param_find("MPC_OM_ROMG"), param_find("MPC_OM_PFAC")};
 	float cost[6] {324.f, 10.f, 4.32f, .25f, .8f, 1.f};
 	uORB::Subscription parameter_sub{ORB_ID(parameter_update)};
+	uORB::Subscription rc_sub{ORB_ID(rc_channels)};
+	rc_channels_s rc{};
 	uORB::Subscription hover_sub{ORB_ID(hover_thrust_estimate)};
 	bool config_valid{false}, model_initialized{false}, horizon_supported{true};
 	int prediction_horizon{15};
@@ -101,7 +114,11 @@ struct OmMpc::Runtime {
 			parameter_update_s update{};
 			parameter_sub.copy(&update);
 			const int configured_n = setting(h_mpc_om_n);
+#ifdef __PX4_POSIX
+			horizon_supported = configured_n >= 1 && configured_n <= OmMaxHorizon;
+#else
 			horizon_supported = configured_n == 10 || configured_n == 15 || configured_n == 20;
+#endif
 			const int next_n = horizon_supported ? configured_n : 15;
 			const float next_dt = parameter(h_mpc_om_dt, .04f);
 			float next_cost[6];
@@ -228,7 +245,9 @@ void OmMpc::schedule_next()
 	}
 
 	// Only new publications release a QP. The timer is a stale-state watchdog.
-	if (setting(_runtime->h_mpc_om_en) == 1 && _runtime->pos_sub.updated()) {
+	_runtime->rc_sub.update(&_runtime->rc);
+	if (om_mpc::mpcRequested(setting(_runtime->h_mpc_om_en) == 1, _runtime->rc, hrt_absolute_time())
+	    && _runtime->pos_sub.updated()) {
 		ScheduleNow();
 
 	} else {
@@ -266,7 +285,8 @@ void OmMpc::Run()
 		_runtime->divider = divider;
 	}
 
-	const bool enabled = setting(h_mpc_om_en) == 1;
+	_runtime->rc_sub.update(&_runtime->rc);
+	const bool enabled = om_mpc::mpcRequested(setting(h_mpc_om_en) == 1, _runtime->rc, hrt_absolute_time());
 
 	if (!enabled) {
 		// Publications while disabled are not missed MPC releases. Start a new
@@ -314,7 +334,8 @@ void OmMpc::Run()
 	const unsigned period_us = unsigned(lroundf(_runtime->state_period_us * divider));
 	const unsigned budget_us = period_us < 20000 ? period_us : 20000;
 	const uint64_t lateness = have_position && wake > pos.timestamp ? wake - pos.timestamp : 0;
-	const uint64_t warm_deadline = wall_us() + (lateness < budget_us ? budget_us - lateness : 0);
+	const uint64_t warm_deadline = enforce_wall_deadline ?
+		wall_us() + (lateness < budget_us ? budget_us - lateness : 0) : UINT64_MAX;
 	pthread_mutex_lock(&_mutex);
 	_stats.period_us = period_us;
 
@@ -327,7 +348,7 @@ void OmMpc::Run()
 	}
 	pthread_mutex_unlock(&_mutex);
 
-	if (due && lateness >= budget_us) {
+	if (enforce_wall_deadline && due && lateness >= budget_us) {
 		_ready.store(false);
 		om_mpc_command_s inactive{};
 		inactive.timestamp = wake;
@@ -418,6 +439,11 @@ void OmMpc::Run()
 			for (int i = 0; i < 4; ++i) {
 				problem.r[i] = _runtime->cost[i == 0 ? 3 : 4];
 			}
+
+			PX4_INFO("OM-MPC applied QP: N=%d dt=%.6f H=%.6f Q=[%.6f %.6f %.6f] R=[%.6f %.6f] P/Q=%.6f",
+				 (int)problem.horizon, (double)problem.dt, (double)(problem.horizon * problem.dt),
+				 (double)problem.q[0], (double)problem.q[3], (double)problem.q[6],
+				 (double)problem.r[0], (double)problem.r[1], (double)(problem.p[0] / problem.q[0]));
 		}
 
 		_runtime->model_initialized |= built;
@@ -455,7 +481,7 @@ void OmMpc::Run()
 			const uint64_t update_end = wall_us();
 			OmFloatResult result{};
 			result.status = 7;
-			const uint64_t result_deadline = cold ? begin + 20000 : warm_deadline;
+			const uint64_t result_deadline = !enforce_wall_deadline ? UINT64_MAX : cold ? begin + 20000 : warm_deadline;
 			om_qp_set_deadline(result_deadline);
 			const int iteration_limit = _runtime->iteration_limit;
 
@@ -487,7 +513,10 @@ void OmMpc::Run()
 			// Cold setup always belongs to standby PID (both update rates).
 			// Its separate 20 ms/100-iteration budget prepares a workspace;
 			// only a fresh warm solve can acquire control output ownership.
-			if (valid && !cold && setting(h_mpc_om_en) == 1 && status_sub.copy(&status)
+			_runtime->rc_sub.update(&_runtime->rc);
+			if (valid && !cold
+			    && om_mpc::mpcRequested(setting(h_mpc_om_en) == 1, _runtime->rc, hrt_absolute_time())
+			    && status_sub.copy(&status)
 			    && status.nav_state == vehicle_status_s::NAVIGATION_STATE_ORBIT) {
 				output.active = true;
 				predicted_disturbance.copyTo(output.mpc_disturbance);
@@ -635,8 +664,17 @@ void OmMpc::print_status()
 	PX4_INFO("OM-MPC: worker=%s ready=%s active=%s state/%u (nominal %uHz) N%d dt=%.3f",
 		 _started.load() ? "started" : "off", _ready.load() ? "yes" : "no", applied ? "yes" : "no",
 		 nominal_rate == 100 ? 1u : 2u, nominal_rate, n, (double)parameter(param_find("MPC_OM_DT"), .04f));
+#ifdef __PX4_POSIX
+	if (n < 1 || n > OmMaxHorizon) {
+		PX4_WARN("OM-MPC requires N1..%d on POSIX; PID retains control", OmMaxHorizon);
+	}
+#else
 	if (n != 10 && n != 15 && n != 20) {
 		PX4_WARN("OM-MPC requires N10/15/20; PID retains control");
+	}
+#endif
+	if (!enforce_wall_deadline) {
+		PX4_WARN("OM-MPC offline benchmark build: wall-clock deadlines disabled");
 	}
 
 	const auto &tracking = stats.tracking;

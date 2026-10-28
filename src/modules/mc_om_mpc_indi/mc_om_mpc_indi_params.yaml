@@ -10,8 +10,10 @@ parameters:
           estimation together. It accepts fresh
           onboard OmMpcCommand or external OmMpcSetpoint commands and publishes
           a disturbance estimate when MC_OM_DIST_EN and matched measurements permit.
-          Zero bypasses onboard corrections and preserves nominal external
-          command forwarding; it does not provide valid disturbance feedback.
+          Parameter enable and RC10 middle/high (normalized value >= 0) use
+          OR logic. With neither request, it bypasses onboard corrections and
+          preserves nominal external command forwarding; it does not provide
+          valid disturbance feedback. RC requires a valid signal younger than 500 ms.
           Onboard corrections return through mc_att_control's single output
           arbitration. Other controllers keep their existing paths.
       type: boolean
@@ -35,9 +37,12 @@ parameters:
         short: Enable OM disturbance feedback to MPC
         long: |-
           Publishes valid matched acceleration-disturbance estimates to onboard
-          or ROS MPC. Zero disables prediction feedback without disabling
-          acceleration INDI. Onboard MPC scales the estimate with MPC_OM_D_GAIN;
+          or ROS MPC. Parameter enable and RC10 high (normalized value >= 0.5)
+          use OR logic. With neither request, prediction feedback is disabled
+          without disabling acceleration INDI. Onboard MPC scales the estimate with MPC_OM_D_GAIN;
           ROS MPC uses its own gain. Stale or unmatched measurements remain invalid.
+          RC requires a valid signal younger than 500 ms. The middle layer must
+          also be enabled before feedback can be valid.
       type: boolean
       default: 1
     MC_OM_RATE_MAX:
