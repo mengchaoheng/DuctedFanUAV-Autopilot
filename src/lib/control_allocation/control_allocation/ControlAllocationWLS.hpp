@@ -30,8 +30,8 @@
 /**
  * @file ControlAllocationWLS.hpp
  *
- * Fixed-size PX4 adapter for Ola Harkegard's QCAT weighted least-squares
- * active-set control allocator.
+ * Bounded-storage PX4 adapter for Ola Harkegard's QCAT weighted least-squares
+ * active-set control allocator. QR operates only on the actual free variables.
  */
 
 #pragma once
@@ -91,6 +91,8 @@ private:
 	AugmentedMatrix _augmented_matrix;
 	AugmentedMatrix _reduced_matrix;
 	AugmentedVector _augmented_rhs;
+	int _least_squares_axes[NUM_AXES] {};
+	int _num_least_squares_axes{0};
 
 	matrix::Vector<float, NUM_AXES> _control_weights;
 	ActuatorVector _actuator_delta_min;

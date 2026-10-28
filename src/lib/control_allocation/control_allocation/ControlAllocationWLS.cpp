@@ -30,17 +30,16 @@
 /**
  * @file ControlAllocationWLS.cpp
  *
- * This is a fixed-size adaptation of the active-set algorithm in QCAT's
+ * This is a bounded-storage adaptation of the active-set algorithm in QCAT's
  * wlsc_alloc.c. The MEX gateway, dynamic allocation, BLAS and LAPACK calls are
  * intentionally not carried over. Reduced least-squares systems are solved by
- * PX4 Matrix's Householder QR solver.
+ * Householder QR using the actual row and free-variable counts.
  */
 
 #include "ControlAllocationWLS.hpp"
 
 #include <cmath>
 #include <cstring>
-#include <matrix/matrix/LeastSquaresSolver.hpp>
 
 namespace
 {
@@ -258,11 +257,21 @@ ControlAllocationWLS::buildAugmentedProblem()
 	_augmented_matrix.setZero();
 	_augmented_rhs.setZero();
 	const float control_scale = sqrtf(_gamma);
+	_num_least_squares_axes = 0;
 
 	for (int axis = 0; axis < NUM_AXES; ++axis) {
+		bool active = false;
+
 		for (int actuator = 0; actuator < _num_actuators; ++actuator) {
 			_augmented_matrix(axis, actuator) = control_scale * _control_weights(axis)
 							    * _effectiveness_unit(axis, actuator);
+			active |= fabsf(_effectiveness_unit(axis, actuator)) > 0.f;
+		}
+
+		// Only exactly zero rows are constant in the objective. Do not drop
+		// small physical coefficients using the diagnostic rank tolerance.
+		if (active) {
+			_least_squares_axes[_num_least_squares_axes++] = axis;
 		}
 	}
 
@@ -466,44 +475,103 @@ ControlAllocationWLS::solveActiveSet(ActuatorVector &actuator_delta, int &iterat
 bool
 ControlAllocationWLS::solveReducedLeastSquares(const AugmentedVector &residual, ActuatorVector &step)
 {
-	_reduced_matrix.setZero();
 	step.setZero();
 	int free_count = 0;
-	int excluded_actuators[NUM_ACTUATORS] {};
-	int excluded_count = 0;
-
-	for (int actuator = 0; actuator < NUM_ACTUATORS; ++actuator) {
-		if (actuator < _num_actuators && _working_set[actuator] == kWorkingSetFree) {
-			for (int row = 0; row < AUGMENTED_ROWS; ++row) {
-				_reduced_matrix(row, free_count) = _augmented_matrix(row, actuator);
-			}
-
-			++free_count;
-
-		} else {
-			excluded_actuators[excluded_count++] = actuator;
-		}
-	}
-
-	// LeastSquaresSolver has compile-time dimensions. Complete the packed free
-	// columns with mutually orthogonal dummy columns in actuator-penalty rows.
-	// They cannot change the solution of the real free-variable subsystem.
-	for (int column = free_count; column < NUM_ACTUATORS; ++column) {
-		_reduced_matrix(NUM_AXES + excluded_actuators[column - free_count], column) = 1.f;
-	}
-
-	matrix::LeastSquaresSolver<float, AUGMENTED_ROWS, NUM_ACTUATORS> solver(_reduced_matrix);
-	const ActuatorVector packed_step = solver.solve(residual);
-	int free_index = 0;
+	int free_actuators[NUM_ACTUATORS] {};
 
 	for (int actuator = 0; actuator < _num_actuators; ++actuator) {
 		if (_working_set[actuator] == kWorkingSetFree) {
-			if (!std::isfinite(packed_step(free_index))) {
-				return false;
+			free_actuators[free_count++] = actuator;
+		}
+	}
+
+	if (free_count == 0) {
+		return true;
+	}
+
+	// Bound-variable penalty rows and zero-effectiveness axes are constant
+	// for this step. Retain only real control rows and free-variable penalties.
+	const int rows = _num_least_squares_axes + free_count;
+	AugmentedVector qtb;
+
+	for (int row = 0; row < rows; ++row) {
+		const int source_row = row < _num_least_squares_axes ? _least_squares_axes[row]
+				      : NUM_AXES + free_actuators[row - _num_least_squares_axes];
+		qtb(row) = residual(source_row);
+
+		for (int column = 0; column < free_count; ++column) {
+			_reduced_matrix(row, column) = _augmented_matrix(source_row, free_actuators[column]);
+		}
+	}
+
+	// In-place Householder QR, with the same reflection convention as
+	// matrix::LeastSquaresSolver, but no dummy columns or full-size QR copy.
+	for (int j = 0; j < free_count; ++j) {
+		float norm_squared = 0.f;
+
+		for (int i = j; i < rows; ++i) {
+			norm_squared += _reduced_matrix(i, j) * _reduced_matrix(i, j);
+		}
+
+		const float norm = sqrtf(norm_squared);
+
+		if (!std::isfinite(norm) || norm < 1e-8f) {
+			return false;
+		}
+
+		const float sign = _reduced_matrix(j, j) > 0.f ? -1.f : 1.f;
+		const float u1 = _reduced_matrix(j, j) - sign * norm;
+		const float tau = -sign * u1 / norm;
+
+		for (int i = j + 1; i < rows; ++i) {
+			_reduced_matrix(i, j) /= u1;
+		}
+
+		_reduced_matrix(j, j) = sign * norm;
+
+		for (int column = j + 1; column < free_count; ++column) {
+			float projection = _reduced_matrix(j, column);
+
+			for (int i = j + 1; i < rows; ++i) {
+				projection += _reduced_matrix(i, j) * _reduced_matrix(i, column);
 			}
 
-			step(actuator) = packed_step(free_index++);
+			projection *= tau;
+			_reduced_matrix(j, column) -= projection;
+
+			for (int i = j + 1; i < rows; ++i) {
+				_reduced_matrix(i, column) -= _reduced_matrix(i, j) * projection;
+			}
 		}
+
+		float projection = qtb(j);
+
+		for (int i = j + 1; i < rows; ++i) {
+			projection += _reduced_matrix(i, j) * qtb(i);
+		}
+
+		projection *= tau;
+		qtb(j) -= projection;
+
+		for (int i = j + 1; i < rows; ++i) {
+			qtb(i) -= _reduced_matrix(i, j) * projection;
+		}
+	}
+
+	for (int j = free_count - 1; j >= 0; --j) {
+		float value = qtb(j);
+
+		for (int column = j + 1; column < free_count; ++column) {
+			value -= _reduced_matrix(j, column) * step(free_actuators[column]);
+		}
+
+		value /= _reduced_matrix(j, j);
+
+		if (!std::isfinite(value)) {
+			return false;
+		}
+
+		step(free_actuators[j]) = value;
 	}
 
 	return true;
@@ -531,7 +599,19 @@ ControlAllocationWLS::allocateFallback(ActuatorVector &actuator_delta) const
 void
 ControlAllocationWLS::computeResidual(const ActuatorVector &actuator_delta, AugmentedVector &residual) const
 {
-	residual = _augmented_rhs - _augmented_matrix * actuator_delta;
+	residual = _augmented_rhs;
+
+	for (int row = 0; row < _num_least_squares_axes; ++row) {
+		const int axis = _least_squares_axes[row];
+
+		for (int actuator = 0; actuator < _num_actuators; ++actuator) {
+			residual(axis) -= _augmented_matrix(axis, actuator) * actuator_delta(actuator);
+		}
+	}
+
+	for (int actuator = 0; actuator < _num_actuators; ++actuator) {
+		residual(NUM_AXES + actuator) = -_actuator_weight * actuator_delta(actuator);
+	}
 }
 
 bool

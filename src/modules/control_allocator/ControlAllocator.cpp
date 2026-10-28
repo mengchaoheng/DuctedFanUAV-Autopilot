@@ -369,17 +369,18 @@ ControlAllocator::update_allocation_method(bool force)
 				method = desired_methods[i];
 			}
 
-			// CA16/17 matrix 0 contains only the force-producing rotor. LPCA/PCA
-			// require the multi-axis surface matrix and would otherwise fall back
-			// every cycle. Keep the requested method on matrix 1 only.
+			// CA16/17 matrix 0 contains only the force-producing rotor. Use the
+			// pseudo-inverse there to avoid LPCA/PCA fallback and unnecessary WLS
+			// computation. Keep the requested method on the surface matrix 1.
 			const bool ducted_fan_force_matrix = i == 0
 					&& (_effectiveness_source_id == EffectivenessSource::DUCTED_FAN
 					    || _effectiveness_source_id == EffectivenessSource::DUCTED_FAN_TAILSITTER_VTOL);
-			const bool requires_surface_matrix = method == AllocationMethod::DP_LPCA
+			const bool use_surface_method = method == AllocationMethod::DP_LPCA
 					|| method == AllocationMethod::DPSCALED_LPCA
-					|| method == AllocationMethod::PCA;
+					|| method == AllocationMethod::PCA
+					|| method == AllocationMethod::WLS;
 
-			if (ducted_fan_force_matrix && requires_surface_matrix) {
+			if (ducted_fan_force_matrix && use_surface_method) {
 				method = AllocationMethod::INV;
 			}
 
