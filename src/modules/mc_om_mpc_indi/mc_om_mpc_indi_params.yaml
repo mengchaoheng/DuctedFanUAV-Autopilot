@@ -1,6 +1,6 @@
 module_name: mc_om_mpc_indi
 parameters:
-- group: Multicopter MPC
+- group: On-Manifold MPC
   definitions:
     MPC_ACCINDI_EN:
       description:

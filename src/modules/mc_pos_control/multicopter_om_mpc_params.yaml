@@ -1,6 +1,6 @@
 module_name: mc_pos_control
 parameters:
-- group: Multicopter MPC
+- group: On-Manifold MPC
   definitions:
     MPC_EN:
       description:
