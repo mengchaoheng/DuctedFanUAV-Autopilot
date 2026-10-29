@@ -16,11 +16,10 @@ constexpr float kGravity = 9.80665f;
 constexpr float kHoverThrust = 0.216f;
 constexpr float kTolerance = 1e-5f;
 
-OmMpcIndiControl makeControl(const Vector3f &gain = Vector3f{1.5f, 1.5f, 0.f},
-		float acceleration_gain = 1.f)
+OmMpcIndiControl makeControl(const Vector3f &gain = Vector3f{1.5f, 1.5f, 0.f})
 {
 	OmMpcIndiControl control;
-	control.setParams(gain, acceleration_gain, kHoverThrust, kGravity);
+	control.setParams(gain, kHoverThrust, kGravity);
 	return control;
 }
 
@@ -72,19 +71,6 @@ TEST(OmMpcIndiControl, TranslationalIncrementHasMainMUnitsAndSign)
 		measured_acceleration, hover, output));
 	expectVectorNear(output.thrust_ned, expected_force);
 	EXPECT_NEAR(output.thrust_body(2), -expected_force.norm(), kTolerance);
-}
-
-TEST(OmMpcIndiControl, TranslationalIncrementGainScalesOnlyTheIncrement)
-{
-	const auto control = makeControl(Vector3f{}, 0.25f);
-	OmMpcIndiControl::Output output{};
-	const Vector3f hover{0.f, 0.f, -kHoverThrust};
-	const Vector3f measured_acceleration{-1.f, 0.f, 0.f};
-	const Vector3f expected_force{0.25f * kHoverThrust / kGravity, 0.f, -kHoverThrust};
-
-	ASSERT_TRUE(control.update(Dcmf{}, Vector3f{}, hover, Vector3f{},
-		measured_acceleration, hover, output));
-	expectVectorNear(output.thrust_ned, expected_force);
 }
 
 TEST(OmMpcIndiControl, AntipodeUsesDeterministicBodyXAxis)

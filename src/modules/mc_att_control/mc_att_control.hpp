@@ -126,10 +126,10 @@ private:
 	uORB::Subscription _om_indi_command_sub{ORB_ID(om_mpc_indi_command)};
 	uORB::Subscription _om_rc_sub{ORB_ID(rc_channels)};
 	rc_channels_s _om_rc{};
-	const param_t _om_indi_enable_handle{param_find("MC_OM_INDI_EN")};
+	const param_t _om_indi_enable_handle{param_find("MPC_ACCINDI_EN")};
 	bool _om_acceleration_indi_active{false};
-	const param_t _om_enable_handle{param_find("MPC_OM_EN")};
-	const param_t _om_transition_time_handle{param_find("MPC_OM_TR_T")};
+	const param_t _om_enable_handle{param_find("MPC_EN")};
+	const param_t _om_transition_time_handle{param_find("MPC_TAKEOVER_T")};
 	OmMpcTakeover _om_takeover{};
 	uORB::PublicationData<om_mpc_status_s> _om_status_pub{ORB_ID(om_mpc_status)};
 	bool applyOmMpc(vehicle_rates_setpoint_s &rates_setpoint);

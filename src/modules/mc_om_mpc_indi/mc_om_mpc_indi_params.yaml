@@ -1,15 +1,15 @@
 module_name: mc_om_mpc_indi
 parameters:
-- group: Multicopter OM-MPC
+- group: Multicopter MPC
   definitions:
-    MC_OM_INDI_EN:
+    MPC_ACCINDI_EN:
       description:
-        short: Enable OM-MPC INDI middle layer
+        short: Enable acceleration INDI middle layer
         long: |-
           Enables acceleration-INDI/lift corrections and matched disturbance
           estimation together. It accepts fresh
           onboard OmMpcCommand or external OmMpcSetpoint commands and publishes
-          a disturbance estimate when MC_OM_DIST_EN and matched measurements permit.
+          a disturbance estimate when MPC_DFB_EN and matched measurements permit.
           Parameter enable and RC10 middle/high (normalized value >= 0) use
           OR logic. With neither request, it bypasses onboard corrections and
           preserves nominal external command forwarding; it does not provide
@@ -18,51 +18,37 @@ parameters:
           arbitration. Other controllers keep their existing paths.
       type: boolean
       default: 0
-    MC_OM_ACC_GAIN:
-      description:
-        short: OM acceleration increment gain
-        long: |-
-          Gain on the acceleration-INDI thrust increment F_c-F_0. One is the
-          direct main.m law. Values below one provide explicit incremental
-          control authority tuning when estimator acceleration and allocated
-          force do not have ideal matched dynamics; this is not an output clamp.
-      type: float
-      default: 1.0
-      min: 0.0
-      max: 1.0
-      decimal: 2
-      increment: 0.05
-    MC_OM_DIST_EN:
+    MPC_DFB_EN:
       description:
         short: Enable OM disturbance feedback to MPC
         long: |-
           Publishes valid matched acceleration-disturbance estimates to onboard
           or ROS MPC. Parameter enable and RC10 high (normalized value >= 0.5)
           use OR logic. With neither request, prediction feedback is disabled
-          without disabling acceleration INDI. Onboard MPC scales the estimate with MPC_OM_D_GAIN;
+          without disabling acceleration INDI. Onboard MPC scales the estimate with MPC_DFB_GAIN;
           ROS MPC uses its own gain. Stale or unmatched measurements remain invalid.
           RC requires a valid signal younger than 500 ms. The middle layer must
           also be enabled before feedback can be valid.
       type: boolean
       default: 1
-    MC_OM_RATE_MAX:
+    MPC_ACCINDI_HZ:
       description:
-        short: OM middle-layer maximum output rate
+        short: Acceleration INDI maximum update rate
         long: |-
-          Maximum VehicleRatesSetpoint publication rate. With acceleration INDI
-          enabled, the effective rate is limited by attitude publication and
-          this value; acceleration feedback is held between its own samples.
-          With acceleration INDI disabled, each new OmMpcSetpoint is forwarded
-          once.
+          Maximum acceleration-INDI correction update rate. New attitude messages
+          trigger updates subject to this minimum spacing; this is not a fixed-rate
+          timer. Acceleration feedback is held between its own samples. Onboard
+          final rate publication remains owned by mc_att_control. With acceleration
+          INDI disabled, each new external OmMpcSetpoint is forwarded once.
       type: float
       default: 250.0
       min: 50.0
       max: 500.0
       unit: Hz
       decimal: 1
-    MC_OM_A_SRC:
+    MPC_ACCINDI_SRC:
       description:
-        short: OM acceleration feedback source
+        short: Acceleration INDI feedback source
         long: |-
           EKF acceleration is the NED linear acceleration from
           VehicleLocalPosition. IMU acceleration is bias-corrected body-FRD
@@ -73,9 +59,9 @@ parameters:
         1: EKF acceleration
         2: IMU acceleration
       default: 1
-    MC_OM_A_LP:
+    MPC_ACCINDI_LPF:
       description:
-        short: OM inertial feedback low-pass cutoff
+        short: Acceleration INDI feedback low-pass cutoff
         long: |-
           Second-order low-pass applied independently at each acceleration
           source's real sample rate and to raw allocated force after rotation
@@ -88,9 +74,9 @@ parameters:
       unit: Hz
       decimal: 1
       increment: 0.5
-    MC_OM_D_LIM:
+    MPC_DFB_LIM:
       description:
-        short: OM disturbance-feedback magnitude limit
+        short: MPC disturbance-feedback magnitude limit
         long: Euclidean magnitude limit applied to the direct matched disturbance estimate. Zero disables the limit and matches main.m.
       type: float
       default: 0.0
@@ -99,9 +85,9 @@ parameters:
       unit: m/s^2
       decimal: 2
       increment: 0.1
-    MC_OM_F_DLY:
+    MPC_ACCINDI_FDLY:
       description:
-        short: OM allocated-force feedback delay
+        short: Acceleration INDI force-feedback delay
         long: Additional timestamp delay used to phase-align allocator force and acceleration.
       type: float
       default: 0.0
@@ -110,10 +96,10 @@ parameters:
       unit: s
       decimal: 3
       increment: 0.005
-    MC_OM_TR_T:
+    MPC_ACCINDI_TR_T:
       description:
-        short: OM acceleration INDI transition time
-        long: Smoothstep transition from the nominal OM-MPC command to the corrected command. Zero disables the transition and matches main.m.
+        short: Acceleration INDI transition time
+        long: Smoothstep transition from the nominal MPC command to the corrected command. Zero disables the transition and matches main.m.
       type: float
       default: 0.0
       min: 0.0
@@ -121,25 +107,25 @@ parameters:
       unit: s
       decimal: 2
       increment: 0.1
-    MC_OM_KPHI_R:
+    MPC_ACCINDI_K_R:
       description:
-        short: OM bridge roll attitude gain
+        short: Acceleration INDI roll correction gain
       type: float
       default: 0.5
       min: 0.0
       unit: 1/s
       decimal: 2
-    MC_OM_KPHI_P:
+    MPC_ACCINDI_K_P:
       description:
-        short: OM bridge pitch attitude gain
+        short: Acceleration INDI pitch correction gain
       type: float
       default: 0.5
       min: 0.0
       unit: 1/s
       decimal: 2
-    MC_OM_KPHI_Y:
+    MPC_ACCINDI_K_Y:
       description:
-        short: OM bridge yaw attitude gain
+        short: Acceleration INDI yaw correction gain
       type: float
       default: 0.0
       min: 0.0

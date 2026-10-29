@@ -43,6 +43,60 @@
 
 param_modify_on_import_ret param_modify_on_import(bson_node_t node)
 {
+	// 2026-10-29: unify MPC and acceleration-INDI parameter names. Types,
+	// units and values are unchanged, including the state-update mode labels.
+	static constexpr struct {
+		char old_name[17];
+		char new_name[17];
+	} mpc_parameter_renames[] {
+		{"MPC_OM_EN", "MPC_EN"},
+		{"MPC_OM_N", "MPC_N"},
+		{"MPC_OM_DT", "MPC_DT"},
+		{"MPC_OM_RATE", "MPC_UPD_MODE"},
+		{"MPC_OM_ITER", "MPC_QP_ITMAX"},
+		{"MPC_OM_TR_T", "MPC_TAKEOVER_T"},
+		{"MPC_OM_EP", "MPC_ENTRY_POS"},
+		{"MPC_OM_EV", "MPC_ENTRY_VEL"},
+		{"MPC_OM_ER", "MPC_ENTRY_ROT"},
+		{"MPC_OM_QPOS", "MPC_QPOS"},
+		{"MPC_OM_QVEL", "MPC_QVEL"},
+		{"MPC_OM_QROT", "MPC_QROT"},
+		{"MPC_OM_RTHR", "MPC_RTHR"},
+		{"MPC_OM_ROMG", "MPC_ROMG"},
+		{"MPC_OM_PFAC", "MPC_TERM_SCALE"},
+		{"MPC_OM_D_GAIN", "MPC_DFB_GAIN"},
+		{"MC_OM_INDI_EN", "MPC_ACCINDI_EN"},
+		{"MC_OM_TR_T", "MPC_ACCINDI_TR_T"},
+		{"MPC_ACCINDI_RAMP", "MPC_ACCINDI_TR_T"},
+		{"MC_OM_RATE_MAX", "MPC_ACCINDI_HZ"},
+		{"MC_OM_A_SRC", "MPC_ACCINDI_SRC"},
+		{"MC_OM_A_LP", "MPC_ACCINDI_LPF"},
+		{"MC_OM_F_DLY", "MPC_ACCINDI_FDLY"},
+		{"MC_OM_KPHI_R", "MPC_ACCINDI_K_R"},
+		{"MC_OM_KPHI_P", "MPC_ACCINDI_K_P"},
+		{"MC_OM_KPHI_Y", "MPC_ACCINDI_K_Y"},
+		{"MC_OM_DIST_EN", "MPC_DFB_EN"},
+		{"MC_OM_D_LIM", "MPC_DFB_LIM"},
+	};
+
+	for (const auto &rename : mpc_parameter_renames) {
+		if (strcmp(rename.old_name, node->name) == 0) {
+			strcpy(node->name, rename.new_name);
+			PX4_INFO("migrating %s -> %s", rename.old_name, rename.new_name);
+			return param_modify_on_import_ret::PARAM_MODIFIED;
+		}
+	}
+
+	// The translational INDI law now always uses beta_c=beta_f+a_M-a_f.
+	// There is no equivalent parameter for a former non-unit increment gain.
+	if (strcmp("MC_OM_ACC_GAIN", node->name) == 0) {
+		if (node->type == BSON_DOUBLE && fabs(node->d - 1.0) > 1e-6) {
+			PX4_WARN("MC_OM_ACC_GAIN removed; unit INDI increment replaces %.3f", node->d);
+		}
+
+		return param_modify_on_import_ret::PARAM_SKIP_IMPORT;
+	}
+
 	// 2023-12-06: translate and invert FW_ARSP_MODE-> FW_USE_AIRSPD
 	{
 		if (strcmp("FW_ARSP_MODE", node->name) == 0) {

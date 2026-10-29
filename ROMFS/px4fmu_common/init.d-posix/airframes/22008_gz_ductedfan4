@@ -146,28 +146,27 @@ param set-default CA_WLS_Y_W 0.78694933
 
 # Local OM-MPC grid and weights. The larger body-rate penalty accommodates
 # DF4 actuator dynamics; MPC and its middle layer are enabled only on request.
-param set-default MPC_OM_EN 0
-param set-default MPC_OM_RATE 50
-param set-default MPC_OM_N 15
-param set-default MPC_OM_DT 0.05
-param set-default MPC_OM_QPOS 486
-param set-default MPC_OM_QVEL 10
-param set-default MPC_OM_RTHR 0.25
-param set-default MPC_OM_PFAC 1
+param set-default MPC_EN 0
+param set-default MPC_UPD_MODE 50
+param set-default MPC_N 15
+param set-default MPC_DT 0.05
+param set-default MPC_QPOS 486
+param set-default MPC_QVEL 10
+param set-default MPC_RTHR 0.25
+param set-default MPC_TERM_SCALE 1
 
 # Match the validated OM-MPC middle-layer tuning without enabling it at boot.
-param set-default MC_OM_INDI_EN 0
-param set-default MC_OM_DIST_EN 0
-param set-default MC_OM_ACC_GAIN 1
-param set-default MC_OM_A_SRC 1
-param set-default MC_OM_A_LP 8
-param set-default MC_OM_RATE_MAX 250
-param set-default MC_OM_F_DLY 0.035
-param set-default MC_OM_TR_T 1
-param set-default MC_OM_KPHI_R 3.6
-param set-default MC_OM_KPHI_P 3.6
-param set-default MC_OM_KPHI_Y 0
-param set-default MC_OM_D_LIM 0
+param set-default MPC_ACCINDI_EN 0
+param set-default MPC_DFB_EN 0
+param set-default MPC_ACCINDI_SRC 1
+param set-default MPC_ACCINDI_LPF 8
+param set-default MPC_ACCINDI_HZ 250
+param set-default MPC_ACCINDI_FDLY 0.035
+param set-default MPC_ACCINDI_TR_T 1
+param set-default MPC_ACCINDI_K_R 3.6
+param set-default MPC_ACCINDI_K_P 3.6
+param set-default MPC_ACCINDI_K_Y 0
+param set-default MPC_DFB_LIM 0
 
 # Native NavSat measurements are current; unlike the Classic GPS plugin,
 # there is no 120 ms measurement buffer to compensate.
@@ -243,24 +242,24 @@ param set-default SDLOG_PROFILE 27
 param set-default SDLOG_MODE 0
 
 # Local OM-MPC / INDI tuning, validated on hover and horizontal figure eight.
-param set-default MPC_OM_QROT 10.368
-param set-default MPC_OM_ROMG 16
+param set-default MPC_QROT 10.368
+param set-default MPC_ROMG 16
 param set-default MC_INDI_R_P 12
 param set-default MC_INDI_P_P 12
 param set-default MC_INDI_Y_P 12
 param set-default MC_INDI_T_DLY 0.006
 param set-default IMU_DGYRO_CUTOFF 16
 param set-default CA_TORQ_CUTOFF 16
-param set-default MPC_OM_D_GAIN 0.75
+param set-default MPC_DFB_GAIN 0.75
 
 # Confirmed MPC candidates (RATE is a state-update mode, not a fixed timer):
 # A/default: RATE=50, N15, dt=0.05 (H=0.75 s).
 # B: RATE=50, N20, dt=0.04 (H=0.80 s).
 # C: RATE=100, N20, dt=0.04 (H=0.80 s).
-# MPC_OM_TR_T=1 gives a one-second entry; saved parameters still win.
+# MPC_TAKEOVER_T=1 gives a one-second entry; saved parameters still win.
 
 # MPC and middle-layer configuration
-param set-default MPC_OM_TR_T 1
+param set-default MPC_TAKEOVER_T 1
 
 param set-default MC_HF8_AZ 1
 

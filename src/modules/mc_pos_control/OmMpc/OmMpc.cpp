@@ -81,22 +81,22 @@ static constexpr px4::wq_config_t om_queue{"wq:om_mpc", 8192, om_priority};
 struct OmMpc::Runtime {
 	// Resolve handles once; cache model settings on parameter_update.
 	// Enable/rate remain inexpensive live reads on every release.
-	const param_t h_mpc_om_rate = param_find("MPC_OM_RATE");
-	const param_t h_mpc_om_en = param_find("MPC_OM_EN");
+	const param_t h_mpc_om_rate = param_find("MPC_UPD_MODE");
+	const param_t h_mpc_om_en = param_find("MPC_EN");
 	const param_t h_mpc_thr_hover = param_find("MPC_THR_HOVER");
 	const param_t h_mpc_thr_max = param_find("MPC_THR_MAX");
 	const param_t h_mc_rollrate_max = param_find("MC_ROLLRATE_MAX");
 	const param_t h_mc_pitchrate_max = param_find("MC_PITCHRATE_MAX");
 	const param_t h_mc_yawrate_max = param_find("MC_YAWRATE_MAX");
-	const param_t h_mpc_om_ep = param_find("MPC_OM_EP");
-	const param_t h_mpc_om_ev = param_find("MPC_OM_EV");
-	const param_t h_mpc_om_er = param_find("MPC_OM_ER");
-	const param_t h_mpc_om_n = param_find("MPC_OM_N");
-	const param_t h_mpc_om_dt = param_find("MPC_OM_DT");
-	const param_t h_mpc_om_iter = param_find("MPC_OM_ITER");
-	const param_t h_mpc_om_d_gain = param_find("MPC_OM_D_GAIN");
-	const param_t h_cost[6] {param_find("MPC_OM_QPOS"), param_find("MPC_OM_QVEL"), param_find("MPC_OM_QROT"),
-		param_find("MPC_OM_RTHR"), param_find("MPC_OM_ROMG"), param_find("MPC_OM_PFAC")};
+	const param_t h_mpc_om_ep = param_find("MPC_ENTRY_POS");
+	const param_t h_mpc_om_ev = param_find("MPC_ENTRY_VEL");
+	const param_t h_mpc_om_er = param_find("MPC_ENTRY_ROT");
+	const param_t h_mpc_om_n = param_find("MPC_N");
+	const param_t h_mpc_om_dt = param_find("MPC_DT");
+	const param_t h_mpc_om_iter = param_find("MPC_QP_ITMAX");
+	const param_t h_mpc_om_d_gain = param_find("MPC_DFB_GAIN");
+	const param_t h_cost[6] {param_find("MPC_QPOS"), param_find("MPC_QVEL"), param_find("MPC_QROT"),
+		param_find("MPC_RTHR"), param_find("MPC_ROMG"), param_find("MPC_TERM_SCALE")};
 	float cost[6] {324.f, 10.f, 4.32f, .25f, .8f, 1.f};
 	uORB::Subscription parameter_sub{ORB_ID(parameter_update)};
 	uORB::Subscription rc_sub{ORB_ID(rc_channels)};
@@ -659,11 +659,11 @@ void OmMpc::print_status()
 	uORB::Subscription output_sub{ORB_ID(om_mpc_status)};
 	om_mpc_status_s output{};
 	const bool applied = output_sub.copy(&output) && output.active && hrt_elapsed_time(&output.timestamp) < 300000;
-	const int n = setting("MPC_OM_N");
-	const unsigned nominal_rate = setting("MPC_OM_RATE") == 100 ? 100 : 50;
+	const int n = setting("MPC_N");
+	const unsigned nominal_rate = setting("MPC_UPD_MODE") == 100 ? 100 : 50;
 	PX4_INFO("OM-MPC: worker=%s ready=%s active=%s state/%u (nominal %uHz) N%d dt=%.3f",
 		 _started.load() ? "started" : "off", _ready.load() ? "yes" : "no", applied ? "yes" : "no",
-		 nominal_rate == 100 ? 1u : 2u, nominal_rate, n, (double)parameter(param_find("MPC_OM_DT"), .04f));
+		 nominal_rate == 100 ? 1u : 2u, nominal_rate, n, (double)parameter(param_find("MPC_DT"), .04f));
 #ifdef __PX4_POSIX
 	if (n < 1 || n > OmMaxHorizon) {
 		PX4_WARN("OM-MPC requires N1..%d on POSIX; PID retains control", OmMaxHorizon);
@@ -718,7 +718,7 @@ void OmMpc::print_status()
 			 (unsigned long long)failure.frontend, (unsigned long long)failure.update, (unsigned long long)failure.solve);
 	}
 	PX4_INFO("OM-MPC solver=qpDUNES float32 iteration cap=%d last status=%d iter=%d residual=%.8f",
-		 setting("MPC_OM_ITER"), stats.last_status, stats.last_iterations, (double)stats.residual);
+		 setting("MPC_QP_ITMAX"), stats.last_status, stats.last_iterations, (double)stats.residual);
 	PX4_INFO("OM-MPC memory: arena peak=%u capacity=%u problem=%u stack=%u bytes",
 		 (unsigned)stats.arena_peak, om_arena_capacity(n), (unsigned)sizeof(OmFloatProblem), (unsigned)om_queue.stacksize);
 }

@@ -112,7 +112,7 @@ private:
 	void Run() override;
 #ifdef MC_POS_OM_MPC
 	OmMpc *_om_mpc{nullptr};
-	const param_t _om_enable_handle{param_find("MPC_OM_EN")};
+	const param_t _om_enable_handle{param_find("MPC_EN")};
 #endif
 
 	TakeoffHandling _takeoff; /**< state machine and ramp to bring the vehicle off the ground without jumps */

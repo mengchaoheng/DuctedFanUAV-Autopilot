@@ -112,7 +112,7 @@ private:
 	om_mpc_command_s _onboard_command{};
 	bool _onboard_enabled{false};
 	bool _middle_layer_enabled_previous{false};
-	const param_t _onboard_enable_handle{param_find("MPC_OM_EN")};
+	const param_t _onboard_enable_handle{param_find("MPC_EN")};
 	vehicle_control_mode_s _vehicle_control_mode{};
 	vehicle_land_detected_s _vehicle_land_detected{};
 	vehicle_status_s _vehicle_status{};
@@ -137,18 +137,17 @@ private:
 	perf_counter_t _loop_perf{nullptr};
 
 	DEFINE_PARAMETERS(
-		(ParamInt<px4::params::MC_OM_INDI_EN>) _param_enable,
-		(ParamFloat<px4::params::MC_OM_ACC_GAIN>) _param_acceleration_gain,
-		(ParamInt<px4::params::MC_OM_DIST_EN>) _param_disturbance_enable,
-		(ParamFloat<px4::params::MC_OM_RATE_MAX>) _param_rate_max,
-		(ParamInt<px4::params::MC_OM_A_SRC>) _param_acceleration_source,
-		(ParamFloat<px4::params::MC_OM_A_LP>) _param_acceleration_cutoff,
-		(ParamFloat<px4::params::MC_OM_D_LIM>) _param_disturbance_limit,
-		(ParamFloat<px4::params::MC_OM_F_DLY>) _param_force_delay,
-		(ParamFloat<px4::params::MC_OM_TR_T>) _param_transition_time,
-		(ParamFloat<px4::params::MC_OM_KPHI_R>) _param_kphi_roll,
-		(ParamFloat<px4::params::MC_OM_KPHI_P>) _param_kphi_pitch,
-		(ParamFloat<px4::params::MC_OM_KPHI_Y>) _param_kphi_yaw,
+		(ParamInt<px4::params::MPC_ACCINDI_EN>) _param_enable,
+		(ParamInt<px4::params::MPC_DFB_EN>) _param_disturbance_enable,
+		(ParamFloat<px4::params::MPC_ACCINDI_HZ>) _param_rate_max,
+		(ParamInt<px4::params::MPC_ACCINDI_SRC>) _param_acceleration_source,
+		(ParamFloat<px4::params::MPC_ACCINDI_LPF>) _param_acceleration_cutoff,
+		(ParamFloat<px4::params::MPC_DFB_LIM>) _param_disturbance_limit,
+		(ParamFloat<px4::params::MPC_ACCINDI_FDLY>) _param_force_delay,
+		(ParamFloat<px4::params::MPC_ACCINDI_TR_T>) _param_transition_time,
+		(ParamFloat<px4::params::MPC_ACCINDI_K_R>) _param_kphi_roll,
+		(ParamFloat<px4::params::MPC_ACCINDI_K_P>) _param_kphi_pitch,
+		(ParamFloat<px4::params::MPC_ACCINDI_K_Y>) _param_kphi_yaw,
 		(ParamFloat<px4::params::MPC_THR_HOVER>) _param_hover_thrust
 	)
 };

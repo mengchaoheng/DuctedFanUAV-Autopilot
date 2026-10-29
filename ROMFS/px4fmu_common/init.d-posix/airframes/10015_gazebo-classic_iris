@@ -58,27 +58,26 @@ param set-default MPC_INDI_ACC_EN 0
 # Common Iris OM-MPC tuning; SIH and gz source this airframe too.
 # Keep controller settings here and simulator-specific plant/sensor settings
 # in each wrapper. Enabling the middle layer remains an explicit choice.
-param set-default MPC_OM_EN 0
-param set-default MPC_OM_N 15
-param set-default MPC_OM_DT 0.04
-param set-default MPC_OM_RATE 50
-param set-default MPC_OM_QPOS 324
-param set-default MPC_OM_QVEL 10
-param set-default MPC_OM_QROT 5.184
-param set-default MPC_OM_RTHR 0.25
-param set-default MPC_OM_ROMG 4
-param set-default MPC_OM_PFAC 1
-param set-default MC_OM_INDI_EN 0
-param set-default MC_OM_DIST_EN 0
-param set-default MC_OM_ACC_GAIN 1.0
-param set-default MC_OM_A_SRC 1
-param set-default MC_OM_RATE_MAX 250.0
-param set-default MC_OM_A_LP 8.0
-param set-default MC_OM_F_DLY 0.004
-param set-default MC_OM_TR_T 1.0
-param set-default MC_OM_KPHI_R 7.2
-param set-default MC_OM_KPHI_P 7.2
-param set-default MC_OM_KPHI_Y 0.0
+param set-default MPC_EN 0
+param set-default MPC_N 15
+param set-default MPC_DT 0.04
+param set-default MPC_UPD_MODE 50
+param set-default MPC_QPOS 324
+param set-default MPC_QVEL 10
+param set-default MPC_QROT 5.184
+param set-default MPC_RTHR 0.25
+param set-default MPC_ROMG 4
+param set-default MPC_TERM_SCALE 1
+param set-default MPC_ACCINDI_EN 0
+param set-default MPC_DFB_EN 0
+param set-default MPC_ACCINDI_SRC 1
+param set-default MPC_ACCINDI_HZ 250.0
+param set-default MPC_ACCINDI_LPF 8.0
+param set-default MPC_ACCINDI_FDLY 0.004
+param set-default MPC_ACCINDI_TR_T 1.0
+param set-default MPC_ACCINDI_K_R 7.2
+param set-default MPC_ACCINDI_K_P 7.2
+param set-default MPC_ACCINDI_K_Y 0.0
 
 # User's latest attitude/PID-rate tuning; EKF velocity P gains refined in SITL.
 param set-default MC_ROLL_P 6.5
@@ -213,7 +212,7 @@ param set-default MC_AT_EN 1
 param set-default MC_AT_APPLY 0
 
 # Prediction feedback gain shared by the three Iris simulators.
-param set-default MPC_OM_D_GAIN 0.25
+param set-default MPC_DFB_GAIN 0.25
 
 # Fixed-speed presets from the formal report; SIH and gz inherit these too.
 # Tracking remains off. Yaw mode 1 holds the heading at trajectory entry.

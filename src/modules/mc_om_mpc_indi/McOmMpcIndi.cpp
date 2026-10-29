@@ -399,7 +399,6 @@ void McOmMpcIndi::Run()
 	}
 	_control.setParams(
 		Vector3f(_param_kphi_roll.get(), _param_kphi_pitch.get(), _param_kphi_yaw.get()),
-		math::constrain(_param_acceleration_gain.get(), 0.f, 1.f),
 		hover_thrust, CONSTANTS_ONE_G);
 	if (onboard) {
 		_nominal_setpoint = {};
@@ -450,7 +449,7 @@ void McOmMpcIndi::Run()
 	if (middle_layer_enabled) {
 		// The bridge is algebraic in acceleration, so a held acceleration sample
 		// must not stall attitude/rate-setpoint updates. Run from the 250 Hz
-		// attitude callback (bounded by MC_OM_RATE_MAX), while the matched
+		// attitude callback (bounded by MPC_ACCINDI_HZ), while the matched
 		// acceleration and allocated-force filters update only at their own sample
 		// timestamps. This matches main.m and avoids tying the lift to the slower
 		// EKF acceleration publication rate.

@@ -18,4 +18,4 @@ config MC_POS_CONTROL_OM_MPC
 	---help---
 		Float32 on-manifold MPC on a private solver work queue, triggered
 		by every local-position publication or every second publication.
-		Explicit MPC_OM_EN gate, constant phase-rate Orbit/FigureEight only.
+		Explicit MPC_EN gate, constant phase-rate Orbit/FigureEight only.
