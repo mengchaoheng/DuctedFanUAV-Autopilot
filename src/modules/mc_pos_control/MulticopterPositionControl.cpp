@@ -797,8 +797,12 @@ void MulticopterPositionControl::Run()
 
 			const hrt_abstime now = hrt_absolute_time();
 
-			// Keep the ordinary position/velocity PID, integral and existing
-			// anti-windup running while MPC owns the final output as well.
+#ifdef MC_POS_OM_MPC
+			if (_om_mpc && _om_mpc->hasValidCommand()) {
+				// The standby PID output is not applied while MPC supplies commands.
+				_control.resetIntegral();
+			}
+#endif
 			// Run position control
 			if (_control.update(dt)) {
 
