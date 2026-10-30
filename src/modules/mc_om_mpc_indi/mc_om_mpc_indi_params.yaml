@@ -10,7 +10,7 @@ parameters:
           estimation together. It accepts fresh
           onboard OmMpcCommand or external OmMpcSetpoint commands and publishes
           a disturbance estimate when MPC_DFB_EN and matched measurements permit.
-          Parameter enable and RC10 middle/high (normalized value >= 0) use
+          Parameter enable and RC10 middle/high (normalized value >= -0.5) use
           OR logic. With neither request, it bypasses onboard corrections and
           preserves nominal external command forwarding; it does not provide
           valid disturbance feedback. RC requires a valid signal younger than 500 ms.

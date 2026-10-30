@@ -17,6 +17,8 @@ parameters:
           With a supported CA type and recent finite feedback, INDI is used.
           Physical-force feedback additionally requires a valid vehicle mass.
           Otherwise the standard path is used.
+          Parameter enable and RC11 middle/high (normalized value >= -0.5)
+          use OR logic. RC must be valid and younger than 500 ms.
       type: boolean
       default: 0
     MPC_INDI_A_SRC:

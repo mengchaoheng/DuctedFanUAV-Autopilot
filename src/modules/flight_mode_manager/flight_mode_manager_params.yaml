@@ -5,7 +5,7 @@ parameters:
     MC_ORBIT_EN:
       description:
         short: Enable parameter-triggered trajectory
-        long: Enables the selected Orbit trajectory when MC_ORBIT_SRC is Parameter. Parameter and RC7 triggers are combined with OR logic.
+        long: Enables the selected Orbit trajectory when MC_ORBIT_SRC is Parameter. Parameter and RC7 middle/high (normalized value >= -0.5) triggers are combined with OR logic. RC must be valid and younger than 500 ms.
       type: boolean
       default: 0
     MC_ORBIT_SRC:

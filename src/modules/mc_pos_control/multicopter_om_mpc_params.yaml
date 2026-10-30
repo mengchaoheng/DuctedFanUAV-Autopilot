@@ -9,7 +9,7 @@ parameters:
           Runs MPC in flight or simulation for a valid parameter-triggered analytic
           Orbit or FigureEight reference (including stationary hold) after takeoff. Fixed-yaw
           references are supported. Default position control is hot standby.
-          Parameter enable and RC9 middle/high (normalized value >= 0) are
+          Parameter enable and RC9 middle/high (normalized value >= -0.5) are
           combined with OR logic. RC must be present, finite and younger than
           500 ms. RC low or signal loss leaves parameter enable available.
       type: boolean

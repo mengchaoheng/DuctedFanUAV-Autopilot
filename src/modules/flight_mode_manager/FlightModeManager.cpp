@@ -51,7 +51,7 @@ bool rcChannelEnabled(const rc_channels_s &rc_channels, unsigned channel)
 	return (rc_channels.channel_count > channel)
 	       && !rc_channels.signal_lost
 	       && (hrt_elapsed_time(&rc_channels.timestamp) < kRcSignalTimeout)
-	       && (rc_channels.channels[channel] >= 0.f);
+	       && (rc_channels.channels[channel] >= -.5f);
 }
 } // namespace
 

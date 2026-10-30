@@ -338,7 +338,7 @@ MulticopterRateControl::Run()
 		_rc_channels_sub.update(&_rc_channels);
 		const bool indi_parameter_enabled = _param_mc_indi_rate_en.get() == 1;
 		const bool indi_rc_valid = rcChannelValid(_rc_channels, kRateIndiRcChannel);
-		const bool indi_rc_enabled = indi_rc_valid && _rc_channels.channels[kRateIndiRcChannel] >= 0.f;
+		const bool indi_rc_enabled = indi_rc_valid && _rc_channels.channels[kRateIndiRcChannel] >= -.5f;
 		const bool indi_flight_enabled = _indi_flight_state.update(_vehicle_control_mode.flag_armed,
 						_vehicle_status.takeoff_time != 0, _ground_contact, _maybe_landed, _landed,
 						indi_parameter_enabled, indi_rc_enabled, indi_rc_valid);

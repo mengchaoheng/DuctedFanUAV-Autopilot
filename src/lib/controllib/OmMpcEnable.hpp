@@ -19,12 +19,12 @@ inline bool rcRequested(const rc_channels_s &rc, uint64_t now, unsigned channel,
 
 inline bool mpcRequested(bool parameter_enabled, const rc_channels_s &rc, uint64_t now)
 {
-	return parameter_enabled || rcRequested(rc, now, 8, 0.f); // RC9: middle/high
+	return parameter_enabled || rcRequested(rc, now, 8, -.5f); // RC9: middle/high
 }
 
 inline bool middleLayerRequested(bool parameter_enabled, const rc_channels_s &rc, uint64_t now)
 {
-	return parameter_enabled || rcRequested(rc, now, 9, 0.f); // RC10: middle/high
+	return parameter_enabled || rcRequested(rc, now, 9, -.5f); // RC10: middle/high
 }
 
 inline bool disturbanceRequested(bool parameter_enabled, const rc_channels_s &rc, uint64_t now)
