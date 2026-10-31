@@ -1,5 +1,8 @@
 # Private MPC command. mc_att_control arbitrates and forwards to the rate loop.
 uint64 timestamp
+# Publication/diagnostics describe this attempt; control freshness uses the
+# original successful output time below, which never advances while held.
+uint64 timestamp_valid
 uint64 timestamp_sample
 uint64 reference_timestamp
 float32[3] rates
@@ -17,7 +20,9 @@ uint32 update_us
 uint32 solver_us
 # Thread CPU for the same computation; UINT32_MAX if unavailable.
 uint32 cpu_us
-# Cold setup belongs to standby PID. Ineligible cycles have solver_status=0.
+# Cold setup cannot authorize new control values; an older valid command may
+# remain held during recovery. Ineligible cycles have solver_status=0.
 bool initializing
 bool deadline_missed
 bool active
+bool held                    # control values retained after a failed/late attempt

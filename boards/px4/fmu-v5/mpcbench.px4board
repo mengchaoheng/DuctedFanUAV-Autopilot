@@ -1,0 +1,2 @@
+# Inherit default.px4board; this explicit test target adds only the ground benchmark.
+CONFIG_MC_POS_CONTROL_OM_MPC_BENCH=y

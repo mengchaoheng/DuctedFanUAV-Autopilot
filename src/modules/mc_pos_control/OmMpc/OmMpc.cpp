@@ -2,6 +2,10 @@
 #include "OmMpc.hpp"
 #include "OmMpcModel.hpp"
 #include "OmSolverRuntime.hpp"
+#ifdef MC_POS_OM_MPC_BENCH
+#include "OmMpcBench.hpp"
+#include <cstdlib>
+#endif
 #include <px4_platform_common/log.h>
 #include <parameters/param.h>
 #include <drivers/drv_hrt.h>
@@ -19,6 +23,7 @@
 #include <uORB/topics/vehicle_control_mode.h>
 #include <uORB/topics/vehicle_land_detected.h>
 #include <lib/controllib/OmMpcEnable.hpp>
+#include <lib/controllib/OmMpcCommandHold.hpp>
 #include <time.h>
 #include <unistd.h>
 using matrix::Vector3f;
@@ -137,6 +142,7 @@ struct OmMpc::Runtime {
 				workspace_ready = false;
 				engaged = false;
 				model_initialized = false;
+				command_hold.reset();
 			}
 
 			memcpy(cost, next_cost, sizeof(cost));
@@ -178,6 +184,7 @@ struct OmMpc::Runtime {
 	uORB::Publication<om_mpc_command_s> publication{ORB_ID(om_mpc_command)};
 	// Runtime is heap-allocated; the problem never occupies the 8 KiB worker stack.
 	OmFloatProblem problem{};
+	OmMpcCommandHold command_hold;
 	bool workspace_ready = false;
 	bool engaged = false;
 	uint64_t resets = 0;
@@ -208,6 +215,10 @@ OmMpc::~OmMpc()
 		usleep(100);
 	}
 
+#endif
+#ifdef MC_POS_OM_MPC_BENCH
+	if (_benchmark_running.load()) { om_float_close(); }
+	delete _benchmark;
 #endif
 	// Deinit detaches after in-flight work has finished; solver storage stays valid.
 	Deinit();
@@ -260,6 +271,30 @@ void OmMpc::Run()
 	if (_stop.load() || !_runtime) {
 		return;
 	}
+
+#ifdef MC_POS_OM_MPC_BENCH
+	// Ground benchmark shares this exact queue/workspace. No flight eligibility
+	// checks are bypassed and no synthetic data enters the control uORB topics.
+	if (_benchmark_running.load()) {
+		_ready.store(false);
+		pthread_mutex_lock(&_mutex);
+		if (!_benchmark->started()) {
+			_runtime->command_hold.reset();
+			om_mpc_command_s inactive{};
+			inactive.timestamp = hrt_absolute_time();
+			inactive.cpu_us = UINT32_MAX;
+			_runtime->publication.publish(inactive);
+		}
+		const unsigned delay = _benchmark->run(_runtime->problem);
+		_runtime->workspace_ready = _runtime->model_initialized = _runtime->engaged = false;
+		_runtime->had_resets = _runtime->generation_valid = false;
+		_runtime->pending_updates = 0;
+		if (!delay) { _benchmark_running.store(false); }
+		pthread_mutex_unlock(&_mutex);
+		ScheduleDelayed(delay ? delay : 100000);
+		return;
+	}
+#endif
 	const uint64_t cycle_begin = wall_us();
 
 	auto &h_mpc_om_rate = _runtime->h_mpc_om_rate;
@@ -348,20 +383,6 @@ void OmMpc::Run()
 	}
 	pthread_mutex_unlock(&_mutex);
 
-	if (enforce_wall_deadline && due && lateness >= budget_us) {
-		_ready.store(false);
-		om_mpc_command_s inactive{};
-		inactive.timestamp = wake;
-		inactive.deadline_missed = true;
-		inactive.cpu_us = UINT32_MAX;
-		publication.publish(inactive);
-		pthread_mutex_lock(&_mutex);
-		_stats.deadline_misses += engaged;
-		pthread_mutex_unlock(&_mutex);
-		schedule_next();
-		return;
-	}
-
 	om_mpc_reference_s ref{};
 	vehicle_attitude_s att{};
 	vehicle_status_s status{};
@@ -378,11 +399,17 @@ void OmMpc::Run()
 			      && att_sub.copy(&att) && hrt_elapsed_time(&att.timestamp) < 100000
 			      && status_sub.copy(&status) && status.nav_state == vehicle_status_s::NAVIGATION_STATE_ORBIT && status.takeoff_time != 0
 			      && mode_sub.copy(&mode) && mode.flag_armed && mode.flag_control_position_enabled
-			      && land_sub.copy(&land) && !land.landed && !land.ground_contact;
+			      && land_sub.copy(&land) && !land.landed && !land.ground_contact
+			      && Vector3f{pos.x, pos.y, pos.z}.isAllFinite() && Vector3f{pos.vx, pos.vy, pos.vz}.isAllFinite()
+			      && matrix::Quatf(att.q).isAllFinite() && matrix::Quatf(att.q).norm_squared() > .25f
+			      && Vector3f(ref.center).isAllFinite() && Vector3f(ref.amplitude).isAllFinite()
+			      && Vector3f(ref.harmonic).isAllFinite() && Vector3f(ref.phase_offset).isAllFinite()
+			      && std::isfinite(ref.phase) && std::isfinite(ref.phase_rate) && std::isfinite(ref.phase_acceleration)
+			      && std::isfinite(ref.ramp_remaining) && std::isfinite(ref.heading_rotation) && std::isfinite(ref.yaw);
 
-	// 1. Validate the current flight/reference before touching solver state.
+	// Never retain a command across an estimator frame/reset change, including
+	// when this release is already too late to start a new QP.
 	if (eligible) {
-		const uint64_t begin = wall_us();
 		const uint64_t current_resets = uint64_t(pos.xy_reset_counter) | (uint64_t(pos.z_reset_counter) << 8)
 						| (uint64_t(pos.vxy_reset_counter) << 16) | (uint64_t(pos.vz_reset_counter) << 24) | (uint64_t(att.quat_reset_counter) << 32);
 
@@ -390,10 +417,32 @@ void OmMpc::Run()
 			om_float_close();
 			workspace_ready = false;
 			engaged = false;
+			_runtime->command_hold.reset();
 		}
 
 		had_resets = true;
 		resets = current_resets;
+	}
+
+	if (eligible && enforce_wall_deadline && lateness >= budget_us) {
+		output.timestamp = hrt_absolute_time();
+		output.timestamp_sample = pos.timestamp_sample;
+		output.reference_timestamp = ref.timestamp;
+		output.deadline_missed = true;
+		_ready.store(_runtime->command_hold.select(output, eligible, false, output.timestamp));
+		publication.publish(output);
+		pthread_mutex_lock(&_mutex);
+		_stats.deadline_misses += engaged;
+		pthread_mutex_unlock(&_mutex);
+		schedule_next();
+		return;
+	}
+
+	bool hold_allowed = false;
+
+	// 1. Validate the current flight/reference before touching solver state.
+	if (eligible) {
+		const uint64_t begin = wall_us();
 		const bool cold = !workspace_ready;
 		// 2. Construct the nominal error-state QP from fresh state and analytic reference.
 		const uint64_t cpu_begin = om_qp_cpu_time_us();
@@ -447,6 +496,7 @@ void OmMpc::Run()
 		}
 
 		_runtime->model_initialized |= built;
+		hold_allowed = built;
 		const uint64_t frontend_end = wall_us();
 		// Enter the local error model only after standby PID has captured the
 		// moving reference. A deadline rejection does not restart this capture.
@@ -510,14 +560,14 @@ void OmMpc::Run()
 				output.cpu_us = cpu;
 			}
 			const bool valid = solved && !output.deadline_missed;
-			// Cold setup always belongs to standby PID (both update rates).
-			// Its separate 20 ms/100-iteration budget prepares a workspace;
-			// only a fresh warm solve can acquire control output ownership.
+			// Cold setup cannot authorize new control values. Initial entry stays
+			// with PID; recovery may retain an existing, still-fresh command.
+			// Its separate 20 ms/100-iteration budget only prepares the workspace.
 			_runtime->rc_sub.update(&_runtime->rc);
-			if (valid && !cold
-			    && om_mpc::mpcRequested(setting(h_mpc_om_en) == 1, _runtime->rc, hrt_absolute_time())
-			    && status_sub.copy(&status)
-			    && status.nav_state == vehicle_status_s::NAVIGATION_STATE_ORBIT) {
+			const bool still_requested = om_mpc::mpcRequested(setting(h_mpc_om_en) == 1, _runtime->rc, hrt_absolute_time())
+						     && status_sub.copy(&status) && status.nav_state == vehicle_status_s::NAVIGATION_STATE_ORBIT;
+			hold_allowed &= still_requested;
+			if (valid && !cold && still_requested) {
 				output.active = true;
 				predicted_disturbance.copyTo(output.mpc_disturbance);
 				published_cpu = cpu_begin != UINT64_MAX && cpu_end != UINT64_MAX && cpu_end >= cpu_begin ? cpu : UINT64_MAX;
@@ -589,7 +639,6 @@ void OmMpc::Run()
 			_stats.last_status = result.status;
 			_stats.last_iterations = result.iterations;
 			_stats.residual = result.primal_residual;
-			_ready.store(output.active);
 			pthread_mutex_unlock(&_mutex);
 
 		} else {
@@ -611,15 +660,14 @@ void OmMpc::Run()
 		_runtime->pending_updates = 0;
 	}
 
-	if (!output.active) {
-		_ready.store(false);
-	}
-
-	// 4. Publish one command. Inactive commands preserve the original PID path.
+	// 4. Publish every attempt, including failures. Retained control keeps its
+	// original successful timestamp, so repeated failures cannot renew its age.
 	output.timestamp = hrt_absolute_time();
+	const bool accepted_new = output.active;
+	_ready.store(_runtime->command_hold.select(output, eligible && hold_allowed, accepted_new, output.timestamp));
 	publication.publish(output);
 
-	if (output.active) {
+	if (output.active && !output.held) {
 		const uint64_t publication_end = wall_us();
 		const uint64_t elapsed = publication_end - cycle_begin;
 		pthread_mutex_lock(&_mutex);
@@ -649,6 +697,51 @@ void OmMpc::Run()
 		ScheduleDelayed(100000);
 	}
 }
+
+#ifdef MC_POS_OM_MPC_BENCH
+int OmMpc::benchmark_command(int argc, char *argv[])
+{
+	if (!_runtime) { return PX4_ERROR; }
+	pthread_mutex_lock(&_mutex);
+	int result = PX4_ERROR;
+
+	if (argc == 1 && strcmp(argv[0], "status") == 0) {
+		if (_benchmark) { _benchmark->print_status(); result = PX4_OK; }
+		else { PX4_WARN("No MPC benchmark has been run"); }
+
+	} else if (argc == 1 && strcmp(argv[0], "stop") == 0) {
+		if (_benchmark && _benchmark_running.load()) { _benchmark->cancel(); }
+		result = PX4_OK;
+
+	} else if (_benchmark_running.load()) {
+		PX4_WARN("MPC benchmark already running; use mpc_bench status/stop");
+
+	} else if (argc >= 1 && argc <= 2) {
+		char *end = nullptr, *period_end = nullptr;
+		const long period = strtol(argv[0], &period_end, 10);
+		const long seconds = argc == 2 ? strtol(argv[1], &end, 10) : 10;
+		if (period >= 2000 && period <= 1000000 && period_end && *period_end == '\0'
+		    && seconds >= 1 && seconds <= 10 && (argc == 1 || (end && *end == '\0'))) {
+			delete _benchmark;
+			_benchmark = new OmMpcBench(unsigned(period), unsigned(seconds));
+			if (_benchmark && _benchmark->valid()) {
+				_ready.store(false);
+				_benchmark_running.store(true);
+				result = PX4_OK;
+			} else {
+				delete _benchmark;
+				_benchmark = nullptr;
+				PX4_WARN("Bench requires disarmed fresh vehicle_status and valid MPC parameters (N10/15/20)");
+			}
+		} else { PX4_WARN("Period must be 2000..1000000 us; total duration 1..10 seconds"); }
+
+	} else { PX4_WARN("Usage: mc_pos_control mpc_bench <period_us> [1..10 seconds] | status | stop"); }
+
+	pthread_mutex_unlock(&_mutex);
+	if (_benchmark_running.load()) { ScheduleNow(); }
+	return result;
+}
+#endif
 
 void OmMpc::print_status()
 {

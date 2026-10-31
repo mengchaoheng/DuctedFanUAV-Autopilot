@@ -1152,6 +1152,14 @@ int MulticopterPositionControl::print_status()
 
 int MulticopterPositionControl::custom_command(int argc, char *argv[])
 {
+#ifdef MC_POS_OM_MPC_BENCH
+	if (argc >= 1 && strcmp(argv[0], "mpc_bench") == 0) {
+		auto *instance = get_instance<MulticopterPositionControl>(desc);
+		if (instance && instance->_om_mpc) { return instance->_om_mpc->benchmark_command(argc - 1, argv + 1); }
+		PX4_WARN("Start mc_pos_control first");
+		return PX4_ERROR;
+	}
+#endif
 	return print_usage("unknown command");
 }
 
@@ -1175,6 +1183,9 @@ logging.
 	PRINT_MODULE_USAGE_NAME("mc_pos_control", "controller");
 	PRINT_MODULE_USAGE_COMMAND("start");
 	PRINT_MODULE_USAGE_ARG("vtol", "VTOL mode", true);
+#ifdef MC_POS_OM_MPC_BENCH
+	PRINT_MODULE_USAGE_COMMAND_DESCR("mpc_bench", "Disarmed MPC load: period_us [1..10 seconds], status, stop");
+#endif
 	PRINT_MODULE_USAGE_DEFAULT_COMMANDS();
 
 	return 0;

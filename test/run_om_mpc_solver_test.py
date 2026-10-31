@@ -18,6 +18,8 @@ def run(args):
 with tempfile.TemporaryDirectory(prefix='om_solver_test_') as work:
     out = Path(work)
     run([sys.executable, QP / 'private_compat.py', QP / 'include', out / 'include'])
+    # Pure matrix/model tests do not use a hardware board configuration.
+    (out / 'include/px4_boardconfig.h').write_text('#pragma once\n')
     flags = ['-g', '-O1', '-fsanitize=address,undefined', '-fno-omit-frame-pointer',
              '-Wall', '-Wextra', '-Werror', '-Wno-unused-parameter',
              '-D__USE_SINGLE_PRECISION__', '-D__SIMPLE_BOUNDS_ONLY__',
@@ -42,6 +44,19 @@ with tempfile.TemporaryDirectory(prefix='om_solver_test_') as work:
     arena = out / 'arena.o'
     run([cc, '-std=c11', *flags, '-c', OM / 'OmQpArena.c', '-o', arena])
     binary = out / 'solver_test'
-    run([cxx, '-std=c++17', *flags, ROOT / 'test/om_mpc_solver_test.cpp',
+    run([cxx, '-std=c++17', *flags, '-I' + str(ROOT / 'src/lib'),
+         '-I' + str(ROOT / 'platforms/common/include'), ROOT / 'test/om_mpc_solver_test.cpp',
          OM / 'OmQpSolver.cpp', arena, *objects, '-o', binary])
     run([binary])
+    # Generate the real private command type without requiring a prior PX4 build.
+    topics = out / 'uORB/topics'
+    run([sys.executable, ROOT / 'Tools/msg/px_generate_uorb_topic_files.py', '--headers',
+         '-f', ROOT / 'msg/OmMpcCommand.msg', '-i', ROOT / 'msg',
+         '-e', ROOT / 'Tools/msg/templates/uorb', '-o', topics])
+    hold_test = out / 'command_hold_test'
+    run([cxx, '-std=c++17', '-g', '-O1', '-fsanitize=address,undefined',
+         '-fno-omit-frame-pointer', '-Wall', '-Wextra', '-Werror', '-Wno-unused-parameter', '-D__EXPORT=',
+         '-I' + str(out), '-I' + str(out / 'include'), '-I' + str(ROOT / 'src'), '-I' + str(ROOT / 'src/lib'),
+         '-I' + str(ROOT / 'platforms/common'), '-I' + str(ROOT / 'platforms/common/include'),
+         ROOT / 'test/om_mpc_command_hold_test.cpp', '-o', hold_test])
+    run([hold_test])

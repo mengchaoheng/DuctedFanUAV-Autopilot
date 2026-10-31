@@ -6,6 +6,10 @@
 #include <pthread.h>
 #include <stdint.h>
 
+#ifdef MC_POS_OM_MPC_BENCH
+class OmMpcBench;
+#endif
+
 // mc_pos_control owns this worker; only its private queue touches the QP.
 // hasValidCommand() means a command is available. Actual output ownership is
 // reported separately by mc_att_control through om_mpc_status.active.
@@ -17,6 +21,9 @@ public:
 	// Called by the owner's existing local-position callback; never solves here.
 	void onLocalPositionUpdate();
 	void print_status();
+#ifdef MC_POS_OM_MPC_BENCH
+	int benchmark_command(int argc, char *argv[]);
+#endif
 	bool hasValidCommand() const { return _ready.load(); }
 
 private:
@@ -24,6 +31,10 @@ private:
 	void schedule_next();
 	struct Runtime;
 	Runtime *_runtime{nullptr};
+#ifdef MC_POS_OM_MPC_BENCH
+	OmMpcBench *_benchmark{nullptr}; // Allocated only on an explicit terminal request.
+	px4::atomic_bool _benchmark_running{false};
+#endif
 	px4::atomic_bool _started{false}, _stop{false}, _ready{false};
 
 	struct TrackingTiming {
@@ -56,5 +67,6 @@ private:
 		int last_status{0}, last_iterations{0};
 		float residual{0.f};
 	} _stats{};
-	pthread_mutex_t _mutex = PTHREAD_MUTEX_INITIALIZER; // Only statistics, never solver execution or console I/O.
+	// Flight: statistics only. Optional ground test: also serializes test/terminal access.
+	pthread_mutex_t _mutex = PTHREAD_MUTEX_INITIALIZER;
 };

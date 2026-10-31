@@ -382,7 +382,9 @@ void McOmMpcIndi::Run()
 		&& _vehicle_status.nav_state == vehicle_status_s::NAVIGATION_STATE_ORBIT;
 	float hover_thrust = _param_hover_thrust.get();
 	if (onboard) {
-		nominal_setpoint_updated = _onboard_command_sub.update(&_onboard_command);
+		const uint64_t previous_valid = _onboard_command.timestamp_valid;
+		nominal_setpoint_updated = _onboard_command_sub.update(&_onboard_command)
+					  && _onboard_command.timestamp_valid != previous_valid;
 		// Preserve the scale used by this QP even if HTE updates before we run.
 		hover_thrust = _onboard_command.hover_thrust;
 
@@ -402,9 +404,10 @@ void McOmMpcIndi::Run()
 		hover_thrust, CONSTANTS_ONE_G);
 	if (onboard) {
 		_nominal_setpoint = {};
-		if (_onboard_command.active && hrt_elapsed_time(&_onboard_command.timestamp) < 60_ms
+		if (_onboard_command.active && _onboard_command.timestamp_valid != 0
+		    && hrt_elapsed_time(&_onboard_command.timestamp_valid) < 60_ms
 		    && PX4_ISFINITE(hover_thrust) && hover_thrust > FLT_EPSILON) {
-			_nominal_setpoint.timestamp = _onboard_command.timestamp;
+			_nominal_setpoint.timestamp = _onboard_command.timestamp_valid;
 			_nominal_setpoint.thrust_acceleration = -_onboard_command.thrust_body[2]
 				* CONSTANTS_ONE_G / hover_thrust;
 			Vector3f(_onboard_command.rates).copyTo(_nominal_setpoint.rates);
@@ -552,7 +555,7 @@ void McOmMpcIndi::Run()
 		// Never compete with mc_att_control for the final onboard rate output.
 		om_mpc_indi_command_s correction{};
 		correction.timestamp = output.timestamp;
-		correction.timestamp_nominal = _onboard_command.timestamp;
+		correction.timestamp_nominal = _onboard_command.timestamp_valid;
 		output_rates.copyTo(correction.rates);
 		output_thrust.copyTo(correction.thrust_body);
 		correction.active = acceleration_active;

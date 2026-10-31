@@ -46,6 +46,11 @@ if(CONFIG_MC_POS_CONTROL_OM_MPC)
 	list(APPEND om_sources OmMpc/OmMpc.cpp OmMpc/OmSolverRuntime.cpp)
 	set_source_files_properties(OmMpc/OmMpc.cpp PROPERTIES COMPILE_OPTIONS "-O3")
 	list(APPEND om_flags -DMC_POS_OM_MPC)
+	if(CONFIG_MC_POS_CONTROL_OM_MPC_BENCH)
+		list(APPEND om_sources OmMpc/OmMpcBench.cpp)
+		list(APPEND om_flags -DMC_POS_OM_MPC_BENCH)
+		set_source_files_properties(OmMpc/OmMpcBench.cpp PROPERTIES COMPILE_OPTIONS "-O3")
+	endif()
 endif()
 
 px4_add_module(

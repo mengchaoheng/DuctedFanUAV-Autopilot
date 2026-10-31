@@ -476,7 +476,8 @@ bool MulticopterAttitudeControl::applyOmMpc(vehicle_rates_setpoint_s &rates_setp
 		&& _vehicle_control_mode.flag_armed && _vehicle_control_mode.flag_control_position_enabled
 		&& _vehicle_status_sub.copy(&status) && status.nav_state == vehicle_status_s::NAVIGATION_STATE_ORBIT
 		&& _om_reference_sub.copy(&reference) && reference.valid && hrt_elapsed_time(&reference.timestamp) < 100_ms
-		&& _om_command_sub.copy(&command) && command.active && hrt_elapsed_time(&command.timestamp) < 60_ms
+		&& _om_command_sub.copy(&command) && command.active && command.timestamp_valid != 0
+		&& hrt_elapsed_time(&command.timestamp_valid) < 60_ms
 		&& Vector3f(command.rates).isAllFinite() && Vector3f(command.thrust_body).isAllFinite();
 	if (om_active) {
 		// The worker checks capture, convergence, bounds and deadlines first.
@@ -493,7 +494,7 @@ bool MulticopterAttitudeControl::applyOmMpc(vehicle_rates_setpoint_s &rates_setp
 		// QP update; requiring an exact match would drop INDI once every QP cycle.
 		if (om_mpc::middleLayerRequested(indi_enabled == 1, _om_rc, now)
 		    && _om_indi_command_sub.copy(&correction) && correction.active
-		    && correction.timestamp_nominal <= command.timestamp
+		    && correction.timestamp_nominal <= command.timestamp_valid
 		    && hrt_elapsed_time(&correction.timestamp_nominal) < 60_ms
 		    && hrt_elapsed_time(&correction.timestamp) < 20_ms
 		    && Vector3f(correction.rates).isAllFinite() && Vector3f(correction.thrust_body).isAllFinite()) {

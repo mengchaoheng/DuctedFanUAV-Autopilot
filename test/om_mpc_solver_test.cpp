@@ -2,6 +2,7 @@
 #include "OmQpSolver.hpp"
 #include "float_prefix.h"
 #include "OmQpArena.h"
+#include "OmMpcBenchCase.hpp"
 #include <cassert>
 #include <cmath>
 #include <cfloat>
@@ -107,4 +108,30 @@ int main()
 		om_float_close();
 	}
 	std::puts("PASS: float32 guards, unsupported algorithms, sparsity, allocation failure, N10/15/20, warm solves, deadlines, recovery, cost updates, nonfinite rejection");
+	// Both hardware benchmark release periods traverse a complete eight with
+	// nonzero, bounded tracking error; exercise the real structured warm solver.
+	for (float release_dt : {.016f, .008f}) {
+		OmFloatProblem p{};
+		bool reuse = false;
+		unsigned count = 0;
+		for (float t = 0.f; t < 21.f; t += release_dt) {
+			om_mpc::Path path;
+			matrix::Vector3f position, velocity;
+			matrix::Dcmf rotation;
+			assert(om_mpc::bench_state(t, path, position, velocity, rotation));
+			assert(om_mpc::build(path, 0.f, position, velocity, rotation, 19.22873f, {20.f, 20.f, 8.f}, p, reuse, .05f, 20));
+			if (!reuse) {
+				for (int i = 0; i < 9; ++i) { p.q[i] = p.p[i] = i < 3 ? 550.f : i < 6 ? 100.f : 500.f; }
+				for (int i = 0; i < 4; ++i) { p.r[i] = i ? 350.f : .25f; }
+				reuse = true;
+			}
+			assert(std::fabs(p.x0[0]) <= .15001f && std::fabs(p.x0[1]) <= .12001f && std::fabs(p.x0[2]) <= .05001f);
+			assert(om_float_update(p, OmQpTolerance, OmQpLayout::OmErrorState));
+			const auto r = om_float_solve(p);
+			assert(r.status == QPDUNES_SUCC_OPTIMAL_SOLUTION_FOUND && r.finite && r.primal_residual <= 2e-5f);
+			++count;
+		}
+		om_float_close();
+		std::printf("PASS: synthetic hardware bench input/solver %.1f Hz, N20 dt=.05, %u solves\n", 1.f / release_dt, count);
+	}
 }

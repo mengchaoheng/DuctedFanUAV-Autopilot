@@ -19,3 +19,12 @@ config MC_POS_CONTROL_OM_MPC
 		Float32 on-manifold MPC on a private solver work queue, triggered
 		by every local-position publication or every second publication.
 		Explicit MPC_EN gate, constant phase-rate Orbit/FigureEight only.
+
+config MC_POS_CONTROL_OM_MPC_BENCH
+	bool "Ground-only OM-MPC synthetic load command"
+	depends on MC_POS_CONTROL_OM_MPC
+	default n
+	---help---
+		Terminal-triggered, disarmed synthetic model/solver benchmark.
+		No estimator or actuator output; maximum duration 10 seconds.
+		Leave disabled in normal flight builds.

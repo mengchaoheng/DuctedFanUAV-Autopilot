@@ -21,9 +21,13 @@ parameters:
         long: |-
           Entry-only smoothstep decay of the difference between the last applied
           output and the first valid MPC output. After this interval MPC output
-          is forwarded unchanged. PID keeps updating its integral and anti-windup
-          in the background. Disabling MPC or losing a valid command returns
-          directly to PID. Zero disables the entry transition.
+          is forwarded unchanged. The standby position controller keeps running
+          with its integrator reset while a valid MPC command is selected.
+          Failed or late solves retain the last successful command for at most
+          60 ms from its original success time, without restarting the transition.
+          Expiry returns directly to PID; a later successful solve starts a new
+          entry transition. Disabling MPC or losing required flight/reference/state
+          validity returns directly to PID. Zero disables the entry transition.
           Duration is latched on entry and limited to five seconds.
       type: float
       default: 0.5
