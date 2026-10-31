@@ -1,5 +1,29 @@
 // Isolate float32 symbols from the unchanged ROS double backend.
 #pragma once
+#include <float.h>
+#include <math.h>
+#include <stdint.h>
+#include <string.h>
+
+#if FLT_RADIX != 2 || FLT_MANT_DIG != 24 || FLT_MAX_EXP != 128
+#error "OM-MPC private kernels require IEEE-754 float32"
+#endif
+
+// A nonzero float32 threshold alone is insufficient when its product underflows.
+// Keep this shared by generic kernels and the existing structured fast paths.
+static inline int om_float_divisor_valid(float denominator, float numerator)
+{
+	// Reject subnormals too: the flight FPU may flush them to zero. With a
+	// finite normal divisor, the ratio comparison also rejects NaN/Inf numerators.
+	uint32_t magnitude;
+	memcpy(&magnitude, &denominator, sizeof(magnitude));
+	magnitude &= UINT32_C(0x7fffffff);
+	// One unsigned range check classifies normal magnitudes, without aliasing
+	// or repeated floating-point comparisons in the inner matrix loops.
+	return magnitude - UINT32_C(0x00800000) < UINT32_C(0x7f000000)
+	       && fabsf(denominator) >= FLT_MIN * fabsf(numerator);
+}
+
 #define addCInvHCT om_float_addCInvHCT
 #define addMatrix om_float_addMatrix
 #define addMultiplyMatrixInvMatrixMatrixT om_float_addMultiplyMatrixInvMatrixMatrixT

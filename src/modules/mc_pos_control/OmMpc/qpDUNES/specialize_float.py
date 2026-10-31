@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Generate a private float32 nx=9/nu=4 qpDUNES backend; upstream remains intact."""
 import pathlib,re,sys
+from private_compat import source as adapt_private_source
 text=pathlib.Path(sys.argv[1]).read_text()
 for name in ('sqrt','fabs','fmin','fmax'):
  text=re.sub(r'(?<![A-Za-z0-9_])'+name+r'\s*\(',name+'f(',text)
@@ -201,4 +202,4 @@ if pathlib.Path(sys.argv[1]).name == 'stage_qp_solver_clipping.c':
   specialized=body.replace('interval->H.sparsityType == QPDUNES_DIAGONAL','interval->H.sparsityType == QPDUNES_DIAGONAL && interval->nV == '+str(size)).replace('i < interval->nV','i < '+str(size))
   variants+=specialized+'\n'
  text=text[:start]+variants+text[start:]
-pathlib.Path(sys.argv[2]).write_text(text)
+pathlib.Path(sys.argv[2]).write_text(adapt_private_source(text, pathlib.Path(sys.argv[1]).name))

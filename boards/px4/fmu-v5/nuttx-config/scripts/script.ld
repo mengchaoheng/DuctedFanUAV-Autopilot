@@ -115,7 +115,8 @@ SECTIONS
 	/*
 	 * Init functions (static constructors and the like)
 	 */
-	.init_section : {
+	/* Constructor pointers live in flash and are never written at runtime. */
+	.init_section (READONLY) : {
 		_sinit = ABSOLUTE(.);
 		KEEP(*(.init_array .init_array.*))
 		_einit = ABSOLUTE(.);

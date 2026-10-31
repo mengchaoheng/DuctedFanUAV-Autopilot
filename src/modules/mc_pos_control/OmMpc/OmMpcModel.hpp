@@ -24,18 +24,6 @@ struct Knot {
 	float thrust{};
 };
 
-inline Matrix3f hat(const Vector3f &v)
-{
-	Matrix3f m;
-	m(0, 1) = -v(2);
-	m(0, 2) = v(1);
-	m(1, 0) = v(2);
-	m(1, 2) = -v(0);
-	m(2, 0) = -v(1);
-	m(2, 1) = v(0);
-	return m;
-}
-
 inline bool normalized(const Vector3f &v, const Vector3f &d, Vector3f &n, Vector3f &dn, float *magnitude = nullptr)
 {
 	const float norm = v.norm();
@@ -203,7 +191,7 @@ inline bool build(const Path &path, float elapsed, const Vector3f &position, con
 		// e = [position error, velocity error, Log(R_ref^T R)], u = [thrust acceleration, body rates].
 		const Vector3f phi = ref.rate * p.dt;
 		const float t2 = phi.dot(phi);
-		const Matrix3f K = hat(phi);
+		const Matrix3f K = phi.hat();
 		Matrix3f identity;
 		identity.setIdentity();
 		// hat(phi)^2 = phi*phi^T - |phi|^2 I. Share this and the SO(3)

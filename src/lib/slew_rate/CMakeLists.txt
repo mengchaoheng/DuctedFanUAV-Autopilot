@@ -31,17 +31,14 @@
 #
 ############################################################################
 
-px4_add_library(SlewRate
-	dummy.cpp
-	SlewRate.hpp
-	SlewRateYaw.hpp
-)
+# Header-only templates: an empty archive produces a Darwin ranlib warning.
+add_library(SlewRate INTERFACE)
 target_include_directories(SlewRate
-	PUBLIC
+	INTERFACE
 	${CMAKE_CURRENT_SOURCE_DIR}
 )
 
-target_link_libraries(SlewRate PUBLIC mathlib)
+target_link_libraries(SlewRate INTERFACE mathlib)
 
 px4_add_unit_gtest(SRC SlewRateTest.cpp LINKLIBS SlewRate)
 px4_add_unit_gtest(SRC SlewRateYawTest.cpp LINKLIBS SlewRate)
