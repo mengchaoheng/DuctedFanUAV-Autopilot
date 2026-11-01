@@ -166,7 +166,6 @@ param set-default MPC_ACCINDI_EN 0
 param set-default MPC_DFB_EN 0
 param set-default MPC_ACCINDI_SRC 1
 param set-default MPC_ACCINDI_LPF 8
-param set-default MPC_ACCINDI_HZ 250
 param set-default MPC_ACCINDI_FDLY 0.035
 param set-default MPC_ACCINDI_TR_T 1
 param set-default MPC_ACCINDI_K_Y 0

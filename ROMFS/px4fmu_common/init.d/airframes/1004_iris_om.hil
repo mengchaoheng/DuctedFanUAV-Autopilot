@@ -122,7 +122,6 @@ param set-default CA_ROTOR3_CT 8.5
 param set-default MPC_ACCINDI_EN 1
 param set-default MPC_DFB_EN 1
 param set-default MPC_ACCINDI_SRC 1
-param set-default MPC_ACCINDI_HZ 250.0
 param set-default MPC_ACCINDI_LPF 8.0
 param set-default MPC_DFB_LIM 20.0
 # Same acceleration/force filter pair as position INDI; provisional HIL delay.

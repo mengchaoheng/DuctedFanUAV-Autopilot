@@ -131,15 +131,12 @@ private:
 	float _transition_progress{0.f};
 	uint64_t _last_run_timestamp{0};
 	uint64_t _last_status_publish{0};
-	uint64_t _last_control_acceleration_timestamp{0};
-	int32_t _last_control_acceleration_source{0};
 
 	perf_counter_t _loop_perf{nullptr};
 
 	DEFINE_PARAMETERS(
 		(ParamInt<px4::params::MPC_ACCINDI_EN>) _param_enable,
 		(ParamInt<px4::params::MPC_DFB_EN>) _param_disturbance_enable,
-		(ParamFloat<px4::params::MPC_ACCINDI_HZ>) _param_rate_max,
 		(ParamInt<px4::params::MPC_ACCINDI_SRC>) _param_acceleration_source,
 		(ParamFloat<px4::params::MPC_ACCINDI_LPF>) _param_acceleration_cutoff,
 		(ParamFloat<px4::params::MPC_DFB_LIM>) _param_disturbance_limit,

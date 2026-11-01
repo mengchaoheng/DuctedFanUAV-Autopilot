@@ -206,7 +206,6 @@ param set-default MPC_ROMG 16
 param set-default MPC_TERM_SCALE 1
 param set-default MPC_ACCINDI_SRC 1
 param set-default MPC_ACCINDI_LPF 9.6
-param set-default MPC_ACCINDI_HZ 250
 param set-default MPC_ACCINDI_FDLY 0.03
 param set-default MPC_DFB_GAIN 0.75
 

@@ -14,6 +14,9 @@ parameters:
           OR logic. With neither request, it bypasses onboard corrections and
           preserves nominal external command forwarding; it does not provide
           valid disturbance feedback. RC requires a valid signal younger than 500 ms.
+          Corrections follow new VehicleAttitude messages, like mc_att_control,
+          without a separate rate limiter. Acceleration and force feedback filters
+          advance only when their own sample timestamps change.
           Onboard corrections return through mc_att_control's single output
           arbitration. Other controllers keep their existing paths.
       type: boolean
@@ -31,21 +34,6 @@ parameters:
           also be enabled before feedback can be valid.
       type: boolean
       default: 1
-    MPC_ACCINDI_HZ:
-      description:
-        short: Acceleration INDI maximum update rate
-        long: |-
-          Maximum acceleration-INDI correction update rate. New attitude messages
-          trigger updates subject to this minimum spacing; this is not a fixed-rate
-          timer. Acceleration feedback is held between its own samples. Onboard
-          final rate publication remains owned by mc_att_control. With acceleration
-          INDI disabled, each new external OmMpcSetpoint is forwarded once.
-      type: float
-      default: 250.0
-      min: 50.0
-      max: 500.0
-      unit: Hz
-      decimal: 1
     MPC_ACCINDI_SRC:
       description:
         short: Acceleration INDI feedback source

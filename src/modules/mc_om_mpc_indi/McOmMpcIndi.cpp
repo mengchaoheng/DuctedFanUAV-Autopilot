@@ -83,9 +83,6 @@ void McOmMpcIndi::updateEnableState(bool middle_layer_enabled)
 		_force_history.reset();
 		_force_history_last_timestamp = 0;
 		_force_feedback_timestamp = 0;
-		_last_run_timestamp = 0;
-		_last_control_acceleration_timestamp = 0;
-		_last_control_acceleration_source = 0;
 		resetTransition();
 	}
 
@@ -364,13 +361,19 @@ void McOmMpcIndi::Run()
 	const bool middle_layer_enabled = om_mpc::middleLayerRequested(_param_enable.get() == 1, _rc_channels, now);
 	updateEnableState(middle_layer_enabled);
 
-	_vehicle_attitude_sub.update(&_vehicle_attitude);
-
-	if (_vehicle_attitude.timestamp == 0
+	// Match mc_att_control: compute once for each new attitude message.
+	if (!_vehicle_attitude_sub.update(&_vehicle_attitude)
+	    || _vehicle_attitude.timestamp == 0
 	    || hrt_elapsed_time(&_vehicle_attitude.timestamp) >= 100_ms) {
 		perf_end(_loop_perf);
 		return;
 	}
+
+	// Use the same sample-time clock and dt bounds as mc_att_control. Keep this
+	// clock running while disabled so enabling INDI does not restart its timebase.
+	const float dt = math::constrain((_vehicle_attitude.timestamp_sample - _last_run_timestamp) * 1e-6f,
+					0.0002f, 0.02f);
+	_last_run_timestamp = _vehicle_attitude.timestamp_sample;
 
 	const Dcmf attitude(Quatf(_vehicle_attitude.q));
 
@@ -449,32 +452,9 @@ void McOmMpcIndi::Run()
 	const AccelerationFilterState &selected = source == 2
 			? _imu_acceleration_filter : _ekf_acceleration_filter;
 
-	if (middle_layer_enabled) {
-		// The bridge is algebraic in acceleration, so a held acceleration sample
-		// must not stall attitude/rate-setpoint updates. Run from the 250 Hz
-		// attitude callback (bounded by MPC_ACCINDI_HZ), while the matched
-		// acceleration and allocated-force filters update only at their own sample
-		// timestamps. This matches main.m and avoids tying the lift to the slower
-		// EKF acceleration publication rate.
-		const float rate_max_hz = math::constrain(_param_rate_max.get(), 50.f, 500.f);
-		const uint64_t minimum_interval_us = static_cast<uint64_t>(1e6f / rate_max_hz);
-
-		if (_last_run_timestamp > 0 && now < _last_run_timestamp + minimum_interval_us) {
-			perf_end(_loop_perf);
-			return;
-		}
-
-		if (selected.timestamp > 0 &&
-		    (source != _last_control_acceleration_source
-		     || selected.timestamp != _last_control_acceleration_timestamp)) {
-			_last_control_acceleration_timestamp = selected.timestamp;
-			_last_control_acceleration_source = source;
-		}
-	}
-
-	const float dt = _last_run_timestamp > 0 && now > _last_run_timestamp
-			 ? math::constrain((now - _last_run_timestamp) * 1e-6f, 0.001f, 0.02f) : 0.004f;
-	_last_run_timestamp = now;
+	// A held acceleration sample must not stall the algebraic correction. Run
+	// on each new attitude, like mc_att_control; acceleration and force filters
+	// advance only on their own new sample timestamps.
 
 	const bool flight_enabled = _vehicle_control_mode.flag_armed
 			&& _vehicle_status.takeoff_time != 0 && !_vehicle_land_detected.landed;

@@ -68,7 +68,6 @@ param_modify_on_import_ret param_modify_on_import(bson_node_t node)
 		{"MC_OM_INDI_EN", "MPC_ACCINDI_EN"},
 		{"MC_OM_TR_T", "MPC_ACCINDI_TR_T"},
 		{"MPC_ACCINDI_RAMP", "MPC_ACCINDI_TR_T"},
-		{"MC_OM_RATE_MAX", "MPC_ACCINDI_HZ"},
 		{"MC_OM_A_SRC", "MPC_ACCINDI_SRC"},
 		{"MC_OM_A_LP", "MPC_ACCINDI_LPF"},
 		{"MC_OM_F_DLY", "MPC_ACCINDI_FDLY"},
