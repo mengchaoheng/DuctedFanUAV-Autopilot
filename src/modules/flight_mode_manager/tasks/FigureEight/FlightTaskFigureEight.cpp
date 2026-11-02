@@ -62,19 +62,22 @@ bool FlightTaskFigureEight::activate(const trajectory_setpoint_s &last_setpoint)
 	_minor_radius = _use_parameterized_geometry
 			? math::constrain(fabsf(amplitude(1)), 0.f, _param_mc_orbit_rad_max.get())
 			: kInitialMajorRadius * 0.5f;
-	_vertical_amplitude = _use_parameterized_geometry
+	const float vertical_amplitude = _use_parameterized_geometry
 			// Horizontal height amplitude is positive up; references use NED Z.
 			? math::constrain(amplitude(2), -_param_mc_orbit_rad_max.get(), _param_mc_orbit_rad_max.get())
 			: 0.f;
+	_vertical_curve = motion_planning::HarmonicHeightTrajectory::fromHeight(-vertical_amplitude,
+			vertical ? 0 : _param_mc_f8_z_function.get(), vertical ? 2 : _param_mc_f8_z_harmonic.get());
+	const float vertical_second_derivative = _vertical_curve.amplitude * _vertical_curve.harmonic * _vertical_curve.harmonic;
 	_use_angular_frequency = _use_parameterized_geometry;
 	_trajectory_omega = vertical ? _param_vertical_omega.get() : _param_mc_f8_omega.get();
 	if (_use_parameterized_geometry && _param_mc_f8_acceleration.get() > FLT_EPSILON) {
 		// Conservative bound for ||q_theta_theta|| over the complete figure:
-		// sqrt(Ax^2 + 16 Ay^2 + 16 Az^2). This keeps the effective Omega
+		// sqrt(Ax^2 + 16 Ay^2 + n^4 Az^2). This keeps the effective Omega
 		// constant instead of changing it with the current phase.
 		const float second_derivative_bound = sqrtf(_major_radius * _major_radius
 									 + 16.f * _minor_radius * _minor_radius
-									 + 16.f * _vertical_amplitude * _vertical_amplitude);
+									 + vertical_second_derivative * vertical_second_derivative);
 		if (second_derivative_bound > FLT_EPSILON) {
 			const float omega_limit = sqrtf(_param_mc_f8_acceleration.get() / second_derivative_bound);
 			_trajectory_omega = math::constrain(_trajectory_omega, -omega_limit, omega_limit);
@@ -83,7 +86,8 @@ bool FlightTaskFigureEight::activate(const trajectory_setpoint_s &last_setpoint)
 	_phase_rate_limit = INFINITY;
 	float terminal_rate = _param_phase_rate_end.get();
 	if (_param_mc_f8_acceleration.get() > FLT_EPSILON) {
-		const float derivative_bound = sqrtf(_major_radius * _major_radius + 16.f * _minor_radius * _minor_radius + 16.f * _vertical_amplitude * _vertical_amplitude);
+		const float derivative_bound = sqrtf(_major_radius * _major_radius + 16.f * _minor_radius * _minor_radius
+						    + vertical_second_derivative * vertical_second_derivative);
 		if (derivative_bound > FLT_EPSILON) {
 			const float limit = sqrtf(_param_mc_f8_acceleration.get() / derivative_bound);
 			_phase_rate_limit = limit;
@@ -94,7 +98,7 @@ bool FlightTaskFigureEight::activate(const trajectory_setpoint_s &last_setpoint)
 	_hold_parameterized_origin = _use_parameterized_geometry
 			&& (fabsf(_trajectory_omega) <= FLT_EPSILON
 			    || (_major_radius <= FLT_EPSILON && _minor_radius <= FLT_EPSILON
-				&& fabsf(_vertical_amplitude) <= FLT_EPSILON));
+					&& fabsf(_vertical_curve.amplitude) <= FLT_EPSILON));
 	_trajectory_velocity = _use_parameterized_geometry ? _trajectory_omega * math::max(_major_radius, _minor_radius) : 1.f;
 	if (!_use_parameterized_geometry) {
 		_sanitizeParameters(_major_radius, _trajectory_velocity);
@@ -155,7 +159,7 @@ bool FlightTaskFigureEight::applyCommandParameters(const vehicle_command_s &comm
 	_sanitizeParameters(new_radius, new_velocity);
 	_major_radius = new_radius;
 	_minor_radius = _major_radius * 0.5f;
-	_vertical_amplitude = 0.f;
+	_vertical_curve = {};
 	_use_angular_frequency = false;
 	_trajectory_omega = 0.f;
 	_trajectory_velocity = direction * new_velocity;
@@ -271,8 +275,10 @@ bool FlightTaskFigureEight::update()
 	om_mpc_reference_s reference{};
 	reference.timestamp = hrt_absolute_time();
 	_center.copyTo(reference.center);
-	Vector3f{_major_radius, _minor_radius, _vertical_amplitude}.copyTo(reference.amplitude);
-	Vector3f{1.f, 2.f, 2.f}.copyTo(reference.harmonic);
+	reference.center[2] += _vertical_curve.bias;
+	Vector3f{_major_radius, _minor_radius, _vertical_curve.amplitude}.copyTo(reference.amplitude);
+	Vector3f{1.f, 2.f, _vertical_curve.harmonic}.copyTo(reference.harmonic);
+	reference.phase_offset[2] = _vertical_curve.phase;
 	reference.heading_rotation = _trajectory_heading;
 	reference.phase = _om_reference_phase;
 	reference.phase_rate = _reference_phase_rate;
@@ -569,17 +575,17 @@ Vector2f FlightTaskFigureEight::_curveSecondDerivative(float phase) const
 
 float FlightTaskFigureEight::_curveVerticalPosition(float phase) const
 {
-	return _vertical_amplitude * sinf(2.f * phase);
+	return _vertical_curve.evaluate(phase, 0);
 }
 
 float FlightTaskFigureEight::_curveVerticalFirstDerivative(float phase) const
 {
-	return 2.f * _vertical_amplitude * cosf(2.f * phase);
+	return _vertical_curve.evaluate(phase, 1);
 }
 
 float FlightTaskFigureEight::_curveVerticalSecondDerivative(float phase) const
 {
-	return -4.f * _vertical_amplitude * sinf(2.f * phase);
+	return _vertical_curve.evaluate(phase, 2);
 }
 
 Vector2f FlightTaskFigureEight::_rotateToLocalFrame(const Vector2f &vector) const

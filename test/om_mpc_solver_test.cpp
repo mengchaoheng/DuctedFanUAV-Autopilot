@@ -3,6 +3,7 @@
 #include "float_prefix.h"
 #include "OmQpArena.h"
 #include "OmMpcBenchCase.hpp"
+#include <motion_planning/HarmonicHeightTrajectory.hpp>
 #include <cassert>
 #include <cmath>
 #include <cfloat>
@@ -37,8 +38,68 @@ static OmFloatProblem problem(int n)
 	return p;
 }
 
+static void height_reference_test()
+{
+	using motion_planning::HarmonicHeightTrajectory;
+	for (int function = 0; function < 3; ++function) {
+		for (int n = 1; n <= 10; ++n) {
+			for (float az : {-1.f, 0.f, 1.f}) {
+				const auto curve = HarmonicHeightTrajectory::fromHeight(az, function, n);
+				for (float omega : {-.3f, .3f}) {
+					for (float alpha : {0.f, .04f}) {
+						om_mpc::Path path;
+						path.center = {1.f, 2.f, -3.f + curve.bias};
+						path.amplitude = {4.5f, 4.5f, curve.amplitude};
+						path.harmonic = {1.f, 2.f, curve.harmonic};
+						path.offset(2) = curve.phase;
+						path.omega = omega;
+						path.omega_dot = alpha;
+						path.ramp_time = 2.f;
+						path.rotation = .5f;
+						for (float t : {0.f, .3f, 1.5f, 2.f, 3.f, 8.f}) {
+							const float rt = fminf(t, 2.f);
+							const float theta = omega * t + alpha * rt * (t - .5f * rt);
+							const float rate = omega + alpha * rt, acceleration = t < 2.f ? alpha : 0.f;
+							const double arg = static_cast<double>(n) * theta;
+							const double f = function == 0 ? sin(arg) : function == 1 ? cos(arg) : 1. - cos(arg);
+							const double df = n * (function == 0 ? cos(arg) : function == 1 ? -sin(arg) : sin(arg));
+							const double ddf = n * n * (function == 0 ? -sin(arg) : function == 1 ? -cos(arg) : cos(arg));
+							const float d = -3.f - az * f;
+							const float vd = -az * df * rate;
+							const float ad = -az * (ddf * rate * rate + df * acceleration);
+							assert(fabsf(-3.f + curve.evaluate(theta, 0) - d) < 5e-6f);
+							assert(std::abs(curve.evaluate(theta, 1) + az * df) < 3e-5);
+							assert(std::abs(curve.evaluate(theta, 2) + az * ddf) < 3e-4);
+							om_mpc::Knot knot;
+							assert(om_mpc::reference(path, t, knot));
+							assert(fabsf(knot.position(2) - d) < 5e-6f);
+							assert(fabsf(knot.velocity(2) - vd) < 1e-5f);
+							assert(fabsf(9.80665f - knot.thrust * knot.rotation(2, 2) - ad) < 4e-5f);
+							// Check the MPC attitude/rate feed-forward using a finite difference.
+							if (t > .01f && fabsf(t - 2.f) > .01f) {
+								om_mpc::Knot before, after;
+								constexpr float dt = .001f;
+								assert(om_mpc::reference(path, t - dt, before));
+								assert(om_mpc::reference(path, t + dt, after));
+								const auto dr = (after.rotation - before.rotation) / (2.f * dt);
+								const auto body_dr = knot.rotation.transpose() * dr;
+								const matrix::Vector3f rate_fd{body_dr(2, 1), body_dr(0, 2), body_dr(1, 0)};
+								assert((rate_fd - knot.rate).norm() < .003f);
+							}
+						}
+					}
+				}
+			}
+		}
+	}
+	assert(HarmonicHeightTrajectory::fromHeight(1.f, 0, 0).harmonic == 1.f);
+	assert(HarmonicHeightTrajectory::fromHeight(1.f, 0, 11).harmonic == 10.f);
+	std::puts("PASS: sin/cos/1-cos height, n=1..10, signed/zero amplitudes, reverse phase, ramp, task/MPC derivatives");
+}
+
 int main()
 {
+	height_reference_test();
 	auto options = qpDUNES_setupDefaultOptions();
 	assert(std::isnormal(options.QPDUNES_ZERO));
 	assert(!om_float_divisor_valid(0.f, 0.f));

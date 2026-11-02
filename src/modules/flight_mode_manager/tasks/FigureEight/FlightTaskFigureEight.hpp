@@ -41,6 +41,7 @@
 
 #include <lib/motion_planning/HeadingSmoothing.hpp>
 #include <lib/motion_planning/HarmonicTrajectory2D.hpp>
+#include <lib/motion_planning/HarmonicHeightTrajectory.hpp>
 #include <lib/motion_planning/PhaseRateRamp.hpp>
 #include <lib/motion_planning/PositionSmoothing.hpp>
 #include <lib/slew_rate/SlewRate.hpp>
@@ -56,7 +57,8 @@
  *   p(theta) = center + R(psi) q(theta)
  *
  * Horizontal geometry uses MC_HF8_AX/AY, with optional positive-up height
- * MC_HF8_AZ sin(2 theta) about the entry altitude. Vertical geometry uses MC_VF8_AX/AZ
+ * MC_HF8_AZ f(n theta) about the entry altitude, selected by MC_HF8_Z_FUNC/N.
+ * Vertical geometry uses MC_VF8_AX/AZ
  * with sin(theta)/sin(2 theta), respectively. MC_F8_HDG rotates either
  * plane about local Z. Each plane has its own signed phase rate; zero
  * explicitly holds the trajectory origin.
@@ -115,7 +117,7 @@ private:
 	matrix::Vector3f _center{};
 	float _major_radius{5.f};
 	float _minor_radius{2.5f};
-	float _vertical_amplitude{0.f};
+	motion_planning::HarmonicHeightTrajectory _vertical_curve{};
 	float _trajectory_velocity{1.f}; // MAVLink command-mode tangential speed
 	motion_planning::PhaseRateRamp _phase_ramp{};
 	float _phase_rate_limit{INFINITY};
@@ -150,6 +152,8 @@ private:
 		(ParamFloat<px4::params::MC_HF8_AX>) _param_mc_f8_x_amplitude,
 		(ParamFloat<px4::params::MC_HF8_AY>) _param_mc_f8_y_amplitude,
 		(ParamFloat<px4::params::MC_HF8_AZ>) _param_mc_f8_z_amplitude,
+		(ParamInt<px4::params::MC_HF8_Z_FUNC>) _param_mc_f8_z_function,
+		(ParamInt<px4::params::MC_HF8_Z_N>) _param_mc_f8_z_harmonic,
 		(ParamFloat<px4::params::MC_HF8_OMEGA>) _param_mc_f8_omega,
 		(ParamFloat<px4::params::MC_F8_HDG>) _param_mc_f8_heading,
 		(ParamFloat<px4::params::MC_F8_ACC>) _param_mc_f8_acceleration,
