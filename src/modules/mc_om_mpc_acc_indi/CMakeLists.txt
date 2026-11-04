@@ -4,23 +4,23 @@
 ############################################################################
 
 px4_add_module(
-	MODULE modules__mc_om_mpc_indi
-	MAIN mc_om_mpc_indi
+	MODULE modules__mc_om_mpc_acc_indi
+	MAIN mc_om_mpc_acc_indi
 	COMPILE_FLAGS
 		${MAX_CUSTOM_OPT_LEVEL}
 	SRCS
-		McOmMpcIndi.cpp
-		McOmMpcIndi.hpp
-		OmMpcIndiControl.cpp
-		OmMpcIndiControl.hpp
+		McOmMpcAccIndi.cpp
+		McOmMpcAccIndi.hpp
+		OmMpcAccIndiControl.cpp
+		OmMpcAccIndiControl.hpp
 	MODULE_CONFIG
-		mc_om_mpc_indi_params.yaml
+		mc_om_mpc_acc_indi_params.yaml
 	DEPENDS
 		mathlib
 		px4_work_queue
 	)
 
 px4_add_unit_gtest(
-	SRC OmMpcIndiControlTest.cpp
-	EXTRA_SRCS OmMpcIndiControl.cpp
+	SRC OmMpcAccIndiControlTest.cpp
+	EXTRA_SRCS OmMpcAccIndiControl.cpp
 )

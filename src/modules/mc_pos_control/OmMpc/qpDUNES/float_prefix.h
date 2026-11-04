@@ -1,4 +1,4 @@
-// Isolate float32 symbols from the unchanged ROS double backend.
+// Isolate the embedded float32 backend symbols from other qpDUNES builds.
 #pragma once
 #include <float.h>
 #include <math.h>

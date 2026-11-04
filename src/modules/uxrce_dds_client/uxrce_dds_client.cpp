@@ -422,10 +422,6 @@ UxrceddsClient::~UxrceddsClient()
 		delete _transport_serial;
 	}
 
-	perf_free(_send_perf);
-	perf_free(_sync_perf);
-	perf_free(_ping_perf);
-	perf_free(_ping_failure_perf);
 	perf_free(_loop_perf);
 	perf_free(_loop_interval_perf);
 
@@ -532,8 +528,6 @@ void UxrceddsClient::checkConnectivity(uxrSession *session)
 	if ((_last_payload_tx_rate > 0) && (_last_payload_rx_rate > 0)) {
 		_connected = true;
 		_num_pings_missed = 0;
-		_ping_pending = false;
-		_had_ping_reply = false;
 		_last_ping = now;
 
 	} else {
@@ -554,19 +548,15 @@ void UxrceddsClient::checkConnectivity(uxrSession *session)
 			if (_had_ping_reply) {
 				_num_pings_missed = 0;
 
-			} else if (_ping_pending) {
+			} else {
 				++_num_pings_missed;
-				perf_count(_ping_failure_perf);
 			}
 
-			// Send without waiting: the normal session receive loop collects the pong.
-			// Assess this probe at the next 1 s deadline, not on the immediate return.
-			// Blocking here would stop all uORB forwarding for a lost/delayed pong.
+			int timeout_ms = 1'000; // 1 second
+			uint8_t attempts = 1;
+			uxr_ping_agent_session(session, timeout_ms, attempts);
+
 			_had_ping_reply = false;
-			_ping_pending = true;
-			perf_begin(_ping_perf);
-			uxr_ping_agent_session(session, 0, 1);
-			perf_end(_ping_perf);
 		}
 
 		if (_num_pings_missed >= 3) {
@@ -594,7 +584,6 @@ void UxrceddsClient::resetConnectivityCounters()
 	_last_status_update = hrt_absolute_time();
 	_last_ping = hrt_absolute_time();
 	_had_ping_reply = false;
-	_ping_pending = false;
 	_num_pings_missed = 0;
 	_last_num_payload_sent = 0;
 	_last_num_payload_received = 0;
@@ -699,9 +688,7 @@ void UxrceddsClient::run()
 
 			/* Handle the poll results */
 			if (poll > 0) {
-				perf_begin(_send_perf);
 				_subs->update(&session, _reliable_out, _best_effort_out, _participant_id, _client_namespace);
-				perf_end(_send_perf);
 
 			} else {
 				if (poll < 0) {
@@ -735,11 +722,7 @@ void UxrceddsClient::run()
 			// time sync session
 			if (_synchronize_timestamps && hrt_elapsed_time(&last_sync_session) > 1_s) {
 
-				perf_begin(_sync_perf);
-				const bool sync_success = uxr_sync_session(&session, 10);
-				perf_end(_sync_perf);
-
-				if (sync_success && _timesync.sync_converged()) {
+				if (uxr_sync_session(&session, 10) && _timesync.sync_converged()) {
 					last_sync_session = hrt_absolute_time();
 
 					if (_param_uxrce_dds_syncc.get() > 0) {
@@ -1028,10 +1011,6 @@ int UxrceddsClient::print_status()
 
 	PX4_INFO("timesync converged: %s", _timesync.sync_converged() ? "true" : "false");
 
-	perf_print_counter(_send_perf);
-	perf_print_counter(_sync_perf);
-	perf_print_counter(_ping_perf);
-	perf_print_counter(_ping_failure_perf);
 	perf_print_counter(_loop_perf);
 	perf_print_counter(_loop_interval_perf);
 

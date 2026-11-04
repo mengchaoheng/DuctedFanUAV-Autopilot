@@ -84,7 +84,7 @@ private:
 	bool allocateFallback(ActuatorVector &actuator_delta) const;
 	void computeResidual(const ActuatorVector &actuator_delta, AugmentedVector &residual) const;
 	bool isFiniteProblem() const;
-	void updateRankDiagnostics();
+	void updateRankCache();
 
 	EffectivenessMatrix _effectiveness_unit;
 	MixMatrix _mix_fallback;
@@ -105,4 +105,7 @@ private:
 	bool _normalization_needs_update{false};
 	bool _warm_start_valid{false};
 	bool _used_fallback{false};
+	bool _rank_update_needed{true};
+	uint8_t _rank_active_rows{0};
+	bool _full_row_rank{false};
 };

@@ -15,8 +15,8 @@
 #include <uORB/topics/hover_thrust_estimate.h>
 #include <uORB/topics/om_mpc_reference.h>
 #include <uORB/topics/om_mpc_command.h>
-#include <uORB/topics/om_mpc_status.h>
-#include <uORB/topics/om_mpc_indi_status.h>
+#include <uORB/topics/om_mpc_control_status.h>
+#include <uORB/topics/om_mpc_disturbance.h>
 #include <uORB/topics/vehicle_local_position.h>
 #include <uORB/topics/vehicle_attitude.h>
 #include <uORB/topics/vehicle_status.h>
@@ -179,7 +179,7 @@ struct OmMpc::Runtime {
 
 	OmCpuMonitor cpu_monitor;
 	uORB::Subscription ref_sub {ORB_ID(om_mpc_reference)}, pos_sub {ORB_ID(vehicle_local_position)}, att_sub {ORB_ID(vehicle_attitude)},
-	     disturbance_sub{ORB_ID(om_mpc_indi_status)},
+	     disturbance_sub{ORB_ID(om_mpc_disturbance)},
 	     status_sub{ORB_ID(vehicle_status)}, mode_sub{ORB_ID(vehicle_control_mode)}, land_sub{ORB_ID(vehicle_land_detected)};
 	uORB::Publication<om_mpc_command_s> publication{ORB_ID(om_mpc_command)};
 	// Runtime is heap-allocated; the problem never occupies the 8 KiB worker stack.
@@ -466,9 +466,9 @@ void OmMpc::Run()
 		// Use only a fresh matched estimate from the already active INDI bridge.
 		// With gain zero, stale feedback, or a disabled publisher, stay nominal.
 		Vector3f predicted_disturbance{};
-		om_mpc_indi_status_s feedback{};
+		om_mpc_disturbance_s feedback{};
 		if (_runtime->disturbance_gain > 0.f && _runtime->disturbance_sub.copy(&feedback)
-		    && feedback.disturbance_valid && feedback.timestamp != 0 && feedback.timestamp_sample != 0
+		    && feedback.valid && feedback.timestamp != 0 && feedback.timestamp_sample != 0
 		    && hrt_elapsed_time(&feedback.timestamp) < 100000
 		    && hrt_elapsed_time(&feedback.timestamp_sample) < 100000
 		    && Vector3f(feedback.acceleration_disturbance).isAllFinite()) {
@@ -545,10 +545,10 @@ void OmMpc::Run()
 			output.solver_status = result.status;
 			output.iterations = result.iterations;
 			output.primal_residual = result.primal_residual;
-			output.solve_us = cost;
+			output.mpc_compute_us = cost;
 			output.frontend_us = frontend_end - begin;
 			output.update_us = update_end - frontend_end;
-			output.solver_us = begin + cost - update_end;
+			output.qp_solve_us = begin + cost - update_end;
 			output.initializing = cold;
 			output.timestamp_sample = pos.timestamp_sample;
 			output.reference_timestamp = ref.timestamp;
@@ -749,9 +749,9 @@ void OmMpc::print_status()
 	const Statistics stats = _stats;
 	pthread_mutex_unlock(&_mutex);
 
-	uORB::Subscription output_sub{ORB_ID(om_mpc_status)};
-	om_mpc_status_s output{};
-	const bool applied = output_sub.copy(&output) && output.active && hrt_elapsed_time(&output.timestamp) < 300000;
+	uORB::Subscription output_sub{ORB_ID(om_mpc_control_status)};
+	om_mpc_control_status_s output{};
+	const bool applied = output_sub.copy(&output) && output.mpc_active && hrt_elapsed_time(&output.timestamp) < 300000;
 	const int n = setting("MPC_N");
 	const unsigned nominal_rate = setting("MPC_UPD_MODE") == 100 ? 100 : 50;
 	PX4_INFO("OM-MPC: worker=%s ready=%s active=%s state/%u (nominal %uHz) N%d dt=%.3f",

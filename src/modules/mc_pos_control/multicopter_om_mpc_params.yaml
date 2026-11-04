@@ -60,7 +60,7 @@ parameters:
         long: |-
           Fraction of the fresh acceleration disturbance estimated by the
           OM INDI bridge, held constant across the prediction horizon.
-          MPC_DFB_EN controls feedback publication for both onboard and ROS MPC.
+          MPC_DFB_EN controls valid feedback publication from translational INDI.
           This gain only scales onboard prediction; zero also preserves nominal MPC.
           The bridge must have fresh matched acceleration and force data.
           The applied value travels with each MPC command

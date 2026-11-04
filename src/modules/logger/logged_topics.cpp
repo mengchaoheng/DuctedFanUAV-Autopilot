@@ -102,8 +102,8 @@ void LoggedTopics::add_default_topics()
 	add_topic("navigator_mission_item");
 	add_topic("navigator_status");
 	add_topic("offboard_control_mode", 100);
-	add_topic("om_mpc_indi_status");
-	add_topic("om_mpc_setpoint");
+	add_topic("om_mpc_disturbance");
+	add_topic("om_mpc_acc_indi_command");
 	add_topic("onboard_computer_status", 10);
 	add_topic("parameter_update");
 	add_topic("position_controller_status", 500);
@@ -154,10 +154,10 @@ void LoggedTopics::add_default_topics()
 	add_topic("vehicle_magnetometer", 200);
 	add_topic("vehicle_rates_setpoint", 20);
 #ifdef CONFIG_MC_POS_CONTROL_OM_MPC
-	// Keep every 50/100 Hz command, including isolated rejected attempts.
+	// Log OM-MPC publications without throttling, including rejected attempts.
 	add_topic("om_mpc_command");
-	add_topic("om_mpc_status");
-	add_topic("om_mpc_reference", 20);
+	add_topic("om_mpc_control_status");
+	add_topic("om_mpc_reference");
 #endif
 	add_topic("vehicle_roi", 1000);
 	add_topic("vehicle_status");
@@ -176,7 +176,8 @@ void LoggedTopics::add_default_topics()
 	// multi topics
 	add_optional_topic_multi("actuator_outputs", 100, 3);
 	add_optional_topic_multi("airspeed_wind", 1000, 4);
-	add_optional_topic_multi("control_allocator_status", 200, 2);
+	add_optional_topic_multi("control_allocator_status", 100, 2);
+	add_optional_topic_multi("control_allocator_diagnostics", 100, 2);
 	add_optional_topic_multi("rate_ctrl_status", 200, 2);
 	add_optional_topic_multi("sensor_hygrometer", 500, 4);
 	add_optional_topic_multi("sensor_temp", 100, 4);
@@ -247,7 +248,7 @@ void LoggedTopics::add_default_topics()
 	add_topic("actuator_motors", 100);
 	add_topic("actuator_servos", 100);
 	add_topic("allocation_value", 20);
-	add_topic("allocation_feedback_filter_status", 200);
+	add_topic("allocation_feedback_filter_status", 100);
 	add_topic_multi("vehicle_thrust_setpoint", 20, 2);
 	add_topic_multi("vehicle_torque_setpoint", 20, 2);
 

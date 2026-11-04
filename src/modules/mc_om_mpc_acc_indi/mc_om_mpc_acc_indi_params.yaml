@@ -1,4 +1,4 @@
-module_name: mc_om_mpc_indi
+module_name: mc_om_mpc_acc_indi
 parameters:
 - group: On-Manifold MPC
   definitions:
@@ -7,13 +7,11 @@ parameters:
         short: Enable acceleration INDI middle layer
         long: |-
           Enables acceleration-INDI/lift corrections and matched disturbance
-          estimation together. It accepts fresh
-          onboard OmMpcCommand or external OmMpcSetpoint commands and publishes
+          estimation together. It accepts fresh onboard OmMpcCommand commands and publishes
           a disturbance estimate when MPC_DFB_EN and matched measurements permit.
           Parameter enable and RC10 middle/high (normalized value >= -0.5) use
-          OR logic. With neither request, it bypasses onboard corrections and
-          preserves nominal external command forwarding; it does not provide
-          valid disturbance feedback. RC requires a valid signal younger than 500 ms.
+          OR logic. With neither request, nominal MPC bypasses this module and
+          disturbance feedback is invalid. RC requires a valid signal younger than 500 ms.
           Corrections follow new VehicleAttitude messages, like mc_att_control,
           without a separate rate limiter. Acceleration and force feedback filters
           advance only when their own sample timestamps change.
@@ -26,10 +24,10 @@ parameters:
         short: Enable OM disturbance feedback to MPC
         long: |-
           Publishes valid matched acceleration-disturbance estimates to onboard
-          or ROS MPC. Parameter enable and RC10 high (normalized value >= 0.5)
+          MPC. Parameter enable and RC10 high (normalized value >= 0.5)
           use OR logic. With neither request, prediction feedback is disabled
-          without disabling acceleration INDI. Onboard MPC scales the estimate with MPC_DFB_GAIN;
-          ROS MPC uses its own gain. Stale or unmatched measurements remain invalid.
+          without disabling acceleration INDI. MPC scales the estimate with MPC_DFB_GAIN.
+          Stale or unmatched measurements remain invalid.
           RC requires a valid signal younger than 500 ms. The middle layer must
           also be enabled before feedback can be valid.
       type: boolean

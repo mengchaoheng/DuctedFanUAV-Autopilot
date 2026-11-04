@@ -105,6 +105,7 @@ ControlAllocationWLS::setEffectivenessMatrix(
 			update_normalization_scale);
 	_standard_problem_update_needed = true;
 	_normalization_needs_update = update_normalization_scale;
+	_rank_update_needed = true;
 	_warm_start_valid = false;
 	memset(_working_set, 0, sizeof(_working_set));
 }
@@ -119,7 +120,8 @@ ControlAllocationWLS::allocate()
 	prepareWarmStart(actuator_delta);
 
 	_diagnostics = {};
-	updateRankDiagnostics();
+	_diagnostics.active_rows = _rank_active_rows;
+	_diagnostics.full_row_rank = _full_row_rank;
 	_used_fallback = false;
 
 	int iterations = 0;
@@ -179,6 +181,11 @@ ControlAllocationWLS::updateStandardProblem()
 	}
 
 	buildUnitEffectiveness();
+	if (_rank_update_needed) {
+		updateRankCache();
+		_rank_update_needed = false;
+	}
+
 	buildAugmentedProblem();
 	buildActuatorDeltaLimits();
 	matrix::geninv(_effectiveness_unit, _mix_fallback);
@@ -646,7 +653,7 @@ ControlAllocationWLS::isFiniteProblem() const
 }
 
 void
-ControlAllocationWLS::updateRankDiagnostics()
+ControlAllocationWLS::updateRankCache()
 {
 	float work[NUM_AXES][NUM_ACTUATORS] {};
 	int active_rows[NUM_AXES] {};
@@ -711,6 +718,6 @@ ControlAllocationWLS::updateRankDiagnostics()
 		++rank;
 	}
 
-	_diagnostics.active_rows = static_cast<uint8_t>(rows);
-	_diagnostics.full_row_rank = rank == rows;
+	_rank_active_rows = static_cast<uint8_t>(rows);
+	_full_row_rank = rank == rows;
 }

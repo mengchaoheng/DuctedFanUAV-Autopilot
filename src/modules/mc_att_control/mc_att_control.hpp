@@ -36,10 +36,10 @@
 #ifdef CONFIG_MC_POS_CONTROL_OM_MPC
 #include <lib/controllib/OmMpcEnable.hpp>
 #include <lib/controllib/OmMpcTakeover.hpp>
-#include <uORB/topics/om_mpc_status.h>
+#include <uORB/topics/om_mpc_control_status.h>
 #include <uORB/topics/om_mpc_command.h>
 #include <uORB/topics/om_mpc_reference.h>
-#include <uORB/topics/om_mpc_indi_command.h>
+#include <uORB/topics/om_mpc_acc_indi_command.h>
 #endif
 
 #include <matrix/matrix/math.hpp>
@@ -123,17 +123,17 @@ private:
 #ifdef CONFIG_MC_POS_CONTROL_OM_MPC
 	uORB::Subscription _om_command_sub{ORB_ID(om_mpc_command)};
 	uORB::Subscription _om_reference_sub{ORB_ID(om_mpc_reference)};
-	uORB::Subscription _om_indi_command_sub{ORB_ID(om_mpc_indi_command)};
+	uORB::Subscription _om_indi_command_sub{ORB_ID(om_mpc_acc_indi_command)};
 	uORB::Subscription _om_rc_sub{ORB_ID(rc_channels)};
 	rc_channels_s _om_rc{};
 	const param_t _om_indi_enable_handle{param_find("MPC_ACCINDI_EN")};
-	bool _om_acceleration_indi_active{false};
+	bool _om_translational_indi_selected{false};
 	const param_t _om_enable_handle{param_find("MPC_EN")};
 	const param_t _om_transition_time_handle{param_find("MPC_TAKEOVER_T")};
 	OmMpcTakeover _om_takeover{};
-	uORB::PublicationData<om_mpc_status_s> _om_status_pub{ORB_ID(om_mpc_status)};
+	uORB::PublicationData<om_mpc_control_status_s> _om_control_status_pub{ORB_ID(om_mpc_control_status)};
 	bool applyOmMpc(vehicle_rates_setpoint_s &rates_setpoint);
-	void publishOmMpcStatus(bool active);
+	void publishOmMpcControlStatus(bool mpc_active);
 #endif
 
 	uORB::SubscriptionCallbackWorkItem _vehicle_attitude_sub{this, ORB_ID(vehicle_attitude)};

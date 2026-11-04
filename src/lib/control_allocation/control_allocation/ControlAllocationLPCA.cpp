@@ -10,11 +10,9 @@
 
 #include "ControlAllocationLPCA.hpp"
 
-#include <drivers/drv_hrt.h>
 #include <float.h>
 #include <cmath>
 #include <cstring>
-#include <time.h>
 
 #if defined(__clang__)
 # pragma clang diagnostic push
@@ -57,22 +55,7 @@ enum class LPCAMethod {
 struct LPCADiagnostics {
 	int err{0};
 	float rho{0.f};
-	float prepare_time_us{0.f};
-	float core_time_us{0.f};
-	float post_time_us{0.f};
-	hrt_abstime prepare_start{0};
 };
-
-hrt_abstime runtimeMeasurementTimeUs()
-{
-#if defined(__PX4_POSIX)
-	timespec ts {};
-	clock_gettime(CLOCK_MONOTONIC, &ts);
-	return static_cast<hrt_abstime>(ts.tv_sec) * 1000000ULL + static_cast<hrt_abstime>(ts.tv_nsec) / 1000ULL;
-#else
-	return hrt_absolute_time();
-#endif
-}
 
 float constrainFloat(float value, float lower, float upper)
 {
@@ -124,9 +107,6 @@ bool runLPCA(LPCAMethod method, const float b_par[ControlAllocation::NUM_AXES][C
 	memcpy(lower, actuator_min, Cols * sizeof(lower[0]));
 	memcpy(upper, actuator_max, Cols * sizeof(upper[0]));
 
-	const hrt_abstime core_start = runtimeMeasurementTimeUs();
-	diagnostics.prepare_time_us = static_cast<float>(core_start - diagnostics.prepare_start);
-
 	Aircraft<Rows, Cols> aircraft(b, upper, lower);
 	DP_LP_ControlAllocator<Rows, Cols> allocator(aircraft);
 	float raw[Cols];
@@ -149,19 +129,14 @@ bool runLPCA(LPCAMethod method, const float b_par[ControlAllocation::NUM_AXES][C
 
 	allocator.restoring(raw, restored);
 
-	const hrt_abstime post_start = runtimeMeasurementTimeUs();
-	diagnostics.core_time_us = static_cast<float>(post_start - core_start);
-
 	for (int i = 0; i < Cols; ++i) {
 		if (!isFinite(restored[i])) {
-			diagnostics.post_time_us = static_cast<float>(runtimeMeasurementTimeUs() - post_start);
 			return false;
 		}
 
 		output[i] = constrainFloat(restored[i], lower[i], upper[i]);
 	}
 
-	diagnostics.post_time_us = static_cast<float>(runtimeMeasurementTimeUs() - post_start);
 	return err == 0;
 }
 
@@ -485,7 +460,6 @@ bool
 ControlAllocationLPCA::allocateLPCA(ActuatorVector &actuator_delta)
 {
 	LPCADiagnostics lpca_diagnostics;
-	lpca_diagnostics.prepare_start = runtimeMeasurementTimeUs();
 
 	if (!_lpca_nonzero_command) {
 		_diagnostics.solver_status = 0;
@@ -511,18 +485,12 @@ ControlAllocationLPCA::allocateLPCA(ActuatorVector &actuator_delta)
 		_diagnostics.solver_status = -2;
 		_diagnostics.solver_err = static_cast<int8_t>(lpca_diagnostics.err);
 		_diagnostics.solver_rho = lpca_diagnostics.rho;
-		_diagnostics.solver_prepare_time = lpca_diagnostics.prepare_time_us;
-		_diagnostics.solver_core_time = lpca_diagnostics.core_time_us;
-		_diagnostics.solver_post_time = lpca_diagnostics.post_time_us;
 		return false;
 	}
 
 	_diagnostics.solver_status = 1;
 	_diagnostics.solver_err = static_cast<int8_t>(lpca_diagnostics.err);
 	_diagnostics.solver_rho = lpca_diagnostics.rho;
-	_diagnostics.solver_prepare_time = lpca_diagnostics.prepare_time_us;
-	_diagnostics.solver_core_time = lpca_diagnostics.core_time_us;
-	_diagnostics.solver_post_time = lpca_diagnostics.post_time_us;
 
 	actuator_delta.setZero();
 

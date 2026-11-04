@@ -1,15 +1,13 @@
-uint64 timestamp
-uint64 filter_event_timestamp        # Most recent reset or coefficient reconfiguration
-
-float32 sample_interval              # Mean ControlAllocator dt used to estimate the sample rate [s]
-float32 filter_sample_rate_hz        # Sample rate used for the current coefficients [Hz]
-float32 torque_filter_cutoff_hz      # Actual allocated-torque filter cutoff, 0 if bypassed [Hz]
-float32 force_filter_cutoff_hz       # Actual allocated-force filter cutoff, 0 if bypassed [Hz]
-
-uint32 filter_reset_count            # Cumulative feedback-filter state reset count
-uint32 filter_reconfigure_count      # Cumulative coefficient configuration count
-uint8 filter_event_reason            # Most recent reset or reconfiguration reason
-bool filters_configured
+# Shared allocation feedback-filter configuration and events. One instance.
+# Published on changes and as a 10 Hz snapshot; no control consumers.
+uint64 timestamp                    # status publication time since system start [us]
+uint64 filter_event_timestamp       # latest filter reset or coefficient reconfiguration time [us]
+float32 filter_sample_rate_hz       # coefficient sample rate [Hz]; NaN if unconfigured
+float32 torque_filter_cutoff_hz     # actual torque cutoff [Hz]; 0 if bypassed/unconfigured
+float32 force_filter_cutoff_hz      # actual force cutoff [Hz]; 0 if bypassed/unconfigured
+uint32 filter_reset_count           # cumulative explicit filter resets and axis recoveries
+uint32 filter_reconfigure_count     # cumulative coefficient configurations
+uint8 filter_event_reason           # reason for the latest filter reset/reconfiguration
 
 uint8 FILTER_EVENT_INITIAL = 1
 uint8 FILTER_EVENT_PARAMETER = 2

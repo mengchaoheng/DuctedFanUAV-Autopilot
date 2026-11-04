@@ -5,7 +5,7 @@
 
 #include <gtest/gtest.h>
 
-#include "OmMpcIndiControl.hpp"
+#include "OmMpcAccIndiControl.hpp"
 #include <lib/mathlib/math/filter/LowPassFilter2p.hpp>
 
 using namespace matrix;
@@ -16,9 +16,9 @@ constexpr float kGravity = 9.80665f;
 constexpr float kHoverThrust = 0.216f;
 constexpr float kTolerance = 1e-5f;
 
-OmMpcIndiControl makeControl(const Vector3f &gain = Vector3f{1.5f, 1.5f, 0.f})
+OmMpcAccIndiControl makeControl(const Vector3f &gain = Vector3f{1.5f, 1.5f, 0.f})
 {
-	OmMpcIndiControl control;
+	OmMpcAccIndiControl control;
 	control.setParams(gain, kHoverThrust, kGravity);
 	return control;
 }
@@ -31,10 +31,10 @@ void expectVectorNear(const Vector3f &actual, const Vector3f &expected, float to
 }
 } // namespace
 
-TEST(OmMpcIndiControl, HoverIsAnExactFixedPoint)
+TEST(OmMpcAccIndiControl, HoverIsAnExactFixedPoint)
 {
 	const auto control = makeControl();
-	OmMpcIndiControl::Output output{};
+	OmMpcAccIndiControl::Output output{};
 	const Vector3f nominal_rates{0.2f, -0.1f, 0.05f};
 	const Vector3f nominal_thrust_body{0.f, 0.f, -kHoverThrust};
 
@@ -45,10 +45,10 @@ TEST(OmMpcIndiControl, HoverIsAnExactFixedPoint)
 	expectVectorNear(output.attitude_error, Vector3f{});
 }
 
-TEST(OmMpcIndiControl, MatchedDisturbanceDoesNotChangeNominalCommand)
+TEST(OmMpcAccIndiControl, MatchedDisturbanceDoesNotChangeNominalCommand)
 {
 	const auto control = makeControl();
-	OmMpcIndiControl::Output output{};
+	OmMpcAccIndiControl::Output output{};
 	const Vector3f disturbance{1.2f, -0.7f, 0.4f};
 	const Vector3f allocated{0.f, 0.f, -kHoverThrust};
 
@@ -59,10 +59,10 @@ TEST(OmMpcIndiControl, MatchedDisturbanceDoesNotChangeNominalCommand)
 	expectVectorNear(output.attitude_error, Vector3f{});
 }
 
-TEST(OmMpcIndiControl, TranslationalIncrementHasMainMUnitsAndSign)
+TEST(OmMpcAccIndiControl, TranslationalIncrementHasMainMUnitsAndSign)
 {
 	const auto control = makeControl(Vector3f{});
-	OmMpcIndiControl::Output output{};
+	OmMpcAccIndiControl::Output output{};
 	const Vector3f hover{0.f, 0.f, -kHoverThrust};
 	const Vector3f measured_acceleration{-1.f, 0.f, 0.f};
 	const Vector3f expected_force{kHoverThrust / kGravity, 0.f, -kHoverThrust};
@@ -73,11 +73,11 @@ TEST(OmMpcIndiControl, TranslationalIncrementHasMainMUnitsAndSign)
 	EXPECT_NEAR(output.thrust_body(2), -expected_force.norm(), kTolerance);
 }
 
-TEST(OmMpcIndiControl, AntipodeUsesDeterministicBodyXAxis)
+TEST(OmMpcAccIndiControl, AntipodeUsesDeterministicBodyXAxis)
 {
 	const Vector3f gain{0.5f, 0.25f, 0.f};
 	const auto control = makeControl(gain);
-	OmMpcIndiControl::Output output{};
+	OmMpcAccIndiControl::Output output{};
 	const Vector3f nominal_thrust_body{0.f, 0.f, kHoverThrust};
 	const Vector3f measured_acceleration{0.f, 0.f, 2.f * kGravity};
 	const Vector3f allocated{0.f, 0.f, kHoverThrust};
@@ -88,10 +88,10 @@ TEST(OmMpcIndiControl, AntipodeUsesDeterministicBodyXAxis)
 	expectVectorNear(output.rates_setpoint, Vector3f{gain(0) * M_PI_F, 0.f, 0.f});
 }
 
-TEST(OmMpcIndiControl, ZeroCorrectedThrustRemainsFinite)
+TEST(OmMpcAccIndiControl, ZeroCorrectedThrustRemainsFinite)
 {
 	const auto control = makeControl();
-	OmMpcIndiControl::Output output{};
+	OmMpcAccIndiControl::Output output{};
 
 	ASSERT_TRUE(control.update(Dcmf{}, Vector3f{}, Vector3f{}, Vector3f{},
 		Vector3f{0.f, 0.f, kGravity}, Vector3f{}, output));
@@ -100,7 +100,7 @@ TEST(OmMpcIndiControl, ZeroCorrectedThrustRemainsFinite)
 	EXPECT_LE(output.thrust_body.norm(), 1e-5f);
 }
 
-TEST(OmMpcIndiControl, MatchedInertialFiltersPreserveNominalDuringFastRotation)
+TEST(OmMpcAccIndiControl, MatchedInertialFiltersPreserveNominalDuringFastRotation)
 {
 	const auto control = makeControl();
 	math::LowPassFilter2p<Vector3f> force_filter(250.f, 8.f);
@@ -116,7 +116,7 @@ TEST(OmMpcIndiControl, MatchedInertialFiltersPreserveNominalDuringFastRotation)
 		const Vector3f acceleration = acceleration_filter.apply(
 			gravity + force_ned * (kGravity / kHoverThrust));
 		const Vector3f force = force_filter.apply(force_ned);
-		OmMpcIndiControl::Output output{};
+		OmMpcAccIndiControl::Output output{};
 		ASSERT_TRUE(control.update(rotation, Vector3f{4.f, 0.f, 0.f}, thrust_body,
 			Vector3f{}, acceleration, force, output));
 		expectVectorNear(output.thrust_ned, force_ned, 5e-5f);

@@ -7,7 +7,7 @@
 
 #include <matrix/matrix/math.hpp>
 
-class OmMpcIndiControl
+class OmMpcAccIndiControl
 {
 public:
 	struct Output {

@@ -48,13 +48,15 @@ int main()
 		failed.reference_timestamp = start + age - 8000;
 		failed.deadline_missed = true;
 		failed.solver_status = 8;
-		failed.solve_us = 8043;
+		failed.mpc_compute_us = 8043;
+		failed.qp_solve_us = 4032;
 		failed.cpu_us = 3438;
 		failed.position_error[0] = .4f;
 		assert(hold.select(failed, true, false, start + age));
 		assert(failed.active && failed.held && failed.timestamp_valid == start);
 		assert(failed.timestamp == start + age && failed.timestamp_sample == start + age - 4000);
-		assert(failed.solver_status == 8 && failed.deadline_missed && failed.solve_us == 8043 && failed.cpu_us == 3438);
+		assert(failed.solver_status == 8 && failed.deadline_missed && failed.mpc_compute_us == 8043 && failed.cpu_us == 3438);
+		assert(failed.qp_solve_us == 4032);
 		assert(failed.position_error[0] == .4f); // attempt diagnostics are untouched
 		assert(matrix::isEqual(controls(failed), controls(command)));
 		assert(failed.hover_thrust == command.hover_thrust && failed.mpc_disturbance[1] == command.mpc_disturbance[1]);

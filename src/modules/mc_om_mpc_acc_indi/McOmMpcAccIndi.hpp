@@ -5,7 +5,7 @@
 
 #pragma once
 
-#include "OmMpcIndiControl.hpp"
+#include "OmMpcAccIndiControl.hpp"
 #include <lib/controllib/OmMpcEnable.hpp>
 
 #include <lib/mathlib/math/filter/LowPassFilter2p.hpp>
@@ -19,31 +19,27 @@
 #include <uORB/Subscription.hpp>
 #include <uORB/SubscriptionCallback.hpp>
 #include <uORB/topics/allocation_value.h>
-#include <uORB/topics/hover_thrust_estimate.h>
-#include <uORB/topics/om_mpc_indi_status.h>
-#include <uORB/topics/om_mpc_setpoint.h>
+#include <uORB/topics/om_mpc_disturbance.h>
 #include <uORB/topics/om_mpc_command.h>
-#include <uORB/topics/om_mpc_indi_command.h>
+#include <uORB/topics/om_mpc_acc_indi_command.h>
 #include <uORB/topics/parameter_update.h>
-#include <uORB/topics/rate_ctrl_status.h>
 #include <uORB/topics/vehicle_acceleration.h>
 #include <uORB/topics/vehicle_angular_velocity.h>
 #include <uORB/topics/vehicle_attitude.h>
 #include <uORB/topics/vehicle_control_mode.h>
 #include <uORB/topics/vehicle_land_detected.h>
 #include <uORB/topics/vehicle_local_position.h>
-#include <uORB/topics/vehicle_rates_setpoint.h>
 #include <uORB/topics/vehicle_status.h>
 
 using namespace time_literals;
 
-class McOmMpcIndi final : public ModuleBase, public ModuleParams, public px4::WorkItem
+class McOmMpcAccIndi final : public ModuleBase, public ModuleParams, public px4::WorkItem
 {
 public:
 	static Descriptor desc;
 
-	McOmMpcIndi();
-	~McOmMpcIndi() override;
+	McOmMpcAccIndi();
+	~McOmMpcAccIndi() override;
 
 	static int task_spawn(int argc, char *argv[]);
 	static int custom_command(int argc, char *argv[]);
@@ -80,14 +76,10 @@ private:
 		matrix::Vector3f &allocated_force_ned);
 	matrix::Dcmf attitudeAt(uint64_t timestamp, const matrix::Dcmf &attitude) const;
 	void resetTransition();
-	void publishStatus(uint64_t now, uint64_t acceleration_timestamp,
-		bool acceleration_active, bool disturbance_valid,
-		const matrix::Vector3f &disturbance, const matrix::Vector3f &acceleration_ned,
-		const matrix::Vector3f &allocated_force_ned, const matrix::Vector3f &nominal_rates,
-		const OmMpcIndiControl::Output &corrected);
+	void publishDisturbance(uint64_t now, uint64_t acceleration_timestamp, bool valid,
+		const matrix::Vector3f &disturbance);
 
 	uORB::SubscriptionCallbackWorkItem _vehicle_attitude_sub{this, ORB_ID(vehicle_attitude)};
-	uORB::Subscription _om_mpc_setpoint_sub{ORB_ID(om_mpc_setpoint)};
 	uORB::Subscription _onboard_command_sub{ORB_ID(om_mpc_command)};
 	uORB::Subscription _vehicle_local_position_sub{ORB_ID(vehicle_local_position)};
 	uORB::Subscription _vehicle_acceleration_sub{ORB_ID(vehicle_acceleration)};
@@ -96,19 +88,15 @@ private:
 	uORB::Subscription _vehicle_control_mode_sub{ORB_ID(vehicle_control_mode)};
 	uORB::Subscription _vehicle_land_detected_sub{ORB_ID(vehicle_land_detected)};
 	uORB::Subscription _vehicle_status_sub{ORB_ID(vehicle_status)};
-	uORB::Subscription _rate_ctrl_status_sub{ORB_ID(rate_ctrl_status)};
 	uORB::Subscription _parameter_update_sub{ORB_ID(parameter_update)};
-	uORB::Subscription _hover_thrust_estimate_sub{ORB_ID(hover_thrust_estimate)};
 	uORB::Subscription _rc_channels_sub{ORB_ID(rc_channels)};
 	rc_channels_s _rc_channels{};
 
-	uORB::Publication<vehicle_rates_setpoint_s> _setpoint_pub{ORB_ID(vehicle_rates_setpoint)};
-	uORB::Publication<om_mpc_indi_status_s> _status_pub{ORB_ID(om_mpc_indi_status)};
-	uORB::Publication<om_mpc_indi_command_s> _onboard_correction_pub{ORB_ID(om_mpc_indi_command)};
+	uORB::Publication<om_mpc_disturbance_s> _disturbance_pub{ORB_ID(om_mpc_disturbance)};
+	uORB::Publication<om_mpc_acc_indi_command_s> _onboard_correction_pub{ORB_ID(om_mpc_acc_indi_command)};
 
 	vehicle_attitude_s _vehicle_attitude{};
 	vehicle_angular_velocity_s _vehicle_angular_velocity{};
-	om_mpc_setpoint_s _nominal_setpoint{};
 	om_mpc_command_s _onboard_command{};
 	bool _onboard_enabled{false};
 	bool _middle_layer_enabled_previous{false};
@@ -116,7 +104,6 @@ private:
 	vehicle_control_mode_s _vehicle_control_mode{};
 	vehicle_land_detected_s _vehicle_land_detected{};
 	vehicle_status_s _vehicle_status{};
-	rate_ctrl_status_s _rate_ctrl_status{};
 
 	AccelerationFilterState _ekf_acceleration_filter{};
 	AccelerationFilterState _imu_acceleration_filter{};
@@ -125,12 +112,11 @@ private:
 	uint64_t _force_history_last_timestamp{0};
 	uint64_t _force_feedback_timestamp{0};
 
-	OmMpcIndiControl _control{};
+	OmMpcAccIndiControl _control{};
 	bool _acceleration_active_previous{false};
 	float _transition_elapsed{0.f};
 	float _transition_progress{0.f};
 	uint64_t _last_run_timestamp{0};
-	uint64_t _last_status_publish{0};
 
 	perf_counter_t _loop_perf{nullptr};
 
@@ -144,7 +130,6 @@ private:
 		(ParamFloat<px4::params::MPC_ACCINDI_TR_T>) _param_transition_time,
 		(ParamFloat<px4::params::MPC_ACCINDI_K_R>) _param_kphi_roll,
 		(ParamFloat<px4::params::MPC_ACCINDI_K_P>) _param_kphi_pitch,
-		(ParamFloat<px4::params::MPC_ACCINDI_K_Y>) _param_kphi_yaw,
-		(ParamFloat<px4::params::MPC_THR_HOVER>) _param_hover_thrust
+		(ParamFloat<px4::params::MPC_ACCINDI_K_Y>) _param_kphi_yaw
 	)
 };

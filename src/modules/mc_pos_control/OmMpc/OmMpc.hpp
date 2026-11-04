@@ -12,7 +12,7 @@ class OmMpcBench;
 
 // mc_pos_control owns this worker; only its private queue touches the QP.
 // hasValidCommand() means a command is available. Actual output ownership is
-// reported separately by mc_att_control through om_mpc_status.active.
+// reported separately by mc_att_control through om_mpc_control_status.mpc_active.
 class OmMpc : public px4::ScheduledWorkItem
 {
 public:

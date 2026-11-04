@@ -3,28 +3,28 @@
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
-#include "OmMpcIndiControl.hpp"
+#include "OmMpcAccIndiControl.hpp"
 
 #include <mathlib/math/Functions.hpp>
 #include <px4_platform_common/defines.h>
 
 using namespace matrix;
 
-void OmMpcIndiControl::setParams(const Vector3f &attitude_gain, float hover_thrust, float gravity)
+void OmMpcAccIndiControl::setParams(const Vector3f &attitude_gain, float hover_thrust, float gravity)
 {
 	_attitude_gain = attitude_gain;
 	_hover_thrust = hover_thrust;
 	_gravity = gravity;
 }
 
-bool OmMpcIndiControl::paramsValid() const
+bool OmMpcAccIndiControl::paramsValid() const
 {
 	return _attitude_gain.isAllFinite()
 	       && PX4_ISFINITE(_hover_thrust) && _hover_thrust > FLT_EPSILON
 	       && PX4_ISFINITE(_gravity) && _gravity > FLT_EPSILON;
 }
 
-bool OmMpcIndiControl::update(const Dcmf &R_to_ned, const Vector3f &nominal_rates,
+bool OmMpcAccIndiControl::update(const Dcmf &R_to_ned, const Vector3f &nominal_rates,
 		const Vector3f &nominal_thrust_body, const Vector3f &mpc_disturbance_ned,
 		const Vector3f &acceleration_ned, const Vector3f &allocated_thrust_ned,
 		Output &output) const

@@ -5,8 +5,8 @@
 #include <cmath>
 #include <cstring>
 
-// Nominal on-manifold / ROS error model in float32.
-// Reference discretization mismatch is neglected, as in the ROS/MATLAB OM-MPC path.
+// Nominal on-manifold error model in float32.
+// Reference discretization mismatch is neglected, as in the MATLAB OM-MPC model.
 // NED + FRD, right SO(3) error; optional constant NED acceleration disturbance.
 namespace om_mpc
 {

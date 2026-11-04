@@ -100,9 +100,6 @@ public:
 		bool full_row_rank{false};
 		uint8_t active_rows{0};
 		float solver_rho{0.f};
-		float solver_prepare_time{0.f};
-		float solver_core_time{0.f};
-		float solver_post_time{0.f};
 	};
 
 	/**

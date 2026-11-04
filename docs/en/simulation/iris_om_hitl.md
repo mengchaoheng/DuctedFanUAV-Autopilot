@@ -21,7 +21,7 @@ make px4_fmu-v5_default upload
 ```
 
 The board configuration includes `pwm_out_sim`, `uxrce_dds_client` and
-`mc_om_mpc_indi`. Alternatively flash
+`mc_om_mpc_acc_indi`. Alternatively flash
 `build/px4_fmu-v5_default/px4_fmu-v5_default.px4` with QGC custom firmware.
 For project Iris HITL, set these in the PX4 console:
 
@@ -139,9 +139,9 @@ modes does **not** change these required PX4 settings:
 | 6, Lu + PID | `MC_INDI_RATE_EN=0`; RC12 must not request native rate INDI |
 | 8, OM | `MPC_ACCINDI_EN=1`, `MPC_DFB_EN=1`, `MC_INDI_RATE_EN=1`; ROS `disturbance_gain` scales valid feedback |
 
-Enable OM before reboot, or start `mc_om_mpc_indi` manually if it was disabled
+Enable OM before reboot, or start `mc_om_mpc_acc_indi` manually if it was disabled
 at boot. Verify PX4 `uxrce_dds_client status`, `pwm_out_sim status`,
-`listener vehicle_local_position` and, for OM, `mc_om_mpc_indi status`.
+`listener vehicle_local_position` and, for OM, `mc_om_mpc_acc_indi status`.
 DDS must connect and synchronize; check received feedback rates over UART.
 
 For real flight the Pi entry point is the same. The flight controller uses the

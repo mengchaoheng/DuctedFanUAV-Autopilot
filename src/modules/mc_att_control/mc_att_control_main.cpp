@@ -380,13 +380,13 @@ MulticopterAttitudeControl::Run()
 
 			_vehicle_rates_setpoint_pub.publish(rates_setpoint);
 #ifdef CONFIG_MC_POS_CONTROL_OM_MPC
-			publishOmMpcStatus(om_active);
+			publishOmMpcControlStatus(om_active);
 #endif
 
 		} else {
 #ifdef CONFIG_MC_POS_CONTROL_OM_MPC
 			_om_takeover.reset();
-			publishOmMpcStatus(false);
+			publishOmMpcControlStatus(false);
 #endif
 			_man_roll_input_filter.reset(0.f);
 			_man_pitch_input_filter.reset(0.f);
@@ -455,7 +455,7 @@ int MulticopterAttitudeControl::custom_command(int argc, char *argv[])
 #ifdef CONFIG_MC_POS_CONTROL_OM_MPC
 bool MulticopterAttitudeControl::applyOmMpc(vehicle_rates_setpoint_s &rates_setpoint)
 {
-	_om_acceleration_indi_active = false;
+	_om_translational_indi_selected = false;
 	OmMpcTakeover::Command pid{};
 	const Vector3f pid_rates{rates_setpoint.roll, rates_setpoint.pitch, rates_setpoint.yaw};
 
@@ -488,21 +488,21 @@ bool MulticopterAttitudeControl::applyOmMpc(vehicle_rates_setpoint_s &rates_setp
 		matrix::Vector3f(command.thrust_body).copyTo(rates_setpoint.thrust_body);
 		int32_t indi_enabled = 0;
 		param_get(_om_indi_enable_handle, &indi_enabled);
-		om_mpc_indi_command_s correction{};
+		om_mpc_acc_indi_command_s correction{};
 		// The attitude and middle-layer callbacks are asynchronous. Hold the
 		// latest complete corrected pair for at most 20 ms, including across a
 		// QP update; requiring an exact match would drop INDI once every QP cycle.
 		if (om_mpc::middleLayerRequested(indi_enabled == 1, _om_rc, now)
-		    && _om_indi_command_sub.copy(&correction) && correction.active
+		    && _om_indi_command_sub.copy(&correction) && correction.valid
 		    && correction.timestamp_nominal <= command.timestamp_valid
 		    && hrt_elapsed_time(&correction.timestamp_nominal) < 60_ms
 		    && hrt_elapsed_time(&correction.timestamp) < 20_ms
-		    && Vector3f(correction.rates).isAllFinite() && Vector3f(correction.thrust_body).isAllFinite()) {
-			rates_setpoint.roll = correction.rates[0];
-			rates_setpoint.pitch = correction.rates[1];
-			rates_setpoint.yaw = correction.rates[2];
+		    && Vector3f(correction.omega_cmd).isAllFinite() && Vector3f(correction.thrust_body).isAllFinite()) {
+			rates_setpoint.roll = correction.omega_cmd[0];
+			rates_setpoint.pitch = correction.omega_cmd[1];
+			rates_setpoint.yaw = correction.omega_cmd[2];
 			Vector3f(correction.thrust_body).copyTo(rates_setpoint.thrust_body);
-			_om_acceleration_indi_active = true;
+			_om_translational_indi_selected = true;
 		}
 	}
 
@@ -555,23 +555,19 @@ bool MulticopterAttitudeControl::applyOmMpc(vehicle_rates_setpoint_s &rates_setp
 	return om_active;
 }
 
-void MulticopterAttitudeControl::publishOmMpcStatus(bool active)
+void MulticopterAttitudeControl::publishOmMpcControlStatus(bool mpc_active)
 {
-	// Report final rate-setpoint ownership, not merely a successful QP.
-	// State changes publish immediately; the heartbeat is limited to 10 Hz.
-	auto &status = _om_status_pub.get();
+	// Report final arbitration on every attitude update. Logging is independently sampled.
+	auto &status = _om_control_status_pub.get();
 	const uint64_t now = hrt_absolute_time();
-	const bool acceleration_indi_active = active && _om_acceleration_indi_active;
-	const float takeover_progress = active ? _om_takeover.progress() : 0.f;
-	if (status.active != active || status.acceleration_indi_active != acceleration_indi_active
-	    || (status.takeover_progress < 1.f && takeover_progress >= 1.f)
-	    || now - status.timestamp >= 100_ms) {
-		status.timestamp = now;
-		status.active = active;
-		status.acceleration_indi_active = acceleration_indi_active;
-		status.takeover_progress = takeover_progress;
-		_om_status_pub.update();
-	}
+	const float takeover_progress = mpc_active ? _om_takeover.progress() : 0.f;
+	// At the first ramp sample progress==0, the applied output is still the entry anchor.
+	const bool translational_indi_active = mpc_active && _om_translational_indi_selected && takeover_progress > 0.f;
+	status.timestamp = now;
+	status.mpc_active = mpc_active;
+	status.translational_indi_active = translational_indi_active;
+	status.takeover_progress = takeover_progress;
+	_om_control_status_pub.update();
 }
 #endif
 

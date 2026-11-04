@@ -416,7 +416,7 @@ MulticopterRateControl::Run()
 				_rate_control.update(rates, _rates_setpoint, angular_accel, dt, _maybe_landed || _landed);
 			Vector3f indi_feedback{};
 			const bool indi_requested = indi_parameter_enabled || indi_rc_enabled;
-			const bool indi_active = _indi_capable && indi_requested && indi_flight_enabled
+			const bool rate_indi_active = _indi_capable && indi_requested && indi_flight_enabled
 						 && computeIndiTorqueSetpoint(rates, _rates_setpoint, angular_accel, now,
 							 torque_setpoint, indi_feedback);
 			const Vector3f torque_setpoint_before_output_processing = torque_setpoint;
@@ -427,7 +427,7 @@ MulticopterRateControl::Run()
 			// publish rate controller status
 			rate_ctrl_status_s rate_ctrl_status{};
 			_rate_control.getRateControlStatus(rate_ctrl_status);
-			rate_ctrl_status.indi_active = indi_active;
+			rate_ctrl_status.rate_indi_active = rate_indi_active;
 			rate_ctrl_status.timestamp = hrt_absolute_time();
 			_controller_status_pub.publish(rate_ctrl_status);
 
@@ -458,7 +458,7 @@ MulticopterRateControl::Run()
 				}
 			}
 
-			if (indi_active) {
+			if (rate_indi_active) {
 				vehicle_torque_setpoint.xyz_indi_feedback_valid = true;
 
 				for (int axis = 0; axis < 3; axis++) {

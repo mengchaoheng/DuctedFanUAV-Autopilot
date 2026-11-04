@@ -8,16 +8,17 @@ uint64 reference_timestamp
 float32[3] rates
 float32 hover_thrust          # thrust scale used by this QP and its downstream INDI correction
 float32[3] thrust_body
-float32[3] mpc_disturbance      # NED acceleration used by this QP [m/s^2]; zero for nominal MPC
+float32[3] mpc_disturbance      # d_bar used by this QP, NED [m/s^2]; downstream INDI compensates only the residual
 float32[3] position_error
 float32 primal_residual
 int32 solver_status
 uint32 iterations
-# All-attempt frontend + QP update + solve/check elapsed wall time.
-uint32 solve_us
+# Complete MPC computation: frontend + QP update + solve/check wall time [us].
+uint32 mpc_compute_us
 uint32 frontend_us
 uint32 update_us
-uint32 solver_us
+# QP solve/check section only; excludes frontend and QP update [us].
+uint32 qp_solve_us
 # Thread CPU for the same computation; UINT32_MAX if unavailable.
 uint32 cpu_us
 # Cold setup cannot authorize new control values; an older valid command may
