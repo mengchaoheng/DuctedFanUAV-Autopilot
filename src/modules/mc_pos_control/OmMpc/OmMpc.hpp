@@ -38,10 +38,10 @@ private:
 	px4::atomic_bool _started{false}, _stop{false}, _ready{false};
 
 	struct TrackingTiming {
-		uint64_t calls{0}, sum{0}, maximum{0}, cpu_samples{0}, cpu_sum{0}, cpu_max{0};
+		uint64_t calls{0}, sum{0}, maximum{0};
 	};
 	struct Failure {
-		uint64_t call{0}, frontend{0}, update{0}, solve{0}, total{0}, cpu{0};
+		uint64_t call{0}, total{0};
 		int status{0}, iterations{0};
 		bool cold{false};
 	};
@@ -56,8 +56,6 @@ private:
 		EntryWait entry_wait;
 		uint64_t calls{0}, failures{0}, sum_us{0}, max_us{0}, overruns{0};
 		uint64_t deadline_misses{0}, skipped{0}, wake_max_us{0};
-		uint64_t cpu_sum{0}, cpu_samples{0};
-		uint64_t frontend_sum{0}, update_sum{0}, solve_sum{0};
 		uint64_t cold_calls{0}, cold_failures{0}, cold_max{0}, warm_max{0};
 		uint64_t cold_over_10ms{0}, warm_over_10ms{0}, late_valid{0};
 		uint64_t entry_waits{0}, resumed_limits{0};

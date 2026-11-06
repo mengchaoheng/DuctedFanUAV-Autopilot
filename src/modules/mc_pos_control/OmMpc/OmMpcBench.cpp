@@ -1,7 +1,6 @@
 // Copyright 2026 Chaoheng Meng. SPDX-License-Identifier: BSD-3-Clause
 #include "OmMpcBench.hpp"
 #include "OmMpcBenchCase.hpp"
-#include "OmSolverRuntime.hpp"
 #include <drivers/drv_hrt.h>
 #include <parameters/param.h>
 #include <px4_platform_common/log.h>
@@ -47,6 +46,10 @@ OmMpcBench::OmMpcBench(unsigned period_us, unsigned seconds) :
 		 && _iteration_limit >= 1 && _iteration_limit <= 100
 		 && std::isfinite(hover) && hover > .01f && hover <= 1.f
 		 && std::isfinite(maximum) && maximum > 0.f && maximum <= 1.f && disarmed();
+
+	if (_valid) {
+		_cpu_monitor.start();
+	}
 }
 
 bool OmMpcBench::disarmed()
@@ -72,6 +75,7 @@ unsigned OmMpcBench::finish(const char *reason)
 	om_float_close();
 	_finished = true;
 	_measure_end = hrt_absolute_time();
+	_cpu_monitor.stop();
 	PX4_INFO("MPC bench %s (no control output)", reason);
 	print_status();
 	return 0;

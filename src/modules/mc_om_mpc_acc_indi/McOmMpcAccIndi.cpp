@@ -369,7 +369,7 @@ void McOmMpcAccIndi::Run()
 		hover_thrust, CONSTANTS_ONE_G);
 	const bool requested = om_mpc::mpcRequested(_onboard_enabled, _rc_channels, now)
 			&& _vehicle_status.nav_state == vehicle_status_s::NAVIGATION_STATE_ORBIT
-			&& _onboard_command.active && _onboard_command.timestamp_valid != 0
+			&& _onboard_command.valid && _onboard_command.timestamp_valid != 0
 			&& hrt_elapsed_time(&_onboard_command.timestamp_valid) < 60_ms
 			&& PX4_ISFINITE(hover_thrust) && hover_thrust > FLT_EPSILON
 			&& Vector3f(_onboard_command.thrust_body).isAllFinite()
@@ -421,6 +421,7 @@ void McOmMpcAccIndi::Run()
 		Vector3f{NAN, NAN, NAN}, Vector3f{NAN, NAN, NAN}
 	};
 	bool corrected_valid = false;
+	hrt_abstime control_start{0};
 
 	const Vector3f nominal_rates(_onboard_command.rates);
 	const Vector3f nominal_thrust{0.f, 0.f,
@@ -430,6 +431,7 @@ void McOmMpcAccIndi::Run()
 	const Vector3f mpc_disturbance(_onboard_command.mpc_disturbance);
 
 	if (feedback_valid && hover_thrust > FLT_EPSILON) {
+		control_start = hrt_absolute_time();
 		const Vector3f disturbance_raw = acceleration_ned - Vector3f{0.f, 0.f, CONSTANTS_ONE_G}
 				- allocated_force_ned * (CONSTANTS_ONE_G / hover_thrust);
 		disturbance = constrainDisturbance(disturbance_raw,
@@ -474,6 +476,7 @@ void McOmMpcAccIndi::Run()
 	output_rates.copyTo(correction.omega_cmd);
 	output_thrust.copyTo(correction.thrust_body);
 	correction.valid = acceleration_active;
+	correction.compute_us = acceleration_active ? static_cast<uint32_t>(publication_time - control_start) : 0;
 	acceleration_ned.copyTo(correction.a_f);
 	(allocated_force_ned * (CONSTANTS_ONE_G / hover_thrust)).copyTo(correction.beta_f);
 	corrected.attitude_error.copyTo(correction.e_phi);

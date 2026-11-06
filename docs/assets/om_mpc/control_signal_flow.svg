@@ -157,12 +157,13 @@
 <title>POS&#45;&gt;LOG</title>
 <path fill="none" stroke="#16856a" stroke-width="1.6" stroke-dasharray="5,2" d="M400,-2290C400,-2115 400,-1765 400,-1590"/>
 <polygon fill="#16856a" stroke="#16856a" stroke-width="1.6" points="402.98,-1590.92 400,-1582.42 397.03,-1590.92 402.98,-1590.92"/>
-<text xml:space="preserve" text-anchor="start" x="98.88" y="-2212.65" font-family="PingFang SC" font-weight="bold" font-size="18.00" fill="#16856a">acceleration_indi_status</text>
-<text xml:space="preserve" text-anchor="start" x="98.88" y="-2181" font-family="PingFang SC" font-size="18.00" fill="#000000">acceleration_feedback</text>
-<text xml:space="preserve" text-anchor="start" x="98.88" y="-2152.75" font-family="PingFang SC" font-size="18.00" fill="#000000">allocated_thrust_acceleration</text>
-<text xml:space="preserve" text-anchor="start" x="98.88" y="-2124.5" font-family="PingFang SC" font-size="18.00" fill="#000000">feedback_valid</text>
-<text xml:space="preserve" text-anchor="start" x="98.88" y="-2099.65" font-family="PingFang SC" font-weight="bold" font-size="18.00" fill="#16856a">vehicle_local_position_setpoint</text>
-<text xml:space="preserve" text-anchor="start" x="98.88" y="-2068" font-family="PingFang SC" font-size="18.00" fill="#000000">acc_indi_active</text>
+<text xml:space="preserve" text-anchor="start" x="89.88" y="-2226.77" font-family="PingFang SC" font-weight="bold" font-size="18.00" fill="#16856a">acceleration_indi_status</text>
+<text xml:space="preserve" text-anchor="start" x="89.88" y="-2195.12" font-family="PingFang SC" font-size="18.00" fill="#000000">acceleration_feedback</text>
+<text xml:space="preserve" text-anchor="start" x="89.88" y="-2166.87" font-family="PingFang SC" font-size="18.00" fill="#000000">allocated_thrust_acceleration</text>
+<text xml:space="preserve" text-anchor="start" x="89.88" y="-2138.62" font-family="PingFang SC" font-size="18.00" fill="#000000">feedback_valid</text>
+<text xml:space="preserve" text-anchor="start" x="89.88" y="-2110.37" font-family="PingFang SC" font-size="18.00" fill="#000000">compute_us [μs] / acc_indi_active</text>
+<text xml:space="preserve" text-anchor="start" x="89.88" y="-2085.52" font-family="PingFang SC" font-weight="bold" font-size="18.00" fill="#16856a">vehicle_local_position_setpoint</text>
+<text xml:space="preserve" text-anchor="start" x="89.88" y="-2053.87" font-family="PingFang SC" font-size="18.00" fill="#000000">thrust</text>
 </g>
 <!-- TI -->
 <g id="node4" class="node">
@@ -188,12 +189,11 @@
 <title>MPC&#45;&gt;TI</title>
 <path fill="none" stroke="#0066cc" stroke-width="1.8" d="M1380,-2455C1530,-2455 1700,-2455 1855,-2455"/>
 <polygon fill="#0066cc" stroke="#0066cc" stroke-width="1.8" points="1853.78,-2457.97 1862.28,-2455 1853.78,-2452.02 1853.78,-2457.97"/>
-<text xml:space="preserve" text-anchor="start" x="1424.62" y="-2417.65" font-family="PingFang SC" font-weight="bold" font-size="18.00" fill="#0066cc">om_mpc_command</text>
-<text xml:space="preserve" text-anchor="start" x="1424.62" y="-2386" font-family="PingFang SC" font-size="18.00" fill="#000000">rates → ωᴹ；thrust_body → tᴹ</text>
-<text xml:space="preserve" text-anchor="start" x="1424.62" y="-2357.75" font-family="PingFang SC" font-size="18.00" fill="#000000">hover_thrust → h；mpc_disturbance → d̄</text>
-<text xml:space="preserve" text-anchor="start" x="1424.62" y="-2329.5" font-family="PingFang SC" font-size="18.00" fill="#000000">active</text>
-<text xml:space="preserve" text-anchor="start" x="1424.62" y="-2301.25" font-family="PingFang SC" font-size="18.00" fill="#000000">mpc_compute_us [μs]：构造 + 更新 + 求解检查</text>
-<text xml:space="preserve" text-anchor="start" x="1424.62" y="-2273" font-family="PingFang SC" font-size="18.00" fill="#000000">qp_solve_us [μs]：QP 求解段</text>
+<text xml:space="preserve" text-anchor="start" x="1438.88" y="-2403.52" font-family="PingFang SC" font-weight="bold" font-size="18.00" fill="#0066cc">om_mpc_command</text>
+<text xml:space="preserve" text-anchor="start" x="1438.88" y="-2371.87" font-family="PingFang SC" font-size="18.00" fill="#000000">rates → ωᴹ；thrust_body → tᴹ</text>
+<text xml:space="preserve" text-anchor="start" x="1438.88" y="-2343.62" font-family="PingFang SC" font-size="18.00" fill="#000000">hover_thrust → h；mpc_disturbance → d̄</text>
+<text xml:space="preserve" text-anchor="start" x="1438.88" y="-2315.37" font-family="PingFang SC" font-size="18.00" fill="#000000">valid / held</text>
+<text xml:space="preserve" text-anchor="start" x="1438.88" y="-2287.12" font-family="PingFang SC" font-size="18.00" fill="#000000">mpc_compute_us [μs]：满足资格至指令选定</text>
 </g>
 <!-- MPC&#45;&gt;SELECT -->
 <g id="edge5" class="edge">
@@ -203,7 +203,7 @@
 <text xml:space="preserve" text-anchor="start" x="838.25" y="-2174.4" font-family="PingFang SC" font-weight="bold" font-size="18.00" fill="#0066cc">om_mpc_command</text>
 <text xml:space="preserve" text-anchor="start" x="838.25" y="-2142.75" font-family="PingFang SC" font-size="18.00" fill="#000000">rates → ωᴹ</text>
 <text xml:space="preserve" text-anchor="start" x="838.25" y="-2114.5" font-family="PingFang SC" font-size="18.00" fill="#000000">thrust_body → tᴹ</text>
-<text xml:space="preserve" text-anchor="start" x="838.25" y="-2086.25" font-family="PingFang SC" font-size="18.00" fill="#000000">active</text>
+<text xml:space="preserve" text-anchor="start" x="838.25" y="-2086.25" font-family="PingFang SC" font-size="18.00" fill="#000000">valid</text>
 </g>
 <!-- TI&#45;&gt;MPC -->
 <g id="edge10" class="edge">
@@ -219,9 +219,10 @@
 <title>TI&#45;&gt;SELECT</title>
 <path fill="none" stroke="#0066cc" stroke-width="1.8" d="M2430,-2215C2430,-2165 2430,-2105 2430,-2065 2080,-2065 1630,-2065 1280,-2065 1280,-2040 1280,-2010 1280,-1985"/>
 <polygon fill="#0066cc" stroke="#0066cc" stroke-width="1.8" points="1282.98,-1986.22 1280,-1977.72 1277.03,-1986.22 1282.98,-1986.22"/>
-<text xml:space="preserve" text-anchor="start" x="1756.12" y="-2145.27" font-family="PingFang SC" font-weight="bold" font-size="18.00" fill="#0066cc">om_mpc_acc_indi_command</text>
-<text xml:space="preserve" text-anchor="start" x="1756.12" y="-2113.62" font-family="PingFang SC" font-size="18.00" fill="#000000">omega_cmd → ω_cmd；thrust_body → t_cmd</text>
-<text xml:space="preserve" text-anchor="start" x="1756.12" y="-2085.37" font-family="PingFang SC" font-size="18.00" fill="#000000">a_f / beta_f / e_phi → a_f, β_f, e_φ；valid</text>
+<text xml:space="preserve" text-anchor="start" x="1756.12" y="-2159.4" font-family="PingFang SC" font-weight="bold" font-size="18.00" fill="#0066cc">om_mpc_acc_indi_command</text>
+<text xml:space="preserve" text-anchor="start" x="1756.12" y="-2127.75" font-family="PingFang SC" font-size="18.00" fill="#000000">omega_cmd → ω_cmd；thrust_body → t_cmd</text>
+<text xml:space="preserve" text-anchor="start" x="1756.12" y="-2099.5" font-family="PingFang SC" font-size="18.00" fill="#000000">a_f / beta_f / e_phi → a_f, β_f, e_φ；valid</text>
+<text xml:space="preserve" text-anchor="start" x="1756.12" y="-2071.25" font-family="PingFang SC" font-size="18.00" fill="#000000">compute_us [μs]：中间层 INDI 修正</text>
 </g>
 <!-- RATE -->
 <g id="node6" class="node">
@@ -333,8 +334,9 @@
 <title>RATE&#45;&gt;LOG</title>
 <path fill="none" stroke="#16856a" stroke-width="1.6" stroke-dasharray="5,2" d="M780,-1170C760,-1170 730,-1170 710,-1170 710,-1215 710,-1295 710,-1340 680,-1340 650,-1340 620,-1340"/>
 <polygon fill="#16856a" stroke="#16856a" stroke-width="1.6" points="620.92,-1337.02 612.42,-1340 620.92,-1342.97 620.92,-1337.02"/>
-<text xml:space="preserve" text-anchor="start" x="747.88" y="-1286.15" font-family="PingFang SC" font-weight="bold" font-size="18.00" fill="#16856a">rate_ctrl_status</text>
-<text xml:space="preserve" text-anchor="start" x="747.88" y="-1254.5" font-family="PingFang SC" font-size="18.00" fill="#000000">rate_indi_active</text>
+<text xml:space="preserve" text-anchor="start" x="746.38" y="-1300.27" font-family="PingFang SC" font-weight="bold" font-size="18.00" fill="#16856a">rate_ctrl_status</text>
+<text xml:space="preserve" text-anchor="start" x="746.38" y="-1268.62" font-family="PingFang SC" font-size="18.00" fill="#000000">rate_indi_active</text>
+<text xml:space="preserve" text-anchor="start" x="746.38" y="-1240.37" font-family="PingFang SC" font-size="18.00" fill="#000000">compute_us [μs]</text>
 </g>
 <!-- CA&#45;&gt;POS -->
 <g id="edge13" class="edge">

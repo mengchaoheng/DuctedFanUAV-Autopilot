@@ -476,7 +476,7 @@ bool MulticopterAttitudeControl::applyOmMpc(vehicle_rates_setpoint_s &rates_setp
 		&& _vehicle_control_mode.flag_armed && _vehicle_control_mode.flag_control_position_enabled
 		&& _vehicle_status_sub.copy(&status) && status.nav_state == vehicle_status_s::NAVIGATION_STATE_ORBIT
 		&& _om_reference_sub.copy(&reference) && reference.valid && hrt_elapsed_time(&reference.timestamp) < 100_ms
-		&& _om_command_sub.copy(&command) && command.active && command.timestamp_valid != 0
+		&& _om_command_sub.copy(&command) && command.valid && command.timestamp_valid != 0
 		&& hrt_elapsed_time(&command.timestamp_valid) < 60_ms
 		&& Vector3f(command.rates).isAllFinite() && Vector3f(command.thrust_body).isAllFinite();
 	if (om_active) {

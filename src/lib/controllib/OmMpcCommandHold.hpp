@@ -13,7 +13,7 @@ public:
 
 	bool select(om_mpc_command_s &attempt, bool eligible, bool accept_new, uint64_t now)
 	{
-		attempt.active = false;
+		attempt.valid = false;
 		attempt.held = false;
 		attempt.timestamp_valid = 0;
 
@@ -23,13 +23,13 @@ public:
 		}
 
 		if (accept_new && now && finite(attempt)) {
-			attempt.active = true;
+			attempt.valid = true;
 			attempt.timestamp_valid = now;
 			_last = attempt;
 			return true;
 		}
 
-		if (_last.active && _last.timestamp_valid && now >= _last.timestamp_valid
+		if (_last.valid && _last.timestamp_valid && now >= _last.timestamp_valid
 		    && now - _last.timestamp_valid < TimeoutUs) {
 			for (unsigned i = 0; i < 3; ++i) {
 				attempt.rates[i] = _last.rates[i];
@@ -39,7 +39,7 @@ public:
 
 			attempt.hover_thrust = _last.hover_thrust;
 			attempt.timestamp_valid = _last.timestamp_valid;
-			attempt.active = true;
+			attempt.valid = true;
 			attempt.held = true;
 			return true;
 		}

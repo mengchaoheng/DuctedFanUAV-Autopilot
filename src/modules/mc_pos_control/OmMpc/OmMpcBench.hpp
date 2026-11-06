@@ -2,6 +2,7 @@
 #pragma once
 
 #include "OmQpSolver.hpp"
+#include "OmSolverRuntime.hpp"
 #include <uORB/Subscription.hpp>
 #include <uORB/topics/cpuload.h>
 #include <uORB/topics/vehicle_status.h>
@@ -55,5 +56,6 @@ private:
 	unsigned _cold_failed{0};
 	Timing _wall, _cpu, _frontend, _update, _solve, _iterations, _cold_wall;
 	Load _baseline_load, _test_load;
+	OmCpuMonitor _cpu_monitor;
 	uORB::Subscription _status_sub{ORB_ID(vehicle_status)}, _load_sub{ORB_ID(cpuload)};
 };

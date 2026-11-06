@@ -177,7 +177,7 @@ MulticopterRateControl::publishTorqueSetpoint(const vehicle_torque_setpoint_s &v
 bool
 MulticopterRateControl::computeIndiTorqueSetpoint(const Vector3f &rates, const Vector3f &rates_setpoint,
 		const Vector3f &angular_accel, hrt_abstime reference_timestamp, Vector3f &torque_setpoint,
-		Vector3f &indi_feedback)
+		Vector3f &indi_feedback, hrt_abstime &compute_elapsed)
 {
 	Vector3f allocated_torque;
 	Vector3f output_scale;
@@ -186,11 +186,13 @@ MulticopterRateControl::computeIndiTorqueSetpoint(const Vector3f &rates, const V
 		return false;
 	}
 
+	const hrt_abstime indi_start = hrt_absolute_time();
 	const IndiControl::Output physical_output =
 		_indi_control.update(rates, rates_setpoint, angular_accel, allocated_torque);
 
 	indi_feedback = output_scale.emult(physical_output.feedback_torque);
 	torque_setpoint = output_scale.emult(physical_output.rate_error_torque + physical_output.feedback_torque);
+	compute_elapsed = hrt_elapsed_time(&indi_start);
 	return true;
 }
 
@@ -412,13 +414,15 @@ MulticopterRateControl::Run()
 			}
 
 			// Keep the original PID controller running as a hot standby.
+			const hrt_abstime pid_start = hrt_absolute_time();
 			Vector3f torque_setpoint =
 				_rate_control.update(rates, _rates_setpoint, angular_accel, dt, _maybe_landed || _landed);
+			hrt_abstime control_elapsed = hrt_elapsed_time(&pid_start);
 			Vector3f indi_feedback{};
 			const bool indi_requested = indi_parameter_enabled || indi_rc_enabled;
 			const bool rate_indi_active = _indi_capable && indi_requested && indi_flight_enabled
 						 && computeIndiTorqueSetpoint(rates, _rates_setpoint, angular_accel, now,
-							 torque_setpoint, indi_feedback);
+								 torque_setpoint, indi_feedback, control_elapsed);
 			const Vector3f torque_setpoint_before_output_processing = torque_setpoint;
 
 			// apply low-pass filtering on yaw axis to reduce high frequency torque caused by rotor acceleration
@@ -428,6 +432,8 @@ MulticopterRateControl::Run()
 			rate_ctrl_status_s rate_ctrl_status{};
 			_rate_control.getRateControlStatus(rate_ctrl_status);
 			rate_ctrl_status.rate_indi_active = rate_indi_active;
+			rate_ctrl_status.timestamp_sample = angular_velocity.timestamp_sample;
+			rate_ctrl_status.compute_us = static_cast<uint32_t>(control_elapsed);
 			rate_ctrl_status.timestamp = hrt_absolute_time();
 			_controller_status_pub.publish(rate_ctrl_status);
 

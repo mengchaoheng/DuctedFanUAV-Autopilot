@@ -101,7 +101,7 @@ private:
 	bool computeIndiTorqueSetpoint(const matrix::Vector3f &rates, const matrix::Vector3f &rates_setpoint,
 				       const matrix::Vector3f &angular_accel, hrt_abstime reference_timestamp,
 				       matrix::Vector3f &torque_setpoint,
-				       matrix::Vector3f &indi_feedback);
+				       matrix::Vector3f &indi_feedback, hrt_abstime &compute_elapsed);
 	void updateAllocatedTorqueHistory();
 	bool getDelayedAllocatedTorque(hrt_abstime reference_timestamp, matrix::Vector3f &allocated_torque,
 				       matrix::Vector3f &torque_setpoint_scale);

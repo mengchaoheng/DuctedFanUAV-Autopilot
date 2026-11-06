@@ -194,6 +194,8 @@ public:
 	 */
 	void getAttitudeSetpoint(vehicle_attitude_setpoint_s &attitude_setpoint) const;
 
+	bool accelerationIndiActive() const { return _acceleration_indi_active; }
+
 	/** Raw normalized thrust from the selected PID/INDI law before bumpless transfer and common limits. */
 	const matrix::Vector3f &getAccelerationIndiRawThrustSetpoint() const { return _acceleration_indi_raw_thr_sp; }
 

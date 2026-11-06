@@ -9,6 +9,7 @@ uint64 timestamp_force    # beta_f matched force sample/interpolation time [us];
 float32[3] omega_cmd      # body-FRD angular-rate command after entry transition [rad/s]
 float32[3] thrust_body    # normalized body-FRD thrust command
 bool valid               # correction computed successfully under the enable/flight gates; not final application
+uint32 compute_us         # elapsed from matched feedback through final rate/thrust blending [us] when valid
 
 # Paper notation: beta_c = beta_f + g*e3 + beta_M + d_bar - a_f;
 # omega^c = omega^M + K_phi*e_phi; omega_cmd = omega^M + eta*(omega^c - omega^M).

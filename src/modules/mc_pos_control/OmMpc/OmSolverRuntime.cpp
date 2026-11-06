@@ -1,9 +1,9 @@
-// Private worker deadline and CPU diagnostics; not shared with control work queues.
+// Private worker deadline and optional ground benchmark CPU accounting.
 #include "OmSolverRuntime.hpp"
 #include <drivers/drv_hrt.h>
 #include <time.h>
+#if defined(MC_POS_OM_MPC_BENCH) && defined(__PX4_NUTTX)
 #include <unistd.h>
-#ifdef __PX4_NUTTX
 #include <px4_platform/cpuload.h>
 #include <nuttx/sched.h>
 #include <nuttx/irq.h>
@@ -22,7 +22,10 @@ uint64_t timing_us()
 	return hrt_absolute_time();
 #endif
 }
-uint64_t cpu_time_us()
+}
+
+#ifdef MC_POS_OM_MPC_BENCH
+uint64_t om_qp_cpu_time_us()
 {
 #ifdef __PX4_NUTTX
 #ifdef CONFIG_SCHED_INSTRUMENTATION
@@ -49,24 +52,32 @@ uint64_t cpu_time_us()
 #endif
 }
 
-}
-
-uint64_t om_qp_cpu_time_us()
-{
-	return cpu_time_us();
-}
-OmCpuMonitor::OmCpuMonitor()
-{
-#if defined(__PX4_NUTTX) && defined(CONFIG_SCHED_INSTRUMENTATION)
-	cpuload_monitor_start();
-#endif
-}
 OmCpuMonitor::~OmCpuMonitor()
 {
-#if defined(__PX4_NUTTX) && defined(CONFIG_SCHED_INSTRUMENTATION)
-	cpuload_monitor_stop();
-#endif
+	stop();
 }
+
+void OmCpuMonitor::start()
+{
+	if (!_running) {
+#if defined(__PX4_NUTTX) && defined(CONFIG_SCHED_INSTRUMENTATION)
+		cpuload_monitor_start();
+#endif
+		_running = true;
+	}
+}
+
+void OmCpuMonitor::stop()
+{
+	if (_running) {
+#if defined(__PX4_NUTTX) && defined(CONFIG_SCHED_INSTRUMENTATION)
+		cpuload_monitor_stop();
+#endif
+		_running = false;
+	}
+}
+#endif
+
 void om_qp_set_deadline(uint64_t deadline)
 {
 	solve_deadline = deadline;

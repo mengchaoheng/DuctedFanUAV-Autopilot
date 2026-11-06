@@ -804,6 +804,7 @@ void MulticopterPositionControl::Run()
 			}
 #endif
 			// Run position control
+			const hrt_abstime control_start = hrt_absolute_time();
 			if (_control.update(dt)) {
 
 				// Valid control update - store for fallback
@@ -841,6 +842,7 @@ void MulticopterPositionControl::Run()
 			acceleration_indi_status_s indi_status{};
 			indi_status.timestamp_sample = vehicle_local_position.timestamp_sample;
 			indi_status.force_timestamp = _indi_delayed_force_timestamp;
+			indi_status.acc_indi_active = _control.accelerationIndiActive();
 			states.acceleration.copyTo(indi_status.acceleration_feedback);
 			_indi_acceleration_velocity_derivative.copyTo(indi_status.acceleration_velocity_derivative);
 			_indi_acceleration_ekf.copyTo(indi_status.acceleration_ekf);
@@ -854,14 +856,16 @@ void MulticopterPositionControl::Run()
 			indi_status.acceleration_source_valid = _indi_acceleration_source_valid;
 			indi_status.feedback_valid = acceleration_indi_feedback_available;
 			indi_status.controller_transition_active = _control.accelerationIndiTransitionActive();
-			indi_status.timestamp = hrt_absolute_time();
-			_acceleration_indi_status_pub.publish(indi_status);
 
 			// Publish attitude setpoint output
 			vehicle_attitude_setpoint_s attitude_setpoint{};
 			_control.getAttitudeSetpoint(attitude_setpoint);
 			attitude_setpoint.timestamp = hrt_absolute_time();
 			_vehicle_attitude_setpoint_pub.publish(attitude_setpoint);
+
+			indi_status.timestamp = hrt_absolute_time();
+			indi_status.compute_us = static_cast<uint32_t>(indi_status.timestamp - control_start);
+			_acceleration_indi_status_pub.publish(indi_status);
 
 		} else {
 			// an update is necessary here because otherwise the takeoff state doesn't get skipped with non-altitude-controlled modes

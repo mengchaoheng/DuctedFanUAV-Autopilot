@@ -177,7 +177,6 @@ struct OmMpc::Runtime {
 		max_thrust = hover > .01f ? 9.80665f * max_normalized / hover : 0.f;
 	}
 
-	OmCpuMonitor cpu_monitor;
 	uORB::Subscription ref_sub {ORB_ID(om_mpc_reference)}, pos_sub {ORB_ID(vehicle_local_position)}, att_sub {ORB_ID(vehicle_attitude)},
 	     disturbance_sub{ORB_ID(om_mpc_disturbance)},
 	     status_sub{ORB_ID(vehicle_status)}, mode_sub{ORB_ID(vehicle_control_mode)}, land_sub{ORB_ID(vehicle_land_detected)};
@@ -282,7 +281,6 @@ void OmMpc::Run()
 			_runtime->command_hold.reset();
 			om_mpc_command_s inactive{};
 			inactive.timestamp = hrt_absolute_time();
-			inactive.cpu_us = UINT32_MAX;
 			_runtime->publication.publish(inactive);
 		}
 		const unsigned delay = _benchmark->run(_runtime->problem);
@@ -311,7 +309,6 @@ void OmMpc::Run()
 	auto &engaged = _runtime->engaged;
 	auto &resets = _runtime->resets;
 	auto &had_resets = _runtime->had_resets;
-	uint64_t published_cpu = UINT64_MAX;
 	_runtime->update_config();
 	const unsigned divider = setting(h_mpc_om_rate) == 100 ? 1 : 2;
 
@@ -390,7 +387,6 @@ void OmMpc::Run()
 	vehicle_land_detected_s land{};
 	om_mpc_command_s output{};
 	output.timestamp = hrt_absolute_time();
-	output.cpu_us = UINT32_MAX;
 	// The same explicit trajectory/state checks apply in flight and simulation.
 	// SYS_HITL describes the sensor source, not controller output ownership.
 	const bool eligible = due && have_position && _runtime->horizon_supported && enabled
@@ -406,6 +402,7 @@ void OmMpc::Run()
 			      && Vector3f(ref.harmonic).isAllFinite() && Vector3f(ref.phase_offset).isAllFinite()
 			      && std::isfinite(ref.phase) && std::isfinite(ref.phase_rate) && std::isfinite(ref.phase_acceleration)
 			      && std::isfinite(ref.ramp_remaining) && std::isfinite(ref.heading_rotation) && std::isfinite(ref.yaw);
+	const uint64_t compute_begin = eligible ? wall_us() : 0;
 
 	// Never retain a command across an estimator frame/reset change, including
 	// when this release is already too late to start a new QP.
@@ -439,13 +436,16 @@ void OmMpc::Run()
 	}
 
 	bool hold_allowed = false;
+	bool attempted = false;
+	bool solved = false;
+	bool model_initialized_now = false;
+	OmFloatResult result{};
 
 	// 1. Validate the current flight/reference before touching solver state.
 	if (eligible) {
-		const uint64_t begin = wall_us();
+		const uint64_t attempt_begin = wall_us();
 		const bool cold = !workspace_ready;
 		// 2. Construct the nominal error-state QP from fresh state and analytic reference.
-		const uint64_t cpu_begin = om_qp_cpu_time_us();
 		om_mpc::Path path;
 		path.center = Vector3f(ref.center);
 		path.amplitude = Vector3f(ref.amplitude);
@@ -474,10 +474,13 @@ void OmMpc::Run()
 		    && Vector3f(feedback.acceleration_disturbance).isAllFinite()) {
 			predicted_disturbance = Vector3f(feedback.acceleration_disturbance) * _runtime->disturbance_gain;
 		}
+
 		const bool built = hover > .01f && om_mpc::build(path, elapsed, Vector3f{pos.x, pos.y, pos.z}, Vector3f{pos.vx, pos.vy, pos.vz},
 				   matrix::Dcmf(matrix::Quatf(att.q)), _runtime->max_thrust, _runtime->rate_limits, problem, _runtime->model_initialized,
 				   _runtime->prediction_dt, _runtime->prediction_horizon, predicted_disturbance);
-		if (built && !_runtime->model_initialized) {
+		model_initialized_now = built && !_runtime->model_initialized;
+
+		if (model_initialized_now) {
 			// A weight change resets the workspace under PID ownership. Warm
 			// cycles reuse these diagonal costs and the solver factorization.
 			for (int i = 0; i < 9; ++i) {
@@ -488,16 +491,11 @@ void OmMpc::Run()
 			for (int i = 0; i < 4; ++i) {
 				problem.r[i] = _runtime->cost[i == 0 ? 3 : 4];
 			}
-
-			PX4_INFO("OM-MPC applied QP: N=%d dt=%.6f H=%.6f Q=[%.6f %.6f %.6f] R=[%.6f %.6f] P/Q=%.6f",
-				 (int)problem.horizon, (double)problem.dt, (double)(problem.horizon * problem.dt),
-				 (double)problem.q[0], (double)problem.q[3], (double)problem.q[6],
-				 (double)problem.r[0], (double)problem.r[1], (double)(problem.p[0] / problem.q[0]));
 		}
 
 		_runtime->model_initialized |= built;
 		hold_allowed = built;
-		const uint64_t frontend_end = wall_us();
+
 		// Enter the local error model only after standby PID has captured the
 		// moving reference. A deadline rejection does not restart this capture.
 		EntryWait entry;
@@ -527,11 +525,10 @@ void OmMpc::Run()
 
 		// 3. Update/solve with the existing cold or warm deadline.
 		if (captured) {
+			attempted = true;
 			const bool ready = built && om_float_update(problem, OmQpTolerance, OmQpLayout::OmErrorState);
-			const uint64_t update_end = wall_us();
-			OmFloatResult result{};
 			result.status = 7;
-			const uint64_t result_deadline = !enforce_wall_deadline ? UINT64_MAX : cold ? begin + 20000 : warm_deadline;
+			const uint64_t result_deadline = !enforce_wall_deadline ? UINT64_MAX : cold ? attempt_begin + 20000 : warm_deadline;
 			om_qp_set_deadline(result_deadline);
 			const int iteration_limit = _runtime->iteration_limit;
 
@@ -541,25 +538,17 @@ void OmMpc::Run()
 			}
 
 			om_qp_set_deadline(0);
-			const uint64_t cost = wall_us() - begin;
+			const uint64_t result_end = wall_us();
+			solved = ready && result.status == 1 && result.finite && result.primal_residual <= 2e-5f;
+			const bool deadline_missed = result_end > result_deadline;
+			const bool valid = solved && !deadline_missed;
 			output.solver_status = result.status;
 			output.iterations = result.iterations;
 			output.primal_residual = result.primal_residual;
-			output.mpc_compute_us = cost;
-			output.frontend_us = frontend_end - begin;
-			output.update_us = update_end - frontend_end;
-			output.qp_solve_us = begin + cost - update_end;
 			output.initializing = cold;
 			output.timestamp_sample = pos.timestamp_sample;
 			output.reference_timestamp = ref.timestamp;
-			const uint64_t cpu_end = om_qp_cpu_time_us();
-			const uint64_t cpu = (cpu_begin != UINT64_MAX && cpu_end != UINT64_MAX && cpu_end >= cpu_begin) ? cpu_end - cpu_begin : 0;
-			const bool solved = ready && result.status == 1 && result.finite && result.primal_residual <= 2e-5f;
-			output.deadline_missed = begin + cost > result_deadline;
-			if (cpu_begin != UINT64_MAX && cpu_end != UINT64_MAX && cpu_end >= cpu_begin) {
-				output.cpu_us = cpu;
-			}
-			const bool valid = solved && !output.deadline_missed;
+			output.deadline_missed = deadline_missed;
 			// Cold setup cannot authorize new control values. Initial entry stays
 			// with PID; recovery may retain an existing, still-fresh command.
 			// Its separate 20 ms/100-iteration budget only prepares the workspace.
@@ -568,10 +557,9 @@ void OmMpc::Run()
 						     && status_sub.copy(&status) && status.nav_state == vehicle_status_s::NAVIGATION_STATE_ORBIT;
 			hold_allowed &= still_requested;
 			if (valid && !cold && still_requested) {
-				output.active = true;
-				predicted_disturbance.copyTo(output.mpc_disturbance);
-				published_cpu = cpu_begin != UINT64_MAX && cpu_end != UINT64_MAX && cpu_end >= cpu_begin ? cpu : UINT64_MAX;
+				output.valid = true;
 				engaged = true;
+				predicted_disturbance.copyTo(output.mpc_disturbance);
 
 				for (int i = 0; i < 3; i++) {
 					output.rates[i] = problem.reference_input[1 + i] + result.inputs[1 + i];
@@ -580,66 +568,13 @@ void OmMpc::Run()
 
 				const float thrust = problem.reference_input[0] + result.inputs[0];
 				output.thrust_body[2] = -fminf(fmaxf(thrust * hover / 9.80665f, 0.f), max_normalized);
+			}
 
-			} else if (!solved && !result.resumable) {
+			// A converged but late command keeps its workspace for the next warm solve.
+			if (!solved && !result.resumable) {
 				om_float_close();
 				workspace_ready = false;
 			}
-
-			// A converged but late command is rejected; retain its valid workspace
-			// for the next warm solve instead of forcing another cold initialization.
-			pthread_mutex_lock(&_mutex);
-			++_stats.calls;
-			_stats.recovery_attempts += result.recovery_attempted;
-			_stats.recovery_successes += result.recovery_attempted && result.recovery_succeeded && solved;
-
-			if (result.arena_used > _stats.arena_peak) {
-				_stats.arena_peak = result.arena_used;
-			}
-
-			_stats.cold_calls += cold;
-			_stats.cold_failures += cold && !valid;
-			_stats.cold_over_10ms += cold && cost > 10000;
-			_stats.warm_over_10ms += !cold && cost > 10000;
-
-			if (cold && cost > _stats.cold_max) {
-				_stats.cold_max = cost;
-			}
-
-			if (!cold && cost > _stats.warm_max) {
-				_stats.warm_max = cost;
-			}
-
-			_stats.resumed_limits += result.resumable;
-			_stats.late_valid += solved && !valid;
-
-			if (!valid) {
-				_stats.failure = {_stats.calls, frontend_end - begin, update_end - frontend_end,
-						  begin + cost - update_end, cost, cpu, result.status, result.iterations, cold};
-			}
-
-			_stats.failures += !valid;
-			_stats.deadline_misses += !cold && output.deadline_missed;
-			_stats.sum_us += cost;
-
-			if (cpu_begin != UINT64_MAX && cpu_end != UINT64_MAX && cpu_end >= cpu_begin) {
-				_stats.cpu_sum += cpu;
-				++_stats.cpu_samples;
-			}
-
-			_stats.frontend_sum += frontend_end - begin;
-			_stats.update_sum += update_end - frontend_end;
-			_stats.solve_sum += begin + cost - update_end;
-
-			if (cost > _stats.max_us) {
-				_stats.max_us = cost;
-			}
-
-			_stats.overruns += cost > 20000;
-			_stats.last_status = result.status;
-			_stats.last_iterations = result.iterations;
-			_stats.residual = result.primal_residual;
-			pthread_mutex_unlock(&_mutex);
 
 		} else {
 			pthread_mutex_lock(&_mutex);
@@ -663,32 +598,84 @@ void OmMpc::Run()
 	// 4. Publish every attempt, including failures. Retained control keeps its
 	// original successful timestamp, so repeated failures cannot renew its age.
 	output.timestamp = hrt_absolute_time();
-	const bool accepted_new = output.active;
-	_ready.store(_runtime->command_hold.select(output, eligible && hold_allowed, accepted_new, output.timestamp));
+	const bool accepted_new = output.valid;
+	const bool command_ready = _runtime->command_hold.select(output, eligible && hold_allowed, accepted_new, output.timestamp);
+	// Measure through final command selection, before sending it to uORB.
+	const uint64_t cost = attempted ? wall_us() - compute_begin : 0;
+	output.mpc_compute_us = cost;
+	_ready.store(command_ready);
 	publication.publish(output);
+	const bool published_new = output.valid && !output.held;
+	const uint64_t publication_end = published_new ? wall_us() : 0;
 
-	if (output.active && !output.held) {
-		const uint64_t publication_end = wall_us();
-		const uint64_t elapsed = publication_end - cycle_begin;
+	if (attempted) {
+		const bool cold = output.initializing;
+		const bool valid = solved && !output.deadline_missed;
+		// Keep the statistics lock outside both measured intervals.
 		pthread_mutex_lock(&_mutex);
-		++_stats.tracking.calls;
-		_stats.tracking.sum += elapsed;
+		++_stats.calls;
+		_stats.recovery_attempts += result.recovery_attempted;
+		_stats.recovery_successes += result.recovery_attempted && result.recovery_succeeded && solved;
 
-		if (elapsed > _stats.tracking.maximum) {
-			_stats.tracking.maximum = elapsed;
+		if (result.arena_used > _stats.arena_peak) {
+			_stats.arena_peak = result.arena_used;
 		}
 
-		if (published_cpu != UINT64_MAX) {
-			++_stats.tracking.cpu_samples;
-			_stats.tracking.cpu_sum += published_cpu;
+		_stats.cold_calls += cold;
+		_stats.cold_failures += cold && !valid;
+		_stats.cold_over_10ms += cold && cost > 10000;
+		_stats.warm_over_10ms += !cold && cost > 10000;
 
-			if (published_cpu > _stats.tracking.cpu_max) {
-				_stats.tracking.cpu_max = published_cpu;
+		if (cold && cost > _stats.cold_max) {
+			_stats.cold_max = cost;
+		}
+
+		if (!cold && cost > _stats.warm_max) {
+			_stats.warm_max = cost;
+		}
+
+		_stats.resumed_limits += result.resumable;
+		_stats.late_valid += solved && !valid;
+
+		if (!valid) {
+			_stats.failure = {_stats.calls, cost, result.status, result.iterations, cold};
+		}
+
+		_stats.failures += !valid;
+		_stats.deadline_misses += !cold && output.deadline_missed;
+		_stats.sum_us += cost;
+
+		if (cost > _stats.max_us) {
+			_stats.max_us = cost;
+		}
+
+		_stats.overruns += cost > 20000;
+		_stats.last_status = result.status;
+		_stats.last_iterations = result.iterations;
+		_stats.residual = result.primal_residual;
+
+		if (published_new) {
+			const uint64_t elapsed = publication_end - cycle_begin;
+			++_stats.tracking.calls;
+			_stats.tracking.sum += elapsed;
+
+			if (elapsed > _stats.tracking.maximum) {
+				_stats.tracking.maximum = elapsed;
 			}
 		}
 
 		pthread_mutex_unlock(&_mutex);
 	}
+
+	// Configuration is available from the MPC parameters.
+	/*
+	if (model_initialized_now) {
+		PX4_INFO("OM-MPC applied QP: N=%d dt=%.6f H=%.6f Q=[%.6f %.6f %.6f] R=[%.6f %.6f] P/Q=%.6f",
+			 (int)problem.horizon, (double)problem.dt, (double)(problem.horizon * problem.dt),
+			 (double)problem.q[0], (double)problem.q[3], (double)problem.q[6],
+			 (double)problem.r[0], (double)problem.r[1], (double)(problem.p[0] / problem.q[0]));
+	}
+	*/
 
 	if (have_position) {
 		schedule_next();
@@ -774,15 +761,9 @@ void OmMpc::print_status()
 	PX4_INFO("OM-MPC published warm cycles=%llu elapsed mean=%.2f max=%llu us (Run entry through publication)",
 		 (unsigned long long)tracking.calls, tracking.calls ? double(tracking.sum) / tracking.calls : 0.,
 		 (unsigned long long)tracking.maximum);
-	PX4_INFO("OM-MPC published QP CPU: samples=%llu mean=%.2f max=%llu us",
-		 (unsigned long long)tracking.cpu_samples, tracking.cpu_samples ? double(tracking.cpu_sum) / tracking.cpu_samples : 0.,
-		 (unsigned long long)tracking.cpu_max);
 	PX4_INFO("OM-MPC attempts: calls=%llu failures=%llu mean=%.2f max=%llu us",
 		 (unsigned long long)stats.calls, (unsigned long long)stats.failures, stats.calls ? double(stats.sum_us) / stats.calls : 0.,
 		 (unsigned long long)stats.max_us);
-	PX4_INFO("OM-MPC mean frontend=%.2f update=%.2f solve/checks=%.2f us; CPU=%.2f us",
-		 stats.calls ? double(stats.frontend_sum) / stats.calls : 0., stats.calls ? double(stats.update_sum) / stats.calls : 0.,
-		 stats.calls ? double(stats.solve_sum) / stats.calls : 0., stats.cpu_samples ? double(stats.cpu_sum) / stats.cpu_samples : 0.);
 	PX4_INFO("OM-MPC estimated period=%u us, deadline misses=%llu skipped=%llu wake max=%llu us",
 		 stats.period_us, (unsigned long long)stats.deadline_misses, (unsigned long long)stats.skipped, (unsigned long long)stats.wake_max_us);
 	// Cold setup belongs to PID and is intentionally separated from published commands.
@@ -804,11 +785,9 @@ void OmMpc::print_status()
 	}
 	const auto &failure = stats.failure;
 	if (failure.call) {
-		PX4_INFO("OM-MPC last failure: call=%llu %s status=%d iter=%d total=%llu CPU=%llu us",
+		PX4_INFO("OM-MPC last failure: call=%llu %s status=%d iter=%d total=%llu us",
 			 (unsigned long long)failure.call, failure.cold ? "cold" : "warm", failure.status, failure.iterations,
-			 (unsigned long long)failure.total, (unsigned long long)failure.cpu);
-		PX4_INFO("OM-MPC failure frontend=%llu update=%llu solve/checks=%llu us",
-			 (unsigned long long)failure.frontend, (unsigned long long)failure.update, (unsigned long long)failure.solve);
+			 (unsigned long long)failure.total);
 	}
 	PX4_INFO("OM-MPC solver=qpDUNES float32 iteration cap=%d last status=%d iter=%d residual=%.8f",
 		 setting("MPC_QP_ITMAX"), stats.last_status, stats.last_iterations, (double)stats.residual);
