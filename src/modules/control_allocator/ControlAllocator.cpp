@@ -55,7 +55,6 @@ using namespace time_literals;
 namespace
 {
 constexpr float kAllocationFeedbackSampleRateChangeThreshold = 0.1f;
-constexpr hrt_abstime kAllocationFeedbackFilterStatusPublishInterval = 100_ms;
 
 hrt_abstime runtimeMeasurementTimeUs()
 {
@@ -113,16 +112,16 @@ uint8_t allocationActiveAxesMask(const ControlAllocation &allocation)
 const char *allocationSolverStatusName(int8_t status)
 {
 	switch (status) {
-	case control_allocator_status_s::SOLVER_STATUS_OK:
+	case control_allocator_diagnostics_s::SOLVER_STATUS_OK:
 		return "ok";
 
-	case control_allocator_status_s::SOLVER_STATUS_UNAVAILABLE:
+	case control_allocator_diagnostics_s::SOLVER_STATUS_UNAVAILABLE:
 		return "unavailable";
 
-	case control_allocator_status_s::SOLVER_STATUS_FAILED:
+	case control_allocator_diagnostics_s::SOLVER_STATUS_FAILED:
 		return "failed";
 
-	case control_allocator_status_s::SOLVER_STATUS_NOT_RUN:
+	case control_allocator_diagnostics_s::SOLVER_STATUS_NOT_RUN:
 	default:
 		return "not_run";
 	}
@@ -222,6 +221,8 @@ ControlAllocator::ControlAllocator() :
 {
 	_control_allocator_status_pub[0].advertise();
 	_control_allocator_status_pub[1].advertise();
+	_control_allocator_diagnostics_pub[0].advertise();
+	_control_allocator_diagnostics_pub[1].advertise();
 
 	_actuator_motors_pub.advertise();
 	_actuator_servos_pub.advertise();
@@ -283,6 +284,7 @@ ControlAllocator::parameters_updated()
 		_allocation_feedback_filters_configured = false;
 		_allocation_feedback_filter_event_reason = allocation_feedback_filter_status_s::FILTER_EVENT_PARAMETER;
 		_allocation_feedback_filter_event_timestamp = hrt_absolute_time();
+		_allocation_feedback_filter_status_dirty = true;
 	}
 
 	_has_slew_rate = false;
@@ -369,17 +371,18 @@ ControlAllocator::update_allocation_method(bool force)
 				method = desired_methods[i];
 			}
 
-			// CA16/17 matrix 0 contains only the force-producing rotor. LPCA/PCA
-			// require the multi-axis surface matrix and would otherwise fall back
-			// every cycle. Keep the requested method on matrix 1 only.
+			// CA16/17 matrix 0 contains only the force-producing rotor. Use the
+			// pseudo-inverse there to avoid LPCA/PCA fallback and unnecessary WLS
+			// computation. Keep the requested method on the surface matrix 1.
 			const bool ducted_fan_force_matrix = i == 0
 					&& (_effectiveness_source_id == EffectivenessSource::DUCTED_FAN
 					    || _effectiveness_source_id == EffectivenessSource::DUCTED_FAN_TAILSITTER_VTOL);
-			const bool requires_surface_matrix = method == AllocationMethod::DP_LPCA
+			const bool use_surface_method = method == AllocationMethod::DP_LPCA
 					|| method == AllocationMethod::DPSCALED_LPCA
-					|| method == AllocationMethod::PCA;
+					|| method == AllocationMethod::PCA
+					|| method == AllocationMethod::WLS;
 
-			if (ducted_fan_force_matrix && requires_surface_matrix) {
+			if (ducted_fan_force_matrix && use_surface_method) {
 				method = AllocationMethod::INV;
 			}
 
@@ -561,6 +564,7 @@ ControlAllocator::Run()
 	}
 
 	if (_num_control_allocation == 0 || _actuator_effectiveness == nullptr) {
+		publish_allocation_feedback_filter_status(hrt_absolute_time());
 		return;
 	}
 
@@ -609,10 +613,6 @@ ControlAllocator::Run()
 		if (_vehicle_control_mode_sub.update(&vehicle_control_mode)) {
 			const bool publish_controls_prev = _publish_controls;
 			_publish_controls = vehicle_control_mode.flag_control_allocation_enabled;
-			_offboard_direct_wrench = vehicle_control_mode.flag_control_offboard_enabled
-						 && vehicle_control_mode.flag_control_allocation_enabled
-						 && !vehicle_control_mode.flag_control_rates_enabled
-						 && !vehicle_control_mode.flag_control_attitude_enabled;
 
 			if (publish_controls_prev && !_publish_controls) {
 				reset_allocation_feedback_state(allocation_feedback_filter_status_s::FILTER_EVENT_GAP);
@@ -689,22 +689,6 @@ ControlAllocator::Run()
 			}
 		}
 
-		// DDS direct-wrench input publishes instance 0. Native CA16 rate control
-		// routes torque to instance 1 itself, but it is disabled in this Offboard
-		// mode. Route the external torque and its INDI priority split to the
-		// surface matrix while keeping instance 0 as the allocator trigger.
-		if (_offboard_direct_wrench && _effectiveness_source_id == EffectivenessSource::DUCTED_FAN
-		    && _num_control_allocation == 2) {
-			const int torque_matrix = indi_torque_matrix();
-
-			for (int axis = 0; axis < 3; axis++) {
-				c[torque_matrix](axis) = _torque_sp(axis);
-			}
-
-			torque_sp_indi_feedback[torque_matrix] = _torque_sp_indi_feedback;
-			torque_sp_indi_feedback_valid[torque_matrix] = _torque_sp_indi_feedback_valid;
-		}
-
 		_actuator_group_preflight_check.applyOverrides(c, _is_vtol, *_actuator_effectiveness);
 
 		for (int i = 0; i < _num_control_allocation; ++i) {
@@ -753,6 +737,11 @@ ControlAllocator::Run()
 
 			publish_allocation_value(previous_run_valid && !allocation_feedback_gap ? dt : NAN);
 		}
+
+		// Publish once per completed allocation/matrix, outside allocate() timing.
+		for (int i = 0; i < _num_control_allocation; ++i) {
+			publish_control_allocator_diagnostics(i);
+		}
 	}
 
 	// Publish actuator setpoint and allocator status
@@ -770,6 +759,7 @@ ControlAllocator::Run()
 		_last_status_pub = now;
 	}
 
+	publish_allocation_feedback_filter_status(now);
 	perf_end(_loop_perf);
 }
 
@@ -937,22 +927,56 @@ ControlAllocator::handle_stopped_motors(const hrt_abstime now)
 }
 
 void
+ControlAllocator::publish_control_allocator_diagnostics(int matrix_index)
+{
+	control_allocator_diagnostics_s diagnostic{};
+	diagnostic.timestamp = hrt_absolute_time();
+	diagnostic.timestamp_sample = _timestamp_sample;
+	const ControlAllocation *allocation = _control_allocation[matrix_index];
+	const ControlAllocation::Diagnostics &diagnostics = allocation->getDiagnostics();
+	diagnostic.fallback = allocation->usedFallback();
+	diagnostic.solver_status = diagnostics.solver_status;
+	diagnostic.solver_err = diagnostics.solver_err;
+	diagnostic.solver_rho = diagnostics.solver_rho;
+	diagnostic.allocation_running_time = static_cast<float>(_allocation_running_time_us[matrix_index]);
+	_control_allocator_diagnostics_pub[matrix_index].publish(diagnostic);
+}
+
+void
+ControlAllocator::publish_allocation_feedback_filter_status(hrt_abstime now)
+{
+	if (!_allocation_feedback_filter_status_dirty && now - _last_filter_status_pub < 100_ms) {
+		return;
+	}
+
+	allocation_feedback_filter_status_s status{};
+	status.timestamp = hrt_absolute_time();
+
+	status.filter_event_timestamp = _allocation_feedback_filter_event_timestamp;
+	status.filter_sample_rate_hz = _allocation_feedback_filters_configured
+				      ? _allocation_feedback_filter_sample_freq : NAN;
+	status.torque_filter_cutoff_hz = _allocation_feedback_filters_configured
+					 && _allocation_feedback_torque_cutoff > FLT_EPSILON
+					 ? _allocation_wrench_feedback_filter[0].get_cutoff_freq() : 0.f;
+	status.force_filter_cutoff_hz = _allocation_feedback_filters_configured
+					&& _allocation_feedback_force_cutoff > FLT_EPSILON
+					? _allocation_wrench_feedback_filter[3].get_cutoff_freq() : 0.f;
+	status.filter_reset_count = _allocation_feedback_filter_reset_count;
+	status.filter_reconfigure_count = _allocation_feedback_filter_reconfigure_count;
+	status.filter_event_reason = _allocation_feedback_filter_event_reason;
+	_allocation_feedback_filter_status_pub.publish(status);
+	_last_filter_status_pub = now;
+	_allocation_feedback_filter_status_dirty = false;
+}
+
+void
 ControlAllocator::publish_control_allocator_status(int matrix_index)
 {
 	control_allocator_status_s control_allocator_status{};
 	control_allocator_status.timestamp = hrt_absolute_time();
+	control_allocator_status.allocation_method = static_cast<int8_t>(_allocation_methods[matrix_index]);
 	control_allocator_status.actuator_group_preflight_check_active = _actuator_group_preflight_check.isActive();
 
-	const ControlAllocation *allocation = _control_allocation[matrix_index];
-	const ControlAllocation::Diagnostics &diagnostics = allocation->getDiagnostics();
-	control_allocator_status.fallback = allocation->usedFallback();
-	control_allocator_status.solver_status = diagnostics.solver_status;
-	control_allocator_status.solver_err = diagnostics.solver_err;
-	control_allocator_status.full_row_rank = diagnostics.full_row_rank;
-	control_allocator_status.solver_rho = diagnostics.solver_rho;
-	control_allocator_status.solver_prepare_time = diagnostics.solver_prepare_time;
-	control_allocator_status.solver_core_time = diagnostics.solver_core_time;
-	control_allocator_status.solver_post_time = diagnostics.solver_post_time;
 	// TODO: disabled motors (?)
 
 	// Allocated control
@@ -996,9 +1020,6 @@ ControlAllocator::publish_control_allocator_status(int matrix_index)
 	// Handled motor failures
 	control_allocator_status.handled_motor_failure_mask = _handled_motor_failure_bitmask;
 	control_allocator_status.motor_stop_mask = _motor_stop_mask;
-	control_allocator_status.allocation_running_time = static_cast<float>(_allocation_running_time_us[matrix_index]);
-	control_allocator_status.allocation_running_time_avg = _allocation_running_time_avg_us[matrix_index];
-	control_allocator_status.allocation_running_time_samples = _allocation_running_time_count[matrix_index];
 
 	_control_allocator_status_pub[matrix_index].publish(control_allocator_status);
 }
@@ -1100,6 +1121,7 @@ ControlAllocator::reset_allocation_feedback_state(uint8_t event_flag)
 	_allocation_feedback_filter_reset_count++;
 	_allocation_feedback_filter_event_reason = event_flag;
 	_allocation_feedback_filter_event_timestamp = hrt_absolute_time();
+	_allocation_feedback_filter_status_dirty = true;
 }
 
 void
@@ -1150,11 +1172,13 @@ ControlAllocator::update_allocation_feedback_filter_config(float sample_freq, ui
 	_allocation_feedback_filter_sample_freq = sample_freq;
 	_allocation_feedback_filters_configured = true;
 	_allocation_feedback_filter_reconfigure_count++;
+	_allocation_feedback_filter_status_dirty = true;
 
 	if (event_flag != 0) {
 		_allocation_feedback_filter_event_reason = event_flag;
-		_allocation_feedback_filter_event_timestamp = hrt_absolute_time();
 	}
+
+	_allocation_feedback_filter_event_timestamp = hrt_absolute_time();
 }
 
 void
@@ -1192,6 +1216,7 @@ ControlAllocator::filter_allocation_wrench(const matrix::Vector<float, NUM_AXES>
 		_allocation_feedback_filter_reset_count++;
 		_allocation_feedback_filter_event_reason = allocation_feedback_filter_status_s::FILTER_EVENT_AXIS_RECOVERY;
 		_allocation_feedback_filter_event_timestamp = hrt_absolute_time();
+		_allocation_feedback_filter_status_dirty = true;
 	}
 }
 
@@ -1294,47 +1319,6 @@ ControlAllocator::publish_allocation_value(float sample_interval_s)
 	}
 
 	_allocation_value_pub.publish(msg);
-	publish_allocation_feedback_filter_status(now);
-}
-
-void
-ControlAllocator::publish_allocation_feedback_filter_status(hrt_abstime now)
-{
-	const bool new_event = _allocation_feedback_filter_event_timestamp != 0
-			       && _allocation_feedback_filter_event_timestamp
-			       != _allocation_feedback_filter_event_timestamp_last_publish;
-
-	if (_allocation_feedback_status_last_publish == 0 && !new_event) {
-		_allocation_feedback_status_last_publish = now;
-		return;
-	}
-
-	if (!new_event
-	    && now - _allocation_feedback_status_last_publish < kAllocationFeedbackFilterStatusPublishInterval) {
-		return;
-	}
-
-	allocation_feedback_filter_status_s status{};
-	status.timestamp = now;
-	status.sample_interval = _allocation_feedback_sample_interval.valid()
-				 ? _allocation_feedback_sample_interval.mean() : NAN;
-	status.filter_sample_rate_hz = _allocation_feedback_filter_sample_freq;
-	status.torque_filter_cutoff_hz = _allocation_feedback_filters_configured
-					 && _allocation_feedback_torque_cutoff > FLT_EPSILON
-					 ? _allocation_wrench_feedback_filter[0].get_cutoff_freq() : 0.f;
-	status.force_filter_cutoff_hz = _allocation_feedback_filters_configured
-					&& _allocation_feedback_force_cutoff > FLT_EPSILON
-					? _allocation_wrench_feedback_filter[3].get_cutoff_freq() : 0.f;
-	status.filter_reset_count = _allocation_feedback_filter_reset_count;
-	status.filter_reconfigure_count = _allocation_feedback_filter_reconfigure_count;
-	status.filter_event_timestamp = _allocation_feedback_filter_event_timestamp;
-	status.filter_event_reason = _allocation_feedback_filter_event_reason;
-	status.filters_configured = _allocation_feedback_filters_configured;
-
-	_allocation_feedback_filter_status_pub.publish(status);
-
-	_allocation_feedback_status_last_publish = now;
-	_allocation_feedback_filter_event_timestamp_last_publish = _allocation_feedback_filter_event_timestamp;
 }
 
 void
@@ -1577,9 +1561,8 @@ int ControlAllocator::print_status()
 			 allocationSolverStatusName(diagnostics.solver_status), diagnostics.solver_status,
 			 diagnostics.solver_err, (int)_control_allocation[i]->usedFallback(), (int)diagnostics.full_row_rank,
 			 (unsigned)diagnostics.active_rows, axes, (double)diagnostics.solver_rho);
-		PX4_INFO("  timing_us: prep=%.1f core=%.1f post=%.1f alloc=%" PRIu64 " avg=%.2f samples=%" PRIu32,
-			 (double)diagnostics.solver_prepare_time, (double)diagnostics.solver_core_time,
-			 (double)diagnostics.solver_post_time, _allocation_running_time_us[i],
+		PX4_INFO("  timing_us: alloc=%" PRIu64 " avg=%.2f samples=%" PRIu32,
+			 _allocation_running_time_us[i],
 			 (double)_allocation_running_time_avg_us[i], _allocation_running_time_count[i]);
 	}
 

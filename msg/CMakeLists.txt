@@ -37,7 +37,13 @@ cmake_policy(SET CMP0057 NEW)
 include(px4_list_make_absolute)
 
 set(msg_files
+	OmMpcReference.msg
+	OmMpcCommand.msg
+	OmMpcDisturbance.msg
+	OmMpcAccIndiCommand.msg
+	OmMpcControlStatus.msg
 	AccelerationIndiStatus.msg
+	AllocationFeedbackFilterStatus.msg
 	ActionRequest.msg
 	ActuatorArmed.msg
 	ActuatorControlsStatus.msg
@@ -45,7 +51,7 @@ set(msg_files
 	ActuatorServosTrim.msg
 	ActuatorTest.msg
 	AdcReport.msg
-	AllocationFeedbackFilterStatus.msg
+	ControlAllocatorDiagnostics.msg
 	AllocationValue.msg
 	Airspeed.msg
 	AirspeedWind.msg
@@ -185,7 +191,6 @@ set(msg_files
 	RadioStatus.msg
 	RangingBeacon.msg
 	RateCtrlStatus.msg
-	OmMpcIndiStatus.msg
 	RcChannels.msg
 	RcParameterMap.msg
 	RoverAttitudeSetpoint.msg
@@ -287,7 +292,6 @@ set(msg_files
 	versioned/VehicleLocalPosition.msg
 	versioned/VehicleOdometry.msg
 	versioned/VehicleRatesSetpoint.msg
-	versioned/OmMpcSetpoint.msg
 	versioned/VehicleStatus.msg
 	versioned/VtolVehicleStatus.msg
 	versioned/Wind.msg

@@ -66,6 +66,12 @@ Server::Server(int instance_id)
 	: _mutex(PTHREAD_MUTEX_INITIALIZER),
 	  _instance_id(instance_id)
 {
+	// Logging can use get_stdout() immediately after construction, before the
+	// server thread has run. Publish the singleton only after its TLS key exists.
+	if (pthread_key_create(&_key, _pthread_key_destructor) != 0) {
+		PX4_ERR("failed to create pthread key");
+		return;
+	}
 	_instance = this;
 }
 
@@ -77,6 +83,10 @@ Server::~Server()
 int
 Server::start()
 {
+	if (_instance != this) {
+		return -1;
+	}
+
 	std::string sock_path = get_socket_path(_instance_id);
 
 	// Delete socket in case it exists already.
@@ -129,13 +139,6 @@ void Server::_pthread_key_destructor(void *arg)
 void
 Server::_server_main()
 {
-	int ret = pthread_key_create(&_key, _pthread_key_destructor);
-
-	if (ret != 0) {
-		PX4_ERR("failed to create pthread key");
-		return;
-	}
-
 	// The list of file descriptors to watch.
 	std::vector<pollfd> poll_fds;
 
@@ -182,7 +185,7 @@ Server::_server_main()
 
 				// Start a new thread to handle the client.
 				pthread_t *thread = &_fd_to_thread[client];
-				ret = pthread_create(thread, nullptr, Server::_handle_client, thread_stdout);
+				const int ret = pthread_create(thread, nullptr, Server::_handle_client, thread_stdout);
 
 				if (ret != 0) {
 					PX4_ERR("could not start pthread (%i)", ret);

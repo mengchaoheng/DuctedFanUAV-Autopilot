@@ -435,7 +435,7 @@ TEST_F(PositionControlBasicTest, VelocityIntegralAndDerivativeAreExcludedFromAcc
 	states.acceleration = Vector3f{};
 	_position_control.setState(states);
 	ASSERT_TRUE(runController());
-	EXPECT_FALSE(_output_setpoint.acc_indi_active);
+	EXPECT_FALSE(_position_control.accelerationIndiActive());
 
 	// INDI must use neither the accumulated I term nor the configured D term.
 	states.velocity = Vector3f{};
@@ -444,7 +444,7 @@ TEST_F(PositionControlBasicTest, VelocityIntegralAndDerivativeAreExcludedFromAcc
 	_position_control.setState(states);
 
 	ASSERT_TRUE(runController());
-	EXPECT_TRUE(_output_setpoint.acc_indi_active);
+	EXPECT_TRUE(_position_control.accelerationIndiActive());
 	EXPECT_FLOAT_EQ(_output_setpoint.acceleration[0], -1.f);
 	EXPECT_FLOAT_EQ(_output_setpoint.acceleration[1], -2.f);
 	EXPECT_FLOAT_EQ(_output_setpoint.acceleration[2], -3.f);
@@ -455,7 +455,7 @@ TEST_F(PositionControlBasicTest, VelocityIntegralAndDerivativeAreExcludedFromAcc
 	states.allocated_thrust_acceleration = Vector3f{NAN, NAN, NAN};
 	_position_control.setState(states);
 	ASSERT_TRUE(runController());
-	EXPECT_FALSE(_output_setpoint.acc_indi_active);
+	EXPECT_FALSE(_position_control.accelerationIndiActive());
 	EXPECT_NEAR(_output_setpoint.acceleration[0], 0.1f, 1e-6f);
 	EXPECT_NEAR(_output_setpoint.acceleration[1], 0.1f, 1e-6f);
 	EXPECT_NEAR(_output_setpoint.acceleration[2], 0.1f, 1e-6f);
@@ -471,7 +471,7 @@ TEST_F(PositionControlBasicTest, VelocityDerivativeGainIsRestoredWithoutAccelera
 	_position_control.setState(states);
 
 	ASSERT_TRUE(runController());
-	EXPECT_FALSE(_output_setpoint.acc_indi_active);
+	EXPECT_FALSE(_position_control.accelerationIndiActive());
 	EXPECT_FLOAT_EQ(_output_setpoint.acceleration[0], -2.f);
 	EXPECT_FLOAT_EQ(_output_setpoint.acceleration[1], -6.f);
 	EXPECT_FLOAT_EQ(_output_setpoint.acceleration[2], -12.f);
@@ -487,7 +487,7 @@ TEST_F(PositionControlBasicTest, AccelerationIndiControllerTransfersAreBumpless)
 	states.acceleration = Vector3f{};
 	_position_control.setState(states);
 	ASSERT_TRUE(runController());
-	ASSERT_FALSE(_output_setpoint.acc_indi_active);
+	ASSERT_FALSE(_position_control.accelerationIndiActive());
 	const Vector3f pid_thrust(_output_setpoint.thrust);
 
 	// Select an intentionally different INDI equilibrium so an unprotected
@@ -495,7 +495,7 @@ TEST_F(PositionControlBasicTest, AccelerationIndiControllerTransfersAreBumpless)
 	states.allocated_thrust_acceleration = Vector3f(0.f, 0.f, -8.f);
 	_position_control.setState(states);
 	ASSERT_TRUE(runController());
-	EXPECT_TRUE(_output_setpoint.acc_indi_active);
+	EXPECT_TRUE(_position_control.accelerationIndiActive());
 	EXPECT_TRUE(_position_control.accelerationIndiTransitionActive());
 	EXPECT_FLOAT_EQ(_position_control.getAccelerationIndiTransitionProgress(), 0.f);
 	EXPECT_EQ(Vector3f(_output_setpoint.thrust), pid_thrust);
@@ -516,7 +516,7 @@ TEST_F(PositionControlBasicTest, AccelerationIndiControllerTransfersAreBumpless)
 	states.allocated_thrust_acceleration = Vector3f{NAN, NAN, NAN};
 	_position_control.setState(states);
 	ASSERT_TRUE(runController());
-	EXPECT_FALSE(_output_setpoint.acc_indi_active);
+	EXPECT_FALSE(_position_control.accelerationIndiActive());
 	EXPECT_TRUE(_position_control.accelerationIndiTransitionActive());
 	EXPECT_FLOAT_EQ(_position_control.getAccelerationIndiTransitionProgress(), 0.f);
 	EXPECT_EQ(Vector3f(_output_setpoint.thrust), indi_thrust);

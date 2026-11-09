@@ -30,8 +30,8 @@
 /**
  * @file ControlAllocationWLS.hpp
  *
- * Fixed-size PX4 adapter for Ola Harkegard's QCAT weighted least-squares
- * active-set control allocator.
+ * Bounded-storage PX4 adapter for Ola Harkegard's QCAT weighted least-squares
+ * active-set control allocator. QR operates only on the actual free variables.
  */
 
 #pragma once
@@ -84,13 +84,15 @@ private:
 	bool allocateFallback(ActuatorVector &actuator_delta) const;
 	void computeResidual(const ActuatorVector &actuator_delta, AugmentedVector &residual) const;
 	bool isFiniteProblem() const;
-	void updateRankDiagnostics();
+	void updateRankCache();
 
 	EffectivenessMatrix _effectiveness_unit;
 	MixMatrix _mix_fallback;
 	AugmentedMatrix _augmented_matrix;
 	AugmentedMatrix _reduced_matrix;
 	AugmentedVector _augmented_rhs;
+	int _least_squares_axes[NUM_AXES] {};
+	int _num_least_squares_axes{0};
 
 	matrix::Vector<float, NUM_AXES> _control_weights;
 	ActuatorVector _actuator_delta_min;
@@ -103,4 +105,7 @@ private:
 	bool _normalization_needs_update{false};
 	bool _warm_start_valid{false};
 	bool _used_fallback{false};
+	bool _rank_update_needed{true};
+	uint8_t _rank_active_rows{0};
+	bool _full_row_rank{false};
 };

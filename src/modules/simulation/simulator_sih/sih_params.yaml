@@ -244,6 +244,60 @@ parameters:
       min: 0.0
       decimal: 2
       increment: 0.05
+    SIH_IR_KDX:
+      description:
+        short: Iris body X drag coefficient
+        long: Body-axis linear air drag for Iris. A negative value inherits SIH_KDV.
+      type: float
+      default: -1.0
+      min: -1.0
+      unit: N/(m/s)
+      decimal: 2
+    SIH_IR_KDY:
+      description:
+        short: Iris body Y drag coefficient
+        long: Body-axis linear air drag for Iris. A negative value inherits SIH_KDV.
+      type: float
+      default: -1.0
+      min: -1.0
+      unit: N/(m/s)
+      decimal: 2
+    SIH_IR_KDZ:
+      description:
+        short: Iris body Z drag coefficient
+        long: Body-axis linear air drag for Iris. A negative value inherits SIH_KDV.
+      type: float
+      default: -1.0
+      min: -1.0
+      unit: N/(m/s)
+      decimal: 2
+    SIH_IR_KWX:
+      description:
+        short: Iris body X angular damping
+        long: Angular drag coefficient for Iris. A negative value inherits SIH_KDW.
+      type: float
+      default: -1.0
+      min: -1.0
+      unit: Nm/(rad/s)
+      decimal: 5
+    SIH_IR_KWY:
+      description:
+        short: Iris body Y angular damping
+        long: Angular drag coefficient for Iris. A negative value inherits SIH_KDW.
+      type: float
+      default: -1.0
+      min: -1.0
+      unit: Nm/(rad/s)
+      decimal: 5
+    SIH_IR_KWZ:
+      description:
+        short: Iris body Z angular damping
+        long: Angular drag coefficient for Iris. A negative value inherits SIH_KDW.
+      type: float
+      default: -1.0
+      min: -1.0
+      unit: Nm/(rad/s)
+      decimal: 5
     SIH_KDW:
       description:
         short: First order angular damper coefficient

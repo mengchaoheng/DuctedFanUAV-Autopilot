@@ -67,7 +67,7 @@ inline Wrench whole_wing(const Vector3f &velocity, const Vector3f &rates,
 
 // Paper-style shared vane model. Velocity is vehicle relative to air in FRD.
 // The axial slipstream is added to that relative velocity (body -Z).
-// No per-vane rotational flow, duct tables, or independently tuned surfaces.
+// DF4 uses the velocity at each vane, as in the Gazebo LiftDrag plugins.
 inline Wrench simple_df(const Vector3f &velocity, const float *commands, bool wing,
 			float thrust_max, float wash_max, float kv, float radius, float arm, float angle_max,
 			float wing_lift = 1.f, float wing_drag = 1.f, float wing_control = 1.f,
@@ -80,14 +80,15 @@ inline Wrench simple_df(const Vector3f &velocity, const float *commands, bool wi
 	const int count = wing ? 6 : 4;
 
 	for (int i = 0; i < count; ++i) {
-		// Channel order is clockwise looking down the thrust axis.
-		const float theta = (wing ? -2.f : 2.f) * M_PI_F * float(i) / float(count);
-		const Vector3f radial(cosf(theta), sinf(theta), 0.f);
+		const Vector3f radial = vane_radial(i, count);
 		const Vector3f cp = radius * radial + Vector3f(0.f, 0.f, arm);
 		const Vector3f span = radial;
-		const Vector3f in_plane = air - span * span.dot(air);
+		// Keep the separate wing-model path unchanged. DF4 needs omega x r:
+		// using centre-of-mass velocity alone changes its force/moment coupling.
+		const Vector3f local_air = wing ? air : air + rates.cross(cp);
+		const Vector3f in_plane = local_air - span * span.dot(local_air);
 		// Preserve the Classic forward-flow envelope. Reverse flow has no vane authority.
-		if (air(2) >= 0.f || in_plane.norm_squared() < 1e-8f) { continue; }
+		if (local_air(2) >= 0.f || in_plane.norm_squared() < 1e-8f) { continue; }
 
 		const Vector3f lift = span.cross(in_plane).unit_or_zero();
 		const float delta = angle_max * math::constrain(commands[i + 1], -1.f, 1.f);

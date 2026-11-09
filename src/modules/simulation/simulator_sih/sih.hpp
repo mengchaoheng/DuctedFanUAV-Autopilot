@@ -306,6 +306,8 @@ private:
 	MapProjection _lpos_ref{};
 	float _lpos_ref_alt;
 	float _MASS, _T_MAX, _Q_MAX, _L_ROLL, _L_PITCH, _KDV, _KDW, _T_TAU, _F_T_MAX, _F_Q_MAX;
+	matrix::Vector3f _iris_drag{};
+	matrix::Vector3f _iris_angular_drag{};
 	matrix::Matrix3f _I;    // vehicle inertia matrix
 	matrix::Matrix3f _Im1;  // inverse of the inertia matrix
 
@@ -353,6 +355,12 @@ private:
 		(ParamFloat<px4::params::SIH_L_ROLL>) _sih_l_roll,
 		(ParamFloat<px4::params::SIH_L_PITCH>) _sih_l_pitch,
 		(ParamFloat<px4::params::SIH_KDV>) _sih_kdv,
+		(ParamFloat<px4::params::SIH_IR_KDX>) _sih_ir_kdx,
+		(ParamFloat<px4::params::SIH_IR_KDY>) _sih_ir_kdy,
+		(ParamFloat<px4::params::SIH_IR_KDZ>) _sih_ir_kdz,
+		(ParamFloat<px4::params::SIH_IR_KWX>) _sih_ir_kwx,
+		(ParamFloat<px4::params::SIH_IR_KWY>) _sih_ir_kwy,
+		(ParamFloat<px4::params::SIH_IR_KWZ>) _sih_ir_kwz,
 		(ParamFloat<px4::params::SIH_KDW>) _sih_kdw,
 		(ParamFloat<px4::params::SIH_LOC_LAT0>) _sih_lat0,
 		(ParamFloat<px4::params::SIH_LOC_LON0>) _sih_lon0,

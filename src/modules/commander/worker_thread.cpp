@@ -44,6 +44,7 @@
 
 #include <px4_platform_common/events.h>
 #include <px4_platform_common/log.h>
+#include <px4_platform_common/priority.h>
 #include <px4_platform_common/shutdown.h>
 #include <parameters/param.h>
 
@@ -79,7 +80,7 @@ void WorkerThread::startTask(Request request)
 	pthread_attr_getschedparam(&low_prio_attr, &param);
 
 	/* low priority */
-	param.sched_priority = SCHED_PRIORITY_DEFAULT - 50;
+	param.sched_priority = px4_sched_priority_clamp(SCHED_PRIORITY_DEFAULT - 50);
 	pthread_attr_setschedparam(&low_prio_attr, &param);
 
 	int ret = pthread_create(&_thread_handle, &low_prio_attr, &threadEntryTrampoline, this);

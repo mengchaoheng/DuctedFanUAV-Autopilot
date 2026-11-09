@@ -59,24 +59,25 @@ param set-default MC_J_X 0.01149
 param set-default MC_J_Y 0.01153
 param set-default MC_J_Z 0.00487
 
+# Duct vanes start at body +X and advance toward +Y in 60 degree steps (FRD).
 param set-default CA_SV_CS_COUNT 6
 param set-default CA_SV_CS0_TRQ_R -0.166227
 param set-default CA_SV_CS0_TRQ_P 0
 param set-default CA_SV_CS0_TRQ_Y 0.068681
 param set-default CA_SV_CS1_TRQ_R -0.083114
-param set-default CA_SV_CS1_TRQ_P 0.143957
+param set-default CA_SV_CS1_TRQ_P -0.143957
 param set-default CA_SV_CS1_TRQ_Y 0.068681
 param set-default CA_SV_CS2_TRQ_R 0.083114
-param set-default CA_SV_CS2_TRQ_P 0.143957
+param set-default CA_SV_CS2_TRQ_P -0.143957
 param set-default CA_SV_CS2_TRQ_Y 0.068681
 param set-default CA_SV_CS3_TRQ_R 0.166227
 param set-default CA_SV_CS3_TRQ_P 0
 param set-default CA_SV_CS3_TRQ_Y 0.068681
 param set-default CA_SV_CS4_TRQ_R 0.083114
-param set-default CA_SV_CS4_TRQ_P -0.143957
+param set-default CA_SV_CS4_TRQ_P 0.143957
 param set-default CA_SV_CS4_TRQ_Y 0.068681
 param set-default CA_SV_CS5_TRQ_R -0.083114
-param set-default CA_SV_CS5_TRQ_P -0.143957
+param set-default CA_SV_CS5_TRQ_P 0.143957
 param set-default CA_SV_CS5_TRQ_Y 0.068681
 
 param set-default PWM_MAIN_FUNC1 101

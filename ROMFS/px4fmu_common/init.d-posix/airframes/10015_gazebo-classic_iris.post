@@ -1,0 +1,5 @@
+#!/bin/sh
+# The native Classic GPS plugin buffers measurements for about 120 ms.
+# Apply after px4-rc.mavlinksim, which supplies a generic 10 ms default.
+param set-default SENS_GPS0_DELAY 120
+param set-default SENS_GPS1_DELAY 120

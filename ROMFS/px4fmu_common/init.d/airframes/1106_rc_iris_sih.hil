@@ -11,6 +11,9 @@
 
 . ${R}etc/init.d/rc.mc_defaults
 
+# Keep onboard SD logs; disable the MAVLink logging backend by default.
+param set-default SDLOG_BACKEND 1
+
 param set-default CA_AIRFRAME 0
 
 # Hover checked with the 0.5 ms Iris motor model.
@@ -156,23 +159,20 @@ param set-default CA_ROTOR3_CT 8.5
 
 
 # OM-MPC-INDI keeps acceleration feedback independent from mc_pos_control.
-param set-default MC_OM_INDI_EN 1
-param set-default MC_OM_ACC_EN 1
-param set-default MC_OM_ACC_GAIN 1.0
-param set-default MC_OM_DIST_EN 1
-param set-default MC_OM_A_SRC 1
-param set-default MC_OM_RATE_MAX 250.0
-param set-default MC_OM_A_LP 8.0
+param set-default MPC_ACCINDI_EN 1
+param set-default MPC_DFB_EN 1
+param set-default MPC_ACCINDI_SRC 1
+param set-default MPC_ACCINDI_LPF 8.0
 # main.m does not limit the matched disturbance estimate. Keep the parameter
 # available for explicit safety studies, but disable it in the comparison path.
-param set-default MC_OM_D_LIM 20.0
-param set-default MC_OM_F_DLY 0.0
+param set-default MPC_DFB_LIM 20.0
+param set-default MPC_ACCINDI_FDLY 0.0
 # Keep the tested algebraic bridge without an additional engagement ramp.
 # Online trajectory/controller handover manages its own reference transition.
-param set-default MC_OM_TR_T 2.0
-param set-default MC_OM_KPHI_R 0.5
-param set-default MC_OM_KPHI_P 0.5
-param set-default MC_OM_KPHI_Y 0.0
+param set-default MPC_ACCINDI_TR_T 2.0
+param set-default MPC_ACCINDI_K_R 0.5
+param set-default MPC_ACCINDI_K_P 0.5
+param set-default MPC_ACCINDI_K_Y 0.0
 
 # Iris rate-INDI tuning used by the multi-trajectory OM comparison.
 param set-default MC_INDI_RATE_EN 1
@@ -232,11 +232,11 @@ param set-default UXRCE_DDS_CFG 2
 
 param set-default SENS_GPS0_DELAY 0
 
-# Gazebo Classic iris disturbance preset: body FLU -> FRD.
-# Single window starts after enable; disabled by default, as running_time is zero.
+# Classic sine disturbance preset, converted from body FLU to body FRD.
+# SIH_DIST_EN=0 disables loads; enabling starts one 1000 s window immediately.
 param set-default SIH_DIST_EN 0
 param set-default SIH_DIST_START 0
-param set-default SIH_DIST_DUR 200
+param set-default SIH_DIST_DUR 1000
 param set-default SIH_DF_BX 0
 param set-default SIH_DF_BY 0
 param set-default SIH_DF_BZ 0

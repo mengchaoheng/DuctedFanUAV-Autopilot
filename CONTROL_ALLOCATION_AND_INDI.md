@@ -561,7 +561,7 @@ Rate INDI 直接向 normalized torque allocator interface 发布控制量，因�
 
 ### 7.3 启用条件与周期选择
 
-`vehicle_local_position_setpoint.acc_indi_active` 综合以下层次：
+`acceleration_indi_status.acc_indi_active` 综合以下层次：
 
 | 层次 | 判断时点 | 条件 |
 |---|---|---|
@@ -1002,13 +1002,15 @@ Allocator 在以下条件组合下发布 `AllocationValue`：
 |---|---|---|
 | `control_allocator_status` | 2 instances，200 ms | solver、fallback、unallocated control、timing |
 | `allocation_value` | 1 instance，20 ms | raw/filtered physical wrench、torque/force setpoint scale |
-| `rate_ctrl_status` | 2 instances，200 ms | PID integrator 与 `indi_active` |
-| `vehicle_local_position_setpoint` | 100 ms | position-control output 与 `acc_indi_active` |
-| `acceleration_indi_status` | 发布速率 | 三种 $a_0$、选中路径延迟前后的 $a_{T,0}$、实际应用 hover thrust、切换进度与 `feedback_valid`；最终 thrust/active 分别读取下一行既有字段 |
+| `rate_ctrl_status` | 2 instances，200 ms | PID integrator、`rate_indi_active` 和实际输出控制器从反馈就绪到算出归一化力矩的耗时 `compute_us` |
+| `vehicle_local_position_setpoint` | 100 ms | 位置环内部设定值与最终 NED 推力 |
+| `acceleration_indi_status` | 20 ms | 三种 $a_0$、选中路径延迟前后的 $a_{T,0}$、实际应用 hover thrust、切换进度、`feedback_valid`、`acc_indi_active` 与 `compute_us` |
 | `vehicle_torque_setpoint` | 2 instances，20 ms | total torque、PCA higher 与 valid |
 | `actuator_motors`、`actuator_servos` | 原有策略 | 最终 actuator output |
 
 High-rate logger profile 以发布速率记录 `allocation_value`、`vehicle_torque_setpoint`、`actuator_motors` 和 `actuator_servos`。
+
+位置环耗时从首次控制更新计到姿态和推力参考发布完成，包含本轮实际执行的回退。Rate PID 和 INDI 都从各自的反馈准备完成开始，到归一化力矩算出为止。中间层在反馈匹配完成后开始计时，覆盖 DFB 扰动估计、修正计算和最终角速度与推力的过渡混合。MPC 从满足运行资格到最终指令选定，分配计时覆盖每个矩阵的 `allocate()` 调用。
 
 ## 10. 适用范围、标定责任与硬件资源
 

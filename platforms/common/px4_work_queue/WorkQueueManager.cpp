@@ -39,6 +39,7 @@
 #include <px4_platform_common/log.h>
 #include <px4_platform_common/posix.h>
 #include <px4_platform_common/tasks.h>
+#include <px4_platform_common/priority.h>
 #include <px4_platform_common/time.h>
 #include <px4_platform_common/atomic.h>
 #include <containers/BlockingList.hpp>
@@ -294,7 +295,7 @@ WorkQueueManagerRun(int, char **)
 #endif
 
 			// priority
-			int sched_priority = sched_get_priority_max(SCHED_FIFO) + wq->relative_priority;
+			int sched_priority = px4_sched_priority_clamp(sched_get_priority_max(SCHED_FIFO) + wq->relative_priority);
 
 			// use pthreads for NuttX flat and posix builds. For NuttX protected build, use tasks or kernel threads
 #if !defined(__PX4_NUTTX) || defined(CONFIG_BUILD_FLAT)

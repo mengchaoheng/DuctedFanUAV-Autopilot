@@ -180,6 +180,9 @@ void FlightTaskOrbit::_sanitizeParams(float &radius, float &velocity) const
 
 bool FlightTaskOrbit::activate(const trajectory_setpoint_s &last_setpoint)
 {
+#ifdef CONFIG_MC_POS_CONTROL_OM_MPC
+	om_mpc_reference_s inactive{}; inactive.timestamp = hrt_absolute_time(); _om_reference_pub.publish(inactive);
+#endif
 	bool ret = FlightTaskManualAltitudeSmoothVel::activate(last_setpoint);
 	_currently_orbiting = false;
 	_use_parameterized_geometry = _param_mc_orbit_source.get() == 1;
@@ -187,15 +190,18 @@ bool FlightTaskOrbit::activate(const trajectory_setpoint_s &last_setpoint)
 			? math::max(_param_mc_circle_acceleration.get(), 0.f)
 			: _default_acceleration_max;
 
-	_radii = {_param_mc_circle_x_amplitude.get(), _param_mc_circle_y_amplitude.get()};
+	// Latch the selected geometry with the task; tracking and MPC share these amplitudes.
+	const bool vertical = _use_parameterized_geometry && _param_mc_orbit_shape.get() == 2;
+	_radii = {vertical ? _param_vertical_x_amplitude.get() : _param_mc_circle_x_amplitude.get(),
+		  vertical ? 0.f : _param_mc_circle_y_amplitude.get()};
 	_radii(0) = math::constrain(fabsf(_radii(0)), 0.f, _param_mc_orbit_rad_max.get());
 	_radii(1) = math::constrain(fabsf(_radii(1)), 0.f, _param_mc_orbit_rad_max.get());
-	_vertical_amplitude = math::constrain(fabsf(_param_mc_circle_z_amplitude.get()), 0.f,
-						_param_mc_orbit_rad_max.get());
+	const float z_amplitude = vertical ? _param_vertical_z_amplitude.get() : 0.f;
+	_vertical_amplitude = math::constrain(fabsf(z_amplitude), 0.f, _param_mc_orbit_rad_max.get());
 	_orbit_radius = math::max(_radii(0), _radii(1));
 	_orbit_radius = _use_parameterized_geometry ? _orbit_radius : _radius_min;
 	_use_angular_frequency = _use_parameterized_geometry;
-	_trajectory_omega = _param_mc_circle_omega.get();
+	_trajectory_omega = vertical ? _param_vertical_omega.get() : _param_mc_circle_omega.get();
 	if (_use_parameterized_geometry && _trajectory_acceleration_max > FLT_EPSILON) {
 		const float second_derivative_bound = sqrtf(_radii(0) * _radii(0) + _radii(1) * _radii(1)
 									 + _vertical_amplitude * _vertical_amplitude);
@@ -204,6 +210,17 @@ bool FlightTaskOrbit::activate(const trajectory_setpoint_s &last_setpoint)
 			_trajectory_omega = math::constrain(_trajectory_omega, -omega_limit, omega_limit);
 		}
 	}
+	_phase_rate_limit = INFINITY;
+	float terminal_rate = _param_phase_rate_end.get();
+	if (_trajectory_acceleration_max > FLT_EPSILON) {
+		const float derivative_bound = sqrtf(_radii(0) * _radii(0) + _radii(1) * _radii(1) + _vertical_amplitude * _vertical_amplitude);
+		if (derivative_bound > FLT_EPSILON) {
+			const float limit = sqrtf(_trajectory_acceleration_max / derivative_bound);
+			_phase_rate_limit = limit;
+			terminal_rate = math::constrain(terminal_rate, -limit, limit);
+		}
+	}
+	_phase_ramp.reset(_trajectory_omega, terminal_rate, _param_phase_ramp_time.get());
 	_hold_parameterized_origin = _use_parameterized_geometry
 			&& (fabsf(_trajectory_omega) <= FLT_EPSILON || _orbit_radius <= FLT_EPSILON);
 	// Command mode keeps the original MAVLink radius/speed interface. It does
@@ -271,6 +288,7 @@ bool FlightTaskOrbit::update()
 	_adjustParametersByStick();
 
 	if (_hold_parameterized_origin) {
+
 		// A zero configured phase rate is an explicit stationary trajectory. Do
 		// not enter the legacy altitude/velocity mode or advance an old phase.
 		ret = ret && FlightTaskManualAltitudeSmoothVel::update();
@@ -285,6 +303,17 @@ bool FlightTaskOrbit::update()
 		_heading_smoothing.update(_yaw_setpoint, _deltatime);
 		_yaw_setpoint = _heading_smoothing.getSmoothedHeading();
 		_yawspeed_setpoint = _heading_smoothing.getSmoothedHeadingRate();
+#ifdef CONFIG_MC_POS_CONTROL_OM_MPC
+		// A fixed point is a zero-amplitude, zero-rate analytic reference.
+		// Keep the normal task setpoints and MPC prediction on the same point.
+		om_mpc_reference_s reference{};
+		reference.timestamp = hrt_absolute_time();
+		_center.copyTo(reference.center);
+		reference.yaw = _initial_heading;
+		reference.valid = ret && _use_parameterized_geometry
+			&& _yaw_behaviour == orbit_status_s::ORBIT_YAW_BEHAVIOUR_HOLD_INITIAL_HEADING;
+		_om_reference_pub.publish(reference);
+#endif
 		sendTelemetry();
 		return ret;
 	}
@@ -323,20 +352,60 @@ bool FlightTaskOrbit::update()
 		_yawspeed_setpoint = _heading_smoothing.getSmoothedHeadingRate();
 	}
 
+#ifdef CONFIG_MC_POS_CONTROL_OM_MPC
+	om_mpc_reference_s reference{};
+	reference.timestamp = hrt_absolute_time();
+	_center.copyTo(reference.center);
+	Vector3f{_radii(0), _radii(1), _vertical_amplitude}.copyTo(reference.amplitude);
+	Vector3f{1.f, 1.f, 1.f}.copyTo(reference.harmonic);
+	Vector3f{M_PI_2_F, 0.f, 0.f}.copyTo(reference.phase_offset);
+	reference.phase = _om_reference_phase;
+	reference.phase_rate = _reference_phase_rate;
+	reference.phase_acceleration = _reference_phase_acceleration;
+	reference.ramp_remaining = _reference_ramp_remaining;
+	reference.yaw = _initial_heading;
+	reference.valid = ret && !_in_circle_approach && _use_parameterized_geometry
+		&& _yaw_behaviour == orbit_status_s::ORBIT_YAW_BEHAVIOUR_HOLD_INITIAL_HEADING;
+	_om_reference_pub.publish(reference);
+#endif
 	// publish information to UI
 	sendTelemetry();
 
 	return ret;
 }
 
+float FlightTaskOrbit::_approachAcceptanceRadius() const
+{
+	if (!_use_parameterized_geometry) {
+		return _horizontal_acceptance_radius;
+	}
+
+	// A fixed 2 m tolerance starts small circles near their centre. Require
+	// arrival within 10% of the smallest nonzero semi-axis instead.
+	float radius = _radii(0) > FLT_EPSILON ? _radii(0) : _orbit_radius;
+
+	if (_radii(1) > FLT_EPSILON) {
+		radius = math::min(radius, _radii(1));
+	}
+
+	if (_vertical_amplitude > FLT_EPSILON) {
+		radius = math::min(radius, _vertical_amplitude);
+	}
+
+	return math::constrain(0.1f * radius, 0.05f, 0.5f);
+}
+
 void FlightTaskOrbit::_updateTrajectoryBoundaries()
 {
+	const float acceptance_radius = _approachAcceptanceRadius();
+
 	// update params of the position smoothing
 	_position_smoothing.setMaxAllowedHorizontalError(_param_mpc_xy_err_max.get());
-	_position_smoothing.setVerticalAcceptanceRadius(_param_nav_mc_alt_rad.get());
+	_position_smoothing.setVerticalAcceptanceRadius(_use_parameterized_geometry
+			? acceptance_radius : _param_nav_mc_alt_rad.get());
 	_position_smoothing.setCruiseSpeed(_param_mpc_xy_cruise.get());
 	_position_smoothing.setHorizontalTrajectoryGain(_param_mpc_xy_traj_p.get());
-	_position_smoothing.setTargetAcceptanceRadius(_horizontal_acceptance_radius);
+	_position_smoothing.setTargetAcceptanceRadius(acceptance_radius);
 
 	// Update the constraints of the trajectories
 	_position_smoothing.setMaxAccelerationXY(_param_mpc_acc_hor.get()); // TODO : Should be computed using heading
@@ -361,7 +430,7 @@ bool FlightTaskOrbit::_is_position_on_circle() const
 			{_radii(0), _radii(1), _vertical_amplitude},
 			{1.f, 1.f, 1.f},
 			{M_PI_2_F, 0.f, 0.f}};
-		return (_center + curve.evaluate(_orbit_phase, 0) - _position).norm() < _horizontal_acceptance_radius;
+		return (_center + curve.evaluate(_orbit_phase, 0) - _position).norm() < _approachAcceptanceRadius();
 	}
 
 	return (fabsf(Vector2f(_position - _center).length() - _orbit_radius) < _horizontal_acceptance_radius)
@@ -444,6 +513,11 @@ void FlightTaskOrbit::_generate_circle_approach_setpoints()
 
 void FlightTaskOrbit::_generate_circle_setpoints()
 {
+	if (_use_angular_frequency) {
+		_phase_ramp.retarget(math::constrain(_param_phase_rate_end.get(), -_phase_rate_limit, _phase_rate_limit),
+				     _param_phase_ramp_time.get());
+	}
+
 	/*
 	 * The ideal horizontal circle is parameterized by
 	 *
@@ -473,21 +547,31 @@ void FlightTaskOrbit::_generate_circle_setpoints()
 	const float tangential_acceleration = _deltatime > FLT_EPSILON
 					      ? (tangential_velocity - previous_velocity) / _deltatime : 0.f;
 
-	float phase_rate = _use_angular_frequency ? _trajectory_omega
+	float phase_rate = _use_angular_frequency ? _phase_ramp.rate()
 							: tangential_velocity / math::max(_orbit_radius, FLT_EPSILON);
-	const float phase_acceleration = _use_angular_frequency ? 0.f
+	const float phase_acceleration = _use_angular_frequency ? _phase_ramp.acceleration()
 							 : tangential_acceleration / math::max(_orbit_radius, FLT_EPSILON);
 	_position_setpoint = _center + position_offset;
 	_velocity_setpoint = phase_derivative * phase_rate;
 	_acceleration_setpoint = phase_second_derivative * phase_rate * phase_rate + phase_derivative * phase_acceleration;
-	_orbit_phase = wrap_2pi(_orbit_phase + phase_rate * _deltatime);
+#ifdef CONFIG_MC_POS_CONTROL_OM_MPC
+	_om_reference_phase = _orbit_phase;
+	_reference_phase_rate = phase_rate;
+	_reference_phase_acceleration = phase_acceleration;
+	_reference_ramp_remaining = _phase_ramp.remaining();
+#endif
+	_orbit_phase = wrap_2pi(_orbit_phase + (_use_angular_frequency ? _phase_ramp.advance(_deltatime) : phase_rate * _deltatime));
 }
 
 void FlightTaskOrbit::_setOrbitPhaseFromPosition()
 {
 	if (_use_parameterized_geometry && (_radii(0) > FLT_EPSILON || _radii(1) > FLT_EPSILON)) {
-		const Vector2f delta = (_position - _center).xy();
-		_orbit_phase = wrap_2pi(atan2f(delta(1) / math::max(_radii(1), FLT_EPSILON),
+		// Use the selected circle plane, including Z for a vertical circle.
+		const Vector3f delta = _position - _center;
+		const bool vertical = _vertical_amplitude > FLT_EPSILON;
+		const float sine_coordinate = vertical ? delta(2) : delta(1);
+		const float sine_radius = vertical ? _vertical_amplitude : _radii(1);
+		_orbit_phase = wrap_2pi(atan2f(sine_coordinate / math::max(sine_radius, FLT_EPSILON),
 						 delta(0) / math::max(_radii(0), FLT_EPSILON)));
 		return;
 	}

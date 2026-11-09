@@ -82,6 +82,7 @@
 #include <uORB/topics/allocation_value.h>
 #include <uORB/topics/allocation_feedback_filter_status.h>
 #include <uORB/topics/control_allocator_status.h>
+#include <uORB/topics/control_allocator_diagnostics.h>
 #include <uORB/topics/parameter_update.h>
 #include <uORB/topics/vehicle_control_mode.h>
 #include <uORB/topics/vehicle_torque_setpoint.h>
@@ -152,6 +153,8 @@ private:
 	void check_for_motor_failures();
 
 	void publish_control_allocator_status(int matrix_index);
+	void publish_control_allocator_diagnostics(int matrix_index);
+	void publish_allocation_feedback_filter_status(hrt_abstime now);
 
 	void publish_actuator_controls();
 
@@ -163,7 +166,6 @@ private:
 	int indi_torque_matrix() const;
 	bool calculate_allocation_wrench(int matrix_index, matrix::Vector<float, NUM_AXES> &wrench) const;
 	void publish_allocation_value(float sample_interval_s);
-	void publish_allocation_feedback_filter_status(hrt_abstime now);
 	void filter_allocation_wrench(const matrix::Vector<float, NUM_AXES> &raw_wrench, float sample_interval_s,
 				       matrix::Vector<float, NUM_AXES> &filtered_wrench);
 
@@ -221,13 +223,14 @@ private:
 
 	// Outputs
 	uORB::PublicationMulti<control_allocator_status_s> _control_allocator_status_pub[2] {ORB_ID(control_allocator_status), ORB_ID(control_allocator_status)};
+	uORB::PublicationMulti<control_allocator_diagnostics_s> _control_allocator_diagnostics_pub[2] {
+		ORB_ID(control_allocator_diagnostics), ORB_ID(control_allocator_diagnostics)};
 
 	uORB::Publication<actuator_motors_s>	_actuator_motors_pub{ORB_ID(actuator_motors)};
 	uORB::Publication<actuator_servos_s>	_actuator_servos_pub{ORB_ID(actuator_servos)};
 	uORB::Publication<actuator_servos_trim_s>	_actuator_servos_trim_pub{ORB_ID(actuator_servos_trim)};
 	uORB::Publication<allocation_value_s>	_allocation_value_pub{ORB_ID(allocation_value)};
-	uORB::Publication<allocation_feedback_filter_status_s> _allocation_feedback_filter_status_pub{
-		ORB_ID(allocation_feedback_filter_status)};
+	uORB::Publication<allocation_feedback_filter_status_s> _allocation_feedback_filter_status_pub{ORB_ID(allocation_feedback_filter_status)};
 
 	uORB::SubscriptionInterval _parameter_update_sub{ORB_ID(parameter_update), 1_s};
 
@@ -240,7 +243,6 @@ private:
 	bool _torque_sp_indi_feedback_valid{false};
 	matrix::Vector3f _thrust_sp;
 	bool _publish_controls{true};
-	bool _offboard_direct_wrench{false};
 
 	// Reflects motor failures that are currently handled, not motor failures that are reported.
 	// For example, the system might report two motor failures, but only the first one is handled by CA
@@ -284,8 +286,8 @@ private:
 	uint32_t _allocation_feedback_filter_reconfigure_count{0};
 	uint8_t _allocation_feedback_filter_event_reason{0};
 	hrt_abstime _allocation_feedback_filter_event_timestamp{0};
-	hrt_abstime _allocation_feedback_filter_event_timestamp_last_publish{0};
-	hrt_abstime _allocation_feedback_status_last_publish{0};
+	hrt_abstime _last_filter_status_pub{0};
+	bool _allocation_feedback_filter_status_dirty{true};
 
 
 	DEFINE_PARAMETERS(

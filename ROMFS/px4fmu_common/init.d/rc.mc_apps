@@ -15,11 +15,13 @@ control_allocator start
 #
 mc_rate_control start
 
-# Isolated OM-MPC middle layer. It remains dormant unless fresh project-specific
-# OmMpcSetpoint commands arrive.
-if param compare -s MC_OM_INDI_EN 1
+# Onboard OM-MPC middle layer. It remains dormant unless enabled with a fresh
+# OmMpcCommand. Start for
+# either boolean value so parameters and RC10 can enable it after boot.
+# The parameter only exists on builds which include this module.
+if param greater -s MPC_ACCINDI_EN -1
 then
-	mc_om_mpc_indi start
+	mc_om_mpc_acc_indi start
 fi
 
 #

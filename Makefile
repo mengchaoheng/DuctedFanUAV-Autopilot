@@ -215,9 +215,10 @@ endef
 
 # check if the options we want to build with in CMAKE_ARGS match the ones which are already configured in the cache inside BUILD_DIR
 define cmake-cache-check
-	@# change to build folder which fails if it doesn't exist and CACHED_CMAKE_OPTIONS stays empty
-	@# fetch all previously configured and cached options from the build folder and transform them into the OPTION=VALUE format without type (e.g. :BOOL)
-	@$(eval CACHED_CMAKE_OPTIONS = $(shell cd $(BUILD_DIR) 2>/dev/null && cmake -L 2>/dev/null | sed -n 's|\([^[:blank:]]*\):[^[:blank:]]*\(=[^[:blank:]]*\)|\1\2|gp' ))
+	@# Read the cache directly: cmake -L omits UNINITIALIZED and advanced entries,
+	@# which can make unchanged command-line options look like configuration changes.
+	@# A missing cache leaves CACHED_CMAKE_OPTIONS empty and triggers configuration.
+	@$(eval CACHED_CMAKE_OPTIONS = $(shell sed -n 's|^\([^[:blank:]\#/=:][^[:blank:]=:]*\):[^=]*=\(.*\)$$|\1=\2|p' $(BUILD_DIR)/CMakeCache.txt 2>/dev/null))
 	@# transform the options in CMAKE_ARGS into the OPTION=VALUE format without -D
 	@$(eval DESIRED_CMAKE_OPTIONS = $(shell echo $(CMAKE_ARGS) | sed -n 's|-D\([^[:blank:]]*=[^[:blank:]]*\)|\1|gp' ))
 	@# find each currently desired option in the already cached ones making sure the complete configured string value is the same

@@ -1,29 +1,5 @@
 uint64 timestamp                        # time since system start (microseconds)
 
-bool fallback                          # True when the requested allocator failed/unavailable and an inverse fallback was attempted
-
-int8 SOLVER_STATUS_NOT_RUN = 0          # Solver was not run: INV/legacy method selected, zero command, or no solver diagnostics
-int8 SOLVER_STATUS_OK = 1               # Solver ran and returned solver_err=0
-int8 SOLVER_STATUS_UNAVAILABLE = -1     # Solver was rejected before execution; interpret solver_err as an adapter precondition code
-int8 SOLVER_STATUS_FAILED = -2          # Solver ran but returned a nonzero error; interpret solver_err as a solver execution code
-
-int8 solver_status                      # One of SOLVER_STATUS_* above
-# solver_err depends on solver_status:
-#   SOLVER_STATUS_NOT_RUN or SOLVER_STATUS_OK: 0
-#   SOLVER_STATUS_UNAVAILABLE: 1=row-rank deficient, 2=active-row count unsupported,
-#       3=actuator count unsupported, 4=PCA active axes are not exactly roll/pitch/yaw,
-#       5=PCA higher-priority split is missing
-#   SOLVER_STATUS_FAILED: -1=initial simplex unbounded/error, -2=initial feasible solution not found,
-#       -3=initial simplex iteration limit, 1=final simplex unbounded/error,
-#       3=final simplex iteration limit. WLS uses 1=invalid input, 2=QR failure,
-#       3=active-set iteration limit.
-int8 solver_err
-bool full_row_rank                     # True if the normalized active-row effectiveness matrix has full row rank; false/default for methods without these diagnostics
-float32 solver_rho                     # Dimensionless method-dependent solver value; LPCA/PCA direction/scale factor, 0 when unused
-float32 solver_prepare_time            # [us] Latest LPCA adapter work before constructing pca/ControlAllocation.h solver objects; 0 when not run
-float32 solver_core_time               # [us] Latest solver-object construction, simplex solve, and restoring; 0 when not run
-float32 solver_post_time               # [us] Latest adapter validation and output copy after the solver returns; 0 when not run
-
 bool torque_setpoint_achieved           # Boolean indicating whether the 3D torque setpoint was correctly allocated to actuators. 0 if not achieved, 1 if achieved.
 float32[3] unallocated_torque           # Unallocated torque. Equal to 0 if the setpoint was achieved.
                                         # Computed as: unallocated_torque = torque_setpoint - allocated_torque
@@ -47,6 +23,17 @@ uint16 motor_stop_mask                  # Bitmaks of motors stopped by failure i
 
 bool actuator_group_preflight_check_active   # True while an actuator group preflight check (VEHICLE_CMD_ACTUATOR_GROUP_TEST) is overriding the torque/thrust setpoint or collective-tilt
 
-float32 allocation_running_time         # [us] Latest complete allocate() call time for this matrix
-float32 allocation_running_time_avg     # [us] Online mean allocate() call time since the allocation method was created or reset
-uint32 allocation_running_time_samples  # Number of allocate() calls accumulated in allocation_running_time_avg
+# Effective configured method for this uORB allocation-matrix instance.
+# AUTO and airframe-specific routing are resolved; a per-call fallback does not change this field.
+# Per-call solver/fallback/timing diagnostics are in control_allocator_diagnostics.
+int8 allocation_method
+
+int8 METHOD_NONE = -1
+int8 METHOD_PSEUDO_INVERSE = 0
+int8 METHOD_SEQUENTIAL_DESATURATION = 1
+int8 METHOD_AUTO = 2
+int8 METHOD_INV = 3
+int8 METHOD_DP_LPCA = 4
+int8 METHOD_DPSCALED_LPCA = 5
+int8 METHOD_PCA = 6
+int8 METHOD_WLS = 7

@@ -1,11 +1,11 @@
 module_name: flight_mode_manager
 parameters:
-- group: Orbit - global control
+- group: Orbit - control
   definitions:
     MC_ORBIT_EN:
       description:
         short: Enable parameter-triggered trajectory
-        long: Enables the selected Orbit trajectory when MC_ORBIT_SRC is Parameter. Parameter and RC7 triggers are combined with OR logic.
+        long: Enables the selected Orbit trajectory when MC_ORBIT_SRC is Parameter. Parameter and RC7 middle/high (normalized value >= -0.5) triggers are combined with OR logic. RC must be valid and younger than 500 ms.
       type: boolean
       default: 0
     MC_ORBIT_SRC:
@@ -23,14 +23,15 @@ parameters:
         long: Selects the trajectory task when entering Orbit mode. The selection is latched until Orbit mode is exited.
       type: enum
       values:
-        0: Circle
-        1: Figure Eight
-        2: Ellipse / Sine Line
+        0: Horizontal Circle / Ellipse
+        1: Horizontal Figure Eight
+        2: Vertical Circle / Ellipse
+        3: Vertical Figure Eight
       default: 0
     MC_ORBIT_YAW_MOD:
       description:
         short: Yaw mode during trajectory
-        long: Global yaw behavior used by Circle, Figure Eight and Sine Line tasks unless a MAVLink orbit command supplies another behavior.
+        long: Global yaw behavior used by Circle and Figure Eight tasks unless a MAVLink orbit command supplies another behavior.
       type: enum
       values:
         0: Front to center
@@ -50,3 +51,21 @@ parameters:
       max: 10000.0
       increment: 0.5
       decimal: 1
+    MC_ORB_OM_END:
+      description:
+        short: Terminal harmonic phase rate
+        long: Signed terminal phase rate for parameterized Orbit and FigureEight. Used only when MC_ORB_OM_TIME is positive. Changing the target or duration restarts the ramp from the current rate without moving its phase or center.
+      type: float
+      default: 0.0
+      min: -20.0
+      max: 20.0
+      unit: rad/s
+    MC_ORB_OM_TIME:
+      description:
+        short: Harmonic phase-rate ramp duration
+        long: Linear speed-ramp duration after approach finishes. Zero preserves the selected horizontal or vertical trajectory phase rate. The terminal rate is held after this duration; references and prediction share the same finite schedule.
+      type: float
+      default: 0.0
+      min: 0.0
+      max: 120.0
+      unit: s

@@ -35,14 +35,18 @@
  * @file FlightTaskOrbit.hpp
  *
  * Flight task for orbiting in a circle around a target position. The circle
- * is the first harmonic specialization of HarmonicTrajectory2D. The
- * parameter-triggered reference has independent MC_CIRC_AX/AY/AZ axes and
- * a signed MC_CIRC_OMEGA phase rate.
+ * uses first-harmonic geometry. MC_ORBIT_SHAPE selects horizontal MC_HCIRC_AX/AY
+ * or vertical MC_VCIRC_AX/AZ amplitudes, with a separate signed phase rate
+ * for each plane. The command-driven MAVLink geometry is unchanged.
  *
  * @author Matthias Grob <maetugr@gmail.com>
  */
 
 #pragma once
+#include <px4_platform_common/defines.h>
+#ifdef CONFIG_MC_POS_CONTROL_OM_MPC
+#include <uORB/topics/om_mpc_reference.h>
+#endif
 
 #include "FlightTaskManualAltitudeSmoothVel.hpp"
 #include <uORB/PublicationMulti.hpp>
@@ -50,6 +54,7 @@
 #include <lib/slew_rate/SlewRateYaw.hpp>
 #include <lib/motion_planning/HeadingSmoothing.hpp>
 #include <lib/motion_planning/HarmonicTrajectory2D.hpp>
+#include <lib/motion_planning/PhaseRateRamp.hpp>
 #include <lib/motion_planning/PositionSmoothing.hpp>
 #include <lib/motion_planning/VelocitySmoothing.hpp>
 #include <lib/slew_rate/SlewRate.hpp>
@@ -78,6 +83,7 @@ private:
 	static constexpr float _radius_min = 1.f;
 	static constexpr float _default_acceleration_max = 2.f;
 	static constexpr float _horizontal_acceptance_radius = 2.f;
+	float _approachAcceptanceRadius() const;
 
 	/**
 	 * Check the feasibility of orbit parameters with respect to
@@ -127,6 +133,9 @@ private:
 	float _orbit_radius{};
 	matrix::Vector2f _radii{};
 	float _vertical_amplitude{};
+	motion_planning::PhaseRateRamp _phase_ramp{};
+	float _phase_rate_limit{INFINITY};
+	float _reference_phase_rate{}, _reference_phase_acceleration{}, _reference_ramp_remaining{};
 	float _trajectory_omega{};
 	float _orbit_phase{};
 	float _trajectory_acceleration_max{_default_acceleration_max};
@@ -148,14 +157,23 @@ private:
 
 	orb_advert_t _mavlink_log_pub{nullptr};
 	uORB::PublicationMulti<orbit_status_s> _orbit_status_pub{ORB_ID(orbit_status)};
+#ifdef CONFIG_MC_POS_CONTROL_OM_MPC
+	uORB::Publication<om_mpc_reference_s> _om_reference_pub{ORB_ID(om_mpc_reference)};
+	float _om_reference_phase{0.f};
+#endif
 
 	DEFINE_PARAMETERS(
-		(ParamFloat<px4::params::MC_CIRC_AX>) _param_mc_circle_x_amplitude,
-		(ParamFloat<px4::params::MC_CIRC_AY>) _param_mc_circle_y_amplitude,
-		(ParamFloat<px4::params::MC_CIRC_AZ>) _param_mc_circle_z_amplitude,
-		(ParamFloat<px4::params::MC_CIRC_OMEGA>) _param_mc_circle_omega,
+		(ParamInt<px4::params::MC_ORBIT_SHAPE>) _param_mc_orbit_shape,
+		(ParamFloat<px4::params::MC_VCIRC_AX>) _param_vertical_x_amplitude,
+		(ParamFloat<px4::params::MC_VCIRC_AZ>) _param_vertical_z_amplitude,
+		(ParamFloat<px4::params::MC_VCIRC_OMEGA>) _param_vertical_omega,
+		(ParamFloat<px4::params::MC_HCIRC_AX>) _param_mc_circle_x_amplitude,
+		(ParamFloat<px4::params::MC_HCIRC_AY>) _param_mc_circle_y_amplitude,
+		(ParamFloat<px4::params::MC_HCIRC_OMEGA>) _param_mc_circle_omega,
 		(ParamFloat<px4::params::MC_CIRC_ACC>) _param_mc_circle_acceleration,
 		(ParamFloat<px4::params::MC_ORBIT_RAD_MAX>) _param_mc_orbit_rad_max,
+		(ParamFloat<px4::params::MC_ORB_OM_END>) _param_phase_rate_end,
+		(ParamFloat<px4::params::MC_ORB_OM_TIME>) _param_phase_ramp_time,
 		(ParamInt<px4::params::MC_ORBIT_SRC>) _param_mc_orbit_source,
 		(ParamInt<px4::params::MC_ORBIT_YAW_MOD>) _param_mc_orbit_yaw_mod,
 		(ParamFloat<px4::params::MPC_XY_CRUISE>) _param_mpc_xy_cruise, /**< cruise speed for circle approach */

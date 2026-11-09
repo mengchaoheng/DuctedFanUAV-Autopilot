@@ -16,6 +16,9 @@
 
 . ${R}etc/init.d/rc.mc_defaults
 
+# Keep onboard SD logs; disable the MAVLink logging backend by default.
+param set-default SDLOG_BACKEND 1
+
 # Gazebo Classic supplies simulated sensors and consumes HIL actuator outputs.
 param set SYS_HITL 1
 
@@ -23,6 +26,17 @@ param set SYS_HITL 1
 param set-default CBRK_SUPPLY_CHK 894281
 
 param set-default CA_AIRFRAME 16 # matrix 0: physical force, matrix 1: physical torque
+param set-default CA_METHOD 7
+# Match the DF4 SITL physical-WLS tuning (thrust in N, vane angles in rad).
+# The split motor/surface problems retain the physical identity-weight minimizers.
+param set-default CA_WLS_GAM 1000000
+param set-default CA_WLS_U_W 1
+param set-default CA_WLS_FX_W 1
+param set-default CA_WLS_FY_W 1
+param set-default CA_WLS_FZ_W 1
+param set-default CA_WLS_R_W 0.67339009
+param set-default CA_WLS_P_W 0.67339009
+param set-default CA_WLS_Y_W 0.78694933
 
 # Effectiveness unit contract (control_allocation/df4.m):
 #   v = [tau; F] = B*u, with tau [N m], F [N]. The physical actuator vector u
@@ -116,3 +130,26 @@ param set-default BAT1_V_CHARGED 4.2
 
 # param set-default SDLOG_PROFILE 27
 # param set-default SDLOG_MODE 0
+
+# Confirmed MPC candidates (RATE is a state-update mode, not a fixed timer):
+# A/default: RATE=50, N15, dt=0.05 (H=0.75 s).
+# B: RATE=50, N20, dt=0.04 (H=0.80 s).
+# C: RATE=100, N20, dt=0.04 (H=0.80 s).
+# MPC_TAKEOVER_T=1 gives a one-second entry; saved parameters still win.
+
+# MPC and middle-layer configuration
+param set-default MPC_DFB_EN 0
+param set-default MPC_TAKEOVER_T 1
+param set-default MPC_DT 0.05
+param set-default MPC_QPOS 486
+param set-default MPC_QROT 10.368
+param set-default MPC_ROMG 16
+
+# Explicit candidate A defaults (same values as SIH/flight).
+param set-default MPC_EN 0
+param set-default MPC_ACCINDI_EN 0
+param set-default MPC_UPD_MODE 50
+param set-default MPC_N 15
+param set-default MPC_QVEL 10
+param set-default MPC_RTHR 0.25
+param set-default MPC_TERM_SCALE 1

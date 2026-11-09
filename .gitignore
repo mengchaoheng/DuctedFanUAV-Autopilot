@@ -125,3 +125,7 @@ Tools/iris_tuning
 main.m
 paper/
 analysis
+
+# Local validation experiments, logs and reports. Keep the PX4 schema tracked.
+/validation/*
+!/validation/module_schema.yaml

@@ -22,6 +22,13 @@ inline float lag(float state, float command, float dt, float tau)
 	return tau > 0.f ? command + (state - command) * expf(-dt / tau) : command;
 }
 
+// Vanes start at +X and advance toward +Y in body FRD.
+inline Vector3f vane_radial(int index, int count)
+{
+	const float azimuth = 2.f * M_PI_F * index / count;
+	return Vector3f(cosf(azimuth), sinf(azimuth), 0.f);
+}
+
 inline float coefficient(float alpha, float slope, float stall, float post_stall, bool signed_lift)
 {
 	if (alpha > stall) {
@@ -73,13 +80,13 @@ inline Wrench shc09(const Vector3f &velocity, const Vector3f &rates, const float
 
 	const float exit_speed = -0.5f * w + sqrtf(0.25f * w * w + thrust / (0.7f * 1.225f * 0.0408f));
 	const float exit_squared = exit_speed * exit_speed;
-	const float p_roll[6] = {-1.f, -0.5f, 0.5f, 1.f, 0.5f, -0.5f};
-	const float p_pitch[6] = {0.f, 0.8660254f, 0.8660254f, 0.f, -0.8660254f, -0.8660254f};
+	constexpr int vane_count = 6;
 	Vector3f control;
 
-	for (int i = 0; i < 6; ++i) {
+	for (int i = 0; i < vane_count; ++i) {
+		const Vector3f radial = vane_radial(i, vane_count);
 		const float force = 0.0032f * exit_squared * 0.6981f * math::constrain(commands[i + 1], -1.f, 1.f);
-		control += force * Vector3f(0.267f * p_roll[i], 0.267f * p_pitch[i], 0.066f);
+		control += force * Vector3f(-0.267f * radial(0), -0.267f * radial(1), 0.066f);
 	}
 
 	Wrench result;

@@ -45,35 +45,60 @@ FlightTaskFigureEight::FlightTaskFigureEight()
 
 bool FlightTaskFigureEight::activate(const trajectory_setpoint_s &last_setpoint)
 {
+#ifdef CONFIG_MC_POS_CONTROL_OM_MPC
+	om_mpc_reference_s inactive{}; inactive.timestamp = hrt_absolute_time(); _om_reference_pub.publish(inactive);
+#endif
 	bool ret = FlightTaskManualAltitudeSmoothVel::activate(last_setpoint);
 
 	_use_parameterized_geometry = _param_mc_orbit_source.get() == 1;
+	// Latch the selected geometry with the task; heading applies to both presets.
+	const bool vertical = _use_parameterized_geometry && _param_mc_orbit_shape.get() == 3;
+	const Vector3f amplitude{vertical ? _param_vertical_x_amplitude.get() : _param_mc_f8_x_amplitude.get(),
+				vertical ? 0.f : _param_mc_f8_y_amplitude.get(),
+				vertical ? fabsf(_param_vertical_z_amplitude.get()) : -_param_mc_f8_z_amplitude.get()};
 	_major_radius = _use_parameterized_geometry
-			? math::constrain(fabsf(_param_mc_f8_x_amplitude.get()), 0.f, _param_mc_orbit_rad_max.get())
+			? math::constrain(fabsf(amplitude(0)), 0.f, _param_mc_orbit_rad_max.get())
 			: kInitialMajorRadius;
 	_minor_radius = _use_parameterized_geometry
-			? math::constrain(fabsf(_param_mc_f8_y_amplitude.get()), 0.f, _param_mc_orbit_rad_max.get())
+			? math::constrain(fabsf(amplitude(1)), 0.f, _param_mc_orbit_rad_max.get())
 			: kInitialMajorRadius * 0.5f;
-	_vertical_amplitude = _use_parameterized_geometry
-			? math::constrain(fabsf(_param_mc_f8_z_amplitude.get()), 0.f, _param_mc_orbit_rad_max.get())
+	const float vertical_amplitude = _use_parameterized_geometry
+			// Horizontal height amplitude is positive up; references use NED Z.
+			? math::constrain(amplitude(2), -_param_mc_orbit_rad_max.get(), _param_mc_orbit_rad_max.get())
 			: 0.f;
+	_vertical_curve = motion_planning::HarmonicHeightTrajectory::fromHeight(-vertical_amplitude,
+			vertical ? 0 : _param_mc_f8_z_function.get(), vertical ? 2 : _param_mc_f8_z_harmonic.get());
+	const float vertical_second_derivative = _vertical_curve.amplitude * _vertical_curve.harmonic * _vertical_curve.harmonic;
 	_use_angular_frequency = _use_parameterized_geometry;
-	_trajectory_omega = _param_mc_f8_omega.get();
+	_trajectory_omega = vertical ? _param_vertical_omega.get() : _param_mc_f8_omega.get();
 	if (_use_parameterized_geometry && _param_mc_f8_acceleration.get() > FLT_EPSILON) {
 		// Conservative bound for ||q_theta_theta|| over the complete figure:
-		// sqrt(Ax^2 + 16 Ay^2 + 16 Az^2). This keeps the effective Omega
+		// sqrt(Ax^2 + 16 Ay^2 + n^4 Az^2). This keeps the effective Omega
 		// constant instead of changing it with the current phase.
 		const float second_derivative_bound = sqrtf(_major_radius * _major_radius
 									 + 16.f * _minor_radius * _minor_radius
-									 + 16.f * _vertical_amplitude * _vertical_amplitude);
+									 + vertical_second_derivative * vertical_second_derivative);
 		if (second_derivative_bound > FLT_EPSILON) {
 			const float omega_limit = sqrtf(_param_mc_f8_acceleration.get() / second_derivative_bound);
 			_trajectory_omega = math::constrain(_trajectory_omega, -omega_limit, omega_limit);
 		}
 	}
+	_phase_rate_limit = INFINITY;
+	float terminal_rate = _param_phase_rate_end.get();
+	if (_param_mc_f8_acceleration.get() > FLT_EPSILON) {
+		const float derivative_bound = sqrtf(_major_radius * _major_radius + 16.f * _minor_radius * _minor_radius
+						    + vertical_second_derivative * vertical_second_derivative);
+		if (derivative_bound > FLT_EPSILON) {
+			const float limit = sqrtf(_param_mc_f8_acceleration.get() / derivative_bound);
+			_phase_rate_limit = limit;
+			terminal_rate = math::constrain(terminal_rate, -limit, limit);
+		}
+	}
+	_phase_ramp.reset(_trajectory_omega, terminal_rate, _param_phase_ramp_time.get());
 	_hold_parameterized_origin = _use_parameterized_geometry
 			&& (fabsf(_trajectory_omega) <= FLT_EPSILON
-			    || (_major_radius <= FLT_EPSILON && _minor_radius <= FLT_EPSILON));
+			    || (_major_radius <= FLT_EPSILON && _minor_radius <= FLT_EPSILON
+					&& fabsf(_vertical_curve.amplitude) <= FLT_EPSILON));
 	_trajectory_velocity = _use_parameterized_geometry ? _trajectory_omega * math::max(_major_radius, _minor_radius) : 1.f;
 	if (!_use_parameterized_geometry) {
 		_sanitizeParameters(_major_radius, _trajectory_velocity);
@@ -134,7 +159,7 @@ bool FlightTaskFigureEight::applyCommandParameters(const vehicle_command_s &comm
 	_sanitizeParameters(new_radius, new_velocity);
 	_major_radius = new_radius;
 	_minor_radius = _major_radius * 0.5f;
-	_vertical_amplitude = 0.f;
+	_vertical_curve = {};
 	_use_angular_frequency = false;
 	_trajectory_omega = 0.f;
 	_trajectory_velocity = direction * new_velocity;
@@ -187,6 +212,7 @@ bool FlightTaskFigureEight::update()
 	_configurePositionSmoothing();
 
 	if (_hold_parameterized_origin) {
+
 		ret = ret && FlightTaskManualAltitudeSmoothVel::update();
 		_position_setpoint = _center;
 		_velocity_setpoint.setAll(0.f);
@@ -201,6 +227,17 @@ bool FlightTaskFigureEight::update()
 			_yaw_setpoint = _heading_smoothing.getSmoothedHeading();
 			_yawspeed_setpoint = _heading_smoothing.getSmoothedHeadingRate();
 		}
+#ifdef CONFIG_MC_POS_CONTROL_OM_MPC
+		// A fixed point is a zero-amplitude, zero-rate analytic reference.
+		// Keep the normal task setpoints and MPC prediction on the same point.
+		om_mpc_reference_s reference{};
+		reference.timestamp = hrt_absolute_time();
+		_center.copyTo(reference.center);
+		reference.yaw = _initial_heading;
+		reference.valid = ret && _use_parameterized_geometry
+			&& _yaw_behaviour == orbit_status_s::ORBIT_YAW_BEHAVIOUR_HOLD_INITIAL_HEADING;
+		_om_reference_pub.publish(reference);
+#endif
 		_sendTelemetry();
 		return ret;
 	}
@@ -234,6 +271,24 @@ bool FlightTaskFigureEight::update()
 	}
 
 	_sendTelemetry();
+#ifdef CONFIG_MC_POS_CONTROL_OM_MPC
+	om_mpc_reference_s reference{};
+	reference.timestamp = hrt_absolute_time();
+	_center.copyTo(reference.center);
+	reference.center[2] += _vertical_curve.bias;
+	Vector3f{_major_radius, _minor_radius, _vertical_curve.amplitude}.copyTo(reference.amplitude);
+	Vector3f{1.f, 2.f, _vertical_curve.harmonic}.copyTo(reference.harmonic);
+	reference.phase_offset[2] = _vertical_curve.phase;
+	reference.heading_rotation = _trajectory_heading;
+	reference.phase = _om_reference_phase;
+	reference.phase_rate = _reference_phase_rate;
+	reference.phase_acceleration = _reference_phase_acceleration;
+	reference.ramp_remaining = _reference_ramp_remaining;
+	reference.yaw = _initial_heading;
+	reference.valid = ret && !_in_approach && _use_parameterized_geometry
+		&& _yaw_behaviour == orbit_status_s::ORBIT_YAW_BEHAVIOUR_HOLD_INITIAL_HEADING;
+	_om_reference_pub.publish(reference);
+#endif
 	return ret;
 }
 
@@ -340,6 +395,11 @@ void FlightTaskFigureEight::_generateApproachSetpoints()
 
 void FlightTaskFigureEight::_generateTrackingSetpoints()
 {
+	if (_use_angular_frequency) {
+		_phase_ramp.retarget(math::constrain(_param_phase_rate_end.get(), -_phase_rate_limit, _phase_rate_limit),
+				     _param_phase_ramp_time.get());
+	}
+
 	/*
 	 * With q(theta) = [A sin(theta), B sin(2 theta)]^T and
 	 * p(theta) = center + R(psi) q(theta), the derivatives are
@@ -379,10 +439,10 @@ void FlightTaskFigureEight::_generateTrackingSetpoints()
 
 	if (_use_angular_frequency) {
 		// The parameterized harmonic form uses the same phase convention as
-		// the benchmark reference: theta_dot is the configured omega. Limit
-		// The activation-time global limit keeps this configured omega constant.
-		phase_rate = _trajectory_omega;
-		phase_acceleration = 0.f;
+		// the benchmark reference. The optional finite ramp supplies its rate
+		// and acceleration; the MPC reference uses the same phase schedule.
+		phase_rate = _phase_ramp.rate();
+		phase_acceleration = _phase_ramp.acceleration();
 
 	} else {
 		const float target_speed = math::signNoZero(_trajectory_velocity)
@@ -412,7 +472,13 @@ void FlightTaskFigureEight::_generateTrackingSetpoints()
 	_jerk_setpoint(1) = NAN;
 
 	_generateYawSetpoint(feedforward_velocity);
-	_phase = wrap_2pi(_phase + phase_rate * _deltatime);
+#ifdef CONFIG_MC_POS_CONTROL_OM_MPC
+	_om_reference_phase = _phase;
+	_reference_phase_rate = phase_rate;
+	_reference_phase_acceleration = phase_acceleration;
+	_reference_ramp_remaining = _phase_ramp.remaining();
+#endif
+	_phase = wrap_2pi(_phase + (_use_angular_frequency ? _phase_ramp.advance(_deltatime) : phase_rate * _deltatime));
 }
 
 void FlightTaskFigureEight::_generateYawSetpoint(const Vector2f &tangent_velocity)
@@ -509,17 +575,17 @@ Vector2f FlightTaskFigureEight::_curveSecondDerivative(float phase) const
 
 float FlightTaskFigureEight::_curveVerticalPosition(float phase) const
 {
-	return _vertical_amplitude * sinf(2.f * phase);
+	return _vertical_curve.evaluate(phase, 0);
 }
 
 float FlightTaskFigureEight::_curveVerticalFirstDerivative(float phase) const
 {
-	return 2.f * _vertical_amplitude * cosf(2.f * phase);
+	return _vertical_curve.evaluate(phase, 1);
 }
 
 float FlightTaskFigureEight::_curveVerticalSecondDerivative(float phase) const
 {
-	return -4.f * _vertical_amplitude * sinf(2.f * phase);
+	return _vertical_curve.evaluate(phase, 2);
 }
 
 Vector2f FlightTaskFigureEight::_rotateToLocalFrame(const Vector2f &vector) const

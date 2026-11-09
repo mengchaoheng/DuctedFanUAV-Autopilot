@@ -1,3 +1,6 @@
+# Model-reconstructed wrench from final actuator commands, not measured wrench.
+# Raw force feeds translational INDI; filtered force/torque feed position/rate INDI.
+# Raw torque is retained for feedback-filter diagnostics.
 uint64 timestamp
 uint64 timestamp_sample # timestamp of the torque setpoint that triggered allocation
 

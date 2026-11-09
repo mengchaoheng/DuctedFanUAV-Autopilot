@@ -102,6 +102,7 @@ px4_add_romfs_files(
 	8011_gz_omnicopter
 
 	10015_gazebo-classic_iris
+	10015_gazebo-classic_iris.post
 	10016_none_iris
 	10017_jmavsim_iris
 	10018_gazebo-classic_iris_foggy_lidar
@@ -130,6 +131,7 @@ px4_add_romfs_files(
 	# [22000, 22999] Reserve for custom models
 	22001_gazebo-classic_ductedfan2
 	22002_gazebo-classic_ductedfan4
+	22002_gazebo-classic_ductedfan4.post
 	22003_gazebo-classic_ductedfan6
 	22004_gazebo-classic_ductedfan_mini
 	22005_gazebo-classic_SHC09

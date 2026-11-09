@@ -34,7 +34,6 @@
 #include "MulticopterRateControl.hpp"
 
 #include <drivers/drv_hrt.h>
-#include <geo/geo.h>
 #include <circuit_breaker/circuit_breaker.h>
 #include <mathlib/math/Limits.hpp>
 #include <mathlib/math/Functions.hpp>
@@ -150,31 +149,6 @@ MulticopterRateControl::parameters_updated()
 	_indi_control.setParams(Vector3f(_param_mc_indi_roll_p.get(), _param_mc_indi_pitch_p.get(),
 					 _param_mc_indi_yaw_p.get()),
 				Vector3f(_param_mc_j_x.get(), _param_mc_j_y.get(), _param_mc_j_z.get()));
-	float vane_hover_thrust = 0.f;
-
-	if (vaneCompensationEnabled()) {
-		// The optional vane model needs mass calibration. Resolve this
-		// position-controller parameter at runtime so rate-only builds retain
-		// their original compile-time parameter dependencies.
-		float mass = 0.f;
-		const param_t mass_param = param_find("MPC_MASS");
-
-		if (mass_param != PARAM_INVALID && param_get(mass_param, &mass) == PX4_OK
-		    && PX4_ISFINITE(mass) && mass > 0.f) {
-			vane_hover_thrust = mass * CONSTANTS_ONE_G;
-		}
-	}
-
-	float vane_torque_cutoff = 10.f;
-	const param_t cutoff_param = param_find("IMU_DGYRO_CUTOFF");
-
-	if (cutoff_param != PARAM_INVALID) {
-		param_get(cutoff_param, &vane_torque_cutoff);
-	}
-
-	_indi_control.setVaneParams(vane_hover_thrust, vaneCompensationEnabled() ? _param_mc_indi_vane_wash.get() : 0.f,
-				    _param_mc_indi_motor_tau.get(),
-				    vane_torque_cutoff);
 	const int32_t airframe = _param_ca_airframe.get();
 	_torque_allocation_instance = torqueAllocationInstance(airframe);
 	_route_torque_to_instance1 = airframe == kDuctedFanAirframe;
@@ -203,7 +177,7 @@ MulticopterRateControl::publishTorqueSetpoint(const vehicle_torque_setpoint_s &v
 bool
 MulticopterRateControl::computeIndiTorqueSetpoint(const Vector3f &rates, const Vector3f &rates_setpoint,
 		const Vector3f &angular_accel, hrt_abstime reference_timestamp, Vector3f &torque_setpoint,
-		Vector3f &indi_feedback)
+		Vector3f &indi_feedback, hrt_abstime &compute_elapsed)
 {
 	Vector3f allocated_torque;
 	Vector3f output_scale;
@@ -212,39 +186,13 @@ MulticopterRateControl::computeIndiTorqueSetpoint(const Vector3f &rates, const V
 		return false;
 	}
 
-	float axial_velocity = 0.f;
-	float vane_dt = 0.f;
-
-	if (vaneCompensationEnabled()) {
-		vehicle_attitude_s attitude{};
-		vehicle_local_position_s velocity{};
-
-		if (!_vane_attitude_sub.copy(&attitude) || !_vane_velocity_sub.copy(&velocity)
-		    || !velocity.v_xy_valid || !velocity.v_z_valid
-		    || reference_timestamp > attitude.timestamp + 200_ms
-		    || reference_timestamp > velocity.timestamp + 200_ms) {
-			return false;
-		}
-
-		const Vector3f velocity_body = Dcmf(Quatf(attitude.q)).transpose()
-					      * Vector3f(velocity.vx, velocity.vy, velocity.vz);
-		axial_velocity = velocity_body(2);
-
-		if (!PX4_ISFINITE(axial_velocity) || !PX4_ISFINITE(_vane_allocated_thrust)) {
-			return false;
-		}
-
-		vane_dt = _vane_update_timestamp != 0 && reference_timestamp > _vane_update_timestamp
-			  ? float(reference_timestamp - _vane_update_timestamp) * 1e-6f : 0.f;
-		_vane_update_timestamp = reference_timestamp;
-	}
-
+	const hrt_abstime indi_start = hrt_absolute_time();
 	const IndiControl::Output physical_output =
-		_indi_control.update(rates, rates_setpoint, angular_accel, allocated_torque,
-				     _vane_allocated_thrust, axial_velocity, vane_dt);
+		_indi_control.update(rates, rates_setpoint, angular_accel, allocated_torque);
 
 	indi_feedback = output_scale.emult(physical_output.feedback_torque);
 	torque_setpoint = output_scale.emult(physical_output.rate_error_torque + physical_output.feedback_torque);
+	compute_elapsed = hrt_elapsed_time(&indi_start);
 	return true;
 }
 
@@ -264,7 +212,6 @@ MulticopterRateControl::updateAllocatedTorqueHistory()
 	}
 
 	const Vector3f torque_setpoint_scale(allocation_value.torque_setpoint_scale);
-	_vane_allocated_thrust = Vector3f(allocation_value.raw_allocated_force).norm();
 
 	// Do not interpolate feedback across an effectiveness/allocation-scale change.
 	if (!_indi_torque_history.empty()
@@ -275,7 +222,6 @@ MulticopterRateControl::updateAllocatedTorqueHistory()
 	IndiTorqueSample sample{};
 	sample.time_us = allocation_value.timestamp;
 	sample.allocated_torque = Vector3f(allocation_value.allocated_torque);
-	sample.raw_allocated_torque = Vector3f(allocation_value.raw_allocated_torque);
 	sample.torque_setpoint_scale = torque_setpoint_scale;
 	_indi_torque_history.push(sample);
 	_indi_torque_history_last_timestamp = sample.time_us;
@@ -297,7 +243,7 @@ MulticopterRateControl::getDelayedAllocatedTorque(hrt_abstime reference_timestam
 	const IndiTorqueSample &newest = _indi_torque_history.get_newest();
 
 	if (target_timestamp >= newest.time_us) {
-		allocated_torque = vaneCompensationEnabled() ? newest.raw_allocated_torque : newest.allocated_torque;
+		allocated_torque = newest.allocated_torque;
 		torque_setpoint_scale = newest.torque_setpoint_scale;
 		return allocated_torque.isAllFinite() && torque_setpoint_scale.isAllFinite();
 	}
@@ -329,15 +275,13 @@ MulticopterRateControl::getDelayedAllocatedTorque(hrt_abstime reference_timestam
 		return false;
 	}
 
-	allocated_torque = vaneCompensationEnabled() ? older.raw_allocated_torque : older.allocated_torque;
+	allocated_torque = older.allocated_torque;
 	torque_setpoint_scale = older.torque_setpoint_scale;
 
 	if (newer_valid && newer.time_us > older.time_us) {
 		const float interpolation = static_cast<float>(target_timestamp - older.time_us)
 					    / static_cast<float>(newer.time_us - older.time_us);
-		allocated_torque += (vaneCompensationEnabled()
-				     ? newer.raw_allocated_torque - older.raw_allocated_torque
-				     : newer.allocated_torque - older.allocated_torque) * interpolation;
+		allocated_torque += (newer.allocated_torque - older.allocated_torque) * interpolation;
 		torque_setpoint_scale += (newer.torque_setpoint_scale - older.torque_setpoint_scale) * interpolation;
 	}
 
@@ -396,7 +340,7 @@ MulticopterRateControl::Run()
 		_rc_channels_sub.update(&_rc_channels);
 		const bool indi_parameter_enabled = _param_mc_indi_rate_en.get() == 1;
 		const bool indi_rc_valid = rcChannelValid(_rc_channels, kRateIndiRcChannel);
-		const bool indi_rc_enabled = indi_rc_valid && _rc_channels.channels[kRateIndiRcChannel] >= 0.f;
+		const bool indi_rc_enabled = indi_rc_valid && _rc_channels.channels[kRateIndiRcChannel] >= -.5f;
 		const bool indi_flight_enabled = _indi_flight_state.update(_vehicle_control_mode.flag_armed,
 						_vehicle_status.takeoff_time != 0, _ground_contact, _maybe_landed, _landed,
 						indi_parameter_enabled, indi_rc_enabled, indi_rc_valid);
@@ -470,13 +414,15 @@ MulticopterRateControl::Run()
 			}
 
 			// Keep the original PID controller running as a hot standby.
+			const hrt_abstime pid_start = hrt_absolute_time();
 			Vector3f torque_setpoint =
 				_rate_control.update(rates, _rates_setpoint, angular_accel, dt, _maybe_landed || _landed);
+			hrt_abstime control_elapsed = hrt_elapsed_time(&pid_start);
 			Vector3f indi_feedback{};
 			const bool indi_requested = indi_parameter_enabled || indi_rc_enabled;
-			const bool indi_active = _indi_capable && indi_requested && indi_flight_enabled
+			const bool rate_indi_active = _indi_capable && indi_requested && indi_flight_enabled
 						 && computeIndiTorqueSetpoint(rates, _rates_setpoint, angular_accel, now,
-							 torque_setpoint, indi_feedback);
+								 torque_setpoint, indi_feedback, control_elapsed);
 			const Vector3f torque_setpoint_before_output_processing = torque_setpoint;
 
 			// apply low-pass filtering on yaw axis to reduce high frequency torque caused by rotor acceleration
@@ -485,7 +431,9 @@ MulticopterRateControl::Run()
 			// publish rate controller status
 			rate_ctrl_status_s rate_ctrl_status{};
 			_rate_control.getRateControlStatus(rate_ctrl_status);
-			rate_ctrl_status.indi_active = indi_active;
+			rate_ctrl_status.rate_indi_active = rate_indi_active;
+			rate_ctrl_status.timestamp_sample = angular_velocity.timestamp_sample;
+			rate_ctrl_status.compute_us = static_cast<uint32_t>(control_elapsed);
 			rate_ctrl_status.timestamp = hrt_absolute_time();
 			_controller_status_pub.publish(rate_ctrl_status);
 
@@ -516,7 +464,7 @@ MulticopterRateControl::Run()
 				}
 			}
 
-			if (indi_active) {
+			if (rate_indi_active) {
 				vehicle_torque_setpoint.xyz_indi_feedback_valid = true;
 
 				for (int axis = 0; axis < 3; axis++) {

@@ -73,7 +73,8 @@ private:
 	void UpdateForcesAndMoments(const gz::sim::UpdateInfo &info, gz::sim::EntityComponentManager &ecm);
 	void ReadControlJointAngles(gz::sim::EntityComponentManager &ecm);
 	void LoadControlJoints(const std::shared_ptr<const sdf::Element> &sdf);
-	void LoadControlEffectivenessMatrix(const std::shared_ptr<const sdf::Element> &sdf);
+	void LoadControlEffectivenessMatrix(const std::shared_ptr<const sdf::Element> &sdf,
+					    const gz::sim::EntityComponentManager &ecm);
 	void ActuatorCallback(const gz::msgs::Actuators &msg);
 	void MotorFailureCallback(const gz::msgs::Int32 &msg);
 	void WindCallback(const gz::msgs::Wind &msg);

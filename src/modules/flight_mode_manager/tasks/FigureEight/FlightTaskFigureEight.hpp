@@ -32,11 +32,17 @@
  ****************************************************************************/
 
 #pragma once
+#include <px4_platform_common/defines.h>
+#ifdef CONFIG_MC_POS_CONTROL_OM_MPC
+#include <uORB/topics/om_mpc_reference.h>
+#endif
 
 #include "FlightTaskManualAltitudeSmoothVel.hpp"
 
 #include <lib/motion_planning/HeadingSmoothing.hpp>
 #include <lib/motion_planning/HarmonicTrajectory2D.hpp>
+#include <lib/motion_planning/HarmonicHeightTrajectory.hpp>
+#include <lib/motion_planning/PhaseRateRamp.hpp>
 #include <lib/motion_planning/PositionSmoothing.hpp>
 #include <lib/slew_rate/SlewRate.hpp>
 #include <uORB/PublicationMulti.hpp>
@@ -50,9 +56,12 @@
  *   q(theta) = [A sin(theta), B sin(2 theta)]^T
  *   p(theta) = center + R(psi) q(theta)
  *
- * where A/B are MC_F8_AX/MC_F8_AY, psi is MC_F8_HDG in the local NED frame,
- * and MC_F8_AZ is the vertical sin(2 theta) amplitude. MC_F8_OMEGA is the
- * signed phase rate; zero explicitly holds the trajectory origin.
+ * Horizontal geometry uses MC_HF8_AX/AY, with optional positive-up height
+ * MC_HF8_AZ f(n theta) about the entry altitude, selected by MC_HF8_Z_FUNC/N.
+ * Vertical geometry uses MC_VF8_AX/AZ
+ * with sin(theta)/sin(2 theta), respectively. MC_F8_HDG rotates either
+ * plane about local Z. Each plane has its own signed phase rate; zero
+ * explicitly holds the trajectory origin.
  * The exact first and second derivatives used for velocity and acceleration
  * feed-forward are documented next to _generateTrackingSetpoints().
  *
@@ -108,8 +117,11 @@ private:
 	matrix::Vector3f _center{};
 	float _major_radius{5.f};
 	float _minor_radius{2.5f};
-	float _vertical_amplitude{0.f};
+	motion_planning::HarmonicHeightTrajectory _vertical_curve{};
 	float _trajectory_velocity{1.f}; // MAVLink command-mode tangential speed
+	motion_planning::PhaseRateRamp _phase_ramp{};
+	float _phase_rate_limit{INFINITY};
+	float _reference_phase_rate{}, _reference_phase_acceleration{}, _reference_ramp_remaining{};
 	float _trajectory_omega{0.f};
 	float _phase{0.f};
 	float _trajectory_heading{0.f};
@@ -127,15 +139,27 @@ private:
 	HeadingSmoothing _heading_smoothing;
 
 	uORB::PublicationMulti<orbit_status_s> _orbit_status_pub{ORB_ID(orbit_status)};
+#ifdef CONFIG_MC_POS_CONTROL_OM_MPC
+	uORB::Publication<om_mpc_reference_s> _om_reference_pub{ORB_ID(om_mpc_reference)};
+	float _om_reference_phase{0.f};
+#endif
 
 	DEFINE_PARAMETERS(
-		(ParamFloat<px4::params::MC_F8_AX>) _param_mc_f8_x_amplitude,
-		(ParamFloat<px4::params::MC_F8_AY>) _param_mc_f8_y_amplitude,
-		(ParamFloat<px4::params::MC_F8_AZ>) _param_mc_f8_z_amplitude,
-		(ParamFloat<px4::params::MC_F8_OMEGA>) _param_mc_f8_omega,
+		(ParamInt<px4::params::MC_ORBIT_SHAPE>) _param_mc_orbit_shape,
+		(ParamFloat<px4::params::MC_VF8_AX>) _param_vertical_x_amplitude,
+		(ParamFloat<px4::params::MC_VF8_AZ>) _param_vertical_z_amplitude,
+		(ParamFloat<px4::params::MC_VF8_OMEGA>) _param_vertical_omega,
+		(ParamFloat<px4::params::MC_HF8_AX>) _param_mc_f8_x_amplitude,
+		(ParamFloat<px4::params::MC_HF8_AY>) _param_mc_f8_y_amplitude,
+		(ParamFloat<px4::params::MC_HF8_AZ>) _param_mc_f8_z_amplitude,
+		(ParamInt<px4::params::MC_HF8_Z_FUNC>) _param_mc_f8_z_function,
+		(ParamInt<px4::params::MC_HF8_Z_N>) _param_mc_f8_z_harmonic,
+		(ParamFloat<px4::params::MC_HF8_OMEGA>) _param_mc_f8_omega,
 		(ParamFloat<px4::params::MC_F8_HDG>) _param_mc_f8_heading,
 		(ParamFloat<px4::params::MC_F8_ACC>) _param_mc_f8_acceleration,
 		(ParamFloat<px4::params::MC_ORBIT_RAD_MAX>) _param_mc_orbit_rad_max,
+		(ParamFloat<px4::params::MC_ORB_OM_END>) _param_phase_rate_end,
+		(ParamFloat<px4::params::MC_ORB_OM_TIME>) _param_phase_ramp_time,
 		(ParamInt<px4::params::MC_ORBIT_SRC>) _param_mc_orbit_source,
 		(ParamInt<px4::params::MC_ORBIT_YAW_MOD>) _param_mc_orbit_yaw_mod,
 		(ParamFloat<px4::params::MPC_XY_CRUISE>) _param_mpc_xy_cruise,

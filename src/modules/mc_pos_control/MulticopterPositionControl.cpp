@@ -32,6 +32,9 @@
  ****************************************************************************/
 
 #include "MulticopterPositionControl.hpp"
+#ifdef MC_POS_OM_MPC
+#include "OmMpc/OmMpc.hpp"
+#endif
 
 #include <geo/geo.h>
 
@@ -40,6 +43,7 @@
 #include <lib/matrix/matrix/math.hpp>
 #include <px4_platform_common/events.h>
 #include "PositionControl/ControlMath.hpp"
+#include <lib/controllib/OmMpcEnable.hpp>
 
 using namespace matrix;
 
@@ -91,11 +95,19 @@ MulticopterPositionControl::MulticopterPositionControl(bool vtol) :
 
 MulticopterPositionControl::~MulticopterPositionControl()
 {
+#ifdef MC_POS_OM_MPC
+	delete _om_mpc;
+#endif
 	perf_free(_cycle_perf);
 }
 
 bool MulticopterPositionControl::init()
 {
+#ifdef MC_POS_OM_MPC
+	// Queue creation can wait for the manager. Do it before joining lockstep
+	// execution, never from the position-control work queue's Run().
+	_om_mpc = new OmMpc();
+#endif
 	if (!_local_pos_sub.registerCallback()) {
 		PX4_ERR("callback registration failed");
 		return false;
@@ -486,9 +498,18 @@ void MulticopterPositionControl::Run()
 
 		_vehicle_land_detected_sub.update(&_vehicle_land_detected);
 		_vehicle_status_sub.update(&_vehicle_status);
+#ifdef MC_POS_OM_MPC
+		int32_t om_enabled = 0;
+		param_get(_om_enable_handle, &om_enabled);
+		if (_om_mpc && (om_mpc::mpcRequested(om_enabled == 1, _rc_channels, hrt_absolute_time())
+			       || _om_mpc->hasValidCommand())) {
+			// Also invalidate an active command promptly after disabling MPC.
+			_om_mpc->onLocalPositionUpdate();
+		}
+#endif
 		const bool indi_parameter_enabled = _param_mpc_indi_acc_en.get() == 1;
 		const bool indi_rc_valid = rcChannelValid(_rc_channels, kAccelerationIndiRcChannel);
-		const bool indi_rc_enabled = indi_rc_valid && _rc_channels.channels[kAccelerationIndiRcChannel] >= 0.f;
+		const bool indi_rc_enabled = indi_rc_valid && _rc_channels.channels[kAccelerationIndiRcChannel] >= -.5f;
 		const bool indi_flight_enabled = _indi_flight_state.update(_vehicle_control_mode.flag_armed,
 						_vehicle_status.takeoff_time != 0, _vehicle_land_detected.ground_contact,
 						_vehicle_land_detected.maybe_landed, _vehicle_land_detected.landed,
@@ -776,7 +797,14 @@ void MulticopterPositionControl::Run()
 
 			const hrt_abstime now = hrt_absolute_time();
 
+#ifdef MC_POS_OM_MPC
+			if (_om_mpc && _om_mpc->hasValidCommand()) {
+				// The standby PID output is not applied while MPC supplies commands.
+				_control.resetIntegral();
+			}
+#endif
 			// Run position control
+			const hrt_abstime control_start = hrt_absolute_time();
 			if (_control.update(dt)) {
 
 				// Valid control update - store for fallback
@@ -814,6 +842,7 @@ void MulticopterPositionControl::Run()
 			acceleration_indi_status_s indi_status{};
 			indi_status.timestamp_sample = vehicle_local_position.timestamp_sample;
 			indi_status.force_timestamp = _indi_delayed_force_timestamp;
+			indi_status.acc_indi_active = _control.accelerationIndiActive();
 			states.acceleration.copyTo(indi_status.acceleration_feedback);
 			_indi_acceleration_velocity_derivative.copyTo(indi_status.acceleration_velocity_derivative);
 			_indi_acceleration_ekf.copyTo(indi_status.acceleration_ekf);
@@ -827,14 +856,16 @@ void MulticopterPositionControl::Run()
 			indi_status.acceleration_source_valid = _indi_acceleration_source_valid;
 			indi_status.feedback_valid = acceleration_indi_feedback_available;
 			indi_status.controller_transition_active = _control.accelerationIndiTransitionActive();
-			indi_status.timestamp = hrt_absolute_time();
-			_acceleration_indi_status_pub.publish(indi_status);
 
 			// Publish attitude setpoint output
 			vehicle_attitude_setpoint_s attitude_setpoint{};
 			_control.getAttitudeSetpoint(attitude_setpoint);
 			attitude_setpoint.timestamp = hrt_absolute_time();
 			_vehicle_attitude_setpoint_pub.publish(attitude_setpoint);
+
+			indi_status.timestamp = hrt_absolute_time();
+			indi_status.compute_us = static_cast<uint32_t>(indi_status.timestamp - control_start);
+			_acceleration_indi_status_pub.publish(indi_status);
 
 		} else {
 			// an update is necessary here because otherwise the takeoff state doesn't get skipped with non-altitude-controlled modes
@@ -1114,8 +1145,25 @@ int MulticopterPositionControl::task_spawn(int argc, char *argv[])
 	return PX4_ERROR;
 }
 
+int MulticopterPositionControl::print_status()
+{
+	perf_print_counter(_cycle_perf);
+#ifdef MC_POS_OM_MPC
+	if (_om_mpc) { _om_mpc->print_status(); }
+#endif
+	return 0;
+}
+
 int MulticopterPositionControl::custom_command(int argc, char *argv[])
 {
+#ifdef MC_POS_OM_MPC_BENCH
+	if (argc >= 1 && strcmp(argv[0], "mpc_bench") == 0) {
+		auto *instance = get_instance<MulticopterPositionControl>(desc);
+		if (instance && instance->_om_mpc) { return instance->_om_mpc->benchmark_command(argc - 1, argv + 1); }
+		PX4_WARN("Start mc_pos_control first");
+		return PX4_ERROR;
+	}
+#endif
 	return print_usage("unknown command");
 }
 
@@ -1139,6 +1187,9 @@ logging.
 	PRINT_MODULE_USAGE_NAME("mc_pos_control", "controller");
 	PRINT_MODULE_USAGE_COMMAND("start");
 	PRINT_MODULE_USAGE_ARG("vtol", "VTOL mode", true);
+#ifdef MC_POS_OM_MPC_BENCH
+	PRINT_MODULE_USAGE_COMMAND_DESCR("mpc_bench", "Disarmed MPC load: period_us [1..10 seconds], status, stop");
+#endif
 	PRINT_MODULE_USAGE_DEFAULT_COMMANDS();
 
 	return 0;
