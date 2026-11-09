@@ -15,6 +15,7 @@
 #include <gz/sim/components/JointVelocity.hh>
 #include <gz/sim/components/JointVelocityCmd.hh>
 #include <gz/sim/components/LinearVelocity.hh>
+#include <gz/sim/components/Model.hh>
 #include <gz/sim/components/Pose.hh>
 #include <gz/sim/components/Wind.hh>
 
@@ -138,7 +139,7 @@ void DuctedFanPlugin::Configure(const gz::sim::Entity &entity,
 	}
 
 	LoadControlJoints(sdf_clone);
-	LoadControlEffectivenessMatrix(sdf_clone);
+	LoadControlEffectivenessMatrix(sdf_clone, ecm);
 	SubscribeActuatorTopics(sdf_clone, ecm);
 	SubscribeWindTopic(sdf_clone, ecm);
 	SubscribeFailureTopics(sdf_clone, ecm);
@@ -297,13 +298,49 @@ void DuctedFanPlugin::LoadControlJoints(const std::shared_ptr<const sdf::Element
 	}
 }
 
-void DuctedFanPlugin::LoadControlEffectivenessMatrix(const std::shared_ptr<const sdf::Element> &sdf)
+void DuctedFanPlugin::LoadControlEffectivenessMatrix(const std::shared_ptr<const sdf::Element> &sdf,
+		const gz::sim::EntityComponentManager &ecm)
 {
 	for (auto &row : _b_cs) {
 		row.fill(0.0);
 	}
 
 	if (!sdf->HasElement("control_effectiveness_matrix")) {
+		if (sdf->HasElement("control_surface_layout")
+		    && sdf->Get<std::string>("control_surface_layout") == "frd_clockwise") {
+			const auto *model_sdf = ecm.Component<gz::sim::components::ModelSdf>(_model.Entity());
+
+			if (!model_sdf) {
+				gzerr << "[DuctedFanPlugin] Cannot resolve vane axes without the model SDF.\n";
+				return;
+			}
+
+			for (int col = 0; col < kControlJointCount; ++col) {
+				const auto &name = _control_joint_names[col];
+				const auto *joint = model_sdf->Data().JointByName(name);
+				const auto *axis = joint ? joint->Axis(0) : nullptr;
+				gz::math::Vector3d axis_flu;
+
+				if (!axis || !axis->ResolveXyz(axis_flu, "base_link").empty()) {
+					gzerr << "[DuctedFanPlugin] Cannot resolve vane axis for joint '" << name << "'.\n";
+					continue;
+				}
+
+				if (!axis_flu.IsFinite() || axis_flu.Length() < 1e-6 || std::abs(axis_flu.Z()) > 1e-6) {
+					gzerr << "[DuctedFanPlugin] Vane axis for joint '" << name << "' must lie in the body XY plane.\n";
+					continue;
+				}
+
+				const auto axis_frd = FluToFrd(axis_flu.Normalized());
+				// For an outward radial hinge, positive deflection gives a tangential force
+				// along +Z cross axis. The roll/pitch moment points inward and yaw is positive.
+				_b_cs[0][col] = -axis_frd.X();
+				_b_cs[1][col] = -axis_frd.Y();
+				_b_cs[2][col] = 1.0;
+				gzdbg << "[DuctedFanPlugin] Joint '" << name << "' axis in body FRD: " << axis_frd << "\n";
+			}
+		}
+
 		return;
 	}
 

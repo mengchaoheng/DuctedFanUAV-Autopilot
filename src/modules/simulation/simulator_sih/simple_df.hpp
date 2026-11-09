@@ -80,9 +80,7 @@ inline Wrench simple_df(const Vector3f &velocity, const float *commands, bool wi
 	const int count = wing ? 6 : 4;
 
 	for (int i = 0; i < count; ++i) {
-		// Channel order is clockwise looking down the thrust axis.
-		const float theta = (wing ? -2.f : 2.f) * M_PI_F * float(i) / float(count);
-		const Vector3f radial(cosf(theta), sinf(theta), 0.f);
+		const Vector3f radial = vane_radial(i, count);
 		const Vector3f cp = radius * radial + Vector3f(0.f, 0.f, arm);
 		const Vector3f span = radial;
 		// Keep the separate wing-model path unchanged. DF4 needs omega x r:

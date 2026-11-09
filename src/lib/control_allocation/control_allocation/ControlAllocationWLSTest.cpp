@@ -204,7 +204,7 @@ TEST(ControlAllocationWLSTest, ActualVehicleDimensionsSatisfyBoundedOptimalityCo
 	};
 	const float shc09[3][6] = {
 		{-0.343572f, -0.171786f, 0.171786f, 0.343572f, 0.171786f, -0.171786f},
-		{0.f, 0.297542f, 0.297542f, 0.f, -0.297542f, -0.297542f},
+		{0.f, -0.297542f, -0.297542f, 0.f, 0.297542f, 0.297542f},
 		{0.084928f, 0.084928f, 0.084928f, 0.084928f, 0.084928f, 0.084928f}
 	};
 	const float iris_x[4] = {0.125f, -0.1385f, 0.125f, -0.1385f};
